@@ -3,25 +3,25 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
-// 音乐文件缓存管理器
+/// 音乐文件缓存管理器
 final musicCacheManager = CacheManager(
   Config(
     'music_cache',
-    stalePeriod: Duration(days: 7),
+    stalePeriod: const Duration(days: 7),
     maxNrOfCacheObjects: 50,
   ),
 );
 
-// 图片缓存管理器
+/// 图片缓存管理器
 final imageCacheManager = CacheManager(
   Config(
     'image_cache',
-    stalePeriod: Duration(days: 30),
+    stalePeriod: const Duration(days: 30),
     maxNrOfCacheObjects: 100,
   ),
 );
 
-// 缓存清理功能
+/// 缓存清理功能
 abstract class LocalStorage {
   static Future<void> clearCache() async {
     await musicCacheManager.emptyCache();

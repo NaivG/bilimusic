@@ -1,11 +1,12 @@
-// 统一网络请求配置
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:io';
 import 'package:http/http.dart' as http;
+
+/// 统一网络请求配置
 
 class NetworkConfig {
   static Map<String, String> _biliHeaders = {};
@@ -24,10 +25,12 @@ class NetworkConfig {
     return headers;
   }
 
+  /// 设置B站请求头
   static void setBiliHeaders(Map<String, String> headers) {
     _biliHeaders = Map<String, String>.from(headers);
   }
 
+  /// 更新B站请求头
   static void updateBiliHeaders(Map<String, String> headers) {
     _biliHeaders.addAll(headers);
   }
@@ -36,12 +39,14 @@ class NetworkConfig {
     return Map<String, String>.from(_cookies);
   }
 
+  /// 设置Cookies
   static void setCookies(Map<String, String> cookies) {
     _cookies = Map<String, String>.from(cookies);
     // 同时更新 SharedPreferences
     _saveCookiesToPrefs();
   }
 
+  /// 更新Cookies
   static void updateCookies(Map<String, String> cookies) {
     _cookies.addAll(cookies);
     // 同时更新 SharedPreferences

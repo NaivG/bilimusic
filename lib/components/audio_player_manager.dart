@@ -5,30 +5,26 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:audio_service/audio_service.dart';
-import 'package:just_audio/just_audio.dart' hide AudioPlayer;
+import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-// 明确导入模型类
 import 'package:bilimusic/models/music.dart' as model;
 import 'player_manager.dart';
 import 'package:bilimusic/utils/cache_manager.dart';
 import 'package:bilimusic/utils/network_config.dart';
-import 'package:just_aaudio/just_aaudio.dart';
+// import 'package:just_aaudio/just_aaudio.dart';
 import 'package:bilimusic/utils/settings_manager.dart';
 
-// 使用Flutter的音频状态枚举
 class AudioPlayerManager extends PlayerManager {
   final List<StreamSubscription> _subscriptions = [];
   final AudioPlayer _audioPlayer = AudioPlayer();
   late BaseAudioHandler _audioHandler; // 新增
 
-  // 使用完全限定名
   final List<model.Music> _playList = [];
   final List<model.Music> _playHistory = []; // 新增播放历史记录
   final List<model.Music> _favorites = []; // 收藏列表
   int _currentTrackIndex = -1;
   PlayMode _playMode = PlayMode.sequential;
 
-  // 使用Flutter的音频状态
   AudioState _currentState = AudioState.stopped;
 
   // 播放状态变化监听器列表
@@ -37,10 +33,7 @@ class AudioPlayerManager extends PlayerManager {
   // 播放位置变化监听器列表
   final List<Function(Duration)> _positionListeners = [];
 
-  // 是否正在监听播放状态
-  bool _isObserving = false;
-
-  // 是否完成播放完成处理
+  // 是否正在处理播放完成事件
   bool _isHandlingCompletion = false;
   
   // SharedPreferences实例
@@ -51,30 +44,25 @@ class AudioPlayerManager extends PlayerManager {
   @override
   bool get isPlaying => _currentState != AudioState.stopped;
 
-  // 设置AudioHandler
+  /// 设置AudioHandler
   void setAudioHandler(BaseAudioHandler handler) async {
-    _prefs = await SharedPreferences.getInstance(); // 初始化SharedPreferences实例
+    _prefs = await SharedPreferences.getInstance();
     _getSavedPlayList();
-    _getPlayHistory(); // 获取播放历史记录
-    _getFavorites(); // 获取收藏列表
+    _getPlayHistory();
+    _getFavorites();
     _audioHandler = handler;
     _initAudioPlayer();
   }
 
   void _initAudioPlayer() {
     // 仅在安卓平台上设置音频输出模式
-    if (!Platform.isAndroid) {
-        _audioPlayer.setPlayerType(PlayerType.justAudio); // 使用JustAudio驱动播放
-    } else {
-      // 根据设置选择音频输出模式
-      final settings = SettingsManager();
-      // if (settings.audioOutputMode == 'aaudio') {
-        _audioPlayer.setPlayerType(PlayerType.aaudio); // 使用AAudio驱动播放
-      // }
-      // else {
-      //   _audioPlayer.setPlayerType(PlayerType.justAudio); // 使用AudioTrack驱动播放
-      // }
-    }
+    // if (!Platform.isAndroid) {
+    //   _audioPlayer.setPlayerType(PlayerType.justAudio);
+    // } else {
+    //   // 根据设置选择音频输出模式
+    //   final settings = SettingsManager();
+    //   _audioPlayer.setPlayerType(PlayerType.aaudio);
+    // }
     
     // 创建播放状态变化监听器
     final playerStateSubscription = _audioPlayer.playerStateStream.listen((playerState) {
@@ -88,7 +76,7 @@ class AudioPlayerManager extends PlayerManager {
       _currentState = isPlaying ? AudioState.playing : AudioState.paused;
       _notifyStateListeners(_currentState);
 
-      // 更新媒体通知播放状态 - 使用AudioHandler
+      // 更新媒体通知播放状态
       _audioHandler.playbackState.add(PlaybackState(
         controls: _getMediaControls(),
         playing: isPlaying,
@@ -105,7 +93,7 @@ class AudioPlayerManager extends PlayerManager {
     final positionSubscription = _audioPlayer.positionStream.listen((position) {
       _notifyPositionListeners(position);
 
-      // 更新媒体通知位置 - 使用AudioHandler
+      // 更新媒体通知位置
       _audioHandler.playbackState.add(PlaybackState(
         controls: _getMediaControls(),
         playing: _audioPlayer.playing,
@@ -124,12 +112,11 @@ class AudioPlayerManager extends PlayerManager {
       debugPrint("Audio player position stream error: $error");
     });
 
-
     // 添加订阅到列表以便后续释放
     _subscriptions.add(playerStateSubscription);
     _subscriptions.add(positionSubscription);
 
-    // 初始化媒体通知状态 - 使用AudioHandler
+    // 初始化媒体通知状态
     _audioHandler.playbackState.add(PlaybackState(
       controls: _getMediaControls(),
       playing: false,
@@ -140,7 +127,7 @@ class AudioPlayerManager extends PlayerManager {
     ));
   }
 
-  // 将JustAudio的ProcessingState转换为AudioService的AudioProcessingState
+  /// 将JustAudio的ProcessingState转换为AudioService的AudioProcessingState
   AudioProcessingState _convertProcessingState(ProcessingState state) {
     switch (state) {
       case ProcessingState.idle:
@@ -170,39 +157,33 @@ class AudioPlayerManager extends PlayerManager {
     }
 
     return [
-      // 根据播放状态返回不同的控件，弃用
-      // if (_currentTrackIndex > 0) MediaControl.skipToPrevious,
-      // if (_audioPlayer.playing) MediaControl.pause else MediaControl.play,
-      // if (_currentTrackIndex < _playList.length - 1) MediaControl.skipToNext,
       MediaControl.skipToPrevious,
       if (_audioPlayer.playing) MediaControl.pause else MediaControl.play,
       MediaControl.skipToNext,
-      // 添加收藏按钮
       MediaControl(
         androidIcon: 'drawable/ic_favorite',
         label: '收藏',
         action: MediaAction.custom,
-        customAction: CustomMediaAction(name: 'favorite',),
+        customAction: const CustomMediaAction(name: 'favorite'),
       ),
     ];
   }
 
   void _handlePlaybackCompleted() {
-    // 根据播放模式处理下一首
     if (_isHandlingCompletion) return;
     _isHandlingCompletion = true;
 
     // 根据播放模式处理下一首
     switch (_playMode) {
       case PlayMode.sequential:
-        playNext(); // 总是播放下一首，因为playNext中已经循环
+        playNext();
         break;
       case PlayMode.loop:
         _audioPlayer.seek(Duration.zero);
         _audioPlayer.play();
         break;
       case PlayMode.shuffle:
-        playNext(); // 调用playNext来处理随机播放
+        playNext();
         break;
     }
     // 发送自定义事件到媒体通知

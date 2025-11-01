@@ -1,20 +1,17 @@
 import 'dart:io';
-import 'dart:ui';
 import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, kDebugMode;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // 似乎不能去除这行
+import 'package:flutter/services.dart';
 import 'package:bilimusic/components/audio_player_manager.dart';
 import 'package:bilimusic/components/mini_player.dart';
 import 'package:bilimusic/pages/home_page.dart';
 import 'package:bilimusic/pages/search_page.dart';
-import 'package:bilimusic/pages/profile_page.dart'; // 导入我的页面
-import 'package:bilimusic/pages/settings_page.dart'; // 导入设置页面
+import 'package:bilimusic/pages/profile_page.dart';
+import 'package:bilimusic/pages/settings_page.dart';
 import 'package:bilimusic/routes/app_routes.dart';
 import 'package:bilimusic/utils/network_config.dart';
 import 'package:audio_service/audio_service.dart';
-import 'package:bilimusic/components/playlist_manager.dart'; // 导入播放列表管理器
-import 'package:bilimusic/components/player_manager.dart'; // 导入PlayerManager相关类
 import 'package:bilimusic/components/play_list.dart';
 import 'package:bilimusic/utils/settings_manager.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
@@ -127,7 +124,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       playerManager: _playerManager,
       child: MaterialApp(
         title: 'BiliMusic',
-        debugShowCheckedModeBanner: false, // 移除Debug标签
+        debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
             seedColor: Colors.blueAccent,
@@ -228,26 +225,24 @@ class _MyHomePageState extends State<MyHomePage> {
     // 初始化时检查播放列表是否为空，决定是否显示迷你播放器
     // WidgetsBinding.instance.addPostFrameCallback((_) {
     // });
-    if (kDebugMode) { // 测试模式
+    // 测试版本警告对话框
+    if (kDebugMode) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         showDialog<void>(
           context: context,
           barrierDismissible: true,
-          // false = user must tap button, true = tap outside dialog
           builder: (BuildContext dialogContext) {
             return AlertDialog(
-              icon: Icon(
-                  Icons.warning,
-                  size: 32.0
-              ),
-              title: Text('哎呀 o(><；)o'),
-              content: Text('你正在使用测试版本，可能会存在一些未知bug，包括界面可能存在渲染问题，新功能可能无法正常使用等等。\n如果遇到问题，请反馈给开发者。'),
-              contentPadding: EdgeInsets.all(16.0),
+              icon: const Icon(Icons.warning, size: 32.0),
+              title: const Text('哎呀 o(><；)o'),
+              content: const Text(
+                  '你正在使用测试版本，可能会存在一些未知bug，包括界面可能存在渲染问题，新功能可能无法正常使用等等。\n如果遇到问题，请反馈给开发者。'),
+              contentPadding: const EdgeInsets.all(16.0),
               actions: <Widget>[
                 TextButton(
-                  child: Text('我知道啦'),
+                  child: const Text('我知道啦'),
                   onPressed: () {
-                    Navigator.of(dialogContext).pop(); // Dismiss alert dialog
+                    Navigator.of(dialogContext).pop();
                   },
                 ),
               ],
@@ -317,37 +312,37 @@ class _MyHomePageState extends State<MyHomePage> {
           children: [
             // 侧边导航栏
             _isPcMode
-            ? SizedBox(width: 0,)
+            ? const SizedBox(width: 0)
             : SizedBox(
-              width: 80,
-              child: NavigationRail(
-                selectedIndex: _selectedIndex,
-                onDestinationSelected: (int index) {
-                  setState(() {
-                    _selectedIndex = index;
-                  });
-                },
-                labelType: NavigationRailLabelType.all,
-                destinations: const [
-                  NavigationRailDestination(
-                    icon: Icon(Icons.home),
-                    label: Text('首页'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.search),
-                    label: Text('搜索'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.person),
-                    label: Text('我的'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.settings),
-                    label: Text('设置'),
-                  ),
-                ],
+                width: 80,
+                child: NavigationRail(
+                  selectedIndex: _selectedIndex,
+                  onDestinationSelected: (int index) {
+                    setState(() {
+                      _selectedIndex = index;
+                    });
+                  },
+                  labelType: NavigationRailLabelType.all,
+                  destinations: const [
+                    NavigationRailDestination(
+                      icon: Icon(Icons.home),
+                      label: Text('首页'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.search),
+                      label: Text('搜索'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.person),
+                      label: Text('我的'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.settings),
+                      label: Text('设置'),
+                    ),
+                  ],
+                ),
               ),
-            ),
             // 主内容区域
             Expanded(
               child: Stack(

@@ -1,6 +1,6 @@
-// 设置管理器 utils/settings_manager.dart
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// 设置管理器
 class SettingsManager {
   // 设置键名常量
   static const String KEY_NOTIFICATIONS_ENABLED = 'notifications_enabled';

@@ -6,8 +6,8 @@ import 'package:bilimusic/utils/cache_manager.dart';
 import 'package:bilimusic/utils/settings_manager.dart';
 import 'package:bilimusic/utils/color_extractor.dart';
 import 'package:flutter/foundation.dart';
-import 'dart:ui';
 
+/// 迷你播放器组件
 class MiniPlayerComponent extends StatefulWidget {
   final PlayerManager playerManager;
   final VoidCallback onExpand;
@@ -30,7 +30,8 @@ class _MiniPlayerComponentState extends State<MiniPlayerComponent> {
   model.Music? _currentMusic;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
-  PlayMode _playMode = PlayMode.sequential; // 添加播放模式状态
+  /// 播放模式
+  PlayMode _playMode = PlayMode.sequential;
   final SettingsManager _settingsManager = SettingsManager();
   Color? _backgroundColor;
 
@@ -53,8 +54,8 @@ class _MiniPlayerComponentState extends State<MiniPlayerComponent> {
     _extractBackgroundColor();
   }
 
+  /// 检查是否应该启用平板模式
   bool _isTabletMode() {
-    // 检查是否应该启用平板模式
     switch (_settingsManager.tabletMode) {
       case 'on':
         return true;
@@ -62,13 +63,13 @@ class _MiniPlayerComponentState extends State<MiniPlayerComponent> {
         return false;
       case 'auto':
       default:
-      // 自动模式：检查屏幕宽度是否大于600dp（平板阈值）
+        // 自动模式：检查屏幕宽度是否大于600dp（平板阈值）
         return MediaQuery.of(context).size.shortestSide >= 600;
     }
   }
 
+  /// 检查是否应该启用PC模式
   bool _isPCMode() {
-    // 检查是否应该启用PC模式
     return _settingsManager.pcMode;
   }
 
@@ -167,7 +168,8 @@ class _MiniPlayerComponentState extends State<MiniPlayerComponent> {
   @override
   Widget build(BuildContext context) {
     if (_currentMusic == null && _playerManager.currentMusic == null) {
-      return Container(height: 0); // 如果没有当前音乐，不显示迷你播放器
+      // 如果没有当前音乐，不显示迷你播放器
+      return Container(height: 0);
     }
 
     final music = _currentMusic ?? _playerManager.currentMusic;

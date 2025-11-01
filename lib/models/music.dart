@@ -10,7 +10,7 @@ class Music {
   final Duration? duration;
   final String audioUrl;
   final List<Page> pages;
-  final bool isFavorite; // 添加收藏标识
+  final bool isFavorite;
 
   Music({
     required this.id,
@@ -18,10 +18,10 @@ class Music {
     required this.artist,
     required this.album,
     required this.coverUrl,
-    this.duration, // 允许为空
+    this.duration,
     required this.audioUrl,
     this.pages = const [],
-    this.isFavorite = false, // 默认不收藏
+    this.isFavorite = false,
   });
 
   factory Music.fromJson(Map<String, dynamic> json) {
@@ -31,30 +31,18 @@ class Music {
       pagesList = list.map((i) => Page.fromJson(i)).toList();
     }
 
-    // return Music(
-    //   id: json['bvid'],
-    //   title: json['title'],
-    //   artist: json['owner']['name'],
-    //   album: json['owner']['name'],
-    //   coverUrl: json['cover']?.toString().trim().isEmpty ?? true
-    //       ? 'https://i0.hdslb.com/bfs/static/jinkela/video/asserts/no_video.png' // 默认封面
-    //       : json['cover'],
-    //   duration: null, // 初始设为空
-    //   audioUrl: '',
-    //   pages: pagesList,
-    // );
     return Music(
       id: json['id'],
       title: json['title'],
       artist: json['artist'],
       album: json['album']?.toString() ?? '未知专辑',
       coverUrl: json['coverUrl']?.toString().trim().isEmpty ?? true
-              ? 'https://i0.hdslb.com/bfs/static/jinkela/video/asserts/no_video.png' // 默认封面
+              ? 'https://i0.hdslb.com/bfs/static/jinkela/video/asserts/no_video.png'
               : json['coverUrl'],
       duration: json['duration'] != null ? Duration(seconds: int.parse(json['duration'])) : null,
       audioUrl: json['audioUrl']?.toString() ?? '',
       pages: pagesList,
-      isFavorite: json['isFavorite'] ?? false, // 从JSON中读取收藏状态
+      isFavorite: json['isFavorite'] ?? false,
     );
   }
 
@@ -68,11 +56,11 @@ class Music {
       'duration': duration?.inSeconds.toString() ?? '300',
       'audioUrl': audioUrl,
       'pages': pages.map((page) => page.toJson()).toList(),
-      'isFavorite': isFavorite, // 保存收藏状态到JSON
+      'isFavorite': isFavorite,
     };
   }
 
-  // 新增方法：获取视频详情
+  /// 获取视频详情
   Future<Music> getVideoDetails() async {
     // 如果已经有持续时间，不需要重新获取
     if (duration != null && duration!.inSeconds > 0) {
@@ -101,7 +89,7 @@ class Music {
         // 更新duration为第一个分P的时长
         final newDuration = pagesList.isNotEmpty 
           ? Duration(seconds: int.parse(pagesList[0].duration))
-          : Duration(seconds: 180); // 默认3分钟
+          : const Duration(seconds: 180);
 
         return Music(
           id: id,
@@ -119,7 +107,7 @@ class Music {
     return this; // 如果获取失败保持原样
   }
 
-  // 创建一个新的Music对象，更新收藏状态
+  /// 创建一个新的Music对象，更新收藏状态
   Music copyWith({bool? isFavorite}) {
     return Music(
       id: id,
