@@ -17,6 +17,8 @@ import 'package:bilimusic/services/playlist_service.dart';
 import 'package:bilimusic/services/notification_service.dart';
 import 'package:bilimusic/services/api_service.dart';
 import 'package:bilimusic/services/player_coordinator.dart';
+import 'package:bilimusic/utils/update_checker.dart';
+import 'package:bilimusic/components/dialogs/update_dialog.dart';
 import 'package:bilimusic/managers/playlist_manager.dart';
 import 'package:bilimusic/providers/playlist_manager_provider.dart';
 import 'package:bilimusic/providers/player_manager_provider.dart';
@@ -139,6 +141,23 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // 初始化设置管理器
     _settingsManager = SettingsManager();
     _settingsManager.init();
+
+    // 启动时检查更新
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForUpdates();
+    });
+  }
+
+  Future<void> _checkForUpdates() async {
+    final updateChecker = UpdateChecker();
+    final result = await updateChecker.compareVersions();
+    if (result != null && mounted) {
+      await UpdateAvailableDialog.show(
+        context,
+        newVersion: result.remoteVersion,
+        changelog: result.newEntries,
+      );
+    }
   }
 
   @override

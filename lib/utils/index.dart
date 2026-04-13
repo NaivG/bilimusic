@@ -10,4 +10,4 @@ export 'netease_music_api.dart';
 export 'network_config.dart';
 export 'platform_helper.dart';
 export 'responsive.dart';
-export 'settings_usage_example.dart';
+export 'update_checker.dart';

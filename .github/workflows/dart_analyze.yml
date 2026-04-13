@@ -46,7 +46,7 @@ jobs:
             git add .
             git config --local user.email "github-actions[bot]@users.noreply.github.com"
             git config --local user.name "github-actions[bot]"
-            git commit -m "Format code for ${GITHUB_COMMIT_ID}" -a
+            git commit -m "Format code for ${GITHUB_SHA}" -a
           fi
             
       - name: GitHub Push

@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:bilimusic/models/changelog_entry.dart';
+
 class ChangelogPage extends StatelessWidget {
   const ChangelogPage({super.key});
 
@@ -85,26 +87,6 @@ class ChangelogPage extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class ChangelogEntry {
-  final String version;
-  final String date;
-  final List<String> changes;
-
-  ChangelogEntry({
-    required this.version,
-    required this.date,
-    required this.changes,
-  });
-
-  factory ChangelogEntry.fromJson(Map<String, dynamic> json) {
-    return ChangelogEntry(
-      version: json['version'] as String,
-      date: json['date'] as String,
-      changes: List<String>.from(json['changes'] as List),
     );
   }
 }
