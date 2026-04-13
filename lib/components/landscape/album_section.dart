@@ -79,7 +79,9 @@ class LandscapeAlbumSection extends StatelessWidget {
               // 收藏按钮
               _ActionButton(
                 icon: isFavorite ? Icons.favorite : Icons.favorite_border,
-                iconColor: isFavorite ? (Colors.red[400] ?? Colors.red) : Colors.white,
+                iconColor: isFavorite
+                    ? (Colors.red[400] ?? Colors.red)
+                    : Colors.white,
                 size: buttonSize,
                 iconSize: iconSize,
                 onTap: onFavoritePressed,
@@ -137,10 +139,7 @@ class _ActionButtonState extends State<_ActionButton>
     _scaleAnimation = Tween<double>(
       begin: 1.0,
       end: 0.9,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -171,17 +170,12 @@ class _ActionButtonState extends State<_ActionButton>
       child: AnimatedBuilder(
         animation: _scaleAnimation,
         builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: child,
-          );
+          return Transform.scale(scale: _scaleAnimation.value, child: child);
         },
         child: Container(
           width: widget.size,
           height: widget.size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(shape: BoxShape.circle),
           child: Icon(
             widget.icon,
             color: widget.iconColor,
@@ -241,21 +235,20 @@ class _AnimatedLandscapeAlbumSectionState
       vsync: this,
     );
 
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
-    ));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+      ),
+    );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
-    ));
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _controller,
+            curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+          ),
+        );
 
     // 延迟启动动画
     Future.delayed(const Duration(milliseconds: 200), () {

@@ -80,8 +80,11 @@ class PortraitDetailPage extends StatelessWidget {
             color: Colors.black.withValues(alpha: 0.3),
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.keyboard_arrow_down,
-              color: Colors.white, size: 24),
+          child: const Icon(
+            Icons.keyboard_arrow_down,
+            color: Colors.white,
+            size: 24,
+          ),
         ),
         onPressed: () => Navigator.pop(context),
       ),
@@ -139,10 +142,7 @@ class PortraitDetailPage extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Colors.transparent,
-                Colors.black.withValues(alpha: 0.8),
-              ],
+              colors: [Colors.transparent, Colors.black.withValues(alpha: 0.8)],
             ),
           ),
         ),
@@ -198,13 +198,20 @@ class PortraitDetailPage extends StatelessWidget {
                 ),
                 errorWidget: (context, url, error) => Container(
                   color: Colors.grey[800],
-                  child: const Icon(Icons.music_note,
-                      color: Colors.white, size: 80),
+                  child: const Icon(
+                    Icons.music_note,
+                    color: Colors.white,
+                    size: 80,
+                  ),
                 ),
               )
             : Container(
                 color: Colors.grey[800],
-                child: const Icon(Icons.music_note, color: Colors.white, size: 80),
+                child: const Icon(
+                  Icons.music_note,
+                  color: Colors.white,
+                  size: 80,
+                ),
               ),
       ),
     );
@@ -300,10 +307,7 @@ class PortraitDetailPage extends StatelessWidget {
               ),
               // 歌词切换
               IconButton(
-                icon: Icon(
-                  Icons.lyrics_outlined,
-                  color: Colors.white,
-                ),
+                icon: Icon(Icons.lyrics_outlined, color: Colors.white),
                 iconSize: 28,
                 onPressed: onToggleShowLyrics,
               ),
@@ -315,24 +319,34 @@ class PortraitDetailPage extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               IconButton(
-                icon: Icon(Icons.shuffle, color: Colors.white.withValues(alpha: 0.7)),
+                icon: Icon(
+                  Icons.shuffle,
+                  color: Colors.white.withValues(alpha: 0.7),
+                ),
                 iconSize: 24,
                 onPressed: onTogglePlayMode,
               ),
               IconButton(
-                icon: Icon(Icons.skip_previous,
-                    color: Colors.white.withValues(alpha: 0.7)),
+                icon: Icon(
+                  Icons.skip_previous,
+                  color: Colors.white.withValues(alpha: 0.7),
+                ),
                 iconSize: 32,
                 onPressed: () => playerManager.playPrevious(),
               ),
               IconButton(
-                icon: Icon(Icons.skip_next, color: Colors.white.withValues(alpha: 0.7)),
+                icon: Icon(
+                  Icons.skip_next,
+                  color: Colors.white.withValues(alpha: 0.7),
+                ),
                 iconSize: 32,
                 onPressed: () => playerManager.playNext(),
               ),
               IconButton(
-                icon: Icon(Icons.share_outlined,
-                    color: Colors.white.withValues(alpha: 0.7)),
+                icon: Icon(
+                  Icons.share_outlined,
+                  color: Colors.white.withValues(alpha: 0.7),
+                ),
                 iconSize: 24,
                 onPressed: onShare,
               ),
@@ -364,7 +378,9 @@ class PortraitDetailPage extends StatelessWidget {
             value: progress.clamp(0.0, 1.0),
             onChanged: (value) {
               if (duration != null) {
-                onSeek(Duration(seconds: (value * duration!.inSeconds).toInt()));
+                onSeek(
+                  Duration(seconds: (value * duration!.inSeconds).toInt()),
+                );
               }
             },
           ),
@@ -406,8 +422,10 @@ class PortraitDetailPage extends StatelessWidget {
             child: Row(
               children: [
                 IconButton(
-                  icon: Icon(Icons.keyboard_arrow_down,
-                      color: Colors.white.withValues(alpha: 0.7)),
+                  icon: Icon(
+                    Icons.keyboard_arrow_down,
+                    color: Colors.white.withValues(alpha: 0.7),
+                  ),
                   onPressed: onToggleShowLyrics,
                 ),
                 const Spacer(),
@@ -419,7 +437,10 @@ class PortraitDetailPage extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(20),
@@ -428,8 +449,14 @@ class PortraitDetailPage extends StatelessWidget {
                   value: selectedLyricId,
                   dropdownColor: Colors.grey[900],
                   underline: const SizedBox(),
-                  icon: Icon(Icons.arrow_drop_down, color: Colors.white.withValues(alpha: 0.7)),
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 14),
+                  icon: Icon(
+                    Icons.arrow_drop_down,
+                    color: Colors.white.withValues(alpha: 0.7),
+                  ),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 14,
+                  ),
                   items: lyricOptions.map((option) {
                     return DropdownMenuItem<String>(
                       value: option.id,
@@ -443,9 +470,7 @@ class PortraitDetailPage extends StatelessWidget {
               ),
             ),
           // 歌词内容
-          Expanded(
-            child: _buildLyricContent(context),
-          ),
+          Expanded(child: _buildLyricContent(context)),
         ],
       ),
     );
@@ -457,8 +482,11 @@ class PortraitDetailPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.music_note,
-                size: 48, color: Colors.white.withValues(alpha: 0.3)),
+            Icon(
+              Icons.music_note,
+              size: 48,
+              color: Colors.white.withValues(alpha: 0.3),
+            ),
             const SizedBox(height: 16),
             Text(
               '选择歌词来源后显示歌词',
@@ -484,13 +512,15 @@ class PortraitDetailPage extends StatelessWidget {
       );
     }
 
-    final currentLine =
-        lyricParser!.getCurrentLine(position.inMilliseconds / 1000);
+    final currentLine = lyricParser!.getCurrentLine(
+      position.inMilliseconds / 1000,
+    );
 
     return ListView.builder(
       padding: EdgeInsets.symmetric(
-          horizontal: 24,
-          vertical: MediaQuery.of(context).size.height * 0.3),
+        horizontal: 24,
+        vertical: MediaQuery.of(context).size.height * 0.3,
+      ),
       itemCount: lyricParser!.lines.length,
       itemBuilder: (context, index) {
         final line = lyricParser!.lines[index];
@@ -570,8 +600,10 @@ class PortraitDetailPage extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.playlist_add, color: Colors.white),
-              title:
-                  const Text('添加到播放列表', style: TextStyle(color: Colors.white)),
+              title: const Text(
+                '添加到播放列表',
+                style: TextStyle(color: Colors.white),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 // TODO: 添加到播放列表
@@ -632,10 +664,7 @@ class PortraitDetailPage extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(color: Colors.white),
-            ),
+            child: Text(value, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -656,11 +685,7 @@ class LyricInfo {
   final String name;
   final String artist;
 
-  LyricInfo({
-    required this.id,
-    required this.name,
-    required this.artist,
-  });
+  LyricInfo({required this.id, required this.name, required this.artist});
 
   @override
   String toString() {

@@ -6,7 +6,9 @@ class ChangelogPage extends StatelessWidget {
   const ChangelogPage({super.key});
 
   Future<List<ChangelogEntry>> _loadChangelog() async {
-    final String jsonString = await rootBundle.loadString('assets/version.json');
+    final String jsonString = await rootBundle.loadString(
+      'assets/version.json',
+    );
     final Map<String, dynamic> jsonData = json.decode(jsonString);
     final List<dynamic> changelogList = jsonData['changelog'];
     return changelogList.map((item) => ChangelogEntry.fromJson(item)).toList();

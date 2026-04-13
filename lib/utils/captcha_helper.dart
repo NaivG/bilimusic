@@ -32,9 +32,11 @@ class CaptchaHelper {
           String code = message["code"];
           if (code == "1") {
             var result = message["result"] as Map;
-            _callback?.onResult?.call(result.map(
-                (key, value) =>
-                    MapEntry(key.toString(), value.toString())));
+            _callback?.onResult?.call(
+              result.map(
+                (key, value) => MapEntry(key.toString(), value.toString()),
+              ),
+            );
           } else {
             _callback?.onError?.call(message);
           }
@@ -53,7 +55,10 @@ class CaptchaHelper {
         'https://passport.bilibili.com/x/passport-login/captcha?source=main_web';
 
     try {
-      final response = await http.get(Uri.parse(captchaUrl), headers: NetworkConfig.biliHeaders);
+      final response = await http.get(
+        Uri.parse(captchaUrl),
+        headers: NetworkConfig.biliHeaders,
+      );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -72,11 +77,7 @@ class CaptchaHelper {
     return null;
   }
 
-  void startCaptcha(
-    String gt,
-    String challenge,
-    CaptchaCallback callback,
-  ) {
+  void startCaptcha(String gt, String challenge, CaptchaCallback callback) {
     _callback = callback;
     Gt3RegisterData registerData = Gt3RegisterData(
       gt: gt,
@@ -97,10 +98,5 @@ class CaptchaCallback {
   final Function(Map<String, String> result)? onResult;
   final Function(Map<String, dynamic> message)? onError;
 
-  CaptchaCallback({
-    this.onShow,
-    this.onClose,
-    this.onResult,
-    this.onError,
-  });
+  CaptchaCallback({this.onShow, this.onClose, this.onResult, this.onError});
 }

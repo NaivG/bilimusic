@@ -168,8 +168,12 @@ class _AnimatedLandscapeBackgroundState
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    (_colorAnimation.value ?? Colors.black).withValues(alpha: 0.85),
-                    (_colorAnimation.value ?? Colors.black).withValues(alpha: 0.65),
+                    (_colorAnimation.value ?? Colors.black).withValues(
+                      alpha: 0.85,
+                    ),
+                    (_colorAnimation.value ?? Colors.black).withValues(
+                      alpha: 0.65,
+                    ),
                     Colors.black,
                   ],
                   stops: const [0.0, 0.4, 1.0],
@@ -204,7 +208,10 @@ class _AnimatedLandscapeBackgroundState
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, Colors.black.withValues(alpha: 0.7)],
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.7),
+                    ],
                   ),
                 ),
               ),

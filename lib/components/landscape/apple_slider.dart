@@ -31,15 +31,16 @@ class _AppleMusicSliderState extends State<AppleMusicSlider> {
   double? _dragValue;
 
   double get _progress {
-    if (widget.duration == null ||
-        widget.duration!.inSeconds == 0) {
+    if (widget.duration == null || widget.duration!.inSeconds == 0) {
       return 0.0;
     }
     if (_isDragging && _dragValue != null) {
       return _dragValue!.clamp(0.0, 1.0);
     }
-    return (widget.position.inSeconds / widget.duration!.inSeconds)
-        .clamp(0.0, 1.0);
+    return (widget.position.inSeconds / widget.duration!.inSeconds).clamp(
+      0.0,
+      1.0,
+    );
   }
 
   void _handleChange(double value) {
@@ -87,11 +88,17 @@ class _AppleMusicSliderState extends State<AppleMusicSlider> {
                 data: SliderThemeData(
                   trackHeight: widget.trackHeight,
                   thumbShape: _AppleMusicThumbShape(
-                    radius: _isDragging ? widget.thumbRadius * 1.3 : widget.thumbRadius,
+                    radius: _isDragging
+                        ? widget.thumbRadius * 1.3
+                        : widget.thumbRadius,
                   ),
-                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
+                  overlayShape: const RoundSliderOverlayShape(
+                    overlayRadius: 20,
+                  ),
                   activeTrackColor: Colors.white,
-                  inactiveTrackColor: Colors.white.withValues(alpha: widget.inactiveTrackColor),
+                  inactiveTrackColor: Colors.white.withValues(
+                    alpha: widget.inactiveTrackColor,
+                  ),
                   thumbColor: Colors.white,
                   overlayColor: Colors.white.withValues(alpha: 0.2),
                   trackShape: const RoundedRectSliderTrackShape(),
@@ -105,10 +112,7 @@ class _AppleMusicSliderState extends State<AppleMusicSlider> {
               ),
             ),
             // 时间显示
-            SizedBox(
-              height: timeDisplayHeight,
-              child: _buildTimeDisplay(),
-            ),
+            SizedBox(height: timeDisplayHeight, child: _buildTimeDisplay()),
           ],
         );
       },
@@ -125,8 +129,9 @@ class _AppleMusicSliderState extends State<AppleMusicSlider> {
             _formatDuration(
               _isDragging && _dragValue != null && widget.duration != null
                   ? Duration(
-                      seconds:
-                          (_dragValue! * widget.duration!.inSeconds).toInt())
+                      seconds: (_dragValue! * widget.duration!.inSeconds)
+                          .toInt(),
+                    )
                   : widget.position,
             ),
             style: TextStyle(

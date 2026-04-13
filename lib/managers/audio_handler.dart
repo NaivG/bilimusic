@@ -35,12 +35,14 @@ class AudioHandlerConnector extends BaseAudioHandler {
   @override
   Future<void> stop() async {
     await playerManager.stop();
-    playbackState.add(PlaybackState(
-      controls: [],
-      processingState: AudioProcessingState.idle,
-      playing: false,
-      updatePosition: Duration.zero,
-    ));
+    playbackState.add(
+      PlaybackState(
+        controls: [],
+        processingState: AudioProcessingState.idle,
+        playing: false,
+        updatePosition: Duration.zero,
+      ),
+    );
   }
 
   @override
@@ -52,10 +54,13 @@ class AudioHandlerConnector extends BaseAudioHandler {
   Future<void> skipToPrevious() async {
     await playerManager.playPrevious();
   }
-  
+
   // 添加收藏功能
   @override
-  Future<void> customAction(String action, [Map<String, dynamic>? extras]) async {
+  Future<void> customAction(
+    String action, [
+    Map<String, dynamic>? extras,
+  ]) async {
     switch (action) {
       case 'favorite':
         final currentMusic = playerManager.currentMusic;

@@ -20,11 +20,7 @@ class SearchPage extends StatefulWidget {
   final PlayerManager playerManager;
   final String? initialQuery; // 可选的初始搜索参数
 
-  const SearchPage({
-    super.key,
-    required this.playerManager,
-    this.initialQuery,
-  });
+  const SearchPage({super.key, required this.playerManager, this.initialQuery});
 
   @override
   State<SearchPage> createState() => _SearchPageState();

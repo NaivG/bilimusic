@@ -66,8 +66,9 @@ class _LandscapeLyricSectionState extends State<LandscapeLyricSection> {
       return;
     }
 
-    final currentLine =
-        widget.lyricParser!.getCurrentLine(widget.position.inMilliseconds / 1000);
+    final currentLine = widget.lyricParser!.getCurrentLine(
+      widget.position.inMilliseconds / 1000,
+    );
 
     if (currentLine != null && currentLine != _lastCurrentLine) {
       _lastCurrentLine = currentLine;
@@ -103,9 +104,7 @@ class _LandscapeLyricSectionState extends State<LandscapeLyricSection> {
           if (!widget.isLoadingLyrics) _buildLyricSourceSelector(),
           const SizedBox(height: 16),
           // 歌词列表
-          Expanded(
-            child: _buildLyricContent(),
-          ),
+          Expanded(child: _buildLyricContent()),
         ],
       ),
     );
@@ -179,7 +178,10 @@ class _LandscapeLyricSectionState extends State<LandscapeLyricSection> {
             value: widget.selectedLyricId,
             dropdownColor: Colors.grey[900]!.withValues(alpha: 0.95),
             underline: const SizedBox(),
-            icon: Icon(Icons.arrow_drop_down, color: Colors.white.withValues(alpha: 0.7)),
+            icon: Icon(
+              Icons.arrow_drop_down,
+              color: Colors.white.withValues(alpha: 0.7),
+            ),
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.9),
               fontSize: 14,
@@ -259,10 +261,12 @@ class _LandscapeLyricSectionState extends State<LandscapeLyricSection> {
       itemBuilder: (context, index) {
         final line = widget.lyricParser!.lines[index];
         final isCurrentLine = line == currentLine;
-        final currentFontSize =
-            LandscapeBreakpoints.getCurrentLyricFontSize(context);
-        final otherFontSize =
-            LandscapeBreakpoints.getOtherLyricFontSize(context);
+        final currentFontSize = LandscapeBreakpoints.getCurrentLyricFontSize(
+          context,
+        );
+        final otherFontSize = LandscapeBreakpoints.getOtherLyricFontSize(
+          context,
+        );
 
         return GestureDetector(
           onTap: () {
@@ -296,10 +300,7 @@ class LyricSource {
   final String id;
   final String name;
 
-  const LyricSource({
-    required this.id,
-    required this.name,
-  });
+  const LyricSource({required this.id, required this.name});
 
   @override
   String toString() => name;
@@ -352,21 +353,20 @@ class _AnimatedLandscapeLyricSectionState
       vsync: this,
     );
 
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
-    ));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
+      ),
+    );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0.05, 0),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
-    ));
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0.05, 0), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _controller,
+            curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
+          ),
+        );
 
     // 延迟启动动画
     Future.delayed(const Duration(milliseconds: 300), () {

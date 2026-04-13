@@ -1,21 +1,21 @@
 import 'package:bilimusic/managers/settings_manager.dart';
 
 /// 设置管理器使用示例
-/// 
+///
 /// 这个文件展示了如何在应用程序的其他部分使用SettingsManager
-/// 
+///
 /// 使用方法:
-/// 
+///
 /// 1. 导入设置管理器:
 ///    import 'package:bilimusic/managers/settings_manager.dart';
-/// 
+///
 /// 2. 获取设置管理器实例:
 ///    final settings = SettingsManager();
-/// 
+///
 /// 3. 读取设置:
 ///    bool notificationsEnabled = settings.notificationsEnabled;
 ///    String themeMode = settings.themeMode;
-/// 
+///
 /// 4. 更新设置:
 ///    settings.setNotificationsEnabled(false);
 ///    settings.setThemeMode('dark');

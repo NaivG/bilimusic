@@ -18,7 +18,7 @@ class CoverDisplayWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Container(
       width: size,
       height: size,
@@ -56,7 +56,7 @@ class CoverDisplayWidget extends StatelessWidget {
               ),
             ),
           ),
-          
+
           // 封面图片容器
           Padding(
             padding: const EdgeInsets.all(8.0),

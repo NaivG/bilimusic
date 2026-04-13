@@ -183,10 +183,7 @@ class _ControlButtonState extends State<_ControlButton>
     _scaleAnimation = Tween<double>(
       begin: 1.0,
       end: 0.9,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -217,10 +214,7 @@ class _ControlButtonState extends State<_ControlButton>
       child: AnimatedBuilder(
         animation: _scaleAnimation,
         builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: child,
-          );
+          return Transform.scale(scale: _scaleAnimation.value, child: child);
         },
         child: SizedBox(
           width: widget.size,
@@ -270,10 +264,7 @@ class _PlayPauseButtonState extends State<_PlayPauseButton>
     _scaleAnimation = Tween<double>(
       begin: 1.0,
       end: 0.92,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -304,10 +295,7 @@ class _PlayPauseButtonState extends State<_PlayPauseButton>
       child: AnimatedBuilder(
         animation: _scaleAnimation,
         builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: child,
-          );
+          return Transform.scale(scale: _scaleAnimation.value, child: child);
         },
         child: Container(
           width: widget.size,
@@ -316,10 +304,7 @@ class _PlayPauseButtonState extends State<_PlayPauseButton>
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Colors.white,
-                Color(0xFFE0E0E0),
-              ],
+              colors: [Colors.white, Color(0xFFE0E0E0)],
             ),
             shape: BoxShape.circle,
             boxShadow: [

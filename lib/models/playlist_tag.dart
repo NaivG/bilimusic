@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 /// 标签分类枚举
 enum TagCategory {
-  genre,   // 音乐风格
+  genre, // 音乐风格
   scenario, // 使用场景
-  mood,    // 心情情绪
-  custom   // 自定义标签
+  mood, // 心情情绪
+  custom, // 自定义标签
 }
 
 /// 标签分类的显示名称和颜色配置
@@ -172,7 +172,8 @@ class PlaylistTag {
   int get hashCode => id.hashCode;
 
   @override
-  String toString() => 'PlaylistTag(id: $id, nameCn: $nameCn, category: $category)';
+  String toString() =>
+      'PlaylistTag(id: $id, nameCn: $nameCn, category: $category)';
 }
 
 /// 预设标签集合
@@ -361,7 +362,11 @@ class DefaultPlaylistTags {
   ];
 
   /// 获取所有预设标签
-  static List<PlaylistTag> get allTags => [...genreTags, ...scenarioTags, ...moodTags];
+  static List<PlaylistTag> get allTags => [
+    ...genreTags,
+    ...scenarioTags,
+    ...moodTags,
+  ];
 
   /// 根据分类获取标签
   static List<PlaylistTag> getByCategory(TagCategory category) {

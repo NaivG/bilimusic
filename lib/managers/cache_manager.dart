@@ -31,21 +31,20 @@ abstract class LocalStorage {
   static Future<Map<String, String>> getCacheSize() async {
     final musicSize = await _getCacheSize(musicCacheManager);
     final imageSize = await _getCacheSize(imageCacheManager);
-    return {
-      'music': '$musicSize MB',
-      'image': '$imageSize MB',
-    };
+    return {'music': '$musicSize MB', 'image': '$imageSize MB'};
   }
 
   static Future<int> _getCacheSize(CacheManager manager) async {
     try {
       // 获取缓存文件目录
       final appDocDir = await getApplicationSupportDirectory();
-      final cacheDir = Directory(path.join(appDocDir.path, manager.config.cacheKey));
+      final cacheDir = Directory(
+        path.join(appDocDir.path, manager.config.cacheKey),
+      );
       if (!await cacheDir.exists()) {
         return 0;
       }
-      
+
       // 遍历缓存目录下的所有文件
       double total = 0;
       final files = await cacheDir.list().toList();
@@ -54,7 +53,7 @@ abstract class LocalStorage {
           total += (await file.length()).toDouble();
         }
       }
-      
+
       return (total / (1024 * 1024)).toInt();
     } catch (e) {
       return 0;

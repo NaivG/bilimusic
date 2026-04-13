@@ -52,20 +52,22 @@ class NeteaseMusicApi {
   static Future<List<NeteaseMusicInfo>> searchMusic(String keyword) async {
     try {
       final uri = Uri.parse('$_baseUrl$_searchApi');
-      final response = await http.post(
-        uri,
-        headers: _apiHeaders,
-        body: {
-          'csrf_token': '',
-          'hlpretag': '',
-          'hlposttag': '',
-          's': keyword,
-          'type': '1', // 1: 单曲
-          'offset': '0',
-          'total': 'true',
-          'limit': '10', // 获取前10个结果
-        },
-      ).timeout(Duration(seconds: 10));
+      final response = await http
+          .post(
+            uri,
+            headers: _apiHeaders,
+            body: {
+              'csrf_token': '',
+              'hlpretag': '',
+              'hlposttag': '',
+              's': keyword,
+              'type': '1', // 1: 单曲
+              'offset': '0',
+              'total': 'true',
+              'limit': '10', // 获取前10个结果
+            },
+          )
+          .timeout(Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -76,21 +78,24 @@ class NeteaseMusicApi {
             final musicList = <NeteaseMusicInfo>[];
             final takeCount = songs.length > 10 ? 10 : songs.length;
             final minCount = 5;
-            
-            for (int i = 0; i < (takeCount > minCount ? takeCount : minCount) && i < songs.length; i++) {
+
+            for (
+              int i = 0;
+              i < (takeCount > minCount ? takeCount : minCount) &&
+                  i < songs.length;
+              i++
+            ) {
               final song = songs[i];
               if (song['id'] != null) {
                 final id = song['id'].toString();
                 final name = song['name']?.toString() ?? '未知歌曲';
-                final artist = (song['artists'] as List?)?.isNotEmpty == true 
+                final artist = (song['artists'] as List?)?.isNotEmpty == true
                     ? song['artists'][0]['name']?.toString() ?? '未知艺术家'
                     : '未知艺术家';
-                
-                musicList.add(NeteaseMusicInfo(
-                  id: id,
-                  name: name,
-                  artist: artist,
-                ));
+
+                musicList.add(
+                  NeteaseMusicInfo(id: id, name: name, artist: artist),
+                );
               }
             }
             return musicList;
@@ -117,10 +122,9 @@ class NeteaseMusicApi {
 
       // 缓存中没有，则从网络获取
       final uri = Uri.parse('$_baseUrl$_lyricApi?id=$musicId&lv=-1&tv=-1');
-      final response = await http.get(
-        uri,
-        headers: _apiHeaders,
-      ).timeout(Duration(seconds: 10));
+      final response = await http
+          .get(uri, headers: _apiHeaders)
+          .timeout(Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -160,13 +164,9 @@ class NeteaseMusicApi {
     try {
       // 将歌词字符串转换为字节数据
       final bytes = Uint8List.fromList(utf8.encode(lyric));
-      
+
       // 使用putFile方法将字节数据添加到缓存管理器
-      await _lyricCacheManager.putFile(
-        musicId,
-        bytes,
-        fileExtension: 'txt',
-      );
+      await _lyricCacheManager.putFile(musicId, bytes, fileExtension: 'txt');
     } catch (e) {
       debugPrint('缓存歌词时出错: $e');
     }

@@ -66,10 +66,16 @@ class PlayerControlsWidget extends StatelessWidget {
                   child: SliderTheme(
                     data: SliderTheme.of(context).copyWith(
                       activeTrackColor: Theme.of(context).primaryColor,
-                      inactiveTrackColor: isDark ? Colors.grey[700] : Colors.grey[300],
+                      inactiveTrackColor: isDark
+                          ? Colors.grey[700]
+                          : Colors.grey[300],
                       thumbColor: Theme.of(context).primaryColor,
-                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+                      thumbShape: const RoundSliderThumbShape(
+                        enabledThumbRadius: 8,
+                      ),
+                      overlayShape: const RoundSliderOverlayShape(
+                        overlayRadius: 16,
+                      ),
                       trackHeight: 4,
                     ),
                     child: Slider(
@@ -89,9 +95,9 @@ class PlayerControlsWidget extends StatelessWidget {
               ),
             ],
           ),
-          
+
           SizedBox(height: compact ? 16 : 20),
-          
+
           // 主要控制按钮
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -103,7 +109,7 @@ class PlayerControlsWidget extends StatelessWidget {
                 color: Theme.of(context).primaryColor,
                 onPressed: onTogglePlayMode,
               ),
-              
+
               // 上一首按钮
               IconButton(
                 icon: const Icon(Icons.skip_previous),
@@ -111,7 +117,7 @@ class PlayerControlsWidget extends StatelessWidget {
                 color: Theme.of(context).primaryColor,
                 onPressed: onPrevious,
               ),
-              
+
               // 播放/暂停按钮
               Container(
                 width: compact ? 50 : (isLargeScreen ? 60 : 55),
@@ -128,7 +134,9 @@ class PlayerControlsWidget extends StatelessWidget {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
+                      color: Theme.of(
+                        context,
+                      ).primaryColor.withValues(alpha: 0.3),
                       blurRadius: 12,
                       spreadRadius: 2,
                       offset: const Offset(0, 4),
@@ -144,7 +152,7 @@ class PlayerControlsWidget extends StatelessWidget {
                   onPressed: onPlayPause,
                 ),
               ),
-              
+
               // 下一首按钮
               IconButton(
                 icon: const Icon(Icons.skip_next),
@@ -152,7 +160,7 @@ class PlayerControlsWidget extends StatelessWidget {
                 color: Theme.of(context).primaryColor,
                 onPressed: onNext,
               ),
-              
+
               // 播放列表按钮
               IconButton(
                 icon: const Icon(Icons.playlist_play),
