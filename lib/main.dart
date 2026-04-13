@@ -155,7 +155,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (result != null && mounted) {
       // 使用navigatorKey的context来显示对话框
       final navigatorContext = _navigatorKey.currentContext;
-      debugPrint('Update available: ${result.remoteVersion}\nChangelog:\n${result.newEntries.map((entry) => entry.toString()).join('\n')}');
+      debugPrint(
+        'Update available: ${result.remoteVersion}\nChangelog:\n${result.newEntries.map((entry) => entry.toString()).join('\n')}',
+      );
       if (navigatorContext != null) {
         await UpdateAvailableDialog.show(
           navigatorContext,
