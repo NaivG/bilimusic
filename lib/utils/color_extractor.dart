@@ -1,5 +1,3 @@
-import 'dart:ui';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:color_thief_dart/color_thief_dart.dart';
 import 'package:flutter/material.dart';

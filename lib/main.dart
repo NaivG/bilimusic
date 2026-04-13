@@ -1,20 +1,27 @@
-import 'dart:io';
 import 'package:bitsdojo_window/bitsdojo_window.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, kDebugMode;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:bilimusic/components/audio_player_manager.dart';
-import 'package:bilimusic/components/mini_player.dart';
-import 'package:bilimusic/pages/home_page.dart';
-import 'package:bilimusic/pages/search_page.dart';
-import 'package:bilimusic/pages/profile_page.dart';
-import 'package:bilimusic/pages/settings_page.dart';
+
+import 'package:bilimusic/managers/player_manager.dart';
+import 'package:bilimusic/managers/audio_handler.dart';
+
 import 'package:bilimusic/routes/app_routes.dart';
 import 'package:bilimusic/utils/network_config.dart';
 import 'package:audio_service/audio_service.dart';
-import 'package:bilimusic/components/play_list.dart';
-import 'package:bilimusic/utils/settings_manager.dart';
+import 'package:bilimusic/managers/settings_manager.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
+
+import 'package:bilimusic/services/dual_audio_service.dart';
+import 'package:bilimusic/services/playlist_service.dart';
+import 'package:bilimusic/services/notification_service.dart';
+import 'package:bilimusic/services/api_service.dart';
+import 'package:bilimusic/services/player_coordinator.dart';
+import 'package:bilimusic/managers/playlist_manager.dart';
+import 'package:bilimusic/providers/playlist_manager_provider.dart';
+import 'package:bilimusic/providers/player_manager_provider.dart';
+import 'package:bilimusic/providers/search_state_provider.dart';
+import 'package:bilimusic/shells/app_shell.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,19 +30,47 @@ void main() async {
   await NetworkConfig.init();
 
   // 初始化just_audio_media_kit（仅在非Web和非Android/iOS平台上需要）
-  if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux)) {
+  if (!kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux)) {
     JustAudioMediaKit.ensureInitialized();
   }
 
-  // 先创建播放管理器
-  final playerManager = AudioPlayerManager();
+  // 创建服务实例 - 使用DualAudioService支持交叉淡入淡出
+  final dualAudioService = DualAudioService();
+  final playlistService = PlaylistService();
+  final notificationService = NotificationService();
+  final apiService = ApiService();
+  final settingsManager = SettingsManager();
+
+  // 创建协调器
+  final coordinator = PlayerCoordinator(
+    audioService: dualAudioService,
+    settingsManager: settingsManager,
+    playlistService: playlistService,
+    notificationService: notificationService,
+    apiService: apiService,
+  );
+
+  // 初始化协调器
+  await coordinator.initialize();
+
+  // 初始化歌单管理器
+  final playlistManager = PlaylistManager();
+  await playlistManager.initialize();
+
+  // 创建播放器管理器
+  final playerManager = StreamingPlayerManager(coordinator);
 
   // 初始化音频服务并保存实例
   final audioHandler = await AudioService.init(
-    builder: () => AudioPlayerHandler(playerManager),
+    builder: () => AudioHandlerConnector(playerManager),
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'github.naivg.bilimusic.channel.audio',
       androidNotificationChannelName: 'BiliMusic Playback',
+      androidNotificationChannelDescription:
+          'BiliMusic Default Playback Channel',
+      androidNotificationIcon: 'mipmap/ic_launcher',
       androidResumeOnClick: true,
       androidNotificationOngoing: true,
       androidStopForegroundOnPause: true,
@@ -43,12 +78,20 @@ void main() async {
     ),
   );
 
-  // 将audioHandler设置给playerManager
-  playerManager.setAudioHandler(audioHandler);
+  // 初始化通知服务(音频处理器)
+  notificationService.initialize(audioHandler);
 
-  runApp(MyApp(audioHandler: audioHandler, playerManager: playerManager));
+  runApp(
+    MyApp(
+      audioHandler: audioHandler,
+      playerManager: playerManager,
+      playlistManager: playlistManager,
+    ),
+  );
 
-  if (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux) {
+  if (!kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux)) {
     doWhenWindowReady(() async {
       // 添加一个窗口按钮
       final desktopWindow = appWindow;
@@ -64,28 +107,35 @@ void main() async {
 /// 根Widget，负责管理播放器管理器实例
 class MyApp extends StatefulWidget {
   final BaseAudioHandler audioHandler;
-  final AudioPlayerManager playerManager;
+  final PlayerManager playerManager;
+  final PlaylistManager playlistManager;
 
-  const MyApp({super.key, required this.audioHandler, required this.playerManager});
+  const MyApp({
+    super.key,
+    required this.audioHandler,
+    required this.playerManager,
+    required this.playlistManager,
+  });
 
   @override
   State<MyApp> createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  late AudioPlayerManager _playerManager;
-  late BaseAudioHandler _audioHandler; // 新增
+  late PlayerManager _playerManager;
   late SettingsManager _settingsManager;
+  late PlaylistManager _playlistManager;
+  final SearchStateNotifier _searchStateNotifier = SearchStateNotifier();
 
   @override
   void initState() {
     super.initState();
     _playerManager = widget.playerManager;
-    _audioHandler = widget.audioHandler;
+    _playlistManager = widget.playlistManager;
     // 确保playerManager已设置audioHandler
-    _playerManager.setAudioHandler(_audioHandler);
+    // 重构后的播放器管理器不需要设置audioHandler
     WidgetsBinding.instance.addObserver(this);
-    
+
     // 初始化设置管理器
     _settingsManager = SettingsManager();
     _settingsManager.init();
@@ -120,487 +170,84 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    // 简约现代风格主题配置
+    const modernBlue = Color(0xFF2563EB); // 现代蓝
+
     return PlayerManagerProvider(
       playerManager: _playerManager,
-      child: MaterialApp(
-        title: 'BiliMusic',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.blueAccent,
-            brightness: Brightness.light,
-          ),
-          useMaterial3: true,
-        ),
-        darkTheme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.blueAccent,
-            brightness: Brightness.dark,
-          ),
-          useMaterial3: true,
-          // 在深色主题中，确保文本和图标在背景上有足够的对比度
-          textTheme: const TextTheme(
-            titleLarge: TextStyle(color: Colors.white),
-            titleMedium: TextStyle(color: Colors.white),
-            bodyLarge: TextStyle(color: Colors.white70),
-            bodyMedium: TextStyle(color: Colors.white70),
-          ),
-        ),
-        themeMode: _getThemeMode(_settingsManager.themeMode),
-        home: const MyHomePage(),
-        onGenerateRoute: AppRoutes.onGenerateRoute,
-      ),
-    );
-  }
-}
-
-/// 提供播放器管理器的InheritedWidget
-class PlayerManagerProvider extends InheritedWidget {
-  final AudioPlayerManager playerManager;
-
-  const PlayerManagerProvider({
-    super.key,
-    required this.playerManager,
-    required super.child,
-  });
-
-  static AudioPlayerManager of(BuildContext context) {
-    final provider = context.dependOnInheritedWidgetOfExactType<PlayerManagerProvider>();
-    if (provider == null) {
-      throw Exception('No PlayerManager found in the widget tree');
-    }
-    return provider.playerManager;
-  }
-
-  @override
-  bool updateShouldNotify(covariant PlayerManagerProvider oldWidget) {
-    return playerManager != oldWidget.playerManager;
-  }
-}
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key});
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _selectedIndex = 0;
-  late AudioPlayerManager _playerManager;
-  late SettingsManager _settingsManager;
-  List<Widget> _pages = []; // 初始化为空列表
-  bool _isPcMode = false;
-  final bool _isPcPlatform = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    try {
-      _playerManager = PlayerManagerProvider.of(context);
-      _settingsManager = SettingsManager();
-      _isPcMode = _settingsManager.pcMode;
-
-      // 确保只初始化一次
-      if (_pages.isEmpty) {
-        _pages = [
-          HomePage(playerManager: _playerManager),
-          SearchPage(playerManager: _playerManager),
-          ProfilePage(playerManager: _playerManager),
-          SettingsPage(),
-        ];
-        // 触发UI更新
-        if (mounted) setState(() {});
-      }
-    } catch (e) {
-      // 添加错误处理
-      debugPrint("Error initializing player manager: $e");
-      // 可以在这里设置错误状态
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    // 初始化时检查播放列表是否为空，决定是否显示迷你播放器
-    // WidgetsBinding.instance.addPostFrameCallback((_) {
-    // });
-    // 测试版本警告对话框
-    if (kDebugMode) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        showDialog<void>(
-          context: context,
-          barrierDismissible: true,
-          builder: (BuildContext dialogContext) {
-            return AlertDialog(
-              icon: const Icon(Icons.warning, size: 32.0),
-              title: const Text('哎呀 o(><；)o'),
-              content: const Text(
-                  '你正在使用测试版本，可能会存在一些未知bug，包括界面可能存在渲染问题，新功能可能无法正常使用等等。\n如果遇到问题，请反馈给开发者。'),
-              contentPadding: const EdgeInsets.all(16.0),
-              actions: <Widget>[
-                TextButton(
-                  child: const Text('我知道啦'),
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop();
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
-  void _openPlayList() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => PlayListSheet(
-        playerManager: _playerManager,
-        onTrackSelect: (index) {
-          _playerManager.playAtIndex(index);
-          Navigator.pop(context);
-        },
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // 显示加载指示器而不是空白容器
-    if (_pages.isEmpty) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    // 检查是否应该启用平板模式
-    bool isTabletMode = false;
-    switch (_settingsManager.tabletMode) {
-      case 'on':
-        isTabletMode = true;
-        break;
-      case 'off':
-        isTabletMode = false;
-        break;
-      case 'auto':
-      default:
-        // 自动模式：检查屏幕宽度是否大于600dp（平板阈值）
-        isTabletMode = MediaQuery.of(context).size.shortestSide >= 600;
-        break;
-    }
-
-    if (isTabletMode) {
-      // 平板模式布局
-      return Scaffold(
-        appBar: _isPcPlatform
-                ? _buildPCBar(context)
-                : null,
-        body: Row(
-          children: [
-            // 侧边导航栏
-            _isPcMode
-            ? const SizedBox(width: 0)
-            : SizedBox(
-                width: 80,
-                child: NavigationRail(
-                  selectedIndex: _selectedIndex,
-                  onDestinationSelected: (int index) {
-                    setState(() {
-                      _selectedIndex = index;
-                    });
-                  },
-                  labelType: NavigationRailLabelType.all,
-                  destinations: const [
-                    NavigationRailDestination(
-                      icon: Icon(Icons.home),
-                      label: Text('首页'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.search),
-                      label: Text('搜索'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.person),
-                      label: Text('我的'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.settings),
-                      label: Text('设置'),
-                    ),
-                  ],
-                ),
+      child: PlaylistManagerProvider(
+        playlistManager: _playlistManager,
+        child: SearchStateProvider(
+          searchState: _searchStateNotifier,
+          child: MaterialApp(
+            title: 'BiliMusic',
+            debugShowCheckedModeBanner: false,
+            theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: modernBlue,
+              brightness: Brightness.light,
+            ),
+            useMaterial3: true,
+            // 统一圆角风格
+            cardTheme: CardThemeData(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-            // 主内容区域
-            Expanded(
-              child: Stack(
-                children: [
-                  _pages[_selectedIndex],
-                  // 平板模式下的悬浮迷你播放器
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 20,
-                    child: Center(
-                      child: SizedBox(
-                        width: MediaQuery.of(context).size.width * 0.8, // 限制迷你播放器宽度
-                        child: MiniPlayerComponent(
-                          playerManager: _playerManager,
-                          onExpand: () {
-                            // 实现迷你播放器展开逻辑
-                          },
-                          onPlayList: _openPlayList,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              elevation: 0,
+            ),
+            // 圆角按钮风格
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             ),
-          ],
-        ),
-      );
-    } else {
-      // 手机模式布局
-      return Scaffold(
-        appBar: _isPcPlatform
-            ? _buildPCBar(context)
-            : null,
-        body: _pages[_selectedIndex],
-        bottomNavigationBar: BottomNavigationBar(
-          type: BottomNavigationBarType.fixed,
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: '首页'),
-            BottomNavigationBarItem(icon: Icon(Icons.search), label: '搜索'),
-            BottomNavigationBarItem(icon: Icon(Icons.person), label: '我的'),
-            BottomNavigationBarItem(icon: Icon(Icons.settings), label: '设置')
-          ],
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
-        ),
-        // 统一处理迷你播放器
-        bottomSheet:
-          MiniPlayerComponent(
+            // 圆角输入框
+            inputDecorationTheme: InputDecorationTheme(
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              filled: true,
+            ),
+          ),
+          darkTheme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: modernBlue,
+              brightness: Brightness.dark,
+            ),
+            useMaterial3: true,
+            // 深色主题统一圆角
+            cardTheme: CardThemeData(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 0,
+            ),
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+            inputDecorationTheme: InputDecorationTheme(
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              filled: true,
+            ),
+          ),
+          themeMode: _getThemeMode(_settingsManager.themeMode),
+          home: AppShell(
             playerManager: _playerManager,
-            onExpand: () {
-              // 实现迷你播放器展开逻辑
-            },
-            onPlayList: _openPlayList,
+            playlistManager: _playlistManager,
           ),
-      );
-    }
-  }
-
-  PreferredSizeWidget _buildPCBar(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return PreferredSize(
-      preferredSize: const Size.fromHeight(40.0),
-      child: Container(
-        decoration: BoxDecoration(
-          color: isDark ? Colors.grey[900]! : Colors.white,
-          border: Border(
-            bottom: BorderSide(
-              color: isDark ? Colors.grey[800]! : Colors.grey[300]!,
-              width: 1.0,
-            ),
-          ),
-        ),
-        child: MoveWindow(
-          child: Row(
-            children: [
-              // 左侧应用图标和标题
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                child: Row(
-                  children: [
-                    Image.asset(
-                      'assets/ic_launcher.png',
-                      width: 20,
-                      height: 20,
-                      fit: BoxFit.contain,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'BiliMusic',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white : Colors.grey[800],
-                        fontFamily: 'CabinSketch',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // 导航菜单
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _NavBarItem(
-                      icon: Icons.home_outlined,
-                      activeIcon: Icons.home,
-                      label: '首页',
-                      isActive: _selectedIndex == 0,
-                      onTap: () => _onItemTapped(0),
-                    ),
-                    _NavBarItem(
-                      icon: Icons.search_outlined,
-                      activeIcon: Icons.search,
-                      label: '搜索',
-                      isActive: _selectedIndex == 1,
-                      onTap: () => _onItemTapped(1),
-                    ),
-                    _NavBarItem(
-                      icon: Icons.person_outlined,
-                      activeIcon: Icons.person,
-                      label: '我的',
-                      isActive: _selectedIndex == 2,
-                      onTap: () => _onItemTapped(2),
-                    ),
-                    _NavBarItem(
-                      icon: Icons.settings_outlined,
-                      activeIcon: Icons.settings,
-                      label: '设置',
-                      isActive: _selectedIndex == 3,
-                      onTap: () => _onItemTapped(3),
-                    ),
-                  ],
-                ),
-              ),
-
-              // 窗口控制按钮
-              Row(
-                children: [
-                  // 最小化按钮
-                  WindowButton(
-                    colors: WindowButtonColors(
-                      iconNormal: isDark ? Colors.grey[400] : Colors.grey[700],
-                      iconMouseOver: isDark ? Colors.grey[300] : Colors.grey[800],
-                      iconMouseDown: isDark ? Colors.grey[200] : Colors.grey[900],
-                      mouseOver: isDark ? Colors.grey[800] : Colors.grey[200],
-                      mouseDown: isDark ? Colors.grey[700] : Colors.grey[300],
-                    ),
-                    onPressed: () => appWindow.minimize(),
-                    iconBuilder: (buttonContext) => const Icon(Icons.minimize, size: 14),
-                  ),
-
-                  // 最大化/恢复按钮
-                  WindowButton(
-                    colors: WindowButtonColors(
-                      iconNormal: isDark ? Colors.grey[400] : Colors.grey[700],
-                      iconMouseOver: isDark ? Colors.grey[300] : Colors.grey[800],
-                      iconMouseDown: isDark ? Colors.grey[200] : Colors.grey[900],
-                      mouseOver: isDark ? Colors.grey[800] : Colors.grey[200],
-                      mouseDown: isDark ? Colors.grey[700] : Colors.grey[300],
-                    ),
-                    onPressed: () {
-                      if (appWindow.isMaximized) {
-                        appWindow.restore();
-                      } else {
-                        appWindow.maximize();
-                      }
-                    },
-                    iconBuilder: (buttonContext) => Icon(
-                      appWindow.isMaximized ? Icons.filter_none : Icons.crop_square,
-                      size: 14,
-                    ),
-                  ),
-
-                  // 关闭按钮
-                  WindowButton(
-                    colors: WindowButtonColors(
-                      iconNormal: isDark ? Colors.grey[400] : Colors.grey[700],
-                      iconMouseOver: Colors.white,
-                      iconMouseDown: Colors.white,
-                      mouseOver: Colors.red,
-                      mouseDown: Colors.red[700],
-                    ),
-                    onPressed: () {
-                      _playerManager.stop();
-                      appWindow.close();
-                    },
-                    iconBuilder: (buttonContext) => const Icon(Icons.close, size: 16),
-                  ),
-                ],
-              ),
-            ],
-          ),
+          onGenerateRoute: AppRoutes.onGenerateRoute,
         ),
       ),
+    ),
     );
   }
 }
 
-class _NavBarItem extends StatelessWidget {
-  final IconData icon;
-  final IconData activeIcon;
-  final String label;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _NavBarItem({
-    required this.icon,
-    required this.activeIcon,
-    required this.label,
-    required this.isActive,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4.0),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(4.0),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-            child: Row(
-              children: [
-                Icon(
-                  isActive ? activeIcon : icon,
-                  size: 18,
-                  color: isActive
-                      ? theme.colorScheme.primary
-                      : (isDark ? Colors.grey[400] : Colors.grey[700]),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                    color: isActive
-                        ? theme.colorScheme.primary
-                        : (isDark ? Colors.grey[400] : Colors.grey[700]),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}

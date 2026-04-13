@@ -1,327 +1,566 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/components/player_manager.dart';
-import 'dart:convert'; // 添加jsonDecode支持
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/foundation.dart';
-import 'package:bilimusic/utils/cache_manager.dart';
-import 'package:bilimusic/utils/network_config.dart';
-import 'package:bilimusic/components/long_press_menu.dart';
-import 'package:bilimusic/components/playlist_manager.dart';
+import 'package:bilimusic/models/search_result.dart';
+import 'package:bilimusic/models/music.dart' as music_model;
+import 'package:bilimusic/managers/player_manager.dart';
+import 'package:bilimusic/managers/playlist_manager.dart';
+import 'package:bilimusic/services/search_service.dart';
+import 'package:bilimusic/pages/search/widgets/search_bar_widget.dart';
+import 'package:bilimusic/pages/search/widgets/search_type_tabs.dart';
+import 'package:bilimusic/pages/search/widgets/search_result_card.dart';
+import 'package:bilimusic/pages/search/widgets/search_empty_state.dart';
+import 'package:bilimusic/pages/playlist_page.dart';
+import 'package:bilimusic/components/common/cards/music_card.dart';
+import 'package:bilimusic/utils/responsive.dart';
+import 'package:bilimusic/utils/animations.dart';
+import 'package:bilimusic/providers/search_state_provider.dart';
+import 'package:rxdart/rxdart.dart';
 
+/// 搜索页 - 重构版本
 class SearchPage extends StatefulWidget {
   final PlayerManager playerManager;
+  final String? initialQuery; // 可选的初始搜索参数
 
-  const SearchPage({super.key, required this.playerManager});
+  const SearchPage({
+    super.key,
+    required this.playerManager,
+    this.initialQuery,
+  });
 
   @override
-  _SearchPageState createState() => _SearchPageState();
+  State<SearchPage> createState() => _SearchPageState();
 }
 
 class _SearchPageState extends State<SearchPage> {
   final TextEditingController _searchController = TextEditingController();
-  List<Music> _searchResults = [];
-  bool _isLoading = false;
-  String? _errorMessage; // 添加错误消息状态
+  final SearchService _searchService = SearchService();
   late PlaylistManager _playlistManager;
+
+  // 搜索状态
+  List<SearchResult> _allResults = [];
+  List<SearchResult> _filteredResults = [];
+  SearchResultType _selectedType = SearchResultType.video;
+  List<SearchResultType> _availableTypes = [];
+  bool _isLoading = false;
+  String? _errorMessage;
+  String _currentQuery = '';
+
+  // 分P加载状态
+  final Map<String, bool> _pagesLoading = {};
+  final Map<String, List<music_model.Page>> _pagesCache = {};
+  bool _isPagesLoading = false;
+
+  // 防抖
+  final _searchSubject = BehaviorSubject<String>();
+
+  // 统一间距
+  static const double _sectionSpacing = 24.0;
+  static const double _cardSpacing = 12.0;
+  static const double _horizontalPadding = 16.0;
 
   @override
   void initState() {
     super.initState();
     _playlistManager = PlaylistManager();
-  }
 
-  // AV号转BV号实现（基于Java代码的Dart实现）
-  String av2bv(int aid) {
-    const xorCode = 23442827791579;
-    const maskCode = 2251799813685247; // 0x1FFFFFFFFFFF
-    const base = 58;
-    const data = "FcwAPNKTMug3GV5Lj7EJnHpWsx4tb8haYeviqBz6rkCy12mUSDQX9RdoZf";
+    // 防抖处理搜索
+    _searchSubject
+        .debounceTime(const Duration(milliseconds: 300))
+        .listen(_performSearch);
 
-    // 创建初始字符数组
-    List<String> bytes = ['B','V','1','0','0','0','0','0','0','0','0','0'];
-    int bvIndex = bytes.length - 1;
+    // 监听 SearchStateNotifier 的变化（来自 LandscapeShell 搜索栏）
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupSearchStateListener();
+    });
 
-    // 计算tmp值
-    BigInt tmp = (BigInt.one << 51) | BigInt.from(aid);
-    tmp = tmp ^ BigInt.from(xorCode);
-
-    // 转换base58
-    while (tmp > BigInt.zero) {
-      final remainder = tmp % BigInt.from(base);
-      bytes[bvIndex] = data[remainder.toInt()];
-      tmp = tmp ~/ BigInt.from(base);
-      bvIndex--;
+    // 如果有初始搜索参数，立即执行搜索
+    if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
+      _searchController.text = widget.initialQuery!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _performSearch(widget.initialQuery!);
+      });
     }
-
-    // 交换位置
-    _swap(bytes, 3, 9);
-    _swap(bytes, 4, 7);
-
-    return bytes.join();
   }
 
-  // 交换列表元素
-  void _swap(List<String> list, int i, int j) {
-    final temp = list[i];
-    list[i] = list[j];
-    list[j] = temp;
+  void _setupSearchStateListener() {
+    try {
+      final searchState = SearchStateProvider.of(context);
+      searchState.addListener(_onSearchStateChanged);
+    } catch (_) {
+      // SearchStateProvider 不在 widget tree 中，忽略（可能是独立路由）
+    }
   }
 
-  Future<void> _searchMusic(String query) async {
+  void _onSearchStateChanged() {
+    final searchState = SearchStateProvider.of(context);
+    if (searchState.shouldSearch && searchState.query.isNotEmpty) {
+      // 更新搜索框文字并执行搜索
+      if (_searchController.text != searchState.query) {
+        _searchController.text = searchState.query;
+      }
+      _performSearch(searchState.query).then((_) {
+        // 搜索完成后标记已搜索
+        searchState.markSearched();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchSubject.close();
+    // 移除 SearchStateNotifier 监听器
+    try {
+      final searchState = SearchStateProvider.of(context);
+      searchState.removeListener(_onSearchStateChanged);
+    } catch (_) {
+      // 忽略
+    }
+    super.dispose();
+  }
+
+  Future<void> _performSearch(String query) async {
     if (query.isEmpty) {
       setState(() {
-        _searchResults = [];
+        _allResults = [];
+        _filteredResults = [];
+        _availableTypes = [];
+        _currentQuery = '';
+        _pagesCache.clear();
+        _pagesLoading.clear();
       });
       return;
     }
 
     setState(() {
       _isLoading = true;
-      _searchResults = [];
+      _errorMessage = null;
+      _currentQuery = query;
+      _pagesCache.clear();
+      _pagesLoading.clear();
     });
 
-    // 检查是否为BV号或AV号
-    final trimmedQuery = query.trim();
-    if (trimmedQuery.startsWith("BV1")) {
-      // 直接作为BV号处理
-      _playByBvid(trimmedQuery);
-      return;
-    } else if (trimmedQuery.toUpperCase().startsWith("AV")) {
-      // 处理AV号
-      try {
-        // 提取AV号数字部分
-        final aidString = trimmedQuery.substring(2).replaceAll(RegExp(r'[^0-9]'), '');
-        if (aidString.isEmpty) {
-          throw Exception('无效的AV号');
-        }
+    final response = await _searchService.search(query);
 
-        final aid = int.parse(aidString);
-        final bvid = av2bv(aid);
-        _playByBvid(bvid);
-        return;
-      } catch (e) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'AV号转换失败: $e';
-        });
-        return;
-      }
-    }
-    // 实现实际的搜索逻辑
-    final response = await http.get(
-        Uri.parse('https://api.bilibili.com/x/web-interface/search/all/v2?keyword=$query'),
-        headers: NetworkConfig.biliHeaders,
-    );
-    
-    if (response.statusCode == 200) {
-      final json = jsonDecode(response.body);
-      if (json['code'] == 0) {
-        final List<Music> results = [];
-        
-        // 解析搜索结果
-        for (var result in json['data']['result']) {
-          if (result['result_type'] == 'video') {
-            for (var item in result['data']) {
-              // 处理富文本标题
-              String finalTitle = '';
-              if (item['title'].contains('<') && item['title'].contains('>')) {
-                for (var titlePart in item['title'].split('<')) {
-                  if (titlePart.contains('>')) {
-                    finalTitle += titlePart.split('>')[1];
-                  } else {
-                    finalTitle += titlePart;
-                  }
-                }
-              } else {
-                finalTitle = item['title'];
-              }
-              
-              // 替换特殊字符
-              finalTitle = finalTitle.replaceFirst('&quot;', '"').replaceFirst('&amp;', '&');
-              
-              // 构建封面URL
-              String coverUrl = item['pic'];
-              if (!coverUrl.startsWith('http')) {
-                coverUrl = 'https:$coverUrl';
-              }
-              
-              results.add(
-                Music(
-                  id: item['bvid'],
-                  title: finalTitle,
-                  artist: item['author'],
-                  album: item['tag'],
-                  coverUrl: coverUrl + "@672w_378h",
-                  duration: null, // 移除初始duration
-                  audioUrl: '',
-                  pages: [],
-                ),
-              );
-            }
-          }
-        }
-        
-        setState(() {
-          _searchResults = results;
-          _isLoading = false;
-        });
+    setState(() {
+      _isLoading = false;
+      if (response.results.isEmpty) {
+        _errorMessage = '没有搜索到任何结果';
+        _allResults = [];
+        _filteredResults = [];
+        _availableTypes = [];
       } else {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = '没有搜索到任何视频(っ °Д °;)っ';
-        });
+        _allResults = response.results;
+        _availableTypes = _searchService.getAvailableTypes(response.results);
+        _filterResults();
       }
-    } else {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = '网络请求失败: ${response.statusCode}';
-      });
+    });
+
+    // 搜索完成后，加载所有视频的分P信息
+    if (response.results.isNotEmpty) {
+      _fetchAllPagesWithDelay(response.results);
     }
   }
 
-  // 通过BV号播放音乐
-  Future<void> _playByBvid(String bvid) async {
-    try {
-      // 创建临时音乐对象
-      final tempMusic = Music(
-        id: bvid,
-        title: '',
-        artist: '',
-        album: '',
-        coverUrl: '',
-        duration: null,
-        audioUrl: '',
-        pages: [],
+  // 延时加载所有视频的分P信息
+  Future<void> _fetchAllPagesWithDelay(List<SearchResult> results) async {
+    if (_isPagesLoading) return;
+    _isPagesLoading = true;
+
+    for (final result in results) {
+      if (!mounted) break;
+      if (result.type != SearchResultType.video) continue;
+      if (_pagesCache.containsKey(result.id)) continue;
+      if (_pagesLoading[result.id] == true) continue;
+
+      setState(() => _pagesLoading[result.id] = true);
+
+      try {
+        final pages = await result.fetchPages();
+        if (mounted) {
+          setState(() {
+            _pagesCache[result.id] = pages;
+            _pagesLoading[result.id] = false;
+          });
+        }
+      } catch (_) {
+        if (mounted) {
+          setState(() => _pagesLoading[result.id] = false);
+        }
+      }
+
+      // 延时50ms避免请求过快
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+
+    _isPagesLoading = false;
+  }
+
+  void _filterResults() {
+    setState(() {
+      _filteredResults = _searchService.filterByType(
+        _allResults,
+        _selectedType,
       );
+    });
+  }
 
-      // 获取视频详情
-      final detailedMusic = await tempMusic.getVideoDetails();
+  void _onTypeChanged(SearchResultType type) {
+    setState(() {
+      _selectedType = type;
+      _filterResults();
+    });
+  }
 
-      // 播放音乐
+  void _onSearch(String query) {
+    _searchSubject.add(query);
+  }
+
+  void _onClear() {
+    setState(() {
+      _allResults = [];
+      _filteredResults = [];
+      _availableTypes = [];
+      _currentQuery = '';
+    });
+  }
+
+  Future<void> _playResult(SearchResult result) async {
+    if (result.type == SearchResultType.video) {
+      final music = result.toMusic();
+      final detailedMusic = await music.getVideoDetails();
       widget.playerManager.play(detailedMusic);
-
-      // 更新UI显示单个结果
-      setState(() {
-        _searchResults = [detailedMusic];
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = '播放失败: $e';
-      });
     }
-  }
-
-  void _playMusic(Music music) async {
-    // 获取视频详情
-    final detailedMusic = await music.getVideoDetails();
-    
-    // 播放音乐
-    widget.playerManager.play(detailedMusic);
-  }
-
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = ResponsiveHelper.getScreenSize(context);
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text('音乐搜索'),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: '输入音乐名称、艺术家或BV/AV号',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onSubmitted: _searchMusic,
-            ),
-          ),
-          Expanded(
-            child: _isLoading
-                ? Center(child: CircularProgressIndicator())
-                : _searchResults.isEmpty
-                    ? Center(
-                      child: Text(_errorMessage ?? '请输入搜索关键词'))
-                    : ListView.builder(
-                        itemCount: _searchResults.length,
-                        itemBuilder: (context, index) {
-                          final music = _searchResults[index];
-                          return GestureDetector(
-                            onTap: () => _playMusic(music),
-                            onLongPress: () {
-                              showModalBottomSheet(
-                                context: context,
-                                builder: (context) => Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: LongPressMenu(
-                                    music: music,
-                                    playerManager: widget.playerManager,
-                                    playlistManager: _playlistManager,
-                                  ),
-                                ),
-                              );
-                            },
-                            onSecondaryTap: () {
-                              showDialog(
-                                context: context,
-                                builder: (BuildContext context) {
-                                  return AlertDialog(
-                                    contentPadding: const EdgeInsets.all(16.0),
-                                    content: LongPressMenu(
-                                      music: music,
-                                      playerManager: widget.playerManager,
-                                      playlistManager: _playlistManager,
-                                    ),
-                                  );
-                                },
-                              );
-                            },
-                            child: ListTile(
-                              leading: SizedBox(
-                                width: 48,
-                                height: 48,
-                                child: CachedNetworkImage(
-                                  imageUrl: music.safeCoverUrl,
-                                  httpHeaders: Map<String, String>.from(NetworkConfig.biliHeaders),
-                                  placeholder: (context, url) => Center(child: CircularProgressIndicator()),
-                                  errorWidget: (context, url, error) {
-                                    // 添加错误占位符并记录错误日志
-                                    if (kDebugMode) {
-                                      print('Image load error: $error');
-                                    }
-                                    return const Icon(Icons.image_not_supported_rounded);
-                                  },
-                                  fit: BoxFit.cover,
-                                  cacheManager: imageCacheManager,
-                                  cacheKey: music.id,
-                                ),
-                              ),
-                              title: Text(music.title),
-                              subtitle: Text('${music.artist} - ${music.album}'),
-                            ),
-                          );
-                        },
-                      ),
-          ),
-          SizedBox(height: 120,),
+      body: CustomScrollView(
+        slivers: [
+          _buildAppBar(context, screenSize),
+          if (_allResults.isEmpty && !_isLoading)
+            _buildInitialContent(context, screenSize)
+          else if (_isLoading)
+            _buildLoadingContent()
+          else if (_filteredResults.isEmpty)
+            _buildEmptyContent()
+          else
+            _buildResultsContent(context, screenSize),
         ],
       ),
     );
+  }
+
+  // 构建应用栏
+  SliverAppBar _buildAppBar(BuildContext context, ScreenSize screenSize) {
+    if (screenSize == ScreenSize.desktop) {
+      return SliverAppBar(
+        floating: true,
+        snap: true,
+        automaticallyImplyLeading: false,
+        title: Row(
+          children: [
+            Expanded(
+              child: SearchBarWidget(
+                controller: _searchController,
+                onSearch: _onSearch,
+                onClear: _onClear,
+                hintText: '搜索音乐、视频、UP主...',
+              ),
+            ),
+            const SizedBox(width: 12),
+            SearchTypeDropdown(
+              selectedType: _selectedType,
+              onTypeChanged: _onTypeChanged,
+            ),
+          ],
+        ),
+        toolbarHeight: 64,
+      );
+    } else {
+      return SliverAppBar(
+        floating: true,
+        snap: true,
+        title: SearchBarWidget(
+          controller: _searchController,
+          onSearch: _onSearch,
+          onClear: _onClear,
+          autoFocus: true,
+        ),
+        bottom: _availableTypes.isNotEmpty
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(56),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: SearchTypeTabs(
+                    selectedType: _selectedType,
+                    onTypeChanged: _onTypeChanged,
+                    availableTypes: _availableTypes,
+                  ),
+                ),
+              )
+            : null,
+      );
+    }
+  }
+
+  // 构建初始内容（未搜索状态）
+  Widget _buildInitialContent(BuildContext context, ScreenSize screenSize) {
+    final suggestions = ['周杰伦', '林俊杰', '五月天', '陈奕迅', '邓紫棋'];
+
+    return SliverFillRemaining(
+      hasScrollBody: false,
+      child: SearchEmptyState(
+        type: EmptyStateType.initial,
+        suggestions: suggestions,
+      ),
+    );
+  }
+
+  // 构建加载内容
+  Widget _buildLoadingContent() {
+    return const SliverFillRemaining(
+      hasScrollBody: false,
+      child: SearchEmptyState(type: EmptyStateType.loading),
+    );
+  }
+
+  // 构建空内容
+  Widget _buildEmptyContent() {
+    return SliverFillRemaining(
+      hasScrollBody: false,
+      child: SearchEmptyState(
+        type: _currentQuery.isEmpty
+            ? EmptyStateType.initial
+            : EmptyStateType.noResults,
+        customMessage: _errorMessage ?? '没有找到相关结果',
+      ),
+    );
+  }
+
+  // 构建搜索结果内容 - 混合布局
+  Widget _buildResultsContent(BuildContext context, ScreenSize screenSize) {
+    final isDesktop = screenSize == ScreenSize.desktop;
+    final spacing = isDesktop ? _sectionSpacing / 2 : _cardSpacing / 2;
+
+    // 分离多P和单P视频
+    final multiPartResults = <SearchResult>[];
+    final singlePartResults = <SearchResult>[];
+
+    for (final result in _filteredResults) {
+      if (result.type != SearchResultType.video) {
+        // 非视频类型（专辑、UP主等）归为单P
+        singlePartResults.add(result);
+      } else {
+        final pages = _pagesCache[result.id] ?? [];
+        if (pages.length > 1) {
+          multiPartResults.add(result);
+        } else {
+          singlePartResults.add(result);
+        }
+      }
+    }
+
+    return SliverPadding(
+      padding: EdgeInsets.all(spacing),
+      sliver: SliverList(
+        delegate: SliverChildListDelegate([
+          // 搜索结果标题
+          FadeInWidget(
+            duration: const Duration(milliseconds: 400),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                isDesktop ? 0.0 : _horizontalPadding,
+                isDesktop ? 0.0 : 8.0,
+                isDesktop ? 0.0 : _horizontalPadding,
+                _cardSpacing,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '找到 ${_filteredResults.length} 个结果',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (!isDesktop && _availableTypes.length > 1)
+                    Text(
+                      '类型: ${_getTypeLabel(_selectedType)}',
+                      style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                    ),
+                ],
+              ),
+            ),
+          ),
+
+          // 多P视频网格布局（紧凑排列）
+          if (multiPartResults.isNotEmpty) ...[
+            _buildMultiPartGrid(context, multiPartResults, screenSize),
+            const SizedBox(height: _cardSpacing * 2),
+          ],
+
+          // 单P视频列表样式
+          ...singlePartResults.map(
+            (result) => _buildResultItem(context, result, screenSize),
+          ),
+
+          const SizedBox(height: 120), // 底部占位
+        ]),
+      ),
+    );
+  }
+
+  // 构建多P视频网格布局（像首页一样紧凑排列）
+  Widget _buildMultiPartGrid(
+    BuildContext context,
+    List<SearchResult> results,
+    ScreenSize screenSize,
+  ) {
+    final isDesktop = screenSize == ScreenSize.desktop;
+    final columns = ResponsiveHelper.responsiveGridColumns(context);
+    final gridSpacing = ResponsiveHelper.responsiveSpacing(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: isDesktop ? 0.0 : _horizontalPadding,
+          ),
+          child: Text(
+            '系列视频 (${results.length})',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).primaryColor,
+            ),
+          ),
+        ),
+        const SizedBox(height: _cardSpacing),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.symmetric(horizontal: gridSpacing),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            crossAxisSpacing: gridSpacing,
+            mainAxisSpacing: gridSpacing,
+            childAspectRatio: screenSize == ScreenSize.mobile ? 0.8 : 0.85,
+          ),
+          itemCount: results.length,
+          itemBuilder: (context, index) {
+            final result = results[index];
+            final pages = _pagesCache[result.id] ?? [];
+            return FadeInWidget(
+              duration: const Duration(milliseconds: 400),
+              delay: Duration(milliseconds: (index % columns) * 50),
+              child: _buildStackedCard(context, result, pages),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  // 根据类型选择卡片或列表样式
+  Widget _buildResultItem(
+    BuildContext context,
+    SearchResult result,
+    ScreenSize screenSize,
+  ) {
+    final pages = _pagesCache[result.id] ?? [];
+    final isLoading = _pagesLoading[result.id] == true;
+
+    // 非视频类型或单P视频，使用原有卡片样式
+    if (result.type != SearchResultType.video || (isLoading && pages.isEmpty)) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: _cardSpacing),
+        child: SearchResultCard(
+          result: result,
+          playerManager: widget.playerManager,
+          playlistManager: _playlistManager,
+          onTap: () => _playResult(result),
+        ),
+      );
+    }
+
+    // 单P视频：使用列表样式
+    return Padding(
+      padding: const EdgeInsets.only(bottom: _cardSpacing),
+      child: _buildListItem(context, result),
+    );
+  }
+
+  // 构建叠加卡片样式（多P视频）
+  Widget _buildStackedCard(
+    BuildContext context,
+    SearchResult result,
+    List<music_model.Page> pages,
+  ) {
+    final music = result.toMusic(pages: pages);
+
+    return StackedMusicCard(
+      music: music,
+      playerManager: widget.playerManager,
+      playlistManager: _playlistManager,
+      onTap: () => _navigateToPlaylist(result, pages),
+      showBadge: true,
+    );
+  }
+
+  // 构建列表样式（单P视频）
+  Widget _buildListItem(BuildContext context, SearchResult result) {
+    return MusicListItem(
+      music: result.toMusic(),
+      playerManager: widget.playerManager,
+      playlistManager: _playlistManager,
+      onTap: () => _playResult(result),
+    );
+  }
+
+  // 导航到Playlist页面展示所有分P
+  void _navigateToPlaylist(SearchResult result, List<music_model.Page> pages) {
+    // 将分P转换为Music列表，每个分P使用分P的名称、时长和cid
+    final songs = pages.map<music_model.Music>((page) {
+      return music_model.Music(
+        id: result.id,
+        cid: page.cid, // ✓ 设置cid
+        title: page.part.isNotEmpty ? page.part : result.title,
+        artist: result.subtitle.split(' - ').first,
+        album: result.subtitle.split(' - ').last,
+        coverUrl: result.coverUrl,
+        duration: page.durationValue,
+        audioUrl: '',
+        pages: [page],
+        currentPageIndex: 0,
+      );
+    }).toList();
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            PlaylistPage(songs: songs, playerManager: widget.playerManager),
+      ),
+    );
+  }
+
+  String _getTypeLabel(SearchResultType type) {
+    switch (type) {
+      case SearchResultType.video:
+        return '单曲';
+      case SearchResultType.album:
+        return '专辑';
+      case SearchResultType.author:
+        return 'UP主';
+      case SearchResultType.bangumi:
+        return '番剧';
+      case SearchResultType.topic:
+        return '话题';
+      case SearchResultType.upuser:
+        return '用户';
+    }
   }
 }

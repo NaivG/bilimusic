@@ -1,12 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:bilimusic/components/player_manager.dart';
-import 'package:bilimusic/components/playlist_manager.dart';
+import 'package:bilimusic/managers/player_manager.dart';
+import 'package:bilimusic/managers/playlist_manager.dart';
 import 'package:bilimusic/pages/playlist_page.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/utils/network_config.dart';
-import 'package:bilimusic/utils/cache_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
@@ -32,22 +31,20 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _playlistManager = PlaylistManager();
-    _playlistManager.init().then((_) {
-      _loadData();
-      _checkLoginStatus();
-    });
+    _loadData();
+    _checkLoginStatus();
   }
 
   Future<void> _loadData() async {
     // 获取播放历史数量
     final playHistory = widget.playerManager.playHistory;
-    
+
     // 获取收藏数量
     final favorites = widget.playerManager.favorites;
-    
+
     // 获取用户自定义播放列表数量
-    final playlists = await _playlistManager.getAllPlaylists();
-    
+    final playlists = _playlistManager.getAllPlaylists();
+
     setState(() {
       _playHistoryCount = playHistory.length;
       _favoritesCount = favorites.length;
@@ -101,47 +98,51 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
     final cookiesJson = prefs.getString('cookies');
-    
+
     if (cookiesJson != null && cookiesJson.isNotEmpty) {
       try {
         // 解析现有的 cookies
         final cookiesMap = json.decode(cookiesJson) as Map;
         final cookies = Map<String, String>.from(
-          cookiesMap.map((key, value) => MapEntry(key.toString(), value.toString()))
+          cookiesMap.map(
+            (key, value) => MapEntry(key.toString(), value.toString()),
+          ),
         );
-        
+
         // 删除指定的Cookie字段
-        cookies.removeWhere((key, value) => 
-          key == 'SESSDATA' || 
-          key == 'bili_jct' || 
-          key == 'DedeUserID' || 
-          key == 'DedeUserID__ckMd5' || 
-          key == 'sid');
-        
+        cookies.removeWhere(
+          (key, value) =>
+              key == 'SESSDATA' ||
+              key == 'bili_jct' ||
+              key == 'DedeUserID' ||
+              key == 'DedeUserID__ckMd5' ||
+              key == 'sid',
+        );
+
         // 保存更新后的 cookies
         await prefs.setString('cookies', json.encode(cookies));
-        
+
         // 更新NetworkConfig中的cookies
         NetworkConfig.setCookies(cookies);
-        
+
         // 更新UI状态
         setState(() {
           _isLoggedIn = false;
           _userName = '点击登录';
           _userAvatar = '';
         });
-        
+
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('已退出登录')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('已退出登录')));
         }
       } catch (e) {
         debugPrint('退出登录失败: $e');
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('退出登录失败: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('退出登录失败: $e')));
         }
       }
     }
@@ -199,7 +200,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     end: Alignment.bottomCenter,
                     colors: [
                       Theme.of(context).primaryColor,
-                      Theme.of(context).primaryColor.withOpacity(0.8),
+                      Theme.of(context).primaryColor.withValues(alpha: 0.8),
                     ],
                   ),
                 ),
@@ -242,10 +243,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                       Text(
                         _isLoggedIn ? '已登录' : '登录后可同步数据',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: Colors.white70, fontSize: 14),
                       ),
                     ],
                   ),
@@ -253,7 +251,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
           ),
-          
+
           // 功能磁贴
           SliverToBoxAdapter(
             child: Padding(
@@ -271,16 +269,28 @@ class _ProfilePageState extends State<ProfilePage> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          _buildStatItem(Icons.history, '$_playHistoryCount', '播放历史'),
-                          _buildStatItem(Icons.favorite, '$_favoritesCount', '我的收藏'),
-                          _buildStatItem(Icons.playlist_play, '$_playlistsCount', '我的歌单'),
+                          _buildStatItem(
+                            Icons.history,
+                            '$_playHistoryCount',
+                            '播放历史',
+                          ),
+                          _buildStatItem(
+                            Icons.favorite,
+                            '$_favoritesCount',
+                            '我的收藏',
+                          ),
+                          _buildStatItem(
+                            Icons.playlist_play,
+                            '$_playlistsCount',
+                            '我的歌单',
+                          ),
                         ],
                       ),
                     ),
                   ),
-                  
+
                   SizedBox(height: 20),
-                  
+
                   // 功能列表
                   _buildFunctionList(),
                 ],
@@ -303,26 +313,13 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildStatItem(IconData icon, String count, String label) {
     return Column(
       children: [
-        Icon(
-          icon,
-          size: 30,
-          color: _getPrimaryColor(context),
-        ),
+        Icon(icon, size: 30, color: _getPrimaryColor(context)),
         SizedBox(height: 5),
         Text(
           count,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
       ],
     );
   }
@@ -335,7 +332,7 @@ class _ProfilePageState extends State<ProfilePage> {
           leading: Container(
             padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
+              color: Colors.blue.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(Icons.history, color: Colors.blue),
@@ -347,7 +344,6 @@ class _ProfilePageState extends State<ProfilePage> {
               context,
               MaterialPageRoute(
                 builder: (context) => PlaylistPage(
-                  playlistName: '播放历史',
                   songs: widget.playerManager.playHistory,
                   playerManager: widget.playerManager,
                 ),
@@ -355,15 +351,15 @@ class _ProfilePageState extends State<ProfilePage> {
             );
           },
         ),
-        
+
         Divider(height: 1),
-        
+
         // 我的收藏
         ListTile(
           leading: Container(
             padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.red.withOpacity(0.1),
+              color: Colors.red.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(Icons.favorite, color: Colors.red),
@@ -375,7 +371,6 @@ class _ProfilePageState extends State<ProfilePage> {
               context,
               MaterialPageRoute(
                 builder: (context) => PlaylistPage(
-                  playlistName: '我的收藏',
                   songs: widget.playerManager.favorites,
                   playerManager: widget.playerManager,
                 ),
@@ -383,15 +378,15 @@ class _ProfilePageState extends State<ProfilePage> {
             );
           },
         ),
-        
+
         Divider(height: 1),
-        
+
         // 我的歌单
         ListTile(
           leading: Container(
             padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.1),
+              color: Colors.green.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(Icons.playlist_play, color: Colors.green),
@@ -406,9 +401,9 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  void _showPlaylists() async {
-    final playlists = await _playlistManager.getAllPlaylists();
-    
+  void _showPlaylists() {
+    final playlists = _playlistManager.getAllPlaylists();
+
     showModalBottomSheet(
       context: context,
       builder: (context) {
@@ -473,7 +468,9 @@ class _ProfilePageState extends State<ProfilePage> {
                         itemBuilder: (context, index) {
                           final playlist = playlists[index];
                           return FutureBuilder<List<Music>>(
-                            future: _playlistManager.getPlaylistSongs(playlist.id),
+                            future: _playlistManager.getPlaylistSongs(
+                              playlist.id,
+                            ),
                             builder: (context, snapshot) {
                               final songCount = snapshot.data?.length ?? 0;
                               return ListTile(
@@ -482,23 +479,20 @@ class _ProfilePageState extends State<ProfilePage> {
                                 subtitle: Text('$songCount 首歌曲'),
                                 onTap: () async {
                                   Navigator.pop(context);
-                                  final songs = await _playlistManager.getPlaylistSongs(playlist.id);
                                   if (mounted) {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         builder: (context) => PlaylistPage(
                                           playlistId: playlist.id,
-                                          playlistName: playlist.name,
                                           playerManager: widget.playerManager,
-                                          playlistManager: _playlistManager,
                                         ),
                                       ),
                                     );
                                   }
                                 },
                               );
-                            }
+                            },
                           );
                         },
                       ),
@@ -512,7 +506,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   void _createNewPlaylist() {
     final TextEditingController _controller = TextEditingController();
-    
+
     showDialog(
       context: context,
       builder: (context) {
@@ -535,12 +529,14 @@ class _ProfilePageState extends State<ProfilePage> {
             ElevatedButton(
               onPressed: () async {
                 if (_controller.text.trim().isNotEmpty) {
-                  await _playlistManager.createPlaylist(_controller.text.trim());
+                  await _playlistManager.createPlaylist(
+                    _controller.text.trim(),
+                  );
                   Navigator.pop(context);
                   _loadData(); // 刷新数据
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('歌单创建成功')),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('歌单创建成功')));
                 }
               },
               child: Text('创建'),
@@ -549,44 +545,5 @@ class _ProfilePageState extends State<ProfilePage> {
         );
       },
     );
-  }
-
-  void _clearCache() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('清除缓存'),
-          content: Text('确定要清除所有缓存吗？这将包括图片缓存等数据。'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text('取消'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: Text('确定'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirm == true) {
-      try {
-        await imageCacheManager.emptyCache();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('缓存清除成功')),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('缓存清除失败: $e')),
-          );
-        }
-      }
-    }
   }
 }

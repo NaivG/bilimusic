@@ -1,14 +1,13 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:bilimusic/utils/cache_manager.dart';
-import 'package:bilimusic/utils/settings_manager.dart';
-import 'package:bilimusic/components/player_manager.dart';
+import 'package:bilimusic/managers/cache_manager.dart';
+import 'package:bilimusic/managers/settings_manager.dart';
+import 'package:bilimusic/utils/platform_helper.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:bilimusic/pages/cookie_page.dart';
 import 'package:bilimusic/pages/data_migration_page.dart';
+import 'package:restart_app/restart_app.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -53,7 +52,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 setState(() {}); // 刷新UI
               },
             ),
-            
+
             // 播放设置
             _buildSectionTitle('播放'),
             _buildSwitchListTile(
@@ -65,7 +64,70 @@ class _SettingsPageState extends State<SettingsPage> {
                 setState(() {}); // 刷新UI
               },
             ),
-            
+
+            // Crossfade设置
+            _buildSwitchListTile(
+              icon: Icons.graphic_eq,
+              title: '交叉淡入淡出',
+              subtitle: '歌曲自动切换时平滑过渡(仅自动切歌生效)',
+              value: _settingsManager.crossfadeEnabled,
+              onChanged: (value) {
+                _settingsManager.setCrossfadeEnabled(value);
+                setState(() {}); // 刷新UI
+              },
+            ),
+
+            // 仅在启用crossfade时显示详细设置
+            if (_settingsManager.crossfadeEnabled) ...[
+              // Crossfade时长滑块
+              ListTile(
+                leading: Icon(Icons.timer, color: _getPrimaryColor(context)),
+                title: Text('淡入淡出时长'),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('当前: ${_settingsManager.crossfadeDuration ~/ 1000}秒'),
+                    Slider(
+                      value: _settingsManager.crossfadeDuration.toDouble(),
+                      min: 1000,
+                      max: 10000,
+                      divisions: 9,
+                      label: '${_settingsManager.crossfadeDuration ~/ 1000}秒',
+                      onChanged: (value) async {
+                        await _settingsManager.setCrossfadeDuration(
+                          value.toInt(),
+                        );
+                        setState(() {});
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
+              // 预加载时间滑块
+              ListTile(
+                leading: Icon(Icons.download, color: _getPrimaryColor(context)),
+                title: Text('提前加载时间'),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('当前: 当开始过渡前${_settingsManager.preloadSeconds}秒开始加载下一首'),
+                    Slider(
+                      value: _settingsManager.preloadSeconds.toDouble(),
+                      min: 5,
+                      max: 30,
+                      divisions: 25,
+                      label: '${_settingsManager.preloadSeconds}秒',
+                      onChanged: (value) async {
+                        await _settingsManager.setPreloadSeconds(value.toInt());
+                        setState(() {});
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             // 音质设置
             _buildSectionTitle('音质'),
             _buildSwitchListTile(
@@ -78,7 +140,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 setState(() {}); // 刷新UI
               },
             ),
-            
+
             // 界面设置
             _buildSectionTitle('界面'),
             _buildSwitchListTile(
@@ -104,22 +166,15 @@ class _SettingsPageState extends State<SettingsPage> {
             ListTile(
               leading: Icon(Icons.tablet, color: _getPrimaryColor(context)),
               title: Text('平板模式'),
-              subtitle: Text(_settingsManager.getTabletModeText(_settingsManager.tabletMode)),
+              subtitle: Text(
+                _settingsManager.getTabletModeText(_settingsManager.tabletMode),
+              ),
               trailing: DropdownButton<String>(
                 value: _settingsManager.tabletMode,
                 items: [
-                  DropdownMenuItem(
-                    value: 'auto',
-                    child: Text('自动'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'on',
-                    child: Text('强制打开'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'off',
-                    child: Text('强制关闭'),
-                  ),
+                  DropdownMenuItem(value: 'auto', child: Text('自动')),
+                  DropdownMenuItem(value: 'on', child: Text('强制打开')),
+                  DropdownMenuItem(value: 'off', child: Text('强制关闭')),
                 ],
                 onChanged: (value) {
                   if (value != null) {
@@ -145,15 +200,16 @@ class _SettingsPageState extends State<SettingsPage> {
             ListTile(
               leading: Icon(Icons.volume_up, color: _getPrimaryColor(context)),
               title: Text('音频输出模式'),
-              subtitle: Text(_settingsManager.getAudioOutputModeText(_settingsManager.audioOutputMode)),
-              enabled: Platform.isAndroid, // 仅在安卓平台启用
+              subtitle: Text(
+                _settingsManager.getAudioOutputModeText(
+                  _settingsManager.audioOutputMode,
+                ),
+              ),
+              enabled: PlatformHelper.isAndroid, // 仅在安卓平台启用
               trailing: DropdownButton<String>(
                 value: _settingsManager.audioOutputMode,
                 items: [
-                  DropdownMenuItem(
-                    value: 'aaudio',
-                    child: Text('AAudio (推荐)'),
-                  ),
+                  DropdownMenuItem(value: 'aaudio', child: Text('AAudio (推荐)')),
                   DropdownMenuItem(
                     value: 'audiotrack',
                     child: Text('AudioTrack'),
@@ -173,22 +229,15 @@ class _SettingsPageState extends State<SettingsPage> {
             ListTile(
               leading: Icon(Icons.palette, color: _getPrimaryColor(context)),
               title: Text('主题模式(需要重启生效)'),
-              subtitle: Text(_settingsManager.getThemeModeText(_settingsManager.themeMode)),
+              subtitle: Text(
+                _settingsManager.getThemeModeText(_settingsManager.themeMode),
+              ),
               trailing: DropdownButton<String>(
                 value: _settingsManager.themeMode,
                 items: [
-                  DropdownMenuItem(
-                    value: 'system',
-                    child: Text('跟随系统'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'light',
-                    child: Text('浅色'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'dark',
-                    child: Text('深色'),
-                  ),
+                  DropdownMenuItem(value: 'system', child: Text('跟随系统')),
+                  DropdownMenuItem(value: 'light', child: Text('浅色')),
+                  DropdownMenuItem(value: 'dark', child: Text('深色')),
                 ],
                 onChanged: (value) {
                   if (value != null) {
@@ -200,17 +249,20 @@ class _SettingsPageState extends State<SettingsPage> {
                 },
               ),
             ),
-            
+
             // 缓存设置
             _buildSectionTitle('缓存'),
             ListTile(
-              leading: Icon(Icons.cleaning_services, color: _getPrimaryColor(context)),
+              leading: Icon(
+                Icons.cleaning_services,
+                color: _getPrimaryColor(context),
+              ),
               title: Text('清除缓存'),
               subtitle: Text('清除图片和其他缓存数据'),
               trailing: Icon(Icons.arrow_forward_ios),
               onTap: _clearCache,
             ),
-            
+
             // 数据迁移
             _buildSectionTitle('数据管理'),
             ListTile(
@@ -221,13 +273,17 @@ class _SettingsPageState extends State<SettingsPage> {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => DataMigrationPage(),
-                  ),
+                  MaterialPageRoute(builder: (context) => DataMigrationPage()),
                 );
               },
             ),
-            
+            ListTile(
+              leading: Icon(Icons.delete_forever, color: Colors.red),
+              title: Text('清除所有数据', style: TextStyle(color: Colors.red)),
+              subtitle: Text('清除用户数据并重启应用'),
+              onTap: _clearAllData,
+            ),
+
             // 关于
             _buildSectionTitle('关于'),
             ListTile(
@@ -246,7 +302,10 @@ class _SettingsPageState extends State<SettingsPage> {
               onTap: _showFeedbackDialog,
             ),
             ListTile(
-              leading: Icon(Icons.privacy_tip, color: _getPrimaryColor(context)),
+              leading: Icon(
+                Icons.privacy_tip,
+                color: _getPrimaryColor(context),
+              ),
               title: Text('隐私政策'),
               onTap: _showPrivacyPolicy,
             ),
@@ -256,7 +315,7 @@ class _SettingsPageState extends State<SettingsPage> {
               subtitle: Text('查看当前保存的 Cookie 信息'),
               onTap: _showCookies,
             ),
-            SizedBox(height: 120,),
+            SizedBox(height: 120),
           ],
         ),
       ),
@@ -266,8 +325,8 @@ class _SettingsPageState extends State<SettingsPage> {
   // 获取适合当前主题的主色调
   Color _getPrimaryColor(BuildContext context) {
     // 在深色主题中使用白色，在浅色主题中使用primaryColor
-    return Theme.of(context).brightness == Brightness.dark 
-        ? Colors.white 
+    return Theme.of(context).brightness == Brightness.dark
+        ? Colors.white
         : Theme.of(context).primaryColor;
   }
 
@@ -279,8 +338,8 @@ class _SettingsPageState extends State<SettingsPage> {
         style: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.bold,
-          color: Theme.of(context).brightness == Brightness.dark 
-              ? Colors.white 
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.white
               : Theme.of(context).primaryColor,
         ),
       ),
@@ -298,13 +357,9 @@ class _SettingsPageState extends State<SettingsPage> {
       leading: Icon(icon, color: _getPrimaryColor(context)),
       title: Text(title),
       subtitle: subtitle != null ? Text(subtitle) : null,
-      trailing: Switch(
-        value: value,
-        onChanged: onChanged,
-      ),
+      trailing: Switch(value: value, onChanged: onChanged),
     );
   }
-
 
   void _clearCache() async {
     final confirm = await showDialog<bool>(
@@ -331,15 +386,127 @@ class _SettingsPageState extends State<SettingsPage> {
       try {
         await imageCacheManager.emptyCache();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('缓存清除成功')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('缓存清除成功')));
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('缓存清除失败: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('缓存清除失败: $e')));
+        }
+      }
+    }
+  }
+
+  void _clearAllData() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.warning_amber, color: Colors.orange),
+              SizedBox(width: 8),
+              Text('清除所有数据'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('此操作将清除以下数据：'),
+              SizedBox(height: 8),
+              Text('• 播放历史'),
+              Text('• 收藏列表'),
+              Text('• 用户创建的歌单'),
+              Text('• 自定义标签'),
+              Text('• 登录信息'),
+              Text('• 推荐缓存'),
+              Text('• 文件系统缓存'),
+              SizedBox(height: 16),
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '注意：基本设置（主题、通知等）将被保留。',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              SizedBox(height: 12),
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '此操作不可撤销，应用将自动重启。',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text('取消'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(context, true),
+              child: Text('确定清除'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true) {
+      try {
+        // 获取 SharedPreferences 实例
+        final prefs = await SharedPreferences.getInstance();
+
+        // 获取所有键
+        final keys = prefs.getKeys().toList();
+
+        // 清除用户数据相关的键
+        for (final key in keys) {
+          if (key.startsWith('playlist_songs_') ||
+              key.startsWith('playlist_info_')) {
+            await prefs.remove(key);
+          }
+        }
+
+        // 清除特定的用户数据键
+        await prefs.remove('play_history');
+        await prefs.remove('favorites');
+        await prefs.remove('user_playlists');
+        await prefs.remove('user_playlists_enhanced');
+        await prefs.remove('custom_tags');
+        await prefs.remove('cookies');
+        await prefs.remove('login_time');
+        await prefs.remove('recommendations_cache');
+        await prefs.remove('guess_you_like_cache');
+
+        // 清除文件系统缓存
+        await musicCacheManager.emptyCache();
+        await imageCacheManager.emptyCache();
+
+        // 重启应用
+        await Restart.restartApp();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('清除数据失败: $e')));
         }
       }
     }
@@ -349,7 +516,7 @@ class _SettingsPageState extends State<SettingsPage> {
     showAboutDialog(
       context: context,
       applicationName: 'BiliMusic',
-      applicationVersion: '1.3.05+build01',
+      applicationVersion: '1.4.2+build04',
       applicationIcon: Image.asset(
         "assets/ic_launcher.png",
         width: 96,
@@ -391,9 +558,9 @@ class _SettingsPageState extends State<SettingsPage> {
               onPressed: () {
                 // 这里可以添加提交反馈的逻辑
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('感谢您的反馈！')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('感谢您的反馈！')));
               },
               child: Text('提交'),
             ),
@@ -411,8 +578,8 @@ class _SettingsPageState extends State<SettingsPage> {
           title: Text('隐私政策'),
           content: SingleChildScrollView(
             child: Text(
-              '我们非常重视您的隐私保护。本应用不会收集您的个人隐私信息，所有数据仅存储在本地设备上。\n\n'
-              '我们可能收集的信息包括：\n'
+              '我们非常重视您的隐私保护。本应用不会收集上传您的个人隐私信息，所有数据仅存储在本地设备上。\n\n'
+              '我们可能使用的信息包括：\n'
               '1. 播放历史记录\n'
               '2. 收藏列表\n'
               '3. 用户设置\n\n'
@@ -434,10 +601,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void _showCookies() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const CookiePage(),
-      ),
+      MaterialPageRoute(builder: (context) => const CookiePage()),
     );
   }
-
 }

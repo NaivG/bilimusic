@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/components/player_manager.dart';
-import 'package:bilimusic/components/playlist_manager.dart';
+import 'package:bilimusic/models/playlist.dart';
+import 'package:bilimusic/managers/player_manager.dart';
+import 'package:bilimusic/managers/playlist_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:bilimusic/utils/cache_manager.dart';
+import 'package:bilimusic/managers/cache_manager.dart';
 import 'package:bilimusic/utils/network_config.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -11,12 +13,14 @@ class LongPressMenu extends StatefulWidget {
   final Music music;
   final PlayerManager playerManager;
   final PlaylistManager? playlistManager;
+  final VoidCallback? onRemoveFromPlaylist;
 
   const LongPressMenu({
     super.key,
     required this.music,
     required this.playerManager,
     this.playlistManager,
+    this.onRemoveFromPlaylist,
   });
 
   @override
@@ -24,7 +28,7 @@ class LongPressMenu extends StatefulWidget {
 }
 
 class _LongPressMenuState extends State<LongPressMenu> {
-  List<PlaylistInfo> _userPlaylists = [];
+  List<Playlist> _userPlaylists = [];
 
   @override
   void initState() {
@@ -35,7 +39,7 @@ class _LongPressMenuState extends State<LongPressMenu> {
   Future<void> _loadUserPlaylists() async {
     if (widget.playlistManager != null) {
       try {
-        final playlists = await widget.playlistManager!.getAllPlaylists();
+        final playlists = widget.playlistManager!.getAllPlaylists();
         setState(() {
           _userPlaylists = playlists;
         });
@@ -91,9 +95,9 @@ class _LongPressMenuState extends State<LongPressMenu> {
                     }
                   } catch (e) {
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('创建歌单失败: $e')),
-                      );
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text('创建歌单失败: $e')));
                     }
                   }
                 }
@@ -109,9 +113,9 @@ class _LongPressMenuState extends State<LongPressMenu> {
   /// 显示添加到歌单的菜单
   Future<void> _showAddToPlaylistMenu(BuildContext context) async {
     if (widget.playlistManager == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('播放列表管理器不可用')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('播放列表管理器不可用')));
       return;
     }
 
@@ -128,10 +132,7 @@ class _LongPressMenuState extends State<LongPressMenu> {
                 padding: EdgeInsets.all(16.0),
                 child: Text(
                   '添加到歌单',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
               const Divider(),
@@ -160,17 +161,20 @@ class _LongPressMenuState extends State<LongPressMenu> {
                           return ListTile(
                             title: Text(playlist.name),
                             subtitle: Text(
-                                '创建于: ${DateTime.fromMillisecondsSinceEpoch(playlist.createdAt).toString().split(' ').first}'),
+                              '创建于: ${playlist.createdAt.toString().split(' ').first}',
+                            ),
                             onTap: () async {
                               try {
-                                await widget.playlistManager!
-                                    .addSongToPlaylist(playlist.id, widget.music);
+                                await widget.playlistManager!.addSongToPlaylist(
+                                  playlist.id,
+                                  widget.music,
+                                );
                                 if (context.mounted) {
                                   Navigator.pop(context);
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                        content:
-                                            Text('已添加到歌单"${playlist.name}"')),
+                                      content: Text('已添加到歌单"${playlist.name}"'),
+                                    ),
                                   );
                                 }
                               } catch (e) {
@@ -192,222 +196,245 @@ class _LongPressMenuState extends State<LongPressMenu> {
     );
   }
 
-  /// 显示长按菜单对话框（弃用）
-  static void showMenuDialog(BuildContext context, Music music, PlayerManager playerManager, PlaylistManager? playlistManager) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          contentPadding: EdgeInsets.zero,
-          content: LongPressMenu(
-            music: music,
-            playerManager: playerManager,
-            playlistManager: playlistManager,
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: MediaQuery.of(context).size.width > 600 ? 600 : double.maxFinite,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 音乐信息部分
-          Container(
-            padding: const EdgeInsets.all(16.0),
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Colors.grey, width: 0.5),
+    return Material(
+      child: SizedBox(
+        width: MediaQuery.of(context).size.width > 600 ? 600 : double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 音乐信息部分
+            Container(
+              padding: const EdgeInsets.all(16.0),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey, width: 0.5),
+                ),
+              ),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: CachedNetworkImage(
+                      imageUrl: widget.music.safeCoverUrl,
+                      httpHeaders: NetworkConfig.biliHeaders,
+                      placeholder: (context, url) => Container(
+                        width: 50,
+                        height: 50,
+                        color: Colors.grey[300],
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        width: 50,
+                        height: 50,
+                        color: Colors.grey[300],
+                        child: const Icon(Icons.music_note),
+                      ),
+                      width: 50,
+                      height: 50,
+                      fit: BoxFit.cover,
+                      cacheManager: imageCacheManager,
+                      cacheKey: widget.music.id,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.music.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${widget.music.artist} - ${widget.music.album}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        kDebugMode
+                            ? Text(
+                                '${widget.music} id: ${widget.music.id}-${widget.music.cid}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey,
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: Row(
+
+            // 菜单选项部分
+            Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: CachedNetworkImage(
-                    imageUrl: widget.music.safeCoverUrl,
-                    httpHeaders: NetworkConfig.biliHeaders,
-                    placeholder: (context, url) => Container(
-                      width: 50,
-                      height: 50,
-                      color: Colors.grey[300],
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      width: 50,
-                      height: 50,
-                      color: Colors.grey[300],
-                      child: const Icon(Icons.music_note),
-                    ),
-                    width: 50,
-                    height: 50,
-                    fit: BoxFit.cover,
-                    cacheManager: imageCacheManager,
-                    cacheKey: widget.music.id,
-                  ),
+                ListTile(
+                  leading: const Icon(Icons.play_arrow, color: Colors.blue),
+                  title: const Text('播放'),
+                  onTap: () async {
+                    Navigator.of(context).pop();
+                    try {
+                      final detailedMusic = await widget.music
+                          .getVideoDetails();
+                      await widget.playerManager.play(detailedMusic);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('开始播放"${detailedMusic.title}"'),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text('播放失败: $e')));
+                      }
+                    }
+                  },
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.music.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${widget.music.artist} - ${widget.music.album}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
+                ListTile(
+                  leading: const Icon(Icons.playlist_play, color: Colors.green),
+                  title: const Text('下一首播放'),
+                  onTap: () async {
+                    Navigator.of(context).pop();
+                    try {
+                      final detailedMusic = await widget.music
+                          .getVideoDetails();
+                      // 使用新的playNextFromIndex方法将歌曲添加到下一首播放
+                      await widget.playerManager.playNextFromIndex(
+                        detailedMusic,
+                      );
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('已添加到下一首播放"${detailedMusic.title}"'),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('添加下一首播放失败: $e')),
+                        );
+                      }
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: Icon(
+                    widget.playerManager.isFavorite(widget.music)
+                        ? Icons.favorite
+                        : Icons.favorite_border,
+                    color: widget.playerManager.isFavorite(widget.music)
+                        ? Colors.red
+                        : null,
                   ),
+                  title: Text(
+                    widget.playerManager.isFavorite(widget.music)
+                        ? '取消收藏'
+                        : '收藏',
+                  ),
+                  onTap: () async {
+                    Navigator.of(context).pop();
+                    try {
+                      if (widget.playerManager.isFavorite(widget.music)) {
+                        await widget.playerManager.removeFromFavorites(
+                          widget.music,
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('已取消收藏')),
+                          );
+                        }
+                      } else {
+                        await widget.playerManager.addToFavorites(widget.music);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('已添加到收藏')),
+                          );
+                        }
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text('收藏操作失败: $e')));
+                      }
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.playlist_add, color: Colors.orange),
+                  title: const Text('添加到歌单'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    if (widget.playlistManager != null) {
+                      _showAddToPlaylistMenu(context);
+                    } else {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('播放列表功能不可用')),
+                        );
+                      }
+                    }
+                  },
+                ),
+                if (widget.onRemoveFromPlaylist != null)
+                  ListTile(
+                    leading: const Icon(
+                      Icons.playlist_remove,
+                      color: Colors.red,
+                    ),
+                    title: const Text(
+                      '从歌单中移除',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      widget.onRemoveFromPlaylist?.call();
+                    },
+                  ),
+                ListTile(
+                  leading: const Icon(Icons.share, color: Colors.blue),
+                  title: const Text('分享'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    final String shareText =
+                        '由 BiliMusic 分享：${widget.music.title}\n'
+                        'https://b23.tv/${widget.music.id}';
+                    SharePlus.instance.share(
+                      ShareParams(
+                        text: shareText,
+                        sharePositionOrigin: Rect.fromCenter(
+                          center: Offset.zero,
+                          width: 100,
+                          height: 100,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
-          ),
-          
-          // 菜单选项部分
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.play_arrow, color: Colors.blue),
-                title: const Text('播放'),
-                onTap: () async {
-                  Navigator.of(context).pop();
-                  try {
-                    final detailedMusic = await widget.music.getVideoDetails();
-                    await widget.playerManager.play(detailedMusic);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('开始播放"${detailedMusic.title}"')),
-                      );
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('播放失败: $e')),
-                      );
-                    }
-                  }
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.playlist_play, color: Colors.green),
-                title: const Text('下一首播放'),
-                onTap: () async {
-                  Navigator.of(context).pop();
-                  try {
-                    final detailedMusic = await widget.music.getVideoDetails();
-                    // 使用新的playNextFromIndex方法将歌曲添加到下一首播放
-                    await widget.playerManager.playNextFromIndex(detailedMusic);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('已添加到下一首播放"${detailedMusic.title}"')),
-                      );
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('添加下一首播放失败: $e')),
-                      );
-                    }
-                  }
-                },
-              ),
-              ListTile(
-                leading: Icon(
-                  widget.playerManager.isFavorite(widget.music)
-                      ? Icons.favorite
-                      : Icons.favorite_border,
-                  color: widget.playerManager.isFavorite(widget.music)
-                      ? Colors.red
-                      : null,
-                ),
-                title: Text(widget.playerManager.isFavorite(widget.music)
-                    ? '取消收藏'
-                    : '收藏'),
-                onTap: () async {
-                  Navigator.of(context).pop();
-                  try {
-                    if (widget.playerManager.isFavorite(widget.music)) {
-                      await widget.playerManager.removeFromFavorites(widget.music);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('已取消收藏')),
-                        );
-                      }
-                    } else {
-                      await widget.playerManager.addToFavorites(widget.music);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('已添加到收藏')),
-                        );
-                      }
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('收藏操作失败: $e')),
-                      );
-                    }
-                  }
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.playlist_add, color: Colors.orange),
-                title: const Text('添加到歌单'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  if (widget.playlistManager != null) {
-                    _showAddToPlaylistMenu(context);
-                  } else {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('播放列表功能不可用')),
-                      );
-                    }
-                  }
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.share, color: Colors.blue),
-                title: const Text('分享'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  final String shareText = 
-                      '由 BiliMusic 分享：${widget.music.title}\n'
-                      'https://b23.tv/${widget.music.id}';
-                  SharePlus.instance.share(
-                    ShareParams(
-                      text: shareText,
-                      sharePositionOrigin: Rect.fromCenter(
-                        center: Offset.zero,
-                        width: 100,
-                        height: 100,
-                      ),
-                    )
-                  );
-                },
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

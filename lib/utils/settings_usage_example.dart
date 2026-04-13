@@ -1,4 +1,4 @@
-import 'package:bilimusic/utils/settings_manager.dart';
+import 'package:bilimusic/managers/settings_manager.dart';
 
 /// 设置管理器使用示例
 /// 
@@ -7,7 +7,7 @@ import 'package:bilimusic/utils/settings_manager.dart';
 /// 使用方法:
 /// 
 /// 1. 导入设置管理器:
-///    import 'package:bilimusic/utils/settings_manager.dart';
+///    import 'package:bilimusic/managers/settings_manager.dart';
 /// 
 /// 2. 获取设置管理器实例:
 ///    final settings = SettingsManager();

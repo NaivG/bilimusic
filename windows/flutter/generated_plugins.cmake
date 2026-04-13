@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   audio_service_win
   bitsdojo_window_windows
   media_kit_libs_windows_audio
+  restart_app
   share_plus
   url_launcher_windows
 )

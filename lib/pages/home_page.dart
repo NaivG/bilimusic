@@ -1,16 +1,12 @@
-import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/components/player_manager.dart';
-import 'package:bilimusic/components/play_list.dart'; // 导入播放列表组件
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:bilimusic/utils/cache_manager.dart';
-import 'package:bilimusic/utils/network_config.dart';
-import 'package:bilimusic/components/playlist_manager.dart';
-import 'package:bilimusic/components/long_press_menu.dart';
-import 'package:bilimusic/utils/recommendation_manager.dart';
-import 'package:bilimusic/utils/settings_manager.dart';
+import 'package:bilimusic/managers/player_manager.dart';
+import 'package:bilimusic/managers/playlist_manager.dart';
+import 'package:bilimusic/managers/recommendation_manager.dart';
+import 'package:bilimusic/components/common/cards/music_card.dart';
+import 'package:bilimusic/utils/responsive.dart';
+import 'package:bilimusic/utils/animations.dart';
 
 class HomePage extends StatefulWidget {
   final PlayerManager playerManager;
@@ -24,26 +20,24 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   List<Music> recommendedList = [];
   late PlaylistManager _playlistManager;
-  List<PlaylistInfo> _userPlaylists = [];
   late RecommendationManager _recommendationManager;
-  late SettingsManager _settingsManager;
   bool _isLoading = false;
-  bool _isPcMode = false;
+
+  // 统一的间距常量 - 简约现代风格
+  static const double _sectionSpacing = 32.0;
+  static const double _cardSpacing = 16.0;
+  static const double _titleBottomSpacing = 16.0;
+  static const double _horizontalPadding = 16.0;
 
   @override
   void initState() {
-    _settingsManager = SettingsManager();
-    _isPcMode = _settingsManager.pcMode;
-
     super.initState();
     _recommendationManager = RecommendationManager();
-    
+
     // 初始化播放列表管理器
     _playlistManager = PlaylistManager();
-    _playlistManager.init().then((_) {
-      _loadUserPlaylists();
-    });
-    
+    _playlistManager.init();
+
     _loadRecommendations();
   }
 
@@ -51,13 +45,13 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _isLoading = true;
     });
-    
+
     await _recommendationManager.loadRecommendations();
     setState(() {
       recommendedList = _recommendationManager.recommendedList;
       _isLoading = false;
     });
-    
+
     // 更新猜你喜欢列表
     _updateGuessYouLike();
   }
@@ -66,7 +60,7 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _isLoading = true;
     });
-    
+
     await _recommendationManager.refreshRecommendations();
     setState(() {
       recommendedList = _recommendationManager.recommendedList;
@@ -76,611 +70,444 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _updateGuessYouLike() async {
     // 在后台更新猜你喜欢列表
-    await _recommendationManager.updateGuessYouLike(widget.playerManager.playHistory);
-  }
-
-  /// 加载用户自定义播放列表
-  Future<void> _loadUserPlaylists() async {
-    try {
-      final playlists = await _playlistManager.getAllPlaylists();
-      setState(() {
-        _userPlaylists = playlists;
-      });
-    } catch (e) {
-      debugPrint('Failed to load user playlists: $e');
-    }
-  }
-
-  /// 创建新的播放列表
-  Future<void> _createPlaylist() async {
-    final controller = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    
-    return showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('创建新歌单'),
-          content: Form(
-            key: formKey,
-            child: TextFormField(
-              controller: controller,
-              decoration: const InputDecoration(
-                labelText: '歌单名称',
-                hintText: '请输入歌单名称',
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return '请输入歌单名称';
-                }
-                return null;
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('取消'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (formKey.currentState!.validate()) {
-                  final playlistName = controller.text.trim();
-                  try {
-                    await _playlistManager.createPlaylist(playlistName);
-                    Navigator.of(context).pop();
-                    await _loadUserPlaylists();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('已创建歌单"$playlistName"')),
-                    );
-                  } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('创建歌单失败: $e')),
-                    );
-                  }
-                }
-              },
-              child: const Text('创建'),
-            ),
-          ],
-        );
-      },
+    await _recommendationManager.updateGuessYouLike(
+      widget.playerManager.playHistory,
     );
   }
 
-  void _playMusic(Music music) async {
+  Future<void> _playMusic(Music music) async {
     // 获取视频详情
     final detailedMusic = await music.getVideoDetails();
-    
+
     // 播放音乐
     widget.playerManager.play(detailedMusic);
-    
-    // Navigator.pushNamed(context, '/detail', arguments: detailedMusic.id);
   }
 
   Widget _buildMusicCard(Music music, {bool isPcMode = false}) {
-    return GestureDetector(
+    return ResponsiveMusicCard(
+      music: music,
+      playerManager: widget.playerManager,
+      playlistManager: _playlistManager,
       onTap: () => _playMusic(music),
-      onLongPress: () {
-        showModalBottomSheet(
-          context: context,
-          builder: (context) => Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: LongPressMenu(
-              music: music,
-              playerManager: widget.playerManager,
-              playlistManager: _playlistManager,
-            ),
-          ),
-        );
-      },
-      onSecondaryTap: () {
-        showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              contentPadding: const EdgeInsets.all(16.0),
-              content: LongPressMenu(
-                music: music,
-                playerManager: widget.playerManager,
-                playlistManager: _playlistManager,
-              ),
-            );
-          },
-        );
-      },
-      child: _isPcMode
-          ? _buildPcMusicCard(music)
-          : _buildMobileMusicCard(music),
     );
   }
-
-  Widget _buildMobileMusicCard(Music music) {
-    return Container(
-      width: 120,
-      margin: const EdgeInsets.all(8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: CachedNetworkImage(
-              imageUrl: music.safeCoverUrl,
-              httpHeaders: NetworkConfig.biliHeaders,
-              placeholder: (context, url) => Container(
-                color: Colors.grey[300],
-                child: const Center(child: CircularProgressIndicator()),
-              ),
-              errorWidget: (context, url, error) => Container(
-                color: Colors.grey[300],
-                child: const Icon(Icons.music_note),
-              ),
-              fit: BoxFit.cover,
-              height: 120,
-              cacheManager: imageCacheManager,
-              cacheKey: music.id,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            music.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Text(
-            '${music.artist} - ${music.album}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 10,
-              color: Colors.grey,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPcMusicCard(Music music) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        color: Theme.of(context).cardColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            spreadRadius: 1,
-            blurRadius: 5,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 封面图片
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-            child: CachedNetworkImage(
-              imageUrl: music.safeCoverUrl,
-              httpHeaders: NetworkConfig.biliHeaders,
-              placeholder: (context, url) => Container(
-                color: Colors.grey[300],
-                height: 140,
-                child: const Center(child: CircularProgressIndicator()),
-              ),
-              errorWidget: (context, url, error) => Container(
-                color: Colors.grey[300],
-                height: 140,
-                child: const Icon(Icons.music_note),
-              ),
-              fit: BoxFit.cover,
-              height: 140,
-              width: double.infinity,
-              cacheManager: imageCacheManager,
-              cacheKey: music.id,
-            ),
-          ),
-
-          // 音乐信息
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  music.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  music.artist,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
 
   @override
   Widget build(BuildContext context) {
-    if (_isPcMode) {
-      return _buildPcLayout(context);
-    } else {
-      return _buildMobileLayout(context);
-    }
+    return _buildResponsiveLayout(context);
   }
-  // PC 模式布局
-  Widget _buildPcLayout(BuildContext context) {
+
+  // 响应式布局
+  Widget _buildResponsiveLayout(BuildContext context) {
+    final screenSize = ResponsiveHelper.getScreenSize(context);
+
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          // 搜索栏
-          SliverAppBar(
-            floating: true,
-            snap: true,
-            automaticallyImplyLeading: false,
-            title: Container(
-              height: 40,
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: TextField(
-                decoration: InputDecoration(
-                  hintText: '搜索音乐、视频、用户...',
-                  border: InputBorder.none,
-                  prefixIcon: Icon(Icons.search, color: Colors.grey.shade600),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                ),
-                onTap: () {
-                  Navigator.pushNamed(context, '/search', arguments: widget.playerManager);
-                },
-              ),
-            ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: _isLoading ? null : _refreshRecommendations,
-              ),
-            ],
-          ),
+          // 应用栏
+          _buildAppBar(context, screenSize),
 
           // 推荐音乐区域
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 推荐音乐标题
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '推荐音乐',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: _isLoading ? null : _refreshRecommendations,
-                        child: _isLoading
-                            ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                            : const Text('换一批'),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 16),
-                  // 推荐音乐网格
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 5,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 20,
-                      childAspectRatio: (MediaQuery.of(context).size.width / 1290),
-                    ),
-                    itemCount: recommendedList.length,
-                    itemBuilder: (context, index) {
-                      final music = recommendedList[index];
-                      return _buildMusicCard(music, isPcMode: true);
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
+          _buildRecommendationSection(context, screenSize),
 
           // 猜你喜欢区域
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 猜你喜欢标题
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '猜你喜欢',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        '上次更新: ${_recommendationManager.lastGuessUpdated}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 16),
-                  // 猜你喜欢网格
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 5,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 20,
-                      childAspectRatio: (MediaQuery.of(context).size.width / 1290),
-                    ),
-                    itemCount: _recommendationManager.guessYouLikeList.length,
-                    itemBuilder: (context, index) {
-                      final music = _recommendationManager.guessYouLikeList[index];
-                      return _buildMusicCard(music, isPcMode: true);
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
+          _buildGuessYouLikeSection(context, screenSize),
 
           // 最近播放区域
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 最近播放标题
-                  Text(
-                    '最近播放',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  // 最近播放列表
-                  widget.playerManager.playHistory.isEmpty
-                      ? const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 32),
-                    child: Center(
-                      child: Text(
-                        '没有找到播放历史(っ °Д °;)っ',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ),
-                  )
-                      : GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 5,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 20,
-                      childAspectRatio: (MediaQuery.of(context).size.width / 1290),
-                    ),
-                    itemCount: widget.playerManager.playHistory.length > 10
-                        ? 10
-                        : widget.playerManager.playHistory.length,
-                    itemBuilder: (context, index) {
-                      final music = widget.playerManager.playHistory[index];
-                      return _buildMusicCard(music, isPcMode: true);
-                    },
-                  ),
-                  SizedBox(height: 120,),
-                ],
-              ),
-            ),
-          ),
+          _buildRecentlyPlayedSection(context, screenSize),
         ],
       ),
     );
   }
 
-  // 移动端布局
-  Widget _buildMobileLayout(BuildContext context) {
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            title: const Text('BiliMusic', style: TextStyle(fontFamily: 'CabinSketch', fontWeight: FontWeight.w600,)),
-            floating: true,
-            snap: true,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.search),
-                onPressed: () {
-                  Navigator.pushNamed(context, '/search', arguments: widget.playerManager);
-                },
-              ),
-            ],
+  // 构建应用栏
+  SliverAppBar _buildAppBar(BuildContext context, ScreenSize screenSize) {
+    if (screenSize == ScreenSize.desktop) {
+      return SliverAppBar(
+        floating: true,
+        snap: true,
+        automaticallyImplyLeading: false,
+        title: Container(
+          height: 40,
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(20),
           ),
-
-          SliverToBoxAdapter(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 推荐音乐标题
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '推荐音乐',
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        IconButton(
-                          icon: _isLoading
-                              ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                              : const Icon(Icons.refresh),
-                          onPressed: _isLoading ? null : _refreshRecommendations,
-                        ),
-                      ],
+          child: TextField(
+            decoration: InputDecoration(
+              hintText: '搜索音乐、视频、用户...',
+              border: InputBorder.none,
+              prefixIcon: Icon(Icons.search, color: Colors.grey.shade600),
+              contentPadding: const EdgeInsets.symmetric(vertical: 10),
+            ),
+            onTap: () {
+              Navigator.pushNamed(
+                context,
+                '/search',
+                arguments: widget.playerManager,
+              );
+            },
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _isLoading ? null : _refreshRecommendations,
+          ),
+        ],
+      );
+    } else {
+      return SliverAppBar(
+        title: Row(
+          children: [
+            Text(
+              'BiliMusic',
+              style: TextStyle(
+                fontFamily: 'CabinSketch',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 4),
+            kDebugMode
+                ? Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
                     ),
-                  ),
-
-                  // 推荐音乐列表
-                  SizedBox(
-                    height: 200,
-                    child: recommendedList.isEmpty
-                        ? const Center(
-                      child: Text(
-                        '暂无推荐音乐',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    )
-                        : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      scrollDirection: Axis.horizontal,
-                      itemCount: recommendedList.length,
-                      itemBuilder: (context, index) {
-                        final music = recommendedList[index];
-                        return _buildMusicCard(music, isPcMode: false);
-                      },
+                    decoration: BoxDecoration(
+                      color: Colors.cyan.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                  ),
-
-                  // 猜你喜欢标题
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '猜你喜欢',
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text( // 显示上次更新时间
-                            _recommendationManager.lastGuessUpdated,
-                            style: const TextStyle(
-                              fontSize: 14,
-                            )
-                        )
-                      ],
-                    ),
-                  ),
-
-                  // 猜你喜欢列表
-                  SizedBox(
-                    height: 200,
-                    child: _recommendationManager.guessYouLikeList.isEmpty
-                        ? const Center(
-                      child: Text(
-                        '暂无推荐',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    )
-                        : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _recommendationManager.guessYouLikeList.length,
-                      itemBuilder: (context, index) {
-                        final music = _recommendationManager.guessYouLikeList[index];
-                        return _buildMusicCard(music, isPcMode: false);
-                      },
-                    ),
-                  ),
-
-                  // 最近播放标题
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
                     child: Text(
-                      '最近播放',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
+                      'Beta',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[800],
                       ),
                     ),
-                  ),
+                  )
+                : const SizedBox(width: 36),
+          ],
+        ),
+        floating: true,
+        snap: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {
+              Navigator.pushNamed(
+                context,
+                '/search',
+                arguments: widget.playerManager,
+              );
+            },
+          ),
+        ],
+      );
+    }
+  }
 
-                  // 最近播放列表（最多显示10个）
-                  SizedBox(
-                    height: 200,
-                    child: widget.playerManager.playHistory.isEmpty
-                        ? Center(
-                      child: Text(
-                        '没有找到播放历史(っ °Д °;)っ',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey,
-                        ),
+  // 构建推荐音乐区域
+  SliverPadding _buildRecommendationSection(
+    BuildContext context,
+    ScreenSize screenSize,
+  ) {
+    final isDesktop = screenSize == ScreenSize.desktop;
+
+    return SliverPadding(
+      padding: EdgeInsets.all(
+        isDesktop ? _sectionSpacing / 2 : _cardSpacing / 2,
+      ),
+      sliver: SliverToBoxAdapter(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 标题 - 简约现代风格
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                isDesktop ? 0.0 : _horizontalPadding,
+                isDesktop ? 0.0 : 16.0,
+                isDesktop ? 0.0 : _horizontalPadding,
+                _titleBottomSpacing,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  FadeInWidget(
+                    duration: const Duration(milliseconds: 400),
+                    child: Text(
+                      '推荐音乐',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
                       ),
-                    )
-                        : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      scrollDirection: Axis.horizontal,
-                      itemCount: widget.playerManager.playHistory.length > 10
-                          ? 10
-                          : widget.playerManager.playHistory.length,
-                      itemBuilder: (context, index) {
-                        final music = widget.playerManager.playHistory[index];
-                        return _buildMusicCard(music, isPcMode: false);
-                      },
                     ),
                   ),
-                  SizedBox(height: 120,),
+                  if (isDesktop)
+                    TextButton(
+                      onPressed: _isLoading ? null : _refreshRecommendations,
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('换一批'),
+                    )
+                  else
+                    IconButton(
+                      icon: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.refresh),
+                      onPressed: _isLoading ? null : _refreshRecommendations,
+                    ),
                 ],
               ),
             ),
-          ),
-        ],
+
+            // 内容
+            if (recommendedList.isEmpty)
+              FadeInWidget(
+                duration: const Duration(milliseconds: 400),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: _sectionSpacing),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.music_off_outlined,
+                          size: 48,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '暂无推荐音乐',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            else if (isDesktop)
+              _buildDesktopGrid(recommendedList)
+            else
+              _buildMobileHorizontalList(recommendedList),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 构建猜你喜欢区域
+  SliverPadding _buildGuessYouLikeSection(
+    BuildContext context,
+    ScreenSize screenSize,
+  ) {
+    final isDesktop = screenSize == ScreenSize.desktop;
+
+    return SliverPadding(
+      padding: EdgeInsets.all(
+        isDesktop ? _sectionSpacing / 2 : _cardSpacing / 2,
+      ),
+      sliver: SliverToBoxAdapter(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 标题 - 简约现代风格
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                isDesktop ? 0.0 : _horizontalPadding,
+                isDesktop ? 0.0 : 16.0,
+                isDesktop ? 0.0 : _horizontalPadding,
+                _titleBottomSpacing,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  FadeInWidget(
+                    delay: const Duration(milliseconds: 100),
+                    duration: const Duration(milliseconds: 400),
+                    child: Text(
+                      '猜你喜欢',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '上次更新: ${_recommendationManager.lastGuessUpdated}',
+                    style: TextStyle(
+                      fontSize: isDesktop ? 14 : 12,
+                      color: Colors.grey[500],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // 内容
+            if (_recommendationManager.guessYouLikeList.isEmpty)
+              FadeInWidget(
+                delay: const Duration(milliseconds: 100),
+                duration: const Duration(milliseconds: 400),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: _sectionSpacing),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.favorite_border_outlined,
+                          size: 48,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '暂无推荐',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            else if (isDesktop)
+              _buildDesktopGrid(_recommendationManager.guessYouLikeList)
+            else
+              _buildMobileHorizontalList(
+                _recommendationManager.guessYouLikeList,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 构建最近播放区域
+  SliverPadding _buildRecentlyPlayedSection(
+    BuildContext context,
+    ScreenSize screenSize,
+  ) {
+    final isDesktop = screenSize == ScreenSize.desktop;
+    final playHistory = widget.playerManager.playHistory;
+    final displayCount = playHistory.length > 10 ? 10 : playHistory.length;
+
+    return SliverPadding(
+      padding: EdgeInsets.all(
+        isDesktop ? _sectionSpacing / 2 : _cardSpacing / 2,
+      ),
+      sliver: SliverToBoxAdapter(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 标题 - 简约现代风格
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                isDesktop ? 0.0 : _horizontalPadding,
+                isDesktop ? 0.0 : 16.0,
+                isDesktop ? 0.0 : _horizontalPadding,
+                _titleBottomSpacing,
+              ),
+              child: FadeInWidget(
+                delay: const Duration(milliseconds: 200),
+                duration: const Duration(milliseconds: 400),
+                child: Text(
+                  '最近播放',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ),
+
+            // 内容
+            if (playHistory.isEmpty)
+              FadeInWidget(
+                delay: const Duration(milliseconds: 200),
+                duration: const Duration(milliseconds: 400),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: _sectionSpacing),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.history_outlined,
+                          size: 48,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '没有找到播放历史',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            else if (isDesktop)
+              _buildDesktopGrid(playHistory.take(displayCount).toList())
+            else
+              _buildMobileHorizontalList(
+                playHistory.take(displayCount).toList(),
+              ),
+            const SizedBox(height: 120),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 构建桌面端网格布局
+  Widget _buildDesktopGrid(List<Music> musicList) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: ResponsiveHelper.responsiveGridColumns(context),
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 20,
+        childAspectRatio: 0.8,
+      ),
+      itemCount: musicList.length,
+      itemBuilder: (context, index) {
+        final music = musicList[index];
+        return _buildMusicCard(music, isPcMode: true);
+      },
+    );
+  }
+
+  // 构建移动端水平列表
+  Widget _buildMobileHorizontalList(List<Music> musicList) {
+    return SizedBox(
+      height: 200,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+        scrollDirection: Axis.horizontal,
+        itemCount: musicList.length,
+        itemBuilder: (context, index) {
+          final music = musicList[index];
+          return _buildMusicCard(music, isPcMode: false);
+        },
       ),
     );
   }

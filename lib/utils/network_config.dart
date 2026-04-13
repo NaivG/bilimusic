@@ -15,13 +15,15 @@ class NetworkConfig {
   static Map<String, String> get biliHeaders {
     // 创建 headers 副本
     final headers = Map<String, String>.from(_biliHeaders);
-    
+
     // 将 cookies 转换为标准的字符串格式
     if (_cookies.isNotEmpty) {
-      final cookieString = _cookies.entries.map((e) => '${e.key}=${e.value}').join('; ');
+      final cookieString = _cookies.entries
+          .map((e) => '${e.key}=${e.value}')
+          .join('; ');
       headers['Cookie'] = cookieString;
     }
-    
+
     return headers;
   }
 
@@ -66,9 +68,10 @@ class NetworkConfig {
 
     // 配置默认headers
     _biliHeaders = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0',
+      'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0',
       'Referer': 'https://www.bilibili.com',
-      'access-control-allow-origin': 'https://www.bilibili.com',
+      'Access-Control-Allow-Origin': 'https://api.bilibili.com',
     };
 
     // 读取并解析 cookies
@@ -78,7 +81,11 @@ class NetworkConfig {
         // 尝试解析 JSON 格式的 cookies
         final cookiesMap = json.decode(cookiesJson);
         if (cookiesMap is Map) {
-          _cookies = Map<String, String>.from(cookiesMap.map((key, value) => MapEntry(key.toString(), value.toString())));
+          _cookies = Map<String, String>.from(
+            cookiesMap.map(
+              (key, value) => MapEntry(key.toString(), value.toString()),
+            ),
+          );
         } else {
           // 如果不是 JSON 格式，按照字符串处理
           _parseCookiesString(cookiesJson);
@@ -101,7 +108,7 @@ class NetworkConfig {
   static void _parseCookiesString(String cookiesString) {
     final cookies = <String, String>{};
     final pairs = cookiesString.split(';');
-    
+
     for (var pair in pairs) {
       final trimmed = pair.trim();
       if (trimmed.isNotEmpty) {
@@ -111,19 +118,23 @@ class NetworkConfig {
         }
       }
     }
-    
+
     _cookies = cookies;
   }
 
   static Future<Map<String, String>> _fetchBuvids() async {
     try {
-      final response = await http.get(
-        Uri.parse('https://api.bilibili.com/x/frontend/finger/spi'),
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0',
-          'Referer': 'https://www.bilibili.com'
-        },
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            Uri.parse('https://api.bilibili.com/x/frontend/finger/spi'),
+            headers: {
+              'User-Agent':
+                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0',
+              'Referer': 'https://www.bilibili.com',
+              'Access-Control-Allow-Origin': 'https://api.bilibili.com',
+            },
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
@@ -133,18 +144,19 @@ class NetworkConfig {
             json['data'].containsKey('b_4')) {
           final buvid3 = json['data']['b_3'] as String?;
           final buvid4 = json['data']['b_4'] as String?;
-          return {
-            'b_3': buvid3 ?? '',
-            'b_4': buvid4 ?? '',
-          };
+          return {'b_3': buvid3 ?? '', 'b_4': buvid4 ?? ''};
         } else {
-          throw const FormatException('Invalid response format: missing data, b_3 or b_4 field');
+          throw const FormatException(
+            'Invalid response format: missing data, b_3 or b_4 field',
+          );
         }
       } else if (response.statusCode == 429) {
         // 处理速率限制并返回重试的Future
         return Future.delayed(const Duration(seconds: 5), _fetchBuvids);
       } else {
-        throw HttpException('Request failed with status: ${response.statusCode}');
+        throw HttpException(
+          'Request failed with status: ${response.statusCode}',
+        );
       }
     } catch (e) {
       // 添加错误日志
