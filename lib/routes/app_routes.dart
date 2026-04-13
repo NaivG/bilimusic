@@ -78,8 +78,7 @@ class AppRoutes {
         }
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) =>
-              const Scaffold(body: Center(child: Text('无效的搜索参数'))),
+          builder: (_) => const Scaffold(body: Center(child: Text('无效的搜索参数'))),
         );
       default:
         return MaterialPageRoute(

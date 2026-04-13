@@ -38,23 +38,23 @@ class _LyricDisplayWidgetState extends State<LyricDisplayWidget> {
   @override
   void didUpdateWidget(LyricDisplayWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
+
     // 当歌词解析器或位置变化时，自动滚动到当前歌词
-    if (widget.lyricParser != oldWidget.lyricParser || 
+    if (widget.lyricParser != oldWidget.lyricParser ||
         widget.position != oldWidget.position) {
       _scrollToCurrentLyric();
     }
   }
 
   void _scrollToCurrentLyric() {
-    if (!widget.isLyricSyncEnabled || 
-        widget.lyricParser == null || 
+    if (!widget.isLyricSyncEnabled ||
+        widget.lyricParser == null ||
         widget.lyricParser!.lines.isEmpty) {
       return;
     }
 
     final currentLine = widget.lyricParser!.getCurrentLine(
-      widget.position.inMilliseconds / 1000
+      widget.position.inMilliseconds / 1000,
     );
 
     // 只有当当前行发生变化时才滚动
@@ -67,7 +67,8 @@ class _LyricDisplayWidgetState extends State<LyricDisplayWidget> {
         // 计算滚动位置，使当前行居中显示
         final lineHeight = 48.0;
         final viewportHeight = MediaQuery.of(context).size.height * 0.6;
-        final targetPosition = index * lineHeight - (viewportHeight / 2) + (lineHeight / 2);
+        final targetPosition =
+            index * lineHeight - (viewportHeight / 2) + (lineHeight / 2);
 
         // 滚动到目标位置
         _scrollController.animateTo(
@@ -114,10 +115,7 @@ class _LyricDisplayWidgetState extends State<LyricDisplayWidget> {
             children: [
               Row(
                 children: [
-                  Icon(
-                    Icons.lyrics,
-                    color: Theme.of(context).primaryColor,
-                  ),
+                  Icon(Icons.lyrics, color: Theme.of(context).primaryColor),
                   const SizedBox(width: 8),
                   Text(
                     '歌词',
@@ -128,18 +126,25 @@ class _LyricDisplayWidgetState extends State<LyricDisplayWidget> {
                   ),
                 ],
               ),
-              
+
               // 歌词来源信息
               if (widget.selectedLyricName != null)
                 GestureDetector(
                   onTap: widget.onOpenLyricMenu,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                      color: Theme.of(
+                        context,
+                      ).primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
+                        color: Theme.of(
+                          context,
+                        ).primaryColor.withValues(alpha: 0.3),
                         width: 1,
                       ),
                     ),
@@ -148,20 +153,24 @@ class _LyricDisplayWidgetState extends State<LyricDisplayWidget> {
                       children: [
                         Text(
                           widget.selectedLyricName!,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.w500,
-                            color: Theme.of(context).primaryColor,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.w500,
+                                color: Theme.of(context).primaryColor,
+                              ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         if (widget.selectedLyricArtist != null)
                           Text(
                             widget.selectedLyricArtist!,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: isDark ? Colors.grey[400] : Colors.grey[600],
-                              fontSize: 10,
-                            ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: isDark
+                                      ? Colors.grey[400]
+                                      : Colors.grey[600],
+                                  fontSize: 10,
+                                ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -171,9 +180,9 @@ class _LyricDisplayWidgetState extends State<LyricDisplayWidget> {
                 ),
             ],
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // 歌词显示区域
           Expanded(
             child: Container(
@@ -191,9 +200,9 @@ class _LyricDisplayWidgetState extends State<LyricDisplayWidget> {
               ),
             ),
           ),
-          
+
           const SizedBox(height: 12),
-          
+
           // 歌词控制提示
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -223,9 +232,7 @@ class _LyricDisplayWidgetState extends State<LyricDisplayWidget> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(
-              color: Theme.of(context).primaryColor,
-            ),
+            CircularProgressIndicator(color: Theme.of(context).primaryColor),
             const SizedBox(height: 16),
             Text(
               '加载歌词中...',
@@ -284,7 +291,7 @@ class _LyricDisplayWidgetState extends State<LyricDisplayWidget> {
 
     // 获取当前歌词行
     final currentLine = widget.lyricParser!.getCurrentLine(
-      widget.position.inMilliseconds / 1000
+      widget.position.inMilliseconds / 1000,
     );
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -308,7 +315,9 @@ class _LyricDisplayWidgetState extends State<LyricDisplayWidget> {
               borderRadius: BorderRadius.circular(12),
               border: isCurrentLine
                   ? Border.all(
-                      color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
+                      color: Theme.of(
+                        context,
+                      ).primaryColor.withValues(alpha: 0.3),
                       width: 1,
                     )
                   : null,
@@ -319,7 +328,9 @@ class _LyricDisplayWidgetState extends State<LyricDisplayWidget> {
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   fontSize: isCurrentLine ? 20 : 16,
-                  fontWeight: isCurrentLine ? FontWeight.bold : FontWeight.normal,
+                  fontWeight: isCurrentLine
+                      ? FontWeight.bold
+                      : FontWeight.normal,
                   color: isCurrentLine
                       ? Theme.of(context).primaryColor
                       : (isDark ? Colors.grey[300] : Colors.grey[700]),

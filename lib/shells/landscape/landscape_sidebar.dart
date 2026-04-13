@@ -182,13 +182,15 @@ class LandscapeSidebar extends StatelessWidget {
           ),
         ),
         // 用户歌单
-        ...playlists.map((p) => _PlaylistTile(
-              icon: Icons.queue_music,
-              title: p.name,
-              subtitle: '${p.songCount}首',
-              isSelected: selectedPlaylistId == p.id,
-              onTap: () => onPlaylistTap?.call(p.id),
-            )),
+        ...playlists.map(
+          (p) => _PlaylistTile(
+            icon: Icons.queue_music,
+            title: p.name,
+            subtitle: '${p.songCount}首',
+            isSelected: selectedPlaylistId == p.id,
+            onTap: () => onPlaylistTap?.call(p.id),
+          ),
+        ),
         if (playlists.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -258,11 +260,7 @@ class _NavTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
-                Icon(
-                  effectiveIcon,
-                  size: 18,
-                  color: effectiveColor,
-                ),
+                Icon(effectiveIcon, size: 18, color: effectiveColor),
                 const SizedBox(width: 10),
                 Text(
                   label,
@@ -271,7 +269,11 @@ class _NavTile extends StatelessWidget {
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                     color: isActive
                         ? neteaseRed
-                        : (isDark ? Colors.white70 : theme.colorScheme.onSurface.withValues(alpha: 0.8)),
+                        : (isDark
+                              ? Colors.white70
+                              : theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.8,
+                                )),
                   ),
                 ),
               ],
@@ -322,7 +324,8 @@ class _PlaylistTile extends StatelessWidget {
                 Icon(
                   icon,
                   size: 18,
-                  color: iconColor ??
+                  color:
+                      iconColor ??
                       theme.colorScheme.onSurface.withValues(alpha: 0.55),
                 ),
                 const SizedBox(width: 10),
@@ -331,8 +334,9 @@ class _PlaylistTile extends StatelessWidget {
                     title,
                     style: TextStyle(
                       fontSize: 13,
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.w400,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w400,
                       color: isSelected
                           ? theme.colorScheme.primary
                           : theme.colorScheme.onSurface.withValues(alpha: 0.75),

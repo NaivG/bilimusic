@@ -110,11 +110,15 @@ class BiliItem {
       return Music(
         id: data['bvid'] ?? '',
         cid: pageCid,
-        title: isSingle ? (data['title'] ?? '') : (pageJson['part'] ?? pageJson['title'] ?? ''),
+        title: isSingle
+            ? (data['title'] ?? '')
+            : (pageJson['part'] ?? pageJson['title'] ?? ''),
         artist: ownerData['name'] ?? '未知作者',
         album: data['title'] ?? '未知专辑',
         coverUrl: data['pic'] ?? '',
-        duration: Duration(seconds: int.tryParse(pageJson['duration']?.toString() ?? '0') ?? 0),
+        duration: Duration(
+          seconds: int.tryParse(pageJson['duration']?.toString() ?? '0') ?? 0,
+        ),
         audioUrl: '',
         isFavorite: false,
         currentPageIndex: idx,
@@ -141,7 +145,7 @@ class BiliItem {
         share: statData['share'] ?? 0,
         nowRank: statData['now_rank'] ?? 0,
         hisRank: statData['his_rank'] ?? 0,
-       vt: statData['vt'] ?? 0,
+        vt: statData['vt'] ?? 0,
       ),
       videos: data['videos'] ?? 1,
       tname: data['tname'] ?? '',
@@ -209,11 +213,7 @@ class Owner {
   final String name;
   final String face;
 
-  Owner({
-    required this.mid,
-    required this.name,
-    required this.face,
-  });
+  Owner({required this.mid, required this.name, required this.face});
 
   factory Owner.fromJson(Map<String, dynamic> json) {
     return Owner(
@@ -268,26 +268,30 @@ class Stat {
   }
 
   Map<String, dynamic> toJson() => {
-        'view': view,
-        'like': like,
-        'danmaku': danmaku,
-        'reply': reply,
-        'favorite': favorite,
-        'coin': coin,
-        'share': share,
-        'now_rank': nowRank,
-        'his_rank': hisRank,
-        'vt': vt,
-      };
+    'view': view,
+    'like': like,
+    'danmaku': danmaku,
+    'reply': reply,
+    'favorite': favorite,
+    'coin': coin,
+    'share': share,
+    'now_rank': nowRank,
+    'his_rank': hisRank,
+    'vt': vt,
+  };
 
   /// 格式化播放量
   String get formattedView => _formatCount(view);
+
   /// 格式化点赞数
   String get formattedLike => _formatCount(like);
+
   /// 格式化收藏数
   String get formattedFavorite => _formatCount(favorite);
+
   /// 格式化投币数
   String get formattedCoin => _formatCount(coin);
+
   /// 格式化分享数
   String get formattedShare => _formatCount(share);
 

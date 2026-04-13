@@ -48,7 +48,7 @@ class FunctionControlsWidget extends StatelessWidget {
             iconSize: compact ? 20 : 24,
             onPressed: onToggleFavorite,
           ),
-          
+
           // 分享按钮
           IconButton(
             icon: const Icon(Icons.share),
@@ -56,7 +56,7 @@ class FunctionControlsWidget extends StatelessWidget {
             color: Theme.of(context).primaryColor,
             onPressed: onShare,
           ),
-          
+
           // 歌词同步开关
           Row(
             children: [
@@ -74,7 +74,7 @@ class FunctionControlsWidget extends StatelessWidget {
               ),
             ],
           ),
-          
+
           // 歌词菜单按钮
           IconButton(
             icon: const Icon(Icons.more_vert),

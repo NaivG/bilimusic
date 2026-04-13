@@ -7,7 +7,7 @@ class CookiePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cookies = NetworkConfig.cookies;
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Cookie 信息'),

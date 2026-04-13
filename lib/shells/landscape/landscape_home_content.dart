@@ -127,7 +127,8 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: widget.playlists.length + 2, // +2 for favorites and history
+            itemCount:
+                widget.playlists.length + 2, // +2 for favorites and history
             itemBuilder: (context, index) {
               if (index == 0) {
                 return _buildPlaylistCard(
@@ -192,7 +193,10 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
                 : (isDark ? const Color(0xFF2a2a2a) : Colors.white),
             borderRadius: BorderRadius.circular(12),
             border: isSelected
-                ? Border.all(color: neteaseRed.withValues(alpha: 0.3), width: 1.5)
+                ? Border.all(
+                    color: neteaseRed.withValues(alpha: 0.3),
+                    width: 1.5,
+                  )
                 : null,
             boxShadow: [
               BoxShadow(
@@ -222,7 +226,9 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: isSelected ? neteaseRed : theme.colorScheme.onSurface,
+                    color: isSelected
+                        ? neteaseRed
+                        : theme.colorScheme.onSurface,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -349,9 +355,7 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
             padding: const EdgeInsets.only(bottom: 8),
             child: Row(
               children: [
-                Expanded(
-                  child: _buildMusicListItem(musicList[i]),
-                ),
+                Expanded(child: _buildMusicListItem(musicList[i])),
                 const SizedBox(width: 8),
                 Expanded(
                   child: i + 1 < musicList.length
@@ -387,10 +391,7 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
           const SizedBox(height: 8),
           Text(
             message,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[500],
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
           ),
         ],
       ),

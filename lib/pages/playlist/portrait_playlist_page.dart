@@ -105,7 +105,9 @@ class _PortraitPlaylistPageState extends State<PortraitPlaylistPage>
                 color: Theme.of(context).colorScheme.surface,
                 border: Border(
                   bottom: BorderSide(
-                    color: Theme.of(context).dividerColor.withValues(alpha: 0.1),
+                    color: Theme.of(
+                      context,
+                    ).dividerColor.withValues(alpha: 0.1),
                   ),
                 ),
               ),
@@ -139,8 +141,9 @@ class _PortraitPlaylistPageState extends State<PortraitPlaylistPage>
                             // TODO: 实现拖拽排序
                           }
                         : null,
-                    onRemove:
-                        widget.playlistId != null ? widget.onRemoveSong : null,
+                    onRemove: widget.playlistId != null
+                        ? widget.onRemoveSong
+                        : null,
                   ),
                   // 评论占位
                   _buildCommentsPlaceholder(),
@@ -219,10 +222,7 @@ class PlaylistSidebar extends StatelessWidget {
                 children: [
                   const Text(
                     '我的歌单',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   IconButton(
                     icon: const Icon(Icons.add),
@@ -251,8 +251,9 @@ class PlaylistSidebar extends StatelessWidget {
                         color: isSelected
                             ? Theme.of(context).colorScheme.primary
                             : null,
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.normal,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
                       ),
                     ),
                     subtitle: Text('${playlist.songCount}首'),

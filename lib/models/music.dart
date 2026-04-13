@@ -15,15 +15,15 @@ enum MusicRenderStyle {
 }
 
 class Music {
-  final String id;   // bvid
-  final String cid;  // 分P cid，音视频请求需要
+  final String id; // bvid
+  final String cid; // 分P cid，音视频请求需要
   final String title;
   final String artist;
   final String album;
   final String coverUrl;
   final Duration? duration;
   final String audioUrl;
-  final List<Page> pages;  // ⚠️ 已废弃，请使用 BiliItem.pages
+  final List<Page> pages; // ⚠️ 已废弃，请使用 BiliItem.pages
   final bool isFavorite;
 
   /// 当前分P索引（用于多P视频）
@@ -34,14 +34,14 @@ class Music {
 
   Music({
     required this.id,
-    this.cid = '',  // 分P cid
+    this.cid = '', // 分P cid
     required this.title,
     required this.artist,
     required this.album,
     required this.coverUrl,
     this.duration,
     required this.audioUrl,
-    this.pages = const [],  // ⚠️ 已废弃，请使用 BiliItem.pages
+    this.pages = const [], // ⚠️ 已废弃，请使用 BiliItem.pages
     this.isFavorite = false,
     this.currentPageIndex = 0,
     this.renderStyle = MusicRenderStyle.card,

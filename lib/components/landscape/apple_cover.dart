@@ -39,10 +39,7 @@ class _AppleMusicCoverState extends State<AppleMusicCover>
     _scaleAnimation = Tween<double>(
       begin: 1.0,
       end: 0.95,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -69,7 +66,8 @@ class _AppleMusicCoverState extends State<AppleMusicCover>
 
   @override
   Widget build(BuildContext context) {
-    final size = widget.customSize ?? LandscapeBreakpoints.getCoverSize(context);
+    final size =
+        widget.customSize ?? LandscapeBreakpoints.getCoverSize(context);
     final borderRadius = size > 300 ? 20.0 : 16.0;
     final dominantColor = widget.dominantColor ?? Colors.pink;
 
@@ -80,10 +78,7 @@ class _AppleMusicCoverState extends State<AppleMusicCover>
       child: AnimatedBuilder(
         animation: _scaleAnimation,
         builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: child,
-          );
+          return Transform.scale(scale: _scaleAnimation.value, child: child);
         },
         child: Container(
           width: size,
@@ -174,7 +169,8 @@ class AnimatedAppleMusicCover extends StatefulWidget {
   });
 
   @override
-  State<AnimatedAppleMusicCover> createState() => _AnimatedAppleMusicCoverState();
+  State<AnimatedAppleMusicCover> createState() =>
+      _AnimatedAppleMusicCoverState();
 }
 
 class _AnimatedAppleMusicCoverState extends State<AnimatedAppleMusicCover>
@@ -195,18 +191,12 @@ class _AnimatedAppleMusicCoverState extends State<AnimatedAppleMusicCover>
     _scaleAnimation = Tween<double>(
       begin: 0.85,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutBack,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
 
     _opacityAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
     // 延迟入场动画
     Future.delayed(const Duration(milliseconds: 100), () {
@@ -236,10 +226,7 @@ class _AnimatedAppleMusicCoverState extends State<AnimatedAppleMusicCover>
       builder: (context, child) {
         return Transform.scale(
           scale: _scaleAnimation.value,
-          child: Opacity(
-            opacity: _opacityAnimation.value,
-            child: child,
-          ),
+          child: Opacity(opacity: _opacityAnimation.value, child: child),
         );
       },
       child: AppleMusicCover(

@@ -444,7 +444,10 @@ class _LandscapePlaylistPageState extends State<LandscapePlaylistPage>
         const SizedBox(height: 8),
         Text(
           _buildInfoText(),
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13),
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.6),
+            fontSize: 13,
+          ),
         ),
         if (_currentPlaylist?.hasDescription ?? false) ...[
           const SizedBox(height: 12),
@@ -484,7 +487,10 @@ class _LandscapePlaylistPageState extends State<LandscapePlaylistPage>
           decoration: BoxDecoration(
             color: tag.color.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: tag.color.withValues(alpha: 0.4), width: 1),
+            border: Border.all(
+              color: tag.color.withValues(alpha: 0.4),
+              width: 1,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -650,7 +656,10 @@ class _LandscapePlaylistPageState extends State<LandscapePlaylistPage>
       ),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1),
+          bottom: BorderSide(
+            color: Colors.white.withValues(alpha: 0.1),
+            width: 1,
+          ),
         ),
       ),
       child: Row(
@@ -688,7 +697,11 @@ class _LandscapePlaylistPageState extends State<LandscapePlaylistPage>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.music_off, size: 64, color: Colors.white.withValues(alpha: 0.3)),
+          Icon(
+            Icons.music_off,
+            size: 64,
+            color: Colors.white.withValues(alpha: 0.3),
+          ),
           const SizedBox(height: 16),
           Text(
             '歌单为空',
@@ -858,7 +871,9 @@ class _LandscapeSongTile extends StatelessWidget {
   }
 
   Widget _buildInfo(BuildContext context) {
-    final textColor = isPlaying ? Colors.white : Colors.white.withValues(alpha: 0.9);
+    final textColor = isPlaying
+        ? Colors.white
+        : Colors.white.withValues(alpha: 0.9);
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -892,7 +907,10 @@ class _LandscapeSongTile extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           '${music.artist} · ${music.album}',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.5),
+            fontSize: 12,
+          ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),

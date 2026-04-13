@@ -14,17 +14,13 @@ import 'package:bilimusic/pages/detail/landscape_detail_page.dart';
 class DetailPage extends StatefulWidget {
   final PlayerManager playerManager;
 
-  const DetailPage({
-    super.key,
-    required this.playerManager,
-  });
+  const DetailPage({super.key, required this.playerManager});
 
   @override
   State<DetailPage> createState() => _DetailPageState();
 }
 
-class _DetailPageState extends State<DetailPage>
-    with TickerProviderStateMixin {
+class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
   late model.Music _music;
   Duration _position = Duration.zero;
   Duration? _duration;
@@ -58,16 +54,18 @@ class _DetailPageState extends State<DetailPage>
     );
 
     // 初始化音乐信息
-    final currentMusic = widget.playerManager.currentMusic ?? model.Music(
-      id: '',
-      title: '未知标题',
-      artist: '未知艺术家',
-      album: '未知专辑',
-      coverUrl: '',
-      duration: Duration.zero,
-      audioUrl: '',
-      pages: [],
-    );
+    final currentMusic =
+        widget.playerManager.currentMusic ??
+        model.Music(
+          id: '',
+          title: '未知标题',
+          artist: '未知艺术家',
+          album: '未知专辑',
+          coverUrl: '',
+          duration: Duration.zero,
+          audioUrl: '',
+          pages: [],
+        );
     _music = currentMusic;
     _duration = currentMusic.duration;
 
@@ -139,8 +137,10 @@ class _DetailPageState extends State<DetailPage>
         setState(() {
           _lyricOptions = [
             localOption,
-            ...neteaseOptions.map((info) =>
-                LyricInfo(id: info.id, name: info.name, artist: info.artist))
+            ...neteaseOptions.map(
+              (info) =>
+                  LyricInfo(id: info.id, name: info.name, artist: info.artist),
+            ),
           ];
           _isLoadingLyrics = false;
         });
@@ -149,7 +149,7 @@ class _DetailPageState extends State<DetailPage>
       if (mounted) {
         setState(() {
           _lyricOptions = [
-            LyricInfo(id: 'local', name: _music.title, artist: _music.artist)
+            LyricInfo(id: 'local', name: _music.title, artist: _music.artist),
           ];
           _isLoadingLyrics = false;
         });
@@ -191,7 +191,9 @@ class _DetailPageState extends State<DetailPage>
       setState(() {
         _dominantColor = color;
         _vibrantColor = HSLColor.fromColor(color)
-            .withLightness((HSLColor.fromColor(color).lightness + 0.2).clamp(0, 1))
+            .withLightness(
+              (HSLColor.fromColor(color).lightness + 0.2).clamp(0, 1),
+            )
             .toColor();
       });
     }
@@ -204,7 +206,9 @@ class _DetailPageState extends State<DetailPage>
       setState(() {
         _dominantColor = color;
         _vibrantColor = HSLColor.fromColor(color)
-            .withLightness((HSLColor.fromColor(color).lightness + 0.2).clamp(0, 1))
+            .withLightness(
+              (HSLColor.fromColor(color).lightness + 0.2).clamp(0, 1),
+            )
             .toColor();
       });
     }
@@ -222,22 +226,26 @@ class _DetailPageState extends State<DetailPage>
       await widget.playerManager.addToFavorites(_music);
     }
     setState(() {
-      _music =
-          _music.copyWith(isFavorite: !widget.playerManager.isFavorite(_music));
+      _music = _music.copyWith(
+        isFavorite: !widget.playerManager.isFavorite(_music),
+      );
     });
   }
 
   void _shareMusic() {
-    final String shareText = '由 BiliMusic 分享：${_music.title}\n'
+    final String shareText =
+        '由 BiliMusic 分享：${_music.title}\n'
         'https://b23.tv/${_music.id}';
-    SharePlus.instance.share(ShareParams(
-      text: shareText,
-      sharePositionOrigin: Rect.fromCenter(
-        center: Offset.zero,
-        width: 100,
-        height: 100,
+    SharePlus.instance.share(
+      ShareParams(
+        text: shareText,
+        sharePositionOrigin: Rect.fromCenter(
+          center: Offset.zero,
+          width: 100,
+          height: 100,
+        ),
       ),
-    ));
+    );
   }
 
   void _togglePlay() {

@@ -283,8 +283,8 @@ class _SidebarItem extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: (iconColor ?? theme.colorScheme.primary).withValues(alpha: 
-                    0.1,
+                  color: (iconColor ?? theme.colorScheme.primary).withValues(
+                    alpha: 0.1,
                   ),
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -318,7 +318,9 @@ class _SidebarItem extends StatelessWidget {
                         subtitle!,
                         style: TextStyle(
                           fontSize: 11,
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.5,
+                          ),
                         ),
                       ),
                   ],

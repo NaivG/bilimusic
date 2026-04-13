@@ -6,7 +6,8 @@ import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/utils/network_config.dart';
 
 class RecommendationManager {
-  static final RecommendationManager _instance = RecommendationManager._internal();
+  static final RecommendationManager _instance =
+      RecommendationManager._internal();
   factory RecommendationManager() => _instance;
   RecommendationManager._internal();
 
@@ -18,7 +19,8 @@ class RecommendationManager {
   List<Music> get recommendedList => List.unmodifiable(_recommendedList);
   List<Music> get guessYouLikeList => List.unmodifiable(_guessYouLikeList);
 
-  String get lastGuessUpdated => _lastGuessUpdated?.toIso8601String().split('T').first ?? '从未更新';
+  String get lastGuessUpdated =>
+      _lastGuessUpdated?.toIso8601String().split('T').first ?? '从未更新';
 
   /// 加载推荐音乐列表
   Future<void> loadRecommendations() async {
@@ -40,7 +42,7 @@ class RecommendationManager {
   /// 更新猜你喜欢列表（基于播放历史）
   Future<void> updateGuessYouLike(List<Music> playHistory) async {
     // 检查是否需要更新（每天最多更新一次）
-    if (_lastGuessUpdated != null && 
+    if (_lastGuessUpdated != null &&
         DateTime.now().difference(_lastGuessUpdated!).inHours < 24) {
       return;
     }
@@ -48,17 +50,21 @@ class RecommendationManager {
     if (playHistory.isEmpty) return;
 
     // 取最近播放的5个视频作为参考
-    final recentHistory = playHistory.length > 5 ? playHistory.sublist(0, 5) : playHistory;
-    
+    final recentHistory = playHistory.length > 5
+        ? playHistory.sublist(0, 5)
+        : playHistory;
+
     final List<Music> guessList = [];
     final Set<String> addedIds = {}; // 避免重复添加
 
     for (var music in recentHistory) {
       if (guessList.length >= 20) break; // 最多20个推荐
-      
+
       try {
         final response = await http.get(
-          Uri.parse('https://api.bilibili.com/x/web-interface/archive/related?bvid=${music.id}'),
+          Uri.parse(
+            'https://api.bilibili.com/x/web-interface/archive/related?bvid=${music.id}',
+          ),
           headers: NetworkConfig.biliHeaders,
         );
 
@@ -66,21 +72,21 @@ class RecommendationManager {
           final json = jsonDecode(response.body);
           if (json['code'] == 0 && json['data'] != null) {
             final List<dynamic> relatedVideos = json['data'];
-            
+
             for (var video in relatedVideos) {
               if (guessList.length >= 20) break;
-              
+
               // 检查是否属于音乐分区 (tid 为音乐主分区或其子分区)
               final tid = video['tid'] as int?;
               if (_isMusicCategory(tid)) {
                 final id = video['bvid'] ?? video['aid'].toString();
-                
+
                 // 避免重复
                 if (addedIds.contains(id)) continue;
                 addedIds.add(id);
-                
+
                 final albumName = video['tname'] ?? '未知专辑';
-                
+
                 final musicItem = Music(
                   id: id,
                   title: video['title'],
@@ -91,7 +97,7 @@ class RecommendationManager {
                   audioUrl: '',
                   pages: [],
                 );
-                
+
                 guessList.add(musicItem);
               }
             }
@@ -101,10 +107,10 @@ class RecommendationManager {
         debugPrint('获取相关推荐失败: $e');
       }
     }
-    
+
     _guessYouLikeList = guessList;
     _lastGuessUpdated = DateTime.now();
-    
+
     // 保存到缓存
     await _saveGuessToCache();
   }
@@ -112,9 +118,23 @@ class RecommendationManager {
   /// 判断是否为音乐分类
   bool _isMusicCategory(int? tid) {
     if (tid == null) return false;
-    
+
     // 音乐主分区和子分区的tid
-    const musicTids = {3, 28, 29, 30, 31, 59, 130, 193, 243, 244, 265, 266, 267};
+    const musicTids = {
+      3,
+      28,
+      29,
+      30,
+      31,
+      59,
+      130,
+      193,
+      243,
+      244,
+      265,
+      266,
+      267,
+    };
     return musicTids.contains(tid);
   }
 
@@ -122,7 +142,9 @@ class RecommendationManager {
   Future<void> _updateRecommendations() async {
     try {
       final response = await http.get(
-        Uri.parse('https://api.bilibili.com/x/web-interface/region/feed/rcmd?display_id=1&request_cnt=15&from_region=1003&device=web&plat=30'),
+        Uri.parse(
+          'https://api.bilibili.com/x/web-interface/region/feed/rcmd?display_id=1&request_cnt=15&from_region=1003&device=web&plat=30',
+        ),
         headers: NetworkConfig.biliHeaders,
       );
 
@@ -134,12 +156,15 @@ class RecommendationManager {
 
           for (var item in archives) {
             final albumName = item['tname'] ?? '未知专辑';
-            
+
             recommended.add(
               Music(
                 id: item['bvid'],
                 title: item['title'],
-                artist: item['author']?['name'] ?? item['owner']?['name'] ?? '未知艺术家',
+                artist:
+                    item['author']?['name'] ??
+                    item['owner']?['name'] ??
+                    '未知艺术家',
                 album: albumName,
                 coverUrl: (item['cover'] ?? '') + "@672w_378h",
                 duration: null,
@@ -151,7 +176,7 @@ class RecommendationManager {
 
           _recommendedList = recommended;
           _lastUpdated = DateTime.now();
-          
+
           // 保存到缓存
           await _saveToCache();
         }
@@ -167,7 +192,9 @@ class RecommendationManager {
       final prefs = await SharedPreferences.getInstance();
       final dataToSave = {
         'recommended': _recommendedList.map((m) => m.toJson()).toList(),
-        'lastUpdated': _lastUpdated?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch,
+        'lastUpdated':
+            _lastUpdated?.millisecondsSinceEpoch ??
+            DateTime.now().millisecondsSinceEpoch,
       };
       await prefs.setString('recommendations_cache', jsonEncode(dataToSave));
     } catch (e) {
@@ -181,7 +208,9 @@ class RecommendationManager {
       final prefs = await SharedPreferences.getInstance();
       final dataToSave = {
         'guessYouLike': _guessYouLikeList.map((m) => m.toJson()).toList(),
-        'lastGuessUpdated': _lastGuessUpdated?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch,
+        'lastGuessUpdated':
+            _lastGuessUpdated?.millisecondsSinceEpoch ??
+            DateTime.now().millisecondsSinceEpoch,
       };
       await prefs.setString('guess_you_like_cache', jsonEncode(dataToSave));
     } catch (e) {
@@ -193,7 +222,7 @@ class RecommendationManager {
   Future<void> _loadFromCache() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // 加载推荐列表
       final recommendationsCache = prefs.getString('recommendations_cache');
       if (recommendationsCache != null) {
@@ -204,10 +233,12 @@ class RecommendationManager {
               .toList();
         }
         if (data['lastUpdated'] != null) {
-          _lastUpdated = DateTime.fromMillisecondsSinceEpoch(data['lastUpdated']);
+          _lastUpdated = DateTime.fromMillisecondsSinceEpoch(
+            data['lastUpdated'],
+          );
         }
       }
-      
+
       // 加载猜你喜欢列表
       final guessCache = prefs.getString('guess_you_like_cache');
       if (guessCache != null) {
@@ -218,7 +249,9 @@ class RecommendationManager {
               .toList();
         }
         if (data['lastGuessUpdated'] != null) {
-          _lastGuessUpdated = DateTime.fromMillisecondsSinceEpoch(data['lastGuessUpdated']);
+          _lastGuessUpdated = DateTime.fromMillisecondsSinceEpoch(
+            data['lastGuessUpdated'],
+          );
         }
       }
     } catch (e) {

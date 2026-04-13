@@ -13,7 +13,7 @@ class AudioService {
   final ValueNotifier<Duration> _position = ValueNotifier(Duration.zero);
   final ValueNotifier<Duration> _duration = ValueNotifier(Duration.zero);
   final ValueNotifier<PlayMode> _playMode = ValueNotifier(PlayMode.sequential);
-  
+
   late BaseAudioHandler _audioHandler;
   final List<StreamSubscription> _subscriptions = [];
 
@@ -36,31 +36,44 @@ class AudioService {
   void _initAudioPlayer() {
     // 配置音频播放器以减少管道溢出
     _configureAudioPlayer();
-    
-    // 播放状态监听
-    final playerStateSubscription = _audioPlayer.playerStateStream.listen((playerState) {
-      final isPlaying = playerState.playing;
-      final processingState = playerState.processingState;
 
-      if (processingState == ProcessingState.completed) {
-        _state.value = AudioState.stopped;
-        _handlePlaybackCompleted();
-      } else {
-        _state.value = isPlaying ? AudioState.playing : AudioState.paused;
-      }
-    }, onError: (error) {
-      debugPrint("Audio player state stream error: $error");
-    });
+    // 播放状态监听
+    final playerStateSubscription = _audioPlayer.playerStateStream.listen(
+      (playerState) {
+        final isPlaying = playerState.playing;
+        final processingState = playerState.processingState;
+
+        if (processingState == ProcessingState.completed) {
+          _state.value = AudioState.stopped;
+          _handlePlaybackCompleted();
+        } else {
+          _state.value = isPlaying ? AudioState.playing : AudioState.paused;
+        }
+      },
+      onError: (error) {
+        debugPrint("Audio player state stream error: $error");
+      },
+    );
 
     // 播放位置监听（使用防抖减少更新频率）
     final positionSubscription = _audioPlayer.positionStream
-      .transform(ThrottleStreamTransformer<Duration>((_) => Stream<Duration>.periodic(const Duration(milliseconds: 200), (_) => Duration.zero)))
-      .listen((position) {
-      _position.value = position;
-      // 位置更新由player_coordinator统一处理PlaybackState
-    }, onError: (error) {
-      debugPrint("Audio player position stream error: $error");
-    });
+        .transform(
+          ThrottleStreamTransformer<Duration>(
+            (_) => Stream<Duration>.periodic(
+              const Duration(milliseconds: 200),
+              (_) => Duration.zero,
+            ),
+          ),
+        )
+        .listen(
+          (position) {
+            _position.value = position;
+            // 位置更新由player_coordinator统一处理PlaybackState
+          },
+          onError: (error) {
+            debugPrint("Audio player position stream error: $error");
+          },
+        );
 
     // 音频时长监听
     final durationSubscription = _audioPlayer.durationStream.listen((duration) {
@@ -74,14 +87,16 @@ class AudioService {
     _subscriptions.add(durationSubscription);
 
     // 初始化音频服务状态
-    _audioHandler.playbackState.add(PlaybackState(
-      controls: [],
-      playing: false,
-      updatePosition: Duration.zero,
-      bufferedPosition: Duration.zero,
-      speed: 1.0,
-      processingState: AudioProcessingState.idle,
-    ));
+    _audioHandler.playbackState.add(
+      PlaybackState(
+        controls: [],
+        playing: false,
+        updatePosition: Duration.zero,
+        bufferedPosition: Duration.zero,
+        speed: 1.0,
+        processingState: AudioProcessingState.idle,
+      ),
+    );
   }
 
   /// 播放音频文件
@@ -142,9 +157,12 @@ class AudioService {
     final currentIndex = _playMode.value.index;
     final nextIndex = (currentIndex + 1) % PlayMode.values.length;
     _playMode.value = PlayMode.values[nextIndex];
-    
+
     // 通知音频服务播放模式变化
-    _audioHandler.customEvent.add({'type': 'playModeChanged', 'mode': _playMode.value.index});
+    _audioHandler.customEvent.add({
+      'type': 'playModeChanged',
+      'mode': _playMode.value.index,
+    });
   }
 
   /// 处理播放完成事件
@@ -163,7 +181,9 @@ class AudioService {
   }
 
   /// 转换处理状态
-  @Deprecated('Use AudioProcessingState directly instead of converting from ProcessingState')
+  @Deprecated(
+    'Use AudioProcessingState directly instead of converting from ProcessingState',
+  )
   AudioProcessingState _convertProcessingState(ProcessingState state) {
     switch (state) {
       case ProcessingState.idle:
@@ -202,10 +222,12 @@ class AudioService {
 
   /// 获取播放进度百分比
   double get progressPercentage {
-    if (_audioPlayer.duration == null || _audioPlayer.duration!.inMilliseconds == 0) {
+    if (_audioPlayer.duration == null ||
+        _audioPlayer.duration!.inMilliseconds == 0) {
       return 0.0;
     }
-    return _audioPlayer.position.inMilliseconds / _audioPlayer.duration!.inMilliseconds;
+    return _audioPlayer.position.inMilliseconds /
+        _audioPlayer.duration!.inMilliseconds;
   }
 
   /// 释放资源

@@ -1,6 +1,5 @@
 import 'package:bitsdojo_window/bitsdojo_window.dart';
-import 'package:flutter/foundation.dart'
-    show kIsWeb, defaultTargetPlatform;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 
 import 'package:bilimusic/managers/player_manager.dart';
@@ -202,71 +201,70 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             title: 'BiliMusic',
             debugShowCheckedModeBanner: false,
             theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: modernBlue,
-              brightness: Brightness.light,
-            ),
-            useMaterial3: true,
-            // 统一圆角风格
-            cardTheme: CardThemeData(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: modernBlue,
+                brightness: Brightness.light,
               ),
-              elevation: 0,
-            ),
-            // 圆角按钮风格
-            elevatedButtonTheme: ElevatedButtonThemeData(
-              style: ElevatedButton.styleFrom(
+              useMaterial3: true,
+              // 统一圆角风格
+              cardTheme: CardThemeData(
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              // 圆角按钮风格
+              elevatedButtonTheme: ElevatedButtonThemeData(
+                style: ElevatedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
-            ),
-            // 圆角输入框
-            inputDecorationTheme: InputDecorationTheme(
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+              // 圆角输入框
+              inputDecorationTheme: InputDecorationTheme(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
               ),
-              filled: true,
             ),
-          ),
-          darkTheme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: modernBlue,
-              brightness: Brightness.dark,
-            ),
-            useMaterial3: true,
-            // 深色主题统一圆角
-            cardTheme: CardThemeData(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+            darkTheme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: modernBlue,
+                brightness: Brightness.dark,
               ),
-              elevation: 0,
-            ),
-            elevatedButtonTheme: ElevatedButtonThemeData(
-              style: ElevatedButton.styleFrom(
+              useMaterial3: true,
+              // 深色主题统一圆角
+              cardTheme: CardThemeData(
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              elevatedButtonTheme: ElevatedButtonThemeData(
+                style: ElevatedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
-            ),
-            inputDecorationTheme: InputDecorationTheme(
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+              inputDecorationTheme: InputDecorationTheme(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
               ),
-              filled: true,
             ),
+            themeMode: _getThemeMode(_settingsManager.themeMode),
+            home: AppShell(
+              playerManager: _playerManager,
+              playlistManager: _playlistManager,
+            ),
+            onGenerateRoute: AppRoutes.onGenerateRoute,
           ),
-          themeMode: _getThemeMode(_settingsManager.themeMode),
-          home: AppShell(
-            playerManager: _playerManager,
-            playlistManager: _playlistManager,
-          ),
-          onGenerateRoute: AppRoutes.onGenerateRoute,
         ),
       ),
-    ),
     );
   }
 }
-

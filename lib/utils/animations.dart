@@ -28,26 +28,17 @@ class _FadeInWidgetState extends State<FadeInWidget>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: widget.duration,
-      vsync: this,
-    );
+    _controller = AnimationController(duration: widget.duration, vsync: this);
 
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: widget.curve,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: widget.curve));
 
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.1),
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: widget.curve,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: widget.curve));
 
     Future.delayed(widget.delay, () {
       if (mounted) {
@@ -66,10 +57,7 @@ class _FadeInWidgetState extends State<FadeInWidget>
   Widget build(BuildContext context) {
     return FadeTransition(
       opacity: _fadeAnimation,
-      child: SlideTransition(
-        position: _slideAnimation,
-        child: widget.child,
-      ),
+      child: SlideTransition(position: _slideAnimation, child: widget.child),
     );
   }
 }
@@ -101,8 +89,12 @@ class _ScaleOnHoverState extends State<ScaleOnHover> {
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
-      onEnter: widget.enableHover ? (_) => setState(() => _isHovered = true) : null,
-      onExit: widget.enableHover ? (_) => setState(() => _isHovered = false) : null,
+      onEnter: widget.enableHover
+          ? (_) => setState(() => _isHovered = true)
+          : null,
+      onExit: widget.enableHover
+          ? (_) => setState(() => _isHovered = false)
+          : null,
       child: AnimatedScale(
         scale: _isHovered ? widget.hoverScale : widget.normalScale,
         duration: widget.duration,
@@ -140,18 +132,12 @@ class _TapScaleWidgetState extends State<TapScaleWidget>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: widget.duration,
-      vsync: this,
-    );
+    _controller = AnimationController(duration: widget.duration, vsync: this);
 
     _scaleAnimation = Tween<double>(
       begin: 1.0,
       end: widget.pressedScale,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -182,10 +168,7 @@ class _TapScaleWidgetState extends State<TapScaleWidget>
       child: AnimatedBuilder(
         animation: _scaleAnimation,
         builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: child,
-          );
+          return Transform.scale(scale: _scaleAnimation.value, child: child);
         },
         child: widget.child,
       ),
@@ -215,9 +198,7 @@ class StaggeredList extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: _buildChildren(),
           )
-        : Row(
-            children: _buildChildren(),
-          );
+        : Row(children: _buildChildren());
   }
 
   List<Widget> _buildChildren() {
@@ -268,7 +249,9 @@ class GradientOverlay extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: begin,
                   end: end,
-                  colors: colors.map((c) => c.withValues(alpha: opacity)).toList(),
+                  colors: colors
+                      .map((c) => c.withValues(alpha: opacity))
+                      .toList(),
                 ),
               ),
             ),

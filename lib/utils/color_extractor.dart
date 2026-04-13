@@ -11,10 +11,12 @@ class ColorExtractor {
       if (response.statusCode == 200) {
         // 使用color_thief_dart提取主色调
         final palette = await getPaletteFromBytes(response.bodyBytes, 10, 6);
-        
+
         if (palette != null && palette.isNotEmpty) {
           // 转换为Color对象并返回最亮的颜色作为主色调
-          final colors = palette.map((color) => Color.fromRGBO(color[0], color[1], color[2], 1.0)).toList();
+          final colors = palette
+              .map((color) => Color.fromRGBO(color[0], color[1], color[2], 1.0))
+              .toList();
           return _getBrightestColor(colors);
         }
       }

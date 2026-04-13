@@ -111,7 +111,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('当前: 当开始过渡前${_settingsManager.preloadSeconds}秒开始加载下一首'),
+                    Text(
+                      '当前: 当开始过渡前${_settingsManager.preloadSeconds}秒开始加载下一首',
+                    ),
                     Slider(
                       value: _settingsManager.preloadSeconds.toDouble(),
                       min: 5,
