@@ -33,8 +33,7 @@ class UpdateChecker {
         // Remote is newer, load changelog for display
         final changelog = await _loadChangelogEntries();
         final newEntries = changelog
-            .where((entry) =>
-                _compareVersion(entry.version, localVersion) > 0)
+            .where((entry) => _compareVersion(entry.version, localVersion) > 0)
             .toList();
 
         return VersionCompareResult(

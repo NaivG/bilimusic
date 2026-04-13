@@ -13,7 +13,7 @@ class ChangelogEntry {
     return ChangelogEntry(
       version: json['version'] as String? ?? '',
       date: json['date'] as String? ?? '',
-      changes: json['changes'] != null 
+      changes: json['changes'] != null
           ? List<String>.from(json['changes'] as List)
           : [],
     );

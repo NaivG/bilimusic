@@ -20,10 +20,8 @@ class UpdateAvailableDialog extends StatelessWidget {
   }) {
     return showDialog(
       context: context,
-      builder: (context) => UpdateAvailableDialog(
-        newVersion: newVersion,
-        changelog: changelog,
-      ),
+      builder: (context) =>
+          UpdateAvailableDialog(newVersion: newVersion, changelog: changelog),
     );
   }
 
@@ -45,9 +43,7 @@ class UpdateAvailableDialog extends StatelessWidget {
           children: [
             const Text('以下是本次更新内容：'),
             const SizedBox(height: 12),
-            ...changelog.map(
-              (entry) => _buildChangelogItem(entry),
-            ),
+            ...changelog.map((entry) => _buildChangelogItem(entry)),
           ],
         ),
       ),
@@ -85,10 +81,7 @@ class UpdateAvailableDialog extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 entry.date,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey,
-                ),
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ],
           ),
@@ -101,10 +94,7 @@ class UpdateAvailableDialog extends StatelessWidget {
                 children: [
                   const Text('• ', style: TextStyle(fontSize: 12)),
                   Expanded(
-                    child: Text(
-                      change,
-                      style: const TextStyle(fontSize: 12),
-                    ),
+                    child: Text(change, style: const TextStyle(fontSize: 12)),
                   ),
                 ],
               ),
