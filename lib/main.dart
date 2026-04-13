@@ -127,6 +127,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   late SettingsManager _settingsManager;
   late PlaylistManager _playlistManager;
   final SearchStateNotifier _searchStateNotifier = SearchStateNotifier();
+  // 添加全局key用于获取MaterialApp的context
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
@@ -151,11 +153,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     final updateChecker = UpdateChecker();
     final result = await updateChecker.compareVersions();
     if (result != null && mounted) {
-      await UpdateAvailableDialog.show(
-        context,
-        newVersion: result.remoteVersion,
-        changelog: result.newEntries,
-      );
+      // 使用navigatorKey的context来显示对话框
+      final navigatorContext = _navigatorKey.currentContext;
+      debugPrint('Update available: ${result.remoteVersion}\nChangelog:\n${result.newEntries.map((entry) => entry.toString()).join('\n')}');
+      if (navigatorContext != null) {
+        await UpdateAvailableDialog.show(
+          navigatorContext,
+          newVersion: result.remoteVersion,
+          changelog: result.newEntries,
+        );
+      }
     }
   }
 
@@ -198,6 +205,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         child: SearchStateProvider(
           searchState: _searchStateNotifier,
           child: MaterialApp(
+            navigatorKey: _navigatorKey,
             title: 'BiliMusic',
             debugShowCheckedModeBanner: false,
             theme: ThemeData(

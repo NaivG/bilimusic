@@ -55,6 +55,8 @@ class UpdateChecker {
     return jsonData['version'] as String;
   }
 
+  Map<String, dynamic>? _cachedRemoteData;
+
   Future<String?> _fetchRemoteVersion() async {
     try {
       final response = await http
@@ -69,6 +71,7 @@ class UpdateChecker {
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
+        _cachedRemoteData = jsonData;
         return jsonData['version'] as String;
       }
     } catch (e) {
@@ -78,8 +81,34 @@ class UpdateChecker {
   }
 
   Future<List<ChangelogEntry>> _loadChangelogEntries() async {
-    final jsonString = await rootBundle.loadString('assets/version.json');
-    final Map<String, dynamic> jsonData = json.decode(jsonString);
+    // Use cached remote data if available, otherwise fetch from remote
+    Map<String, dynamic> jsonData;
+    if (_cachedRemoteData != null) {
+      jsonData = _cachedRemoteData!;
+    } else {
+      try {
+        final response = await http
+            .get(
+              Uri.parse(_remoteUrl),
+              headers: {
+                'User-Agent':
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0',
+              },
+            )
+            .timeout(const Duration(seconds: 10));
+
+        if (response.statusCode == 200) {
+          jsonData = json.decode(response.body);
+          _cachedRemoteData = jsonData;
+        } else {
+          return [];
+        }
+      } catch (e) {
+        debugPrint('Failed to fetch remote changelog: $e');
+        return [];
+      }
+    }
+
     final List<dynamic> changelogList = jsonData['changelog'];
     return changelogList
         .map((item) => ChangelogEntry.fromJson(item as Map<String, dynamic>))
