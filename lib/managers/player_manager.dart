@@ -143,7 +143,9 @@ class StreamingPlayerManager extends PlayerManager {
   static StreamingPlayerManager? _instance;
   static StreamingPlayerManager get instance {
     if (_instance == null) {
-      throw Exception('StreamingPlayerManager has not been initialized. Call StreamingPlayerManager.initialize(coordinator) first.');
+      throw Exception(
+        'StreamingPlayerManager has not been initialized. Call StreamingPlayerManager.initialize(coordinator) first.',
+      );
     }
     return _instance!;
   }
@@ -155,7 +157,7 @@ class StreamingPlayerManager extends PlayerManager {
   }
 
   StreamingPlayerManager._internal(PlayerCoordinator coordinator)
-      : super._internal(coordinator) {
+    : super._internal(coordinator) {
     _setupListeners();
   }
 

@@ -296,9 +296,10 @@ class _TransitionGlowIndicatorState extends State<TransitionGlowIndicator>
       vsync: this,
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
-    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
 
     _glowController = AnimationController(
       duration: const Duration(milliseconds: 1500),
@@ -306,10 +307,7 @@ class _TransitionGlowIndicatorState extends State<TransitionGlowIndicator>
     );
 
     _glowAnimation = Tween<double>(begin: 4.0, end: 10.0).animate(
-      CurvedAnimation(
-        parent: _glowController,
-        curve: Curves.easeInOut,
-      ),
+      CurvedAnimation(parent: _glowController, curve: Curves.easeInOut),
     );
 
     if (widget.isVisible) {
@@ -367,10 +365,7 @@ class _TransitionGlowIndicatorState extends State<TransitionGlowIndicator>
           );
         }
 
-        return Opacity(
-          opacity: _fadeAnimation.value,
-          child: widget.child,
-        );
+        return Opacity(opacity: _fadeAnimation.value, child: widget.child);
       },
     );
   }

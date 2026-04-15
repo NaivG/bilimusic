@@ -19,11 +19,7 @@ class SearchPage extends StatefulWidget {
   final String? initialQuery; // 可选的初始搜索参数
   final String? pendingQuery; // 来自横屏搜索栏的待搜索词
 
-  const SearchPage({
-    super.key,
-    this.initialQuery,
-    this.pendingQuery,
-  });
+  const SearchPage({super.key, this.initialQuery, this.pendingQuery});
 
   @override
   State<SearchPage> createState() => _SearchPageState();
@@ -534,10 +530,7 @@ class _SearchPageState extends State<SearchPage> {
 
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) =>
-            PlaylistPage(songs: songs),
-      ),
+      MaterialPageRoute(builder: (_) => PlaylistPage(songs: songs)),
     );
   }
 

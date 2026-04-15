@@ -338,9 +338,8 @@ class _ProfilePageState extends State<ProfilePage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => PlaylistPage(
-                  songs: sl.playerManager.playHistory,
-                ),
+                builder: (context) =>
+                    PlaylistPage(songs: sl.playerManager.playHistory),
               ),
             );
           },
@@ -364,9 +363,8 @@ class _ProfilePageState extends State<ProfilePage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => PlaylistPage(
-                  songs: sl.playerManager.favorites,
-                ),
+                builder: (context) =>
+                    PlaylistPage(songs: sl.playerManager.favorites),
               ),
             );
           },

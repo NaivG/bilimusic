@@ -11,6 +11,7 @@ import 'package:bilimusic/managers/cache_manager.dart';
 enum RouteTransition {
   /// Material 风格滑动过渡（移动端）
   material,
+
   /// 桌面端过渡（Fade 效果）
   desktop,
 }
@@ -46,7 +47,7 @@ class _DesktopPageRoute<T> extends PageRoute<T> {
   final WidgetBuilder builder;
 
   _DesktopPageRoute({required RouteSettings settings, required this.builder})
-      : super(settings: settings);
+    : super(settings: settings);
 
   @override
   Color? get barrierColor => null;
@@ -65,13 +66,20 @@ class _DesktopPageRoute<T> extends PageRoute<T> {
 
   @override
   Widget buildPage(
-      BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation) {
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) {
     return builder(context);
   }
 
   @override
-  Widget buildTransitions(BuildContext context, Animation<double> animation,
-      Animation<double> secondaryAnimation, Widget child) {
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
     return FadeTransition(opacity: animation, child: child);
   }
 }
@@ -127,9 +135,7 @@ class AppRoutes {
         if (args is Map<String, dynamic>) {
           return MaterialPageRoute(
             settings: settings,
-            builder: (_) => SearchPage(
-              initialQuery: args['query'] as String?,
-            ),
+            builder: (_) => SearchPage(initialQuery: args['query'] as String?),
           );
         }
         return MaterialPageRoute(

@@ -96,10 +96,10 @@ class LandscapeShell extends StatelessWidget {
                             child: selectedIndex == 0
                                 ? _buildLandscapeHomeContent(context)
                                 : selectedIndex == 1
-                                    ? SearchPage(
-                                        pendingQuery: landscapePendingQuery,
-                                      )
-                                    : pages[selectedIndex],
+                                ? SearchPage(
+                                    pendingQuery: landscapePendingQuery,
+                                  )
+                                : pages[selectedIndex],
                           ),
                           LandscapePlayerBar(
                             onExpand: onExpand,

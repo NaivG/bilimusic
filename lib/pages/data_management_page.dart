@@ -64,7 +64,8 @@ class _DataManagementPageState extends State<DataManagementPage> {
     }
 
     // 用户歌单
-    final playlistJson = prefs.getString('user_playlists_enhanced') ??
+    final playlistJson =
+        prefs.getString('user_playlists_enhanced') ??
         prefs.getString('user_playlists');
     int playlistCount = 0;
     if (playlistJson != null && playlistJson.isNotEmpty) {
@@ -76,7 +77,10 @@ class _DataManagementPageState extends State<DataManagementPage> {
 
     // 登录状态
     final cookies = prefs.getString('cookies');
-    final isLoggedIn = cookies != null && cookies.isNotEmpty && cookies.contains('DedeUserID=');
+    final isLoggedIn =
+        cookies != null &&
+        cookies.isNotEmpty &&
+        cookies.contains('DedeUserID=');
 
     if (mounted) {
       setState(() {
@@ -91,14 +95,8 @@ class _DataManagementPageState extends State<DataManagementPage> {
   Future<void> _loadCacheSize() async {
     final sizes = await LocalStorage.getCacheSize();
     debugPrint('Cache sizes: $sizes');
-    final musicSize = int.tryParse(
-          sizes['music'] ?? '0',
-        ) ??
-        0;
-    final imageSize = int.tryParse(
-          sizes['image'] ?? '0',
-        ) ??
-        0;
+    final musicSize = int.tryParse(sizes['music'] ?? '0') ?? 0;
+    final imageSize = int.tryParse(sizes['image'] ?? '0') ?? 0;
     final totalSize = musicSize + imageSize;
 
     if (mounted) {
@@ -113,12 +111,14 @@ class _DataManagementPageState extends State<DataManagementPage> {
   static String _formatBytes(int bytes, int decimals) {
     if (bytes <= 0) return '0 B';
     const suffixes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    final i = (bytes == 0 ? 0 : (log(bytes) / log(1024)).floor())
-        .clamp(0, suffixes.length - 1);
+    final i = (bytes == 0 ? 0 : (log(bytes) / log(1024)).floor()).clamp(
+      0,
+      suffixes.length - 1,
+    );
     final size = (bytes / pow(1024, i)).toStringAsFixed(decimals);
     return '$size ${suffixes[i]}';
   }
-  
+
   Color _getPrimaryColor(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
         ? Colors.white
@@ -193,20 +193,11 @@ class _DataManagementPageState extends State<DataManagementPage> {
                   _buildSectionTitle('数据概览'),
                   _buildInfoCard(
                     children: [
-                      _buildInfoRow(
-                        '播放历史',
-                        '$_playHistoryCount 条',
-                      ),
+                      _buildInfoRow('播放历史', '$_playHistoryCount 条'),
                       _buildDivider(),
-                      _buildInfoRow(
-                        '收藏列表',
-                        '$_favoritesCount 首',
-                      ),
+                      _buildInfoRow('收藏列表', '$_favoritesCount 首'),
                       _buildDivider(),
-                      _buildInfoRow(
-                        '用户歌单',
-                        '$_playlistCount 个',
-                      ),
+                      _buildInfoRow('用户歌单', '$_playlistCount 个'),
                       _buildDivider(),
                       _buildInfoRow(
                         '登录状态',
@@ -235,8 +226,10 @@ class _DataManagementPageState extends State<DataManagementPage> {
                   // 数据操作
                   _buildSectionTitle('数据操作'),
                   Card(
-                    margin:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
                     child: Column(
                       children: [
                         ListTile(
@@ -246,8 +239,10 @@ class _DataManagementPageState extends State<DataManagementPage> {
                           ),
                           title: const Text('数据迁移'),
                           subtitle: const Text('导出或导入应用数据'),
-                          trailing: const Icon(Icons.arrow_forward_ios,
-                              size: 16),
+                          trailing: const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                          ),
                           onTap: () {
                             Navigator.push(
                               context,
@@ -265,8 +260,10 @@ class _DataManagementPageState extends State<DataManagementPage> {
                           ),
                           title: const Text('清除缓存数据'),
                           subtitle: const Text('清除图片和音乐缓存文件'),
-                          trailing: const Icon(Icons.arrow_forward_ios,
-                              size: 16),
+                          trailing: const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                          ),
                           onTap: _clearCache,
                         ),
                         _buildDivider(),
@@ -280,8 +277,10 @@ class _DataManagementPageState extends State<DataManagementPage> {
                             style: TextStyle(color: Colors.red),
                           ),
                           subtitle: const Text('清除用户数据并重启应用'),
-                          trailing: const Icon(Icons.arrow_forward_ios,
-                              size: 16),
+                          trailing: const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                          ),
                           onTap: _clearAllData,
                         ),
                       ],
@@ -321,17 +320,17 @@ class _DataManagementPageState extends State<DataManagementPage> {
         await imageCacheManager.emptyCache();
         await musicCacheManager.emptyCache();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('缓存清除成功')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('缓存清除成功')));
           // 刷新缓存大小显示
           _loadCacheSize();
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('缓存清除失败: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('缓存清除失败: $e')));
         }
       }
     }
@@ -434,9 +433,9 @@ class _DataManagementPageState extends State<DataManagementPage> {
         await Restart.restartApp();
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('清除数据失败: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('清除数据失败: $e')));
         }
       }
     }

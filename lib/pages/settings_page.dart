@@ -22,9 +22,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('设置'),
-      ),
+      appBar: AppBar(title: Text('设置')),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -74,7 +72,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('当前: ${sl.settingsManager.crossfadeDuration ~/ 1000}秒'),
+                    Text(
+                      '当前: ${sl.settingsManager.crossfadeDuration ~/ 1000}秒',
+                    ),
                     Slider(
                       value: sl.settingsManager.crossfadeDuration.toDouble(),
                       min: 1000,
@@ -109,7 +109,9 @@ class _SettingsPageState extends State<SettingsPage> {
                       divisions: 25,
                       label: '${sl.settingsManager.preloadSeconds}秒',
                       onChanged: (value) async {
-                        await sl.settingsManager.setPreloadSeconds(value.toInt());
+                        await sl.settingsManager.setPreloadSeconds(
+                          value.toInt(),
+                        );
                         setState(() {});
                       },
                     ),
@@ -157,7 +159,9 @@ class _SettingsPageState extends State<SettingsPage> {
               leading: Icon(Icons.tablet, color: _getPrimaryColor(context)),
               title: Text('平板模式'),
               subtitle: Text(
-                sl.settingsManager.getTabletModeText(sl.settingsManager.tabletMode),
+                sl.settingsManager.getTabletModeText(
+                  sl.settingsManager.tabletMode,
+                ),
               ),
               trailing: DropdownButton<String>(
                 value: sl.settingsManager.tabletMode,
@@ -220,7 +224,9 @@ class _SettingsPageState extends State<SettingsPage> {
               leading: Icon(Icons.palette, color: _getPrimaryColor(context)),
               title: Text('主题模式(需要重启生效)'),
               subtitle: Text(
-                sl.settingsManager.getThemeModeText(sl.settingsManager.themeMode),
+                sl.settingsManager.getThemeModeText(
+                  sl.settingsManager.themeMode,
+                ),
               ),
               trailing: DropdownButton<String>(
                 value: sl.settingsManager.themeMode,
@@ -243,10 +249,7 @@ class _SettingsPageState extends State<SettingsPage> {
             // 数据管理
             _buildSectionTitle('数据管理'),
             ListTile(
-              leading: Icon(
-                Icons.storage,
-                color: _getPrimaryColor(context),
-              ),
+              leading: Icon(Icons.storage, color: _getPrimaryColor(context)),
               title: Text('数据管理'),
               subtitle: Text('查看详细数据、缓存信息与数据操作'),
               trailing: Icon(Icons.arrow_forward_ios),

@@ -43,37 +43,37 @@ class LandscapeControlsBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: LayoutBuilder(
-              builder: (context, constraints) {
-                // 根据可用高度动态分配空间
-                final availableHeight = constraints.maxHeight;
-                final sliderHeight = availableHeight * 0.4;
-                final buttonRowHeight = availableHeight * 0.5;
+          builder: (context, constraints) {
+            // 根据可用高度动态分配空间
+            final availableHeight = constraints.maxHeight;
+            final sliderHeight = availableHeight * 0.4;
+            final buttonRowHeight = availableHeight * 0.5;
 
-                return Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // 进度条
-                    SizedBox(
-                      height: sliderHeight,
-                      child: AppleMusicSlider(
-                        position: position,
-                        duration: duration,
-                        onSeek: onSeek,
-                        isTransitioning: isTransitioning,
-                      ),
-                    ),
-                    // 这里由于时间有一定空间，所以不用空出位置
-                    // 控制按钮
-                    SizedBox(
-                      height: buttonRowHeight,
-                      child: _buildControlButtons(context),
-                    ),
-                    SizedBox(height: 4),
-                  ],
-                );
-              },
-            ),
-          ),
+            return Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // 进度条
+                SizedBox(
+                  height: sliderHeight,
+                  child: AppleMusicSlider(
+                    position: position,
+                    duration: duration,
+                    onSeek: onSeek,
+                    isTransitioning: isTransitioning,
+                  ),
+                ),
+                // 这里由于时间有一定空间，所以不用空出位置
+                // 控制按钮
+                SizedBox(
+                  height: buttonRowHeight,
+                  child: _buildControlButtons(context),
+                ),
+                SizedBox(height: 4),
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 

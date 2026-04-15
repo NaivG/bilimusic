@@ -133,10 +133,7 @@ class _HomePageState extends State<HomePage> {
               contentPadding: const EdgeInsets.symmetric(vertical: 10),
             ),
             onTap: () {
-              Navigator.pushNamed(
-                context,
-                '/search',
-              );
+              Navigator.pushNamed(context, '/search');
             },
           ),
         ),
@@ -187,10 +184,7 @@ class _HomePageState extends State<HomePage> {
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () {
-              Navigator.pushNamed(
-                context,
-                '/search',
-              );
+              Navigator.pushNamed(context, '/search');
             },
           ),
         ],

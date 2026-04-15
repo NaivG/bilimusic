@@ -64,7 +64,8 @@ class _PortraitDetailPageState extends State<PortraitDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: widget.dominantColor?.withValues(alpha: 0.4) ?? Colors.black,
+      backgroundColor:
+          widget.dominantColor?.withValues(alpha: 0.4) ?? Colors.black,
       extendBodyBehindAppBar: true,
       appBar: _buildAppBar(context),
       body: Stack(
@@ -72,7 +73,9 @@ class _PortraitDetailPageState extends State<PortraitDetailPage> {
           // 渐变背景
           _buildBackground(),
           // 主内容
-          widget.showLyrics ? _buildLyricsView(context) : _buildAlbumView(context),
+          widget.showLyrics
+              ? _buildLyricsView(context)
+              : _buildAlbumView(context),
         ],
       ),
     );
@@ -125,7 +128,8 @@ class _PortraitDetailPageState extends State<PortraitDetailPage> {
               end: Alignment.bottomCenter,
               colors: [
                 widget.dominantColor?.withValues(alpha: 0.8) ?? Colors.black,
-                widget.dominantColor?.withValues(alpha: 0.6) ?? Colors.grey[900]!,
+                widget.dominantColor?.withValues(alpha: 0.6) ??
+                    Colors.grey[900]!,
                 Colors.black,
               ],
               stops: const [0.0, 0.5, 1.0],
@@ -186,9 +190,10 @@ class _PortraitDetailPageState extends State<PortraitDetailPage> {
       transitionBuilder: (child, animation) => FadeTransition(
         opacity: animation,
         child: ScaleTransition(
-          scale: Tween<double>(begin: 0.85, end: 1.0).animate(
-            CurvedAnimation(parent: animation, curve: Curves.easeOut),
-          ),
+          scale: Tween<double>(
+            begin: 0.85,
+            end: 1.0,
+          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
           child: child,
         ),
       ),
@@ -200,7 +205,9 @@ class _PortraitDetailPageState extends State<PortraitDetailPage> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: (widget.dominantColor ?? Colors.pink).withValues(alpha: 0.4),
+              color: (widget.dominantColor ?? Colors.pink).withValues(
+                alpha: 0.4,
+              ),
               blurRadius: 40,
               spreadRadius: 5,
               offset: const Offset(0, 20),
@@ -248,8 +255,10 @@ class _PortraitDetailPageState extends State<PortraitDetailPage> {
       transitionBuilder: (child, animation) => FadeTransition(
         opacity: animation,
         child: SlideTransition(
-          position: Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero)
-              .animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.1),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
           child: child,
         ),
       ),
@@ -416,7 +425,9 @@ class _PortraitDetailPageState extends State<PortraitDetailPage> {
             onChanged: (value) {
               if (widget.duration != null) {
                 widget.onSeek(
-                  Duration(seconds: (value * widget.duration!.inSeconds).toInt()),
+                  Duration(
+                    seconds: (value * widget.duration!.inSeconds).toInt(),
+                  ),
                 );
               }
             },

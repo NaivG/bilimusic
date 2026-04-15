@@ -175,8 +175,7 @@ class _LyricSectionState extends State<LyricSection> {
             ),
           ],
         ),
-        if (widget.selectedLyricId != null)
-          _buildLyricSourceSelector(),
+        if (widget.selectedLyricId != null) _buildLyricSourceSelector(),
       ],
     );
   }
@@ -329,9 +328,9 @@ class _LyricSectionState extends State<LyricSection> {
           const SizedBox(height: 16),
           Text(
             '加载歌词中...',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: Theme.of(context).hintColor,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(color: Theme.of(context).hintColor),
           ),
         ],
       ),
@@ -376,9 +375,9 @@ class _LyricSectionState extends State<LyricSection> {
           const SizedBox(height: 16),
           Text(
             message,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: Theme.of(context).hintColor,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(color: Theme.of(context).hintColor),
           ),
         ],
       ),

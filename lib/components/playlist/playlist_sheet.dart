@@ -9,10 +9,7 @@ import 'package:bilimusic/components/playlist/playlist_item.dart';
 class PlaylistSheet extends StatefulWidget {
   final Function(int) onTrackSelect;
 
-  const PlaylistSheet({
-    super.key,
-    required this.onTrackSelect,
-  });
+  const PlaylistSheet({super.key, required this.onTrackSelect});
 
   @override
   State<PlaylistSheet> createState() => _PlaylistSheetState();

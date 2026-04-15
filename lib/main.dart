@@ -49,11 +49,7 @@ void main() async {
   // 初始化通知服务(音频处理器)
   sl.notificationService.initialize(audioHandler);
 
-  runApp(
-    MyApp(
-      audioHandler: audioHandler,
-    ),
-  );
+  runApp(MyApp(audioHandler: audioHandler));
 
   if (!kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.windows ||
@@ -74,10 +70,7 @@ void main() async {
 class MyApp extends StatefulWidget {
   final BaseAudioHandler audioHandler;
 
-  const MyApp({
-    super.key,
-    required this.audioHandler,
-  });
+  const MyApp({super.key, required this.audioHandler});
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -178,9 +171,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ),
         // 圆角输入框
         inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           filled: true,
         ),
       ),
@@ -205,9 +196,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           ),
         ),
         inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           filled: true,
         ),
       ),
