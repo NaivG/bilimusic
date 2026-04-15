@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:bilimusic/managers/player_manager.dart';
-import 'package:bilimusic/managers/playlist_manager.dart';
+import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/pages/playlist_page.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -10,9 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
 class ProfilePage extends StatefulWidget {
-  final PlayerManager playerManager;
-
-  const ProfilePage({super.key, required this.playerManager});
+  const ProfilePage({super.key});
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -22,7 +19,6 @@ class _ProfilePageState extends State<ProfilePage> {
   int _playHistoryCount = 0;
   int _favoritesCount = 0;
   int _playlistsCount = 0;
-  late PlaylistManager _playlistManager;
   bool _isLoggedIn = false;
   String _userName = '点击登录';
   String _userAvatar = '';
@@ -30,20 +26,19 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    _playlistManager = PlaylistManager();
     _loadData();
     _checkLoginStatus();
   }
 
   Future<void> _loadData() async {
     // 获取播放历史数量
-    final playHistory = widget.playerManager.playHistory;
+    final playHistory = sl.playerManager.playHistory;
 
     // 获取收藏数量
-    final favorites = widget.playerManager.favorites;
+    final favorites = sl.playerManager.favorites;
 
     // 获取用户自定义播放列表数量
-    final playlists = _playlistManager.getAllPlaylists();
+    final playlists = sl.playlistManager.getAllPlaylists();
 
     setState(() {
       _playHistoryCount = playHistory.length;
@@ -178,7 +173,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   void dispose() {
-    // _playlistManager不需要dispose
+    // sl.playlistManager不需要dispose
     super.dispose();
   }
 
@@ -344,8 +339,7 @@ class _ProfilePageState extends State<ProfilePage> {
               context,
               MaterialPageRoute(
                 builder: (context) => PlaylistPage(
-                  songs: widget.playerManager.playHistory,
-                  playerManager: widget.playerManager,
+                  songs: sl.playerManager.playHistory,
                 ),
               ),
             );
@@ -371,8 +365,7 @@ class _ProfilePageState extends State<ProfilePage> {
               context,
               MaterialPageRoute(
                 builder: (context) => PlaylistPage(
-                  songs: widget.playerManager.favorites,
-                  playerManager: widget.playerManager,
+                  songs: sl.playerManager.favorites,
                 ),
               ),
             );
@@ -402,7 +395,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _showPlaylists() {
-    final playlists = _playlistManager.getAllPlaylists();
+    final playlists = sl.playlistManager.getAllPlaylists();
 
     showModalBottomSheet(
       context: context,
@@ -468,7 +461,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         itemBuilder: (context, index) {
                           final playlist = playlists[index];
                           return FutureBuilder<List<Music>>(
-                            future: _playlistManager.getPlaylistSongs(
+                            future: sl.playlistManager.getPlaylistSongs(
                               playlist.id,
                             ),
                             builder: (context, snapshot) {
@@ -485,7 +478,6 @@ class _ProfilePageState extends State<ProfilePage> {
                                       MaterialPageRoute(
                                         builder: (context) => PlaylistPage(
                                           playlistId: playlist.id,
-                                          playerManager: widget.playerManager,
                                         ),
                                       ),
                                     );
@@ -529,7 +521,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ElevatedButton(
               onPressed: () async {
                 if (_controller.text.trim().isNotEmpty) {
-                  await _playlistManager.createPlaylist(
+                  await sl.playlistManager.createPlaylist(
                     _controller.text.trim(),
                   );
                   Navigator.pop(context);

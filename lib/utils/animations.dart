@@ -261,3 +261,117 @@ class GradientOverlay extends StatelessWidget {
     );
   }
 }
+
+/// 过渡中提示组件 - 带淡入辉光强调动画
+class TransitionGlowIndicator extends StatefulWidget {
+  final bool isVisible;
+  final Widget child;
+  final Duration fadeDuration;
+
+  const TransitionGlowIndicator({
+    super.key,
+    required this.isVisible,
+    required this.child,
+    this.fadeDuration = const Duration(milliseconds: 500),
+  });
+
+  @override
+  State<TransitionGlowIndicator> createState() =>
+      _TransitionGlowIndicatorState();
+}
+
+class _TransitionGlowIndicatorState extends State<TransitionGlowIndicator>
+    with TickerProviderStateMixin {
+  late AnimationController _fadeController;
+  late AnimationController _glowController;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _glowAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _fadeController = AnimationController(
+      duration: widget.fadeDuration,
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
+    );
+
+    _glowController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+
+    _glowAnimation = Tween<double>(begin: 4.0, end: 10.0).animate(
+      CurvedAnimation(
+        parent: _glowController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    if (widget.isVisible) {
+      _fadeController.forward();
+      _glowController.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(TransitionGlowIndicator oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isVisible != oldWidget.isVisible) {
+      if (widget.isVisible) {
+        _fadeController.forward();
+        _glowController.repeat(reverse: true);
+      } else {
+        _fadeController.reverse();
+        _glowController.stop();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    _glowController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_fadeAnimation, _glowAnimation]),
+      builder: (context, child) {
+        final glowOpacity = 0.3 * _glowAnimation.value / 10;
+        final glowBlur = _glowAnimation.value;
+
+        // 应用淡入和辉光效果到 Text 的 shadow
+        if (widget.child is Text) {
+          final textWidget = widget.child as Text;
+          final style = textWidget.style ?? const TextStyle();
+          return Opacity(
+            opacity: _fadeAnimation.value,
+            child: Text(
+              textWidget.data ?? '',
+              style: style.copyWith(
+                shadows: [
+                  Shadow(
+                    color: Colors.white.withValues(alpha: glowOpacity),
+                    blurRadius: glowBlur,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return Opacity(
+          opacity: _fadeAnimation.value,
+          child: widget.child,
+        );
+      },
+    );
+  }
+}

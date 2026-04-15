@@ -20,6 +20,11 @@ enum AudioState {
 /// 播放器管理器接口
 /// 适配原有接口，内部使用协调器
 abstract class PlayerManager {
+  /// 内部构造方法，供 StreamingPlayerManager 单例调用
+  PlayerManager._internal(this._coordinator);
+
+  final PlayerCoordinator _coordinator;
+
   bool get isPlaying;
 
   // 获取当前播放状态
@@ -133,17 +138,32 @@ abstract class PlayerManager {
   void removeCountdownListener(Function(int) listener);
 }
 
-/// 播放器管理器实现
+/// 播放器管理器实现（单例）
 class StreamingPlayerManager extends PlayerManager {
-  final PlayerCoordinator _coordinator;
+  static StreamingPlayerManager? _instance;
+  static StreamingPlayerManager get instance {
+    if (_instance == null) {
+      throw Exception('StreamingPlayerManager has not been initialized. Call StreamingPlayerManager.initialize(coordinator) first.');
+    }
+    return _instance!;
+  }
+
+  /// 初始化单例
+  factory StreamingPlayerManager.initialize(PlayerCoordinator coordinator) {
+    _instance ??= StreamingPlayerManager._internal(coordinator);
+    return _instance!;
+  }
+
+  StreamingPlayerManager._internal(PlayerCoordinator coordinator)
+      : super._internal(coordinator) {
+    _setupListeners();
+  }
+
+  // 监听器列表
   final List<Function(AudioState)> _stateListeners = [];
   final List<Function(Duration)> _positionListeners = [];
   final List<Function(PlayMode)> _playModeListeners = [];
   final List<Function(int)> _countdownListeners = [];
-
-  StreamingPlayerManager(this._coordinator) {
-    _setupListeners();
-  }
 
   /// 设置监听器
   void _setupListeners() {

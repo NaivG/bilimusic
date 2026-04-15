@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bilimusic/utils/animations.dart';
 
 /// Apple Music 风格的进度条组件
 /// 简洁白色设计，带触摸反馈
@@ -6,6 +7,7 @@ class AppleMusicSlider extends StatefulWidget {
   final Duration position;
   final Duration? duration;
   final Function(Duration)? onSeek;
+  final bool isTransitioning;
   final double trackHeight;
   final double thumbRadius;
   final double activeTrackColor;
@@ -16,6 +18,7 @@ class AppleMusicSlider extends StatefulWidget {
     required this.position,
     this.duration,
     this.onSeek,
+    this.isTransitioning = false,
     this.trackHeight = 4.0,
     this.thumbRadius = 6.0,
     this.activeTrackColor = 1.0,
@@ -140,6 +143,18 @@ class _AppleMusicSliderState extends State<AppleMusicSlider> {
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
+          if (widget.isTransitioning)
+            TransitionGlowIndicator(
+              isVisible: widget.isTransitioning,
+              child: const Text(
+                '过渡中',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
           Text(
             _formatDuration(widget.duration ?? Duration.zero),
             style: TextStyle(

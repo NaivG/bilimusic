@@ -1,8 +1,16 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
-/// 搜索状态管理器
+/// 搜索状态管理器（单例）
 /// 用于横屏模式下 LandscapeShell 和 SearchPage 之间的搜索状态共享
 class SearchStateNotifier extends ChangeNotifier {
+  static SearchStateNotifier? _instance;
+  static SearchStateNotifier get instance {
+    _instance ??= SearchStateNotifier._();
+    return _instance!;
+  }
+
+  SearchStateNotifier._();
+
   String _query = '';
   bool _shouldSearch = false;
 
@@ -33,30 +41,5 @@ class SearchStateNotifier extends ChangeNotifier {
       _shouldSearch = false;
       notifyListeners();
     }
-  }
-}
-
-/// 提供 SearchStateNotifier 的 InheritedWidget
-class SearchStateProvider extends InheritedWidget {
-  final SearchStateNotifier searchState;
-
-  const SearchStateProvider({
-    super.key,
-    required this.searchState,
-    required super.child,
-  });
-
-  static SearchStateNotifier of(BuildContext context) {
-    final provider = context
-        .dependOnInheritedWidgetOfExactType<SearchStateProvider>();
-    if (provider == null) {
-      throw Exception('No SearchStateProvider found in the widget tree');
-    }
-    return provider.searchState;
-  }
-
-  @override
-  bool updateShouldNotify(covariant SearchStateProvider oldWidget) {
-    return searchState != oldWidget.searchState;
   }
 }

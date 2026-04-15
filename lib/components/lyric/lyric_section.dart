@@ -1,14 +1,16 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/utils/lyric_parser.dart';
+import 'package:bilimusic/utils/responsive.dart';
+import 'package:bilimusic/components/lyric/lyric_line_widget.dart';
+import 'package:bilimusic/components/lyric/lyric_source.dart';
 
-/// 横屏歌词区域组件
-/// 包含歌曲信息和可滚动歌词列表
-class LandscapeLyricSection extends StatefulWidget {
-  final String title;
-  final String artist;
-  final String album;
+/// 统一歌词区域组件
+/// 同时支持横屏和竖屏布局
+class LyricSection extends StatefulWidget {
+  final String? title;
+  final String? artist;
+  final String? album;
   final LyricParser? lyricParser;
   final Duration position;
   final List<LyricSource> lyricSources;
@@ -17,11 +19,11 @@ class LandscapeLyricSection extends StatefulWidget {
   final Function(String)? onLyricSourceChanged;
   final Function(Duration)? onLyricTap;
 
-  const LandscapeLyricSection({
+  const LyricSection({
     super.key,
-    required this.title,
-    required this.artist,
-    required this.album,
+    this.title,
+    this.artist,
+    this.album,
     this.lyricParser,
     required this.position,
     this.lyricSources = const [],
@@ -32,10 +34,10 @@ class LandscapeLyricSection extends StatefulWidget {
   });
 
   @override
-  State<LandscapeLyricSection> createState() => _LandscapeLyricSectionState();
+  State<LyricSection> createState() => _LyricSectionState();
 }
 
-class _LandscapeLyricSectionState extends State<LandscapeLyricSection> {
+class _LyricSectionState extends State<LyricSection> {
   late ScrollController _scrollController;
   LyricLine? _lastCurrentLine;
 
@@ -52,7 +54,7 @@ class _LandscapeLyricSectionState extends State<LandscapeLyricSection> {
   }
 
   @override
-  void didUpdateWidget(LandscapeLyricSection oldWidget) {
+  void didUpdateWidget(LyricSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.position != widget.position) {
       _scrollToCurrentLyric();
@@ -74,7 +76,8 @@ class _LandscapeLyricSectionState extends State<LandscapeLyricSection> {
       _lastCurrentLine = currentLine;
       final index = widget.lyricParser!.lines.indexOf(currentLine);
       if (index != -1) {
-        final lineHeight = 52.0;
+        final isLandscape = _isLandscapeMode();
+        final lineHeight = isLandscape ? 52.0 : 48.0;
         final viewportHeight = _scrollController.position.viewportDimension;
         final targetPosition =
             index * lineHeight - (viewportHeight * 0.35) + (lineHeight / 2);
@@ -88,8 +91,24 @@ class _LandscapeLyricSectionState extends State<LandscapeLyricSection> {
     }
   }
 
+  bool _isLandscapeMode() {
+    final size = MediaQuery.of(context).size;
+    return size.width >= LandscapeBreakpoints.tabletLandscapeMin &&
+        size.width > size.height;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isLandscape = _isLandscapeMode();
+
+    if (isLandscape) {
+      return _buildLandscapeLayout();
+    } else {
+      return _buildPortraitLayout();
+    }
+  }
+
+  Widget _buildLandscapeLayout() {
     final padding = LandscapeBreakpoints.getHorizontalPadding(context);
 
     return Padding(
@@ -97,16 +116,90 @@ class _LandscapeLyricSectionState extends State<LandscapeLyricSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 歌曲信息头部
           _buildSongInfoHeader(),
           const SizedBox(height: 24),
-          // 歌词来源选择器
           if (!widget.isLoadingLyrics) _buildLyricSourceSelector(),
           const SizedBox(height: 16),
-          // 歌词列表
           Expanded(child: _buildLyricContent()),
         ],
       ),
+    );
+  }
+
+  Widget _buildPortraitLayout() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.grey[900] : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 20,
+            spreadRadius: 5,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildPortraitHeader(),
+          const SizedBox(height: 16),
+          Expanded(child: _buildLyricContent()),
+          const SizedBox(height: 12),
+          _buildPortraitFooter(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPortraitHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.lyrics, color: Theme.of(context).primaryColor),
+            const SizedBox(width: 8),
+            Text(
+              '歌词',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white
+                    : Colors.grey[900],
+              ),
+            ),
+          ],
+        ),
+        if (widget.selectedLyricId != null)
+          _buildLyricSourceSelector(),
+      ],
+    );
+  }
+
+  Widget _buildPortraitFooter() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          Icons.touch_app,
+          size: 16,
+          color: Theme.of(context).primaryColor.withValues(alpha: 0.7),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          '点击歌词可跳转播放',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.grey[400]
+                : Colors.grey[600],
+          ),
+        ),
+      ],
     );
   }
 
@@ -114,9 +207,8 @@ class _LandscapeLyricSectionState extends State<LandscapeLyricSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 标题
         Text(
-          widget.title,
+          widget.title ?? '',
           style: const TextStyle(
             color: Colors.white,
             fontSize: 32,
@@ -128,9 +220,8 @@ class _LandscapeLyricSectionState extends State<LandscapeLyricSection> {
           overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: 8),
-        // 艺术家
         Text(
-          widget.artist,
+          widget.artist ?? '',
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.7),
             fontSize: 20,
@@ -140,9 +231,8 @@ class _LandscapeLyricSectionState extends State<LandscapeLyricSection> {
           overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: 4),
-        // 专辑
         Text(
-          widget.album,
+          widget.album ?? '',
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.45),
             fontSize: 16,
@@ -205,6 +295,24 @@ class _LandscapeLyricSectionState extends State<LandscapeLyricSection> {
 
   Widget _buildLyricContent() {
     if (widget.isLoadingLyrics) {
+      return _buildLoadingState();
+    }
+
+    if (widget.lyricParser == null) {
+      return _buildEmptyState('选择歌词来源后显示歌词');
+    }
+
+    if (widget.lyricParser!.lines.isEmpty) {
+      return _buildEmptyState('暂无歌词');
+    }
+
+    return _buildLyricList();
+  }
+
+  Widget _buildLoadingState() {
+    final isLandscape = _isLandscapeMode();
+
+    if (isLandscape) {
       return Center(
         child: CircularProgressIndicator(
           color: Colors.white.withValues(alpha: 0.6),
@@ -213,33 +321,63 @@ class _LandscapeLyricSectionState extends State<LandscapeLyricSection> {
       );
     }
 
-    if (widget.lyricParser == null) {
-      return _buildEmptyLyric('选择歌词来源后显示歌词');
-    }
-
-    if (widget.lyricParser!.lines.isEmpty) {
-      return _buildEmptyLyric('暂无歌词');
-    }
-
-    return _buildLyricList();
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(color: Theme.of(context).primaryColor),
+          const SizedBox(height: 16),
+          Text(
+            '加载歌词中...',
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: Theme.of(context).hintColor,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  Widget _buildEmptyLyric(String message) {
+  Widget _buildEmptyState(String message) {
+    final isLandscape = _isLandscapeMode();
+
+    if (isLandscape) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.lyrics_outlined,
+              size: 48,
+              color: Colors.white.withValues(alpha: 0.3),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5),
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.lyrics_outlined,
+            Icons.music_note,
             size: 48,
-            color: Colors.white.withValues(alpha: 0.3),
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
           ),
           const SizedBox(height: 16),
           Text(
             message,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 16,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: Theme.of(context).hintColor,
             ),
           ),
         ],
@@ -251,6 +389,13 @@ class _LandscapeLyricSectionState extends State<LandscapeLyricSection> {
     final currentLine = widget.lyricParser!.getCurrentLine(
       widget.position.inMilliseconds / 1000,
     );
+    final isLandscape = _isLandscapeMode();
+    final currentFontSize = isLandscape
+        ? LandscapeBreakpoints.getCurrentLyricFontSize(context)
+        : 20.0;
+    final otherFontSize = isLandscape
+        ? LandscapeBreakpoints.getOtherLyricFontSize(context)
+        : 16.0;
 
     return ListView.builder(
       controller: _scrollController,
@@ -261,144 +406,15 @@ class _LandscapeLyricSectionState extends State<LandscapeLyricSection> {
       itemBuilder: (context, index) {
         final line = widget.lyricParser!.lines[index];
         final isCurrentLine = line == currentLine;
-        final currentFontSize = LandscapeBreakpoints.getCurrentLyricFontSize(
-          context,
-        );
-        final otherFontSize = LandscapeBreakpoints.getOtherLyricFontSize(
-          context,
-        );
 
-        return GestureDetector(
-          onTap: () {
-            widget.onLyricTap?.call(Duration(seconds: line.time.toInt()));
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutCubic,
-              style: TextStyle(
-                fontSize: isCurrentLine ? currentFontSize : otherFontSize,
-                fontWeight: isCurrentLine ? FontWeight.w700 : FontWeight.w500,
-                color: isCurrentLine
-                    ? Colors.white
-                    : Colors.white.withValues(alpha: 0.45),
-                height: 1.5,
-              ),
-              textAlign: TextAlign.left,
-              child: Text(line.content),
-            ),
-          ),
+        return LyricLineWidget(
+          line: line,
+          isCurrentLine: isCurrentLine,
+          currentFontSize: currentFontSize,
+          otherFontSize: otherFontSize,
+          onTap: widget.onLyricTap,
         );
       },
-    );
-  }
-}
-
-/// 歌词来源数据类
-class LyricSource {
-  final String id;
-  final String name;
-
-  const LyricSource({required this.id, required this.name});
-
-  @override
-  String toString() => name;
-}
-
-/// 带入场动画的歌词区域组件
-class AnimatedLandscapeLyricSection extends StatefulWidget {
-  final String title;
-  final String artist;
-  final String album;
-  final LyricParser? lyricParser;
-  final Duration position;
-  final List<LyricSource> lyricSources;
-  final String? selectedLyricId;
-  final bool isLoadingLyrics;
-  final Function(String)? onLyricSourceChanged;
-  final Function(Duration)? onLyricTap;
-
-  const AnimatedLandscapeLyricSection({
-    super.key,
-    required this.title,
-    required this.artist,
-    required this.album,
-    this.lyricParser,
-    required this.position,
-    this.lyricSources = const [],
-    this.selectedLyricId,
-    this.isLoadingLyrics = false,
-    this.onLyricSourceChanged,
-    this.onLyricTap,
-  });
-
-  @override
-  State<AnimatedLandscapeLyricSection> createState() =>
-      _AnimatedLandscapeLyricSectionState();
-}
-
-class _AnimatedLandscapeLyricSectionState
-    extends State<AnimatedLandscapeLyricSection>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 500),
-      vsync: this,
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
-      ),
-    );
-
-    _slideAnimation =
-        Tween<Offset>(begin: const Offset(0.05, 0), end: Offset.zero).animate(
-          CurvedAnimation(
-            parent: _controller,
-            curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
-          ),
-        );
-
-    // 延迟启动动画
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) _controller.forward();
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: SlideTransition(
-        position: _slideAnimation,
-        child: LandscapeLyricSection(
-          title: widget.title,
-          artist: widget.artist,
-          album: widget.album,
-          lyricParser: widget.lyricParser,
-          position: widget.position,
-          lyricSources: widget.lyricSources,
-          selectedLyricId: widget.selectedLyricId,
-          isLoadingLyrics: widget.isLoadingLyrics,
-          onLyricSourceChanged: widget.onLyricSourceChanged,
-          onLyricTap: widget.onLyricTap,
-        ),
-      ),
     );
   }
 }

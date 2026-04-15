@@ -1,21 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/models/music.dart' as model;
+import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/managers/player_manager.dart';
 import 'package:bilimusic/managers/cache_manager.dart';
-import 'package:bilimusic/managers/settings_manager.dart';
 import 'package:bilimusic/utils/color_extractor.dart';
 import 'package:flutter/foundation.dart';
 
 /// 横屏/桌面模式底部播放器条 - 仿网易云音乐风格
 class LandscapePlayerBar extends StatefulWidget {
-  final PlayerManager playerManager;
   final VoidCallback onExpand;
   final VoidCallback onPlayList;
 
   const LandscapePlayerBar({
     super.key,
-    required this.playerManager,
     required this.onExpand,
     required this.onPlayList,
   });
@@ -28,34 +26,31 @@ class _LandscapePlayerBarState extends State<LandscapePlayerBar> {
   // 网易云音乐品牌红色
   static const Color neteaseRed = Color(0xFFEC407A);
 
-  late PlayerManager _playerManager;
   AudioState? _audioState;
   model.Music? _currentMusic;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
   PlayMode _playMode = PlayMode.sequential;
-  final SettingsManager _settingsManager = SettingsManager();
   Color? _backgroundColor;
 
   @override
   void initState() {
     super.initState();
-    _playerManager = widget.playerManager;
-    _audioState = _playerManager.currentState;
-    _currentMusic = _playerManager.currentMusic;
-    _playMode = _playerManager.playMode;
+    _audioState = sl.playerManager.currentState;
+    _currentMusic = sl.playerManager.currentMusic;
+    _playMode = sl.playerManager.playMode;
 
-    _playerManager.addStateListener(_updateAudioState);
-    _playerManager.addPositionListener(_updatePosition);
-    _playerManager.addPlayModeListener(_updatePlayMode);
+    sl.playerManager.addStateListener(_updateAudioState);
+    sl.playerManager.addPositionListener(_updatePosition);
+    sl.playerManager.addPlayModeListener(_updatePlayMode);
 
     _extractBackgroundColor();
   }
 
   void _extractBackgroundColor() async {
-    final music = _playerManager.currentMusic;
+    final music = sl.playerManager.currentMusic;
     if (music == null || music.coverUrl.isEmpty) return;
-    if (!_settingsManager.blurEffect) {
+    if (!sl.settingsManager.blurEffect) {
       setState(() => _backgroundColor = null);
       return;
     }
@@ -72,8 +67,8 @@ class _LandscapePlayerBarState extends State<LandscapePlayerBar> {
   void _updateAudioState(AudioState state) {
     setState(() {
       _audioState = state;
-      if (_playerManager.currentMusic?.id != _currentMusic?.id) {
-        _currentMusic = _playerManager.currentMusic;
+      if (sl.playerManager.currentMusic?.id != _currentMusic?.id) {
+        _currentMusic = sl.playerManager.currentMusic;
         _extractBackgroundColor();
       }
     });
@@ -83,9 +78,9 @@ class _LandscapePlayerBarState extends State<LandscapePlayerBar> {
 
   @override
   void dispose() {
-    _playerManager.removeStateListener(_updateAudioState);
-    _playerManager.removePositionListener(_updatePosition);
-    _playerManager.removePlayModeListener(_updatePlayMode);
+    sl.playerManager.removeStateListener(_updateAudioState);
+    sl.playerManager.removePositionListener(_updatePosition);
+    sl.playerManager.removePlayModeListener(_updatePlayMode);
     super.dispose();
   }
 
@@ -97,9 +92,9 @@ class _LandscapePlayerBarState extends State<LandscapePlayerBar> {
 
   Future<void> _togglePlay() async {
     if (_audioState == AudioState.playing) {
-      await _playerManager.pause();
+      await sl.playerManager.pause();
     } else {
-      await _playerManager.resume();
+      await sl.playerManager.resume();
     }
   }
 
@@ -121,20 +116,20 @@ class _LandscapePlayerBarState extends State<LandscapePlayerBar> {
 
   @override
   Widget build(BuildContext context) {
-    if (_currentMusic == null && _playerManager.currentMusic == null) {
+    if (_currentMusic == null && sl.playerManager.currentMusic == null) {
       return const SizedBox(height: 0);
     }
 
     // 当音乐变化时重新提取背景颜色并更新_currentMusic
-    if (_playerManager.currentMusic != null &&
-        _playerManager.currentMusic?.id != _currentMusic?.id) {
+    if (sl.playerManager.currentMusic != null &&
+        sl.playerManager.currentMusic?.id != _currentMusic?.id) {
       setState(() {
-        _currentMusic = _playerManager.currentMusic;
+        _currentMusic = sl.playerManager.currentMusic;
       });
       _extractBackgroundColor();
     }
 
-    final music = _currentMusic ?? _playerManager.currentMusic;
+    final music = _currentMusic ?? sl.playerManager.currentMusic;
     _duration = music?.duration ?? Duration.zero;
 
     final theme = Theme.of(context);
@@ -142,7 +137,7 @@ class _LandscapePlayerBarState extends State<LandscapePlayerBar> {
 
     // 网易云音乐风格：深色背景配红色点缀
     Color baseColor;
-    if (_settingsManager.blurEffect && _backgroundColor != null) {
+    if (sl.settingsManager.blurEffect && _backgroundColor != null) {
       baseColor = _backgroundColor!;
     } else {
       baseColor = isDark ? const Color(0xFF1f1f1f) : const Color(0xFF2a2a2a);
@@ -262,14 +257,14 @@ class _LandscapePlayerBarState extends State<LandscapePlayerBar> {
             _IconBtn(
               icon: _playModeIcon(),
               size: 18,
-              onTap: () => _playerManager.togglePlayMode(),
+              onTap: () => sl.playerManager.togglePlayMode(),
               color: Colors.white54,
             ),
             const SizedBox(width: 20),
             _IconBtn(
               icon: Icons.skip_previous,
               size: 24,
-              onTap: _playerManager.playPrevious,
+              onTap: sl.playerManager.playPrevious,
               color: Colors.white,
             ),
             const SizedBox(width: 16),
@@ -296,7 +291,7 @@ class _LandscapePlayerBarState extends State<LandscapePlayerBar> {
             _IconBtn(
               icon: Icons.skip_next,
               size: 24,
-              onTap: _playerManager.playNext,
+              onTap: sl.playerManager.playNext,
               color: Colors.white,
             ),
             const SizedBox(width: 20),
@@ -343,7 +338,7 @@ class _LandscapePlayerBarState extends State<LandscapePlayerBar> {
                       final newPos = Duration(
                         milliseconds: (v * _duration.inMilliseconds).round(),
                       );
-                      _playerManager.seek(newPos);
+                      sl.playerManager.seek(newPos);
                     },
                   ),
                 ),

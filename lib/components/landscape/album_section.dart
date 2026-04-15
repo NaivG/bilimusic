@@ -195,6 +195,7 @@ class AnimatedLandscapeAlbumSection extends StatefulWidget {
   final String album;
   final Color? dominantColor;
   final bool isFavorite;
+  final String? trackId;
   final VoidCallback? onFavoritePressed;
   final VoidCallback? onSharePressed;
   final VoidCallback? onCoverTap;
@@ -207,6 +208,7 @@ class AnimatedLandscapeAlbumSection extends StatefulWidget {
     required this.album,
     this.dominantColor,
     this.isFavorite = false,
+    this.trackId,
     this.onFavoritePressed,
     this.onSharePressed,
     this.onCoverTap,
@@ -223,12 +225,12 @@ class _AnimatedLandscapeAlbumSectionState
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
-  bool _previousFavorite = false;
+  String? _previousTrackId;
 
   @override
   void initState() {
     super.initState();
-    _previousFavorite = widget.isFavorite;
+    _previousTrackId = widget.trackId;
 
     _controller = AnimationController(
       duration: const Duration(milliseconds: 400),
@@ -254,6 +256,18 @@ class _AnimatedLandscapeAlbumSectionState
     Future.delayed(const Duration(milliseconds: 200), () {
       if (mounted) _controller.forward();
     });
+  }
+
+  @override
+  void didUpdateWidget(AnimatedLandscapeAlbumSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 检测曲目变化，重放动画
+    if (widget.trackId != null &&
+        widget.trackId != _previousTrackId &&
+        widget.trackId != oldWidget.trackId) {
+      _previousTrackId = widget.trackId;
+      _controller.forward(from: 0);
+    }
   }
 
   @override

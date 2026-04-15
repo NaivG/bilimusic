@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/components/landscape/apple_slider.dart';
@@ -9,6 +8,7 @@ class LandscapeControlsBar extends StatelessWidget {
   final Duration position;
   final Duration? duration;
   final bool isPlaying;
+  final bool isTransitioning;
   final IconData playModeIcon;
   final VoidCallback? onPlayPause;
   final VoidCallback? onPrevious;
@@ -22,6 +22,7 @@ class LandscapeControlsBar extends StatelessWidget {
     required this.position,
     this.duration,
     required this.isPlaying,
+    this.isTransitioning = false,
     required this.playModeIcon,
     this.onPlayPause,
     this.onPrevious,
@@ -36,24 +37,12 @@ class LandscapeControlsBar extends StatelessWidget {
     final barHeight = LandscapeBreakpoints.getControlsBarHeight(context);
     final padding = LandscapeBreakpoints.getHorizontalPadding(context);
 
-    return ClipRRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          height: barHeight,
-          padding: EdgeInsets.symmetric(horizontal: padding),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.4),
-            border: Border(
-              top: BorderSide(
-                color: Colors.white.withValues(alpha: 0.1),
-                width: 0.5,
-              ),
-            ),
-          ),
-          child: SafeArea(
-            top: false,
-            child: LayoutBuilder(
+    return Container(
+      height: barHeight,
+      padding: EdgeInsets.symmetric(horizontal: padding),
+      child: SafeArea(
+        top: false,
+        child: LayoutBuilder(
               builder: (context, constraints) {
                 // 根据可用高度动态分配空间
                 final availableHeight = constraints.maxHeight;
@@ -70,6 +59,7 @@ class LandscapeControlsBar extends StatelessWidget {
                         position: position,
                         duration: duration,
                         onSeek: onSeek,
+                        isTransitioning: isTransitioning,
                       ),
                     ),
                     // 这里由于时间有一定空间，所以不用空出位置
@@ -84,8 +74,6 @@ class LandscapeControlsBar extends StatelessWidget {
               },
             ),
           ),
-        ),
-      ),
     );
   }
 
@@ -337,6 +325,7 @@ class FrostedLandscapeControlsBar extends StatelessWidget {
   final Duration position;
   final Duration? duration;
   final bool isPlaying;
+  final bool isTransitioning;
   final IconData playModeIcon;
   final VoidCallback? onPlayPause;
   final VoidCallback? onPrevious;
@@ -350,6 +339,7 @@ class FrostedLandscapeControlsBar extends StatelessWidget {
     required this.position,
     this.duration,
     required this.isPlaying,
+    this.isTransitioning = false,
     required this.playModeIcon,
     this.onPlayPause,
     this.onPrevious,
@@ -365,6 +355,7 @@ class FrostedLandscapeControlsBar extends StatelessWidget {
       position: position,
       duration: duration,
       isPlaying: isPlaying,
+      isTransitioning: isTransitioning,
       playModeIcon: playModeIcon,
       onPlayPause: onPlayPause,
       onPrevious: onPrevious,

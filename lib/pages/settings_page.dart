@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:bilimusic/managers/cache_manager.dart';
-import 'package:bilimusic/managers/settings_manager.dart';
+import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/utils/platform_helper.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:bilimusic/pages/cookie_page.dart';
-import 'package:bilimusic/pages/data_migration_page.dart';
-import 'package:restart_app/restart_app.dart';
+import 'package:bilimusic/pages/data_management_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -17,14 +14,9 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  late SettingsManager _settingsManager;
-
   @override
   void initState() {
     super.initState();
-    _settingsManager = SettingsManager();
-    // 确保设置管理器已初始化
-    _settingsManager.init();
   }
 
   @override
@@ -32,10 +24,6 @@ class _SettingsPageState extends State<SettingsPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('设置'),
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -46,9 +34,9 @@ class _SettingsPageState extends State<SettingsPage> {
             _buildSwitchListTile(
               icon: Icons.notifications,
               title: '推送媒体通知',
-              value: _settingsManager.notificationsEnabled,
+              value: sl.settingsManager.notificationsEnabled,
               onChanged: (value) {
-                _settingsManager.setNotificationsEnabled(value);
+                sl.settingsManager.setNotificationsEnabled(value);
                 setState(() {}); // 刷新UI
               },
             ),
@@ -58,9 +46,9 @@ class _SettingsPageState extends State<SettingsPage> {
             _buildSwitchListTile(
               icon: Icons.play_arrow,
               title: '自动播放下一首',
-              value: _settingsManager.autoPlayNext,
+              value: sl.settingsManager.autoPlayNext,
               onChanged: (value) {
-                _settingsManager.setAutoPlayNext(value);
+                sl.settingsManager.setAutoPlayNext(value);
                 setState(() {}); // 刷新UI
               },
             ),
@@ -70,15 +58,15 @@ class _SettingsPageState extends State<SettingsPage> {
               icon: Icons.graphic_eq,
               title: '交叉淡入淡出',
               subtitle: '歌曲自动切换时平滑过渡(仅自动切歌生效)',
-              value: _settingsManager.crossfadeEnabled,
+              value: sl.settingsManager.crossfadeEnabled,
               onChanged: (value) {
-                _settingsManager.setCrossfadeEnabled(value);
+                sl.settingsManager.setCrossfadeEnabled(value);
                 setState(() {}); // 刷新UI
               },
             ),
 
             // 仅在启用crossfade时显示详细设置
-            if (_settingsManager.crossfadeEnabled) ...[
+            if (sl.settingsManager.crossfadeEnabled) ...[
               // Crossfade时长滑块
               ListTile(
                 leading: Icon(Icons.timer, color: _getPrimaryColor(context)),
@@ -86,15 +74,15 @@ class _SettingsPageState extends State<SettingsPage> {
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('当前: ${_settingsManager.crossfadeDuration ~/ 1000}秒'),
+                    Text('当前: ${sl.settingsManager.crossfadeDuration ~/ 1000}秒'),
                     Slider(
-                      value: _settingsManager.crossfadeDuration.toDouble(),
+                      value: sl.settingsManager.crossfadeDuration.toDouble(),
                       min: 1000,
                       max: 10000,
                       divisions: 9,
-                      label: '${_settingsManager.crossfadeDuration ~/ 1000}秒',
+                      label: '${sl.settingsManager.crossfadeDuration ~/ 1000}秒',
                       onChanged: (value) async {
-                        await _settingsManager.setCrossfadeDuration(
+                        await sl.settingsManager.setCrossfadeDuration(
                           value.toInt(),
                         );
                         setState(() {});
@@ -112,16 +100,16 @@ class _SettingsPageState extends State<SettingsPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '当前: 当开始过渡前${_settingsManager.preloadSeconds}秒开始加载下一首',
+                      '当前: 当开始过渡前${sl.settingsManager.preloadSeconds}秒开始加载下一首',
                     ),
                     Slider(
-                      value: _settingsManager.preloadSeconds.toDouble(),
+                      value: sl.settingsManager.preloadSeconds.toDouble(),
                       min: 5,
                       max: 30,
                       divisions: 25,
-                      label: '${_settingsManager.preloadSeconds}秒',
+                      label: '${sl.settingsManager.preloadSeconds}秒',
                       onChanged: (value) async {
-                        await _settingsManager.setPreloadSeconds(value.toInt());
+                        await sl.settingsManager.setPreloadSeconds(value.toInt());
                         setState(() {});
                       },
                     ),
@@ -136,9 +124,9 @@ class _SettingsPageState extends State<SettingsPage> {
               icon: Icons.high_quality,
               title: '高品质音乐',
               subtitle: '开启后将获取更高品质的音乐',
-              value: _settingsManager.downloadQualityHigh,
+              value: sl.settingsManager.downloadQualityHigh,
               onChanged: (value) {
-                _settingsManager.setDownloadQualityHigh(value);
+                sl.settingsManager.setDownloadQualityHigh(value);
                 setState(() {}); // 刷新UI
               },
             ),
@@ -149,9 +137,9 @@ class _SettingsPageState extends State<SettingsPage> {
               icon: Icons.auto_awesome,
               title: '流体背景效果',
               subtitle: '为详情页面启用动态模糊背景',
-              value: _settingsManager.fluidBackground,
+              value: sl.settingsManager.fluidBackground,
               onChanged: (value) {
-                _settingsManager.setFluidBackground(value);
+                sl.settingsManager.setFluidBackground(value);
                 setState(() {}); // 刷新UI
               },
             ),
@@ -159,9 +147,9 @@ class _SettingsPageState extends State<SettingsPage> {
               icon: Icons.blur_on,
               title: '毛玻璃取色效果',
               subtitle: '为迷你播放器栏启用毛玻璃动态取色效果',
-              value: _settingsManager.blurEffect,
+              value: sl.settingsManager.blurEffect,
               onChanged: (value) {
-                _settingsManager.setBlurEffect(value);
+                sl.settingsManager.setBlurEffect(value);
                 setState(() {}); // 刷新UI
               },
             ),
@@ -169,10 +157,10 @@ class _SettingsPageState extends State<SettingsPage> {
               leading: Icon(Icons.tablet, color: _getPrimaryColor(context)),
               title: Text('平板模式'),
               subtitle: Text(
-                _settingsManager.getTabletModeText(_settingsManager.tabletMode),
+                sl.settingsManager.getTabletModeText(sl.settingsManager.tabletMode),
               ),
               trailing: DropdownButton<String>(
-                value: _settingsManager.tabletMode,
+                value: sl.settingsManager.tabletMode,
                 items: [
                   DropdownMenuItem(value: 'auto', child: Text('自动')),
                   DropdownMenuItem(value: 'on', child: Text('强制打开')),
@@ -180,7 +168,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
                 onChanged: (value) {
                   if (value != null) {
-                    _settingsManager.setTabletMode(value);
+                    sl.settingsManager.setTabletMode(value);
                     setState(() {});
                   }
                 },
@@ -190,9 +178,9 @@ class _SettingsPageState extends State<SettingsPage> {
               icon: Icons.computer,
               title: 'PC模式',
               subtitle: '启用PC端界面',
-              value: _settingsManager.pcMode,
+              value: sl.settingsManager.pcMode,
               onChanged: (value) {
-                _settingsManager.setPcMode(value);
+                sl.settingsManager.setPcMode(value);
                 setState(() {}); // 刷新UI
               },
             ),
@@ -203,13 +191,13 @@ class _SettingsPageState extends State<SettingsPage> {
               leading: Icon(Icons.volume_up, color: _getPrimaryColor(context)),
               title: Text('音频输出模式'),
               subtitle: Text(
-                _settingsManager.getAudioOutputModeText(
-                  _settingsManager.audioOutputMode,
+                sl.settingsManager.getAudioOutputModeText(
+                  sl.settingsManager.audioOutputMode,
                 ),
               ),
               enabled: PlatformHelper.isAndroid, // 仅在安卓平台启用
               trailing: DropdownButton<String>(
-                value: _settingsManager.audioOutputMode,
+                value: sl.settingsManager.audioOutputMode,
                 items: [
                   DropdownMenuItem(value: 'aaudio', child: Text('AAudio (推荐)')),
                   DropdownMenuItem(
@@ -219,7 +207,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
                 onChanged: (value) {
                   if (value != null) {
-                    _settingsManager.setAudioOutputMode(value);
+                    sl.settingsManager.setAudioOutputMode(value);
                     setState(() {});
                   }
                 },
@@ -232,10 +220,10 @@ class _SettingsPageState extends State<SettingsPage> {
               leading: Icon(Icons.palette, color: _getPrimaryColor(context)),
               title: Text('主题模式(需要重启生效)'),
               subtitle: Text(
-                _settingsManager.getThemeModeText(_settingsManager.themeMode),
+                sl.settingsManager.getThemeModeText(sl.settingsManager.themeMode),
               ),
               trailing: DropdownButton<String>(
-                value: _settingsManager.themeMode,
+                value: sl.settingsManager.themeMode,
                 items: [
                   DropdownMenuItem(value: 'system', child: Text('跟随系统')),
                   DropdownMenuItem(value: 'light', child: Text('浅色')),
@@ -243,7 +231,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
                 onChanged: (value) {
                   if (value != null) {
-                    _settingsManager.setThemeMode(value);
+                    sl.settingsManager.setThemeMode(value);
                     setState(() {}); // 刷新UI
                     // 通知整个应用重建以应用主题更改
                     defaultTargetPlatform; // 这里只是触发重建的一种方式
@@ -252,38 +240,24 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
 
-            // 缓存设置
-            _buildSectionTitle('缓存'),
-            ListTile(
-              leading: Icon(
-                Icons.cleaning_services,
-                color: _getPrimaryColor(context),
-              ),
-              title: Text('清除缓存'),
-              subtitle: Text('清除图片和其他缓存数据'),
-              trailing: Icon(Icons.arrow_forward_ios),
-              onTap: _clearCache,
-            ),
-
-            // 数据迁移
+            // 数据管理
             _buildSectionTitle('数据管理'),
             ListTile(
-              leading: Icon(Icons.swap_horiz, color: _getPrimaryColor(context)),
-              title: Text('数据迁移'),
-              subtitle: Text('导出或导入应用数据'),
+              leading: Icon(
+                Icons.storage,
+                color: _getPrimaryColor(context),
+              ),
+              title: Text('数据管理'),
+              subtitle: Text('查看详细数据、缓存信息与数据操作'),
               trailing: Icon(Icons.arrow_forward_ios),
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => DataMigrationPage()),
+                  MaterialPageRoute(
+                    builder: (context) => const DataManagementPage(),
+                  ),
                 );
               },
-            ),
-            ListTile(
-              leading: Icon(Icons.delete_forever, color: Colors.red),
-              title: Text('清除所有数据', style: TextStyle(color: Colors.red)),
-              subtitle: Text('清除用户数据并重启应用'),
-              onTap: _clearAllData,
             ),
 
             // 关于
@@ -363,168 +337,17 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  void _clearCache() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('清除缓存'),
-          content: Text('确定要清除所有缓存吗？这将包括图片缓存等数据。'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text('取消'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: Text('确定'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirm == true) {
-      try {
-        await imageCacheManager.emptyCache();
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('缓存清除成功')));
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('缓存清除失败: $e')));
-        }
-      }
-    }
-  }
-
-  void _clearAllData() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Row(
-            children: [
-              Icon(Icons.warning_amber, color: Colors.orange),
-              SizedBox(width: 8),
-              Text('清除所有数据'),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('此操作将清除以下数据：'),
-              SizedBox(height: 8),
-              Text('• 播放历史'),
-              Text('• 收藏列表'),
-              Text('• 用户创建的歌单'),
-              Text('• 自定义标签'),
-              Text('• 登录信息'),
-              Text('• 推荐缓存'),
-              Text('• 文件系统缓存'),
-              SizedBox(height: 16),
-              Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '注意：基本设置（主题、通知等）将被保留。',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              SizedBox(height: 12),
-              Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '此操作不可撤销，应用将自动重启。',
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text('取消'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () => Navigator.pop(context, true),
-              child: Text('确定清除'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirm == true) {
-      try {
-        // 获取 SharedPreferences 实例
-        final prefs = await SharedPreferences.getInstance();
-
-        // 获取所有键
-        final keys = prefs.getKeys().toList();
-
-        // 清除用户数据相关的键
-        for (final key in keys) {
-          if (key.startsWith('playlist_songs_') ||
-              key.startsWith('playlist_info_')) {
-            await prefs.remove(key);
-          }
-        }
-
-        // 清除特定的用户数据键
-        await prefs.remove('play_history');
-        await prefs.remove('favorites');
-        await prefs.remove('user_playlists');
-        await prefs.remove('user_playlists_enhanced');
-        await prefs.remove('custom_tags');
-        await prefs.remove('cookies');
-        await prefs.remove('login_time');
-        await prefs.remove('recommendations_cache');
-        await prefs.remove('guess_you_like_cache');
-
-        // 清除文件系统缓存
-        await musicCacheManager.emptyCache();
-        await imageCacheManager.emptyCache();
-
-        // 重启应用
-        await Restart.restartApp();
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('清除数据失败: $e')));
-        }
-      }
-    }
-  }
-
   void _showAboutDialog() {
     showAboutDialog(
       context: context,
       applicationName: 'BiliMusic',
-      applicationVersion: '1.4.2+build04',
+      applicationVersion: '1.4.6+build03',
       applicationIcon: Image.asset(
         "assets/ic_launcher.png",
         width: 96,
         height: 96,
       ),
-      applicationLegalese: '© 2025 NaivG. All rights reserved.',
+      applicationLegalese: '© 2025-2026 NaivG.',
       children: [
         SizedBox(height: 16),
         Text('另一个基于 Flutter 开发的 Bilibili 音乐播放器应用'),

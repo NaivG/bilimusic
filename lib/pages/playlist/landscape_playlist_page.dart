@@ -4,10 +4,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/playlist.dart';
 import 'package:bilimusic/models/playlist_tag.dart';
-import 'package:bilimusic/managers/player_manager.dart';
-import 'package:bilimusic/managers/playlist_manager.dart';
+import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/components/long_press_menu.dart';
-import 'package:bilimusic/providers/playlist_manager_provider.dart';
 import 'package:bilimusic/utils/network_config.dart';
 import 'package:bilimusic/managers/cache_manager.dart';
 import 'package:bilimusic/utils/responsive.dart';
@@ -17,16 +15,12 @@ import 'package:bilimusic/utils/responsive.dart';
 class LandscapePlaylistPage extends StatefulWidget {
   final String? playlistId;
   final List<Music>? songs;
-  final PlayerManager playerManager;
-  final PlaylistManager? playlistManager;
   final VoidCallback? onBack;
 
   const LandscapePlaylistPage({
     super.key,
     this.playlistId,
     this.songs,
-    required this.playerManager,
-    this.playlistManager,
     this.onBack,
   });
 
@@ -36,8 +30,6 @@ class LandscapePlaylistPage extends StatefulWidget {
 
 class _LandscapePlaylistPageState extends State<LandscapePlaylistPage>
     with SingleTickerProviderStateMixin {
-  late PlaylistManager _playlistManager;
-
   // 状态
   List<Music> _songs = [];
   bool _isLoading = true;
@@ -64,7 +56,6 @@ class _LandscapePlaylistPageState extends State<LandscapePlaylistPage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _playlistManager = PlaylistManagerProvider.of(context);
     _loadData();
     _animationController.forward();
   }
@@ -83,7 +74,7 @@ class _LandscapePlaylistPageState extends State<LandscapePlaylistPage>
         _songs = List.from(widget.songs!);
         _currentPlaylist = _createTempPlaylist(_songs);
       } else if (widget.playlistId != null) {
-        final detail = await _playlistManager.getPlaylistDetail(
+        final detail = await sl.playlistManager.getPlaylistDetail(
           widget.playlistId!,
         );
         if (detail != null) {
@@ -94,7 +85,7 @@ class _LandscapePlaylistPageState extends State<LandscapePlaylistPage>
 
       // 检查是否已收藏
       if (_songs.isNotEmpty) {
-        _isFavorited = _playlistManager.isFavorite(_songs.first);
+        _isFavorited = sl.playlistManager.isFavorite(_songs.first);
       }
     } catch (e) {
       debugPrint('Failed to load playlist data: $e');
@@ -107,8 +98,8 @@ class _LandscapePlaylistPageState extends State<LandscapePlaylistPage>
     String name = '播放列表';
     PlaylistSource source = PlaylistSource.user;
 
-    final favorites = widget.playerManager.favorites;
-    final history = widget.playerManager.playHistory;
+    final favorites = sl.playerManager.favorites;
+    final history = sl.playerManager.playHistory;
 
     if (favorites.isNotEmpty && _isSameList(songs, favorites)) {
       name = '我的收藏';
@@ -139,35 +130,35 @@ class _LandscapePlaylistPageState extends State<LandscapePlaylistPage>
 
   Future<void> _playAll() async {
     if (_songs.isEmpty) return;
-    await widget.playerManager.clearPlayList();
-    await widget.playerManager.addAllToPlayList(_songs);
+    await sl.playerManager.clearPlayList();
+    await sl.playerManager.addAllToPlayList(_songs);
     if (_songs.isNotEmpty) {
-      await widget.playerManager.play(_songs.first);
+      await sl.playerManager.play(_songs.first);
     }
   }
 
   Future<void> _shufflePlay() async {
     if (_songs.isEmpty) return;
     final shuffledSongs = List<Music>.from(_songs)..shuffle(Random());
-    await widget.playerManager.clearPlayList();
-    await widget.playerManager.addAllToPlayList(shuffledSongs);
+    await sl.playerManager.clearPlayList();
+    await sl.playerManager.addAllToPlayList(shuffledSongs);
     if (shuffledSongs.isNotEmpty) {
-      await widget.playerManager.play(shuffledSongs.first);
+      await sl.playerManager.play(shuffledSongs.first);
     }
   }
 
   Future<void> _toggleFavorite() async {
     if (_songs.isEmpty) return;
     final music = _songs.first;
-    final newState = await _playlistManager.toggleFavorite(music);
+    final newState = await sl.playlistManager.toggleFavorite(music);
     setState(() {
       _isFavorited = newState;
     });
   }
 
   Future<void> _playSong(Music music) async {
-    await widget.playerManager.addToPlayList(music);
-    await widget.playerManager.play(music);
+    await sl.playerManager.addToPlayList(music);
+    await sl.playerManager.play(music);
   }
 
   void _showSongOptions(BuildContext context, Music music) {
@@ -176,8 +167,8 @@ class _LandscapePlaylistPageState extends State<LandscapePlaylistPage>
       barrierColor: Colors.black54,
       builder: (context) => LongPressMenu(
         music: music,
-        playerManager: widget.playerManager,
-        playlistManager: widget.playlistManager,
+        playerManager: sl.playerManager,
+        playlistManager: sl.playlistManager,
       ),
     );
   }
@@ -716,7 +707,7 @@ class _LandscapePlaylistPageState extends State<LandscapePlaylistPage>
   }
 
   bool _isCurrentPlaying(Music music) {
-    final currentMusic = widget.playerManager.currentMusic;
+    final currentMusic = sl.playerManager.currentMusic;
     if (currentMusic == null) return false;
     return music.id == currentMusic.id &&
         (music.pages.isEmpty && currentMusic.pages.isEmpty ||

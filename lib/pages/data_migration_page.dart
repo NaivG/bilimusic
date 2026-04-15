@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:bilimusic/components/autoAppBar.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
@@ -24,7 +25,7 @@ class _DataMigrationPageState extends State<DataMigrationPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: AutoAppBar(
         title: Text('数据迁移'),
         leading: IconButton(
           icon: Icon(Icons.arrow_back),

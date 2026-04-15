@@ -1,13 +1,16 @@
 import 'dart:ui';
+import 'package:bilimusic/components/autoAppBar.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:bilimusic/managers/player_manager.dart';
+import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/models/music.dart' as model;
+import 'package:bilimusic/utils/animations.dart';
 import 'package:bilimusic/utils/lyric_parser.dart';
+import 'package:bilimusic/components/lyric/lyric_section.dart';
+import 'package:bilimusic/components/lyric/lyric_source.dart';
 
 /// 竖屏详情页
-class PortraitDetailPage extends StatelessWidget {
-  final PlayerManager playerManager;
+class PortraitDetailPage extends StatefulWidget {
   final model.Music music;
   final Duration position;
   final Duration? duration;
@@ -20,6 +23,7 @@ class PortraitDetailPage extends StatelessWidget {
   final Color? dominantColor;
   final Color? vibrantColor;
   final IconData playModeIcon;
+  final bool isTransitioning;
   final VoidCallback onToggleFavorite;
   final VoidCallback onShare;
   final VoidCallback onTogglePlay;
@@ -30,7 +34,6 @@ class PortraitDetailPage extends StatelessWidget {
 
   const PortraitDetailPage({
     super.key,
-    required this.playerManager,
     required this.music,
     required this.position,
     required this.duration,
@@ -43,6 +46,7 @@ class PortraitDetailPage extends StatelessWidget {
     required this.dominantColor,
     required this.vibrantColor,
     required this.playModeIcon,
+    required this.isTransitioning,
     required this.onToggleFavorite,
     required this.onShare,
     required this.onTogglePlay,
@@ -53,9 +57,14 @@ class PortraitDetailPage extends StatelessWidget {
   });
 
   @override
+  State<PortraitDetailPage> createState() => _PortraitDetailPageState();
+}
+
+class _PortraitDetailPageState extends State<PortraitDetailPage> {
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: dominantColor?.withValues(alpha: 0.4) ?? Colors.black,
+      backgroundColor: widget.dominantColor?.withValues(alpha: 0.4) ?? Colors.black,
       extendBodyBehindAppBar: true,
       appBar: _buildAppBar(context),
       body: Stack(
@@ -63,14 +72,14 @@ class PortraitDetailPage extends StatelessWidget {
           // 渐变背景
           _buildBackground(),
           // 主内容
-          showLyrics ? _buildLyricsView(context) : _buildAlbumView(context),
+          widget.showLyrics ? _buildLyricsView(context) : _buildAlbumView(context),
         ],
       ),
     );
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
-    return AppBar(
+    return AutoAppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
       leading: IconButton(
@@ -115,8 +124,8 @@ class PortraitDetailPage extends StatelessWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                dominantColor?.withValues(alpha: 0.8) ?? Colors.black,
-                dominantColor?.withValues(alpha: 0.6) ?? Colors.grey[900]!,
+                widget.dominantColor?.withValues(alpha: 0.8) ?? Colors.black,
+                widget.dominantColor?.withValues(alpha: 0.6) ?? Colors.grey[900]!,
                 Colors.black,
               ],
               stops: const [0.0, 0.5, 1.0],
@@ -124,12 +133,12 @@ class PortraitDetailPage extends StatelessWidget {
           ),
         ),
         // 封面图片模糊背景
-        if (music.coverUrl.isNotEmpty)
+        if (widget.music.coverUrl.isNotEmpty)
           Positioned.fill(
             child: ImageFiltered(
               imageFilter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
               child: CachedNetworkImage(
-                imageUrl: music.coverUrl,
+                imageUrl: widget.music.coverUrl,
                 fit: BoxFit.cover,
                 color: Colors.black.withValues(alpha: 0.3),
                 colorBlendMode: BlendMode.darken,
@@ -170,33 +179,56 @@ class PortraitDetailPage extends StatelessWidget {
   }
 
   Widget _buildCover() {
-    return Container(
-      width: 280,
-      height: 280,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: (dominantColor ?? Colors.pink).withValues(alpha: 0.4),
-            blurRadius: 40,
-            spreadRadius: 5,
-            offset: const Offset(0, 20),
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 400),
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.85, end: 1.0).animate(
+            CurvedAnimation(parent: animation, curve: Curves.easeOut),
           ),
-        ],
+          child: child,
+        ),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: music.coverUrl.isNotEmpty
-            ? CachedNetworkImage(
-                imageUrl: music.coverUrl,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  color: Colors.grey[800],
-                  child: const Center(
-                    child: CircularProgressIndicator(color: Colors.white),
+      child: Container(
+        key: ValueKey(widget.music.id),
+        width: 280,
+        height: 280,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: (widget.dominantColor ?? Colors.pink).withValues(alpha: 0.4),
+              blurRadius: 40,
+              spreadRadius: 5,
+              offset: const Offset(0, 20),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: widget.music.coverUrl.isNotEmpty
+              ? CachedNetworkImage(
+                  imageUrl: widget.music.coverUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    color: Colors.grey[800],
+                    child: const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
                   ),
-                ),
-                errorWidget: (context, url, error) => Container(
+                  errorWidget: (context, url, error) => Container(
+                    color: Colors.grey[800],
+                    child: const Icon(
+                      Icons.music_note,
+                      color: Colors.white,
+                      size: 80,
+                    ),
+                  ),
+                )
+              : Container(
                   color: Colors.grey[800],
                   child: const Icon(
                     Icons.music_note,
@@ -204,49 +236,54 @@ class PortraitDetailPage extends StatelessWidget {
                     size: 80,
                   ),
                 ),
-              )
-            : Container(
-                color: Colors.grey[800],
-                child: const Icon(
-                  Icons.music_note,
-                  color: Colors.white,
-                  size: 80,
-                ),
-              ),
+        ),
       ),
     );
   }
 
   Widget _buildSongInfo() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 40),
-      child: Column(
-        children: [
-          Text(
-            music.title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              letterSpacing: -0.5,
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      switchOutCurve: Curves.easeOut,
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: SlideTransition(
+          position: Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero)
+              .animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+          child: child,
+        ),
+      ),
+      child: Padding(
+        key: ValueKey('${widget.music.id}_info'),
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          children: [
+            Text(
+              widget.music.title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                letterSpacing: -0.5,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            music.artist,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 16,
-              fontWeight: FontWeight.w400,
+            const SizedBox(height: 8),
+            Text(
+              widget.music.artist,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7),
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -266,19 +303,19 @@ class PortraitDetailPage extends StatelessWidget {
               // 收藏
               IconButton(
                 icon: Icon(
-                  playerManager.isFavorite(music)
+                  sl.playerManager.isFavorite(widget.music)
                       ? Icons.favorite
                       : Icons.favorite_border,
-                  color: playerManager.isFavorite(music)
+                  color: sl.playerManager.isFavorite(widget.music)
                       ? Colors.red[400]
                       : Colors.white,
                 ),
                 iconSize: 28,
-                onPressed: onToggleFavorite,
+                onPressed: widget.onToggleFavorite,
               ),
               // 播放/暂停
               GestureDetector(
-                onTap: onTogglePlay,
+                onTap: widget.onTogglePlay,
                 child: Container(
                   width: 68,
                   height: 68,
@@ -299,7 +336,7 @@ class PortraitDetailPage extends StatelessWidget {
                     ],
                   ),
                   child: Icon(
-                    isPlaying ? Icons.pause : Icons.play_arrow,
+                    widget.isPlaying ? Icons.pause : Icons.play_arrow,
                     color: Colors.black,
                     size: 36,
                   ),
@@ -309,7 +346,7 @@ class PortraitDetailPage extends StatelessWidget {
               IconButton(
                 icon: Icon(Icons.lyrics_outlined, color: Colors.white),
                 iconSize: 28,
-                onPressed: onToggleShowLyrics,
+                onPressed: widget.onToggleShowLyrics,
               ),
             ],
           ),
@@ -324,7 +361,7 @@ class PortraitDetailPage extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.7),
                 ),
                 iconSize: 24,
-                onPressed: onTogglePlayMode,
+                onPressed: widget.onTogglePlayMode,
               ),
               IconButton(
                 icon: Icon(
@@ -332,7 +369,7 @@ class PortraitDetailPage extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.7),
                 ),
                 iconSize: 32,
-                onPressed: () => playerManager.playPrevious(),
+                onPressed: () => sl.playerManager.playPrevious(),
               ),
               IconButton(
                 icon: Icon(
@@ -340,7 +377,7 @@ class PortraitDetailPage extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.7),
                 ),
                 iconSize: 32,
-                onPressed: () => playerManager.playNext(),
+                onPressed: () => sl.playerManager.playNext(),
               ),
               IconButton(
                 icon: Icon(
@@ -348,7 +385,7 @@ class PortraitDetailPage extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.7),
                 ),
                 iconSize: 24,
-                onPressed: onShare,
+                onPressed: widget.onShare,
               ),
             ],
           ),
@@ -358,8 +395,8 @@ class PortraitDetailPage extends StatelessWidget {
   }
 
   Widget _buildProgressBar(BuildContext context) {
-    final progress = duration != null && duration!.inSeconds > 0
-        ? position.inSeconds / duration!.inSeconds
+    final progress = widget.duration != null && widget.duration!.inSeconds > 0
+        ? widget.position.inSeconds / widget.duration!.inSeconds
         : 0.0;
 
     return Column(
@@ -377,9 +414,9 @@ class PortraitDetailPage extends StatelessWidget {
           child: Slider(
             value: progress.clamp(0.0, 1.0),
             onChanged: (value) {
-              if (duration != null) {
-                onSeek(
-                  Duration(seconds: (value * duration!.inSeconds).toInt()),
+              if (widget.duration != null) {
+                widget.onSeek(
+                  Duration(seconds: (value * widget.duration!.inSeconds).toInt()),
                 );
               }
             },
@@ -391,19 +428,32 @@ class PortraitDetailPage extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                _formatDuration(position),
+                _formatDuration(widget.position),
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.6),
                   fontSize: 12,
                 ),
               ),
-              Text(
-                _formatDuration(duration ?? Duration.zero),
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.6),
-                  fontSize: 12,
+              if (widget.isTransitioning)
+                TransitionGlowIndicator(
+                  isVisible: widget.isTransitioning,
+                  child: const Text(
+                    '过渡中',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                )
+              else
+                Text(
+                  _formatDuration(widget.duration ?? Duration.zero),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 12,
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -412,142 +462,19 @@ class PortraitDetailPage extends StatelessWidget {
   }
 
   Widget _buildLyricsView(BuildContext context) {
-    return SafeArea(
-      child: Column(
-        children: [
-          const SizedBox(height: 60),
-          // 返回按钮
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: Icon(
-                    Icons.keyboard_arrow_down,
-                    color: Colors.white.withValues(alpha: 0.7),
-                  ),
-                  onPressed: onToggleShowLyrics,
-                ),
-                const Spacer(),
-              ],
-            ),
-          ),
-          // 歌词来源选择
-          if (!isLoadingLyrics)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: DropdownButton<String>(
-                  value: selectedLyricId,
-                  dropdownColor: Colors.grey[900],
-                  underline: const SizedBox(),
-                  icon: Icon(
-                    Icons.arrow_drop_down,
-                    color: Colors.white.withValues(alpha: 0.7),
-                  ),
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: 14,
-                  ),
-                  items: lyricOptions.map((option) {
-                    return DropdownMenuItem<String>(
-                      value: option.id,
-                      child: Text(option.name),
-                    );
-                  }).toList(),
-                  onChanged: (id) {
-                    if (id != null) onLoadLyric(id);
-                  },
-                ),
-              ),
-            ),
-          // 歌词内容
-          Expanded(child: _buildLyricContent(context)),
-        ],
-      ),
-    );
-  }
+    // 将 LyricInfo 转换为 LyricSource
+    final lyricSources = widget.lyricOptions.map((option) {
+      return LyricSource(id: option.id, name: option.name);
+    }).toList();
 
-  Widget _buildLyricContent(BuildContext context) {
-    if (lyricParser == null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.music_note,
-              size: 48,
-              color: Colors.white.withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '选择歌词来源后显示歌词',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (lyricParser!.lines.isEmpty) {
-      return Center(
-        child: Text(
-          '暂无歌词',
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.5),
-            fontSize: 16,
-          ),
-        ),
-      );
-    }
-
-    final currentLine = lyricParser!.getCurrentLine(
-      position.inMilliseconds / 1000,
-    );
-
-    return ListView.builder(
-      padding: EdgeInsets.symmetric(
-        horizontal: 24,
-        vertical: MediaQuery.of(context).size.height * 0.3,
-      ),
-      itemCount: lyricParser!.lines.length,
-      itemBuilder: (context, index) {
-        final line = lyricParser!.lines[index];
-        final isCurrentLine = line == currentLine;
-
-        return GestureDetector(
-          onTap: () {
-            onSeek(Duration(seconds: line.time.toInt()));
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 300),
-              style: TextStyle(
-                fontSize: isCurrentLine ? 24 : 18,
-                fontWeight: isCurrentLine ? FontWeight.w700 : FontWeight.w500,
-                color: isCurrentLine
-                    ? Colors.white
-                    : Colors.white.withValues(alpha: 0.45),
-                height: 1.4,
-              ),
-              textAlign: TextAlign.center,
-              child: Text(line.content),
-            ),
-          ),
-        );
-      },
+    return LyricSection(
+      lyricParser: widget.lyricParser,
+      position: widget.position,
+      lyricSources: lyricSources,
+      selectedLyricId: widget.selectedLyricId,
+      isLoadingLyrics: widget.isLoadingLyrics,
+      onLyricSourceChanged: widget.onLoadLyric,
+      onLyricTap: widget.onSeek,
     );
   }
 
@@ -574,20 +501,20 @@ class PortraitDetailPage extends StatelessWidget {
             const SizedBox(height: 20),
             ListTile(
               leading: Icon(
-                playerManager.isFavorite(music)
+                sl.playerManager.isFavorite(widget.music)
                     ? Icons.favorite
                     : Icons.favorite_border,
-                color: playerManager.isFavorite(music)
+                color: sl.playerManager.isFavorite(widget.music)
                     ? Colors.red
                     : Colors.white,
               ),
               title: Text(
-                playerManager.isFavorite(music) ? '取消收藏' : '收藏',
+                sl.playerManager.isFavorite(widget.music) ? '取消收藏' : '收藏',
                 style: const TextStyle(color: Colors.white),
               ),
               onTap: () {
                 Navigator.pop(context);
-                onToggleFavorite();
+                widget.onToggleFavorite();
               },
             ),
             ListTile(
@@ -595,7 +522,7 @@ class PortraitDetailPage extends StatelessWidget {
               title: const Text('分享', style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
-                onShare();
+                widget.onShare();
               },
             ),
             ListTile(
@@ -633,10 +560,10 @@ class PortraitDetailPage extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _infoRow('标题', music.title),
-            _infoRow('艺术家', music.artist),
-            _infoRow('专辑', music.album),
-            _infoRow('时长', _formatDuration(duration ?? Duration.zero)),
+            _infoRow('标题', widget.music.title),
+            _infoRow('艺术家', widget.music.artist),
+            _infoRow('专辑', widget.music.album),
+            _infoRow('时长', _formatDuration(widget.duration ?? Duration.zero)),
             _infoRow('来源', 'Bilibili'),
           ],
         ),

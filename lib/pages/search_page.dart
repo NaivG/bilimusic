@@ -1,8 +1,8 @@
+import 'package:bilimusic/providers/search_state_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:bilimusic/models/search_result.dart';
 import 'package:bilimusic/models/music.dart' as music_model;
-import 'package:bilimusic/managers/player_manager.dart';
-import 'package:bilimusic/managers/playlist_manager.dart';
+import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/services/search_service.dart';
 import 'package:bilimusic/pages/search/widgets/search_bar_widget.dart';
 import 'package:bilimusic/pages/search/widgets/search_type_tabs.dart';
@@ -12,15 +12,18 @@ import 'package:bilimusic/pages/playlist_page.dart';
 import 'package:bilimusic/components/common/cards/music_card.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/utils/animations.dart';
-import 'package:bilimusic/providers/search_state_provider.dart';
 import 'package:rxdart/rxdart.dart';
 
 /// 搜索页 - 重构版本
 class SearchPage extends StatefulWidget {
-  final PlayerManager playerManager;
   final String? initialQuery; // 可选的初始搜索参数
+  final String? pendingQuery; // 来自横屏搜索栏的待搜索词
 
-  const SearchPage({super.key, required this.playerManager, this.initialQuery});
+  const SearchPage({
+    super.key,
+    this.initialQuery,
+    this.pendingQuery,
+  });
 
   @override
   State<SearchPage> createState() => _SearchPageState();
@@ -29,7 +32,6 @@ class SearchPage extends StatefulWidget {
 class _SearchPageState extends State<SearchPage> {
   final TextEditingController _searchController = TextEditingController();
   final SearchService _searchService = SearchService();
-  late PlaylistManager _playlistManager;
 
   // 搜索状态
   List<SearchResult> _allResults = [];
@@ -56,20 +58,26 @@ class _SearchPageState extends State<SearchPage> {
   @override
   void initState() {
     super.initState();
-    _playlistManager = PlaylistManager();
 
     // 防抖处理搜索
     _searchSubject
         .debounceTime(const Duration(milliseconds: 300))
         .listen(_performSearch);
 
-    // 监听 SearchStateNotifier 的变化（来自 LandscapeShell 搜索栏）
+    // 监听 SearchStateNotifier 的变化（兼容独立路由 /search）
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _setupSearchStateListener();
     });
 
-    // 如果有初始搜索参数，立即执行搜索
-    if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
+    // 处理来自横屏搜索栏的待搜索词（优先级最高）
+    if (widget.pendingQuery != null && widget.pendingQuery!.isNotEmpty) {
+      _searchController.text = widget.pendingQuery!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _performSearch(widget.pendingQuery!);
+      });
+    }
+    // 如果有初始搜索参数且没有待搜索词，立即执行搜索
+    else if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
       _searchController.text = widget.initialQuery!;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _performSearch(widget.initialQuery!);
@@ -78,16 +86,11 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void _setupSearchStateListener() {
-    try {
-      final searchState = SearchStateProvider.of(context);
-      searchState.addListener(_onSearchStateChanged);
-    } catch (_) {
-      // SearchStateProvider 不在 widget tree 中，忽略（可能是独立路由）
-    }
+    SearchStateNotifier.instance.addListener(_onSearchStateChanged);
   }
 
   void _onSearchStateChanged() {
-    final searchState = SearchStateProvider.of(context);
+    final searchState = SearchStateNotifier.instance;
     if (searchState.shouldSearch && searchState.query.isNotEmpty) {
       // 更新搜索框文字并执行搜索
       if (_searchController.text != searchState.query) {
@@ -105,12 +108,7 @@ class _SearchPageState extends State<SearchPage> {
     _searchController.dispose();
     _searchSubject.close();
     // 移除 SearchStateNotifier 监听器
-    try {
-      final searchState = SearchStateProvider.of(context);
-      searchState.removeListener(_onSearchStateChanged);
-    } catch (_) {
-      // 忽略
-    }
+    SearchStateNotifier.instance.removeListener(_onSearchStateChanged);
     super.dispose();
   }
 
@@ -224,7 +222,7 @@ class _SearchPageState extends State<SearchPage> {
     if (result.type == SearchResultType.video) {
       final music = result.toMusic();
       final detailedMusic = await music.getVideoDetails();
-      widget.playerManager.play(detailedMusic);
+      sl.playerManager.play(detailedMusic);
     }
   }
 
@@ -475,8 +473,8 @@ class _SearchPageState extends State<SearchPage> {
         padding: const EdgeInsets.only(bottom: _cardSpacing),
         child: SearchResultCard(
           result: result,
-          playerManager: widget.playerManager,
-          playlistManager: _playlistManager,
+          playerManager: sl.playerManager,
+          playlistManager: sl.playlistManager,
           onTap: () => _playResult(result),
         ),
       );
@@ -499,8 +497,8 @@ class _SearchPageState extends State<SearchPage> {
 
     return StackedMusicCard(
       music: music,
-      playerManager: widget.playerManager,
-      playlistManager: _playlistManager,
+      playerManager: sl.playerManager,
+      playlistManager: sl.playlistManager,
       onTap: () => _navigateToPlaylist(result, pages),
       showBadge: true,
     );
@@ -510,8 +508,8 @@ class _SearchPageState extends State<SearchPage> {
   Widget _buildListItem(BuildContext context, SearchResult result) {
     return MusicListItem(
       music: result.toMusic(),
-      playerManager: widget.playerManager,
-      playlistManager: _playlistManager,
+      playerManager: sl.playerManager,
+      playlistManager: sl.playlistManager,
       onTap: () => _playResult(result),
     );
   }
@@ -538,7 +536,7 @@ class _SearchPageState extends State<SearchPage> {
       context,
       MaterialPageRoute(
         builder: (_) =>
-            PlaylistPage(songs: songs, playerManager: widget.playerManager),
+            PlaylistPage(songs: songs),
       ),
     );
   }

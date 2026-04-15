@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/playlist.dart';
 import 'package:bilimusic/models/playlist_tag.dart';
-import 'package:bilimusic/managers/player_manager.dart';
-import 'package:bilimusic/managers/playlist_manager.dart';
+import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/pages/playlist/widgets/playlist_header.dart';
 import 'package:bilimusic/pages/playlist/widgets/playlist_song_list.dart';
 
@@ -11,8 +10,6 @@ import 'package:bilimusic/pages/playlist/widgets/playlist_song_list.dart';
 class PortraitPlaylistPage extends StatefulWidget {
   final String? playlistId;
   final List<Music> songs;
-  final PlayerManager playerManager;
-  final PlaylistManager playlistManager;
   final Playlist? currentPlaylist;
   final List<Playlist> userPlaylists;
   final List<PlaylistTag> allTags;
@@ -32,8 +29,6 @@ class PortraitPlaylistPage extends StatefulWidget {
     super.key,
     this.playlistId,
     required this.songs,
-    required this.playerManager,
-    required this.playlistManager,
     this.currentPlaylist,
     required this.userPlaylists,
     required this.allTags,
@@ -132,7 +127,7 @@ class _PortraitPlaylistPageState extends State<PortraitPlaylistPage>
                   // 歌曲列表
                   PlaylistSongList(
                     songs: widget.songs,
-                    currentPlayingMusic: widget.playerManager.currentMusic,
+                    currentPlayingMusic: sl.playerManager.currentMusic,
                     onSongTap: widget.onSongTap,
                     onSongLongPress: widget.onSongLongPress,
                     isEditable: widget.playlistId != null,

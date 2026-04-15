@@ -1,17 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/managers/player_manager.dart';
-import 'package:bilimusic/managers/playlist_manager.dart';
+import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/managers/recommendation_manager.dart';
 import 'package:bilimusic/components/common/cards/music_card.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/utils/animations.dart';
 
 class HomePage extends StatefulWidget {
-  final PlayerManager playerManager;
-
-  const HomePage({super.key, required this.playerManager});
+  const HomePage({super.key});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -19,7 +16,6 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   List<Music> recommendedList = [];
-  late PlaylistManager _playlistManager;
   late RecommendationManager _recommendationManager;
   bool _isLoading = false;
 
@@ -32,11 +28,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _recommendationManager = RecommendationManager();
-
-    // 初始化播放列表管理器
-    _playlistManager = PlaylistManager();
-    _playlistManager.init();
+    _recommendationManager = sl.recommendationManager;
 
     _loadRecommendations();
   }
@@ -71,7 +63,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _updateGuessYouLike() async {
     // 在后台更新猜你喜欢列表
     await _recommendationManager.updateGuessYouLike(
-      widget.playerManager.playHistory,
+      sl.playerManager.playHistory,
     );
   }
 
@@ -80,14 +72,14 @@ class _HomePageState extends State<HomePage> {
     final detailedMusic = await music.getVideoDetails();
 
     // 播放音乐
-    widget.playerManager.play(detailedMusic);
+    sl.playerManager.play(detailedMusic);
   }
 
   Widget _buildMusicCard(Music music, {bool isPcMode = false}) {
     return ResponsiveMusicCard(
       music: music,
-      playerManager: widget.playerManager,
-      playlistManager: _playlistManager,
+      playerManager: sl.playerManager,
+      playlistManager: sl.playlistManager,
       onTap: () => _playMusic(music),
     );
   }
@@ -144,7 +136,6 @@ class _HomePageState extends State<HomePage> {
               Navigator.pushNamed(
                 context,
                 '/search',
-                arguments: widget.playerManager,
               );
             },
           ),
@@ -199,7 +190,6 @@ class _HomePageState extends State<HomePage> {
               Navigator.pushNamed(
                 context,
                 '/search',
-                arguments: widget.playerManager,
               );
             },
           ),
@@ -403,7 +393,7 @@ class _HomePageState extends State<HomePage> {
     ScreenSize screenSize,
   ) {
     final isDesktop = screenSize == ScreenSize.desktop;
-    final playHistory = widget.playerManager.playHistory;
+    final playHistory = sl.playerManager.playHistory;
     final displayCount = playHistory.length > 10 ? 10 : playHistory.length;
 
     return SliverPadding(

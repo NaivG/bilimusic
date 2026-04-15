@@ -8,6 +8,14 @@
 
 另一个基于 Flutter 开发的哔哩哔哩音乐播放器，支持 Windows、Linux 和 Android 平台。
 
+![Stars](https://shields.io/github/stars/NaivG/bilimusic.svg)
+![Forks](https://img.shields.io/github/forks/NaivG/bilimusic.svg)
+![Issues](https://img.shields.io/github/issues/ProjectCoral/Coral.svg)
+[![Flutter](https://img.shields.io/badge/Flutter-3.41.1-02569B.svg?logo=flutter)](https://flutter.dev/)
+[![Dart](https://img.shields.io/badge/Dart-3.11.0-0175C2.svg?logo=dart)](https://dart.dev/)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/NaivG/bilimusic)](https://github.com/NaivG/bilimusic/releases)
+[![License](https://img.shields.io/badge/License-AGPL3.0-blue.svg)](LICENSE)
+
 </div>
 
 > [!important]

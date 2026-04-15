@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/managers/player_manager.dart';
 import 'package:bilimusic/models/music.dart' as model;
 import 'package:bilimusic/utils/color_extractor.dart';
@@ -12,9 +13,7 @@ import 'package:bilimusic/pages/detail/landscape_detail_page.dart';
 /// 详情页面
 /// 根据屏幕方向路由到竖屏或横屏布局
 class DetailPage extends StatefulWidget {
-  final PlayerManager playerManager;
-
-  const DetailPage({super.key, required this.playerManager});
+  const DetailPage({super.key});
 
   @override
   State<DetailPage> createState() => _DetailPageState();
@@ -40,9 +39,11 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
 
   // 播放模式
   IconData _playModeIcon = Icons.repeat;
+  int _crossfadeCountdown = -1;
   late Function(AudioState) _stateListener;
   late Function(Duration) _positionListener;
   late Function(PlayMode) _playModeListener;
+  late Function(int) _countdownListener;
 
   @override
   void initState() {
@@ -55,7 +56,7 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
 
     // 初始化音乐信息
     final currentMusic =
-        widget.playerManager.currentMusic ??
+        sl.playerManager.currentMusic ??
         model.Music(
           id: '',
           title: '未知标题',
@@ -74,7 +75,7 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
 
     _stateListener = (state) {
       if (mounted) {
-        final updatedMusic = widget.playerManager.currentMusic ?? _music;
+        final updatedMusic = sl.playerManager.currentMusic ?? _music;
         if (updatedMusic.id != _music.id) {
           _updateBackgroundColor(updatedMusic.coverUrl);
         }
@@ -88,7 +89,7 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
 
     _positionListener = (position) {
       if (mounted) {
-        final updatedMusic = widget.playerManager.currentMusic ?? _music;
+        final updatedMusic = sl.playerManager.currentMusic ?? _music;
         setState(() {
           _position = position;
           _music = updatedMusic;
@@ -115,9 +116,18 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
       }
     };
 
-    widget.playerManager.addStateListener(_stateListener);
-    widget.playerManager.addPositionListener(_positionListener);
-    widget.playerManager.addPlayModeListener(_playModeListener);
+    _countdownListener = (countdown) {
+      if (mounted) {
+        setState(() {
+          _crossfadeCountdown = countdown;
+        });
+      }
+    };
+
+    sl.playerManager.addStateListener(_stateListener);
+    sl.playerManager.addPositionListener(_positionListener);
+    sl.playerManager.addPlayModeListener(_playModeListener);
+    sl.playerManager.addCountdownListener(_countdownListener);
 
     _initLyricOptions();
   }
@@ -220,14 +230,14 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
   }
 
   void _toggleFavorite() async {
-    if (widget.playerManager.isFavorite(_music)) {
-      await widget.playerManager.removeFromFavorites(_music);
+    if (sl.playerManager.isFavorite(_music)) {
+      await sl.playerManager.removeFromFavorites(_music);
     } else {
-      await widget.playerManager.addToFavorites(_music);
+      await sl.playerManager.addToFavorites(_music);
     }
     setState(() {
       _music = _music.copyWith(
-        isFavorite: !widget.playerManager.isFavorite(_music),
+        isFavorite: !sl.playerManager.isFavorite(_music),
       );
     });
   }
@@ -250,9 +260,9 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
 
   void _togglePlay() {
     if (_isPlaying) {
-      widget.playerManager.pause();
+      sl.playerManager.pause();
     } else {
-      widget.playerManager.resume();
+      sl.playerManager.resume();
     }
   }
 
@@ -261,15 +271,16 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
   }
 
   void _seek(Duration duration) {
-    widget.playerManager.seek(duration);
+    sl.playerManager.seek(duration);
   }
 
   @override
   void dispose() {
     _colorAnimationController.dispose();
-    widget.playerManager.removeStateListener(_stateListener);
-    widget.playerManager.removePositionListener(_positionListener);
-    widget.playerManager.removePlayModeListener(_playModeListener);
+    sl.playerManager.removeStateListener(_stateListener);
+    sl.playerManager.removePositionListener(_positionListener);
+    sl.playerManager.removePlayModeListener(_playModeListener);
+    sl.playerManager.removeCountdownListener(_countdownListener);
     super.dispose();
   }
 
@@ -280,12 +291,11 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
 
     // 横屏模式使用横屏布局
     if (isLandscape) {
-      return LandscapeDetailPage(playerManager: widget.playerManager);
+      return const LandscapeDetailPage();
     }
 
     // 竖屏模式使用竖屏布局
     return PortraitDetailPage(
-      playerManager: widget.playerManager,
       music: _music,
       position: _position,
       duration: _duration,
@@ -298,13 +308,14 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
       dominantColor: _dominantColor,
       vibrantColor: _vibrantColor,
       playModeIcon: _playModeIcon,
+      isTransitioning: _crossfadeCountdown > 0,
       onToggleFavorite: _toggleFavorite,
       onShare: _shareMusic,
       onTogglePlay: _togglePlay,
       onToggleShowLyrics: _toggleShowLyrics,
       onLoadLyric: _loadLyric,
       onSeek: _seek,
-      onTogglePlayMode: () => widget.playerManager.togglePlayMode(),
+      onTogglePlayMode: () => sl.playerManager.togglePlayMode(),
     );
   }
 }

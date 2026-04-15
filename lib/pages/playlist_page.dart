@@ -5,9 +5,7 @@ import 'package:bilimusic/components/long_press_menu.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/playlist.dart';
 import 'package:bilimusic/models/playlist_tag.dart';
-import 'package:bilimusic/managers/player_manager.dart';
-import 'package:bilimusic/managers/playlist_manager.dart';
-import 'package:bilimusic/providers/playlist_manager_provider.dart';
+import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/utils/network_config.dart';
 import 'package:bilimusic/managers/cache_manager.dart';
 import 'package:bilimusic/utils/responsive.dart';
@@ -19,13 +17,11 @@ import 'package:bilimusic/pages/playlist/landscape_playlist_page.dart';
 class PlaylistPage extends StatefulWidget {
   final String? playlistId;
   final List<Music>? songs;
-  final PlayerManager playerManager;
 
   const PlaylistPage({
     super.key,
     this.playlistId,
     this.songs,
-    required this.playerManager,
   });
 
   @override
@@ -45,9 +41,6 @@ class _PlaylistPageState extends State<PlaylistPage>
   List<PlaylistTag> _allTags = [];
   String? _selectedTagId;
 
-  // 歌单管理器
-  late PlaylistManager _playlistManager;
-
   @override
   void initState() {
     super.initState();
@@ -57,7 +50,6 @@ class _PlaylistPageState extends State<PlaylistPage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _playlistManager = PlaylistManagerProvider.of(context);
     _loadData();
   }
 
@@ -78,7 +70,7 @@ class _PlaylistPageState extends State<PlaylistPage>
         _currentPlaylist = _createTempPlaylist(_songs);
       } else if (widget.playlistId != null) {
         // 从管理器加载歌单详情
-        final detail = await _playlistManager.getPlaylistDetail(
+        final detail = await sl.playlistManager.getPlaylistDetail(
           widget.playlistId!,
         );
         if (detail != null) {
@@ -88,12 +80,12 @@ class _PlaylistPageState extends State<PlaylistPage>
       }
 
       // 获取用户歌单列表
-      _userPlaylists = _playlistManager.userPlaylists;
-      _allTags = _playlistManager.watchTags().value;
+      _userPlaylists = sl.playlistManager.userPlaylists;
+      _allTags = sl.playlistManager.watchTags().value;
 
       // 检查是否已收藏
       if (_songs.isNotEmpty) {
-        _isFavorited = _playlistManager.isFavorite(_songs.first);
+        _isFavorited = sl.playlistManager.isFavorite(_songs.first);
       }
     } catch (e) {
       debugPrint('Failed to load playlist data: $e');
@@ -108,8 +100,8 @@ class _PlaylistPageState extends State<PlaylistPage>
     String name = '播放列表';
     PlaylistSource source = PlaylistSource.user;
 
-    final favorites = widget.playerManager.favorites;
-    final history = widget.playerManager.playHistory;
+    final favorites = sl.playerManager.favorites;
+    final history = sl.playerManager.playHistory;
 
     if (favorites.isNotEmpty && _isSameList(songs, favorites)) {
       name = '我的收藏';
@@ -144,11 +136,11 @@ class _PlaylistPageState extends State<PlaylistPage>
   Future<void> _playAll() async {
     if (_songs.isEmpty) return;
 
-    await widget.playerManager.clearPlayList();
-    await widget.playerManager.addAllToPlayList(_songs);
+    await sl.playerManager.clearPlayList();
+    await sl.playerManager.addAllToPlayList(_songs);
 
     if (_songs.isNotEmpty) {
-      await widget.playerManager.play(_songs.first);
+      await sl.playerManager.play(_songs.first);
     }
   }
 
@@ -158,11 +150,11 @@ class _PlaylistPageState extends State<PlaylistPage>
 
     final shuffledSongs = List<Music>.from(_songs)..shuffle(Random());
 
-    await widget.playerManager.clearPlayList();
-    await widget.playerManager.addAllToPlayList(shuffledSongs);
+    await sl.playerManager.clearPlayList();
+    await sl.playerManager.addAllToPlayList(shuffledSongs);
 
     if (shuffledSongs.isNotEmpty) {
-      await widget.playerManager.play(shuffledSongs.first);
+      await sl.playerManager.play(shuffledSongs.first);
     }
   }
 
@@ -171,7 +163,7 @@ class _PlaylistPageState extends State<PlaylistPage>
     if (_songs.isEmpty) return;
 
     final music = _songs.first;
-    final newState = await _playlistManager.toggleFavorite(music);
+    final newState = await sl.playlistManager.toggleFavorite(music);
 
     setState(() {
       _isFavorited = newState;
@@ -190,8 +182,8 @@ class _PlaylistPageState extends State<PlaylistPage>
   /// 播放歌曲
   Future<void> _playSong(Music music) async {
     // 添加到播放列表
-    await widget.playerManager.addToPlayList(music);
-    await widget.playerManager.play(music);
+    await sl.playerManager.addToPlayList(music);
+    await sl.playerManager.play(music);
   }
 
   /// 处理歌曲长按
@@ -206,7 +198,7 @@ class _PlaylistPageState extends State<PlaylistPage>
       barrierColor: Colors.black54,
       builder: (context) => LongPressMenu(
         music: music,
-        playerManager: widget.playerManager,
+        playerManager: sl.playerManager,
         onRemoveFromPlaylist: widget.playlistId != null
             ? () async {
                 Navigator.pop(context);
@@ -240,7 +232,7 @@ class _PlaylistPageState extends State<PlaylistPage>
     );
 
     if (confirm == true) {
-      await _playlistManager.removeSongsFromPlaylist(widget.playlistId!, [
+      await sl.playlistManager.removeSongsFromPlaylist(widget.playlistId!, [
         music,
       ]);
       setState(() {
@@ -285,7 +277,7 @@ class _PlaylistPageState extends State<PlaylistPage>
     );
 
     if (result != null && result.isNotEmpty) {
-      await _playlistManager.createPlaylist(result);
+      await sl.playlistManager.createPlaylist(result);
       await _loadData();
     }
   }
@@ -296,7 +288,7 @@ class _PlaylistPageState extends State<PlaylistPage>
       _selectedTagId = tagId;
     });
 
-    final filteredPlaylists = _playlistManager.filterPlaylistsByTag(tagId);
+    final filteredPlaylists = sl.playlistManager.filterPlaylistsByTag(tagId);
     if (filteredPlaylists.isNotEmpty) {
       _showFilteredPlaylists(filteredPlaylists);
     } else {
@@ -359,8 +351,6 @@ class _PlaylistPageState extends State<PlaylistPage>
       return LandscapePlaylistPage(
         playlistId: widget.playlistId,
         songs: _songs,
-        playerManager: widget.playerManager,
-        playlistManager: _playlistManager,
         onBack: () => Navigator.pop(context),
       );
     }
@@ -369,8 +359,6 @@ class _PlaylistPageState extends State<PlaylistPage>
     return PortraitPlaylistPage(
       playlistId: widget.playlistId,
       songs: _songs,
-      playerManager: widget.playerManager,
-      playlistManager: _playlistManager,
       currentPlaylist: _currentPlaylist,
       userPlaylists: _userPlaylists,
       allTags: _allTags,

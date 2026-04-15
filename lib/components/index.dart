@@ -17,7 +17,6 @@ export 'landscape/apple_cover.dart';
 export 'landscape/apple_slider.dart';
 export 'landscape/background.dart';
 export 'landscape/controls_bar.dart';
-export 'landscape/lyric_section.dart';
 
 // Display widgets
 export 'cover_display_widget.dart';

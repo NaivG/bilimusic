@@ -1,21 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:bilimusic/models/music.dart' as model;
+import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/managers/player_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/managers/cache_manager.dart';
-import 'package:bilimusic/managers/settings_manager.dart';
 import 'package:bilimusic/utils/color_extractor.dart';
 import 'package:flutter/foundation.dart';
 
 /// 迷你播放器组件
 class MiniPlayerComponent extends StatefulWidget {
-  final PlayerManager playerManager;
   final VoidCallback onExpand;
   final VoidCallback onPlayList;
 
   const MiniPlayerComponent({
     super.key,
-    required this.playerManager,
     required this.onExpand,
     required this.onPlayList,
   });
@@ -25,14 +23,12 @@ class MiniPlayerComponent extends StatefulWidget {
 }
 
 class _MiniPlayerComponentState extends State<MiniPlayerComponent> {
-  late PlayerManager _playerManager;
   AudioState? _audioState;
   model.Music? _currentMusic;
   Duration _position = Duration.zero;
 
   /// 播放模式
   PlayMode _playMode = PlayMode.sequential;
-  final SettingsManager _settingsManager = SettingsManager();
   Color? _backgroundColor;
 
   /// crossfade倒计时（秒）
@@ -53,19 +49,18 @@ class _MiniPlayerComponentState extends State<MiniPlayerComponent> {
   @override
   void initState() {
     super.initState();
-    _playerManager = widget.playerManager;
-    _audioState = _playerManager.currentState;
-    _currentMusic = _playerManager.currentMusic;
-    _playMode = _playerManager.playMode;
+    _audioState = sl.playerManager.currentState;
+    _currentMusic = sl.playerManager.currentMusic;
+    _playMode = sl.playerManager.playMode;
 
     // 添加播放状态监听器
-    _playerManager.addStateListener(_updateAudioState);
+    sl.playerManager.addStateListener(_updateAudioState);
     // 添加播放位置监听器
-    _playerManager.addPositionListener(_updatePosition);
+    sl.playerManager.addPositionListener(_updatePosition);
     // 添加播放模式监听器
-    _playerManager.addPlayModeListener(_updatePlayMode);
+    sl.playerManager.addPlayModeListener(_updatePlayMode);
     // 添加crossfade倒计时监听器
-    _playerManager.addCountdownListener(_updateCrossfadeCountdown);
+    sl.playerManager.addCountdownListener(_updateCrossfadeCountdown);
 
     // 初始化背景颜色
     _extractBackgroundColor();
@@ -73,7 +68,7 @@ class _MiniPlayerComponentState extends State<MiniPlayerComponent> {
 
   /// 检查是否应该启用平板模式
   bool _isTabletMode() {
-    switch (_settingsManager.tabletMode) {
+    switch (sl.settingsManager.tabletMode) {
       case 'on':
         return true;
       case 'off':
@@ -87,16 +82,16 @@ class _MiniPlayerComponentState extends State<MiniPlayerComponent> {
 
   /// 检查是否应该启用PC模式
   bool _isPCMode() {
-    return _settingsManager.pcMode;
+    return sl.settingsManager.pcMode;
   }
 
   /// 提取背景颜色
   void _extractBackgroundColor() async {
-    final music = _playerManager.currentMusic;
+    final music = sl.playerManager.currentMusic;
     if (music == null || music.coverUrl.isEmpty) return;
 
     // 检查是否启用毛玻璃效果
-    if (!_settingsManager.blurEffect) {
+    if (!sl.settingsManager.blurEffect) {
       setState(() {
         _backgroundColor = null;
       });
@@ -130,9 +125,9 @@ class _MiniPlayerComponentState extends State<MiniPlayerComponent> {
     setState(() {
       _audioState = state;
       // 检查音乐是否改变（可能在状态未变化时音乐已切换）
-      if (_playerManager.currentMusic != null &&
-          _playerManager.currentMusic?.id != _currentMusic?.id) {
-        _currentMusic = _playerManager.currentMusic;
+      if (sl.playerManager.currentMusic != null &&
+          sl.playerManager.currentMusic?.id != _currentMusic?.id) {
+        _currentMusic = sl.playerManager.currentMusic;
         _extractBackgroundColor();
       }
     });
@@ -153,10 +148,10 @@ class _MiniPlayerComponentState extends State<MiniPlayerComponent> {
   @override
   void dispose() {
     // 移除监听器
-    _playerManager.removeStateListener(_updateAudioState);
-    _playerManager.removePositionListener(_updatePosition);
-    _playerManager.removePlayModeListener(_updatePlayMode);
-    _playerManager.removeCountdownListener(_updateCrossfadeCountdown);
+    sl.playerManager.removeStateListener(_updateAudioState);
+    sl.playerManager.removePositionListener(_updatePosition);
+    sl.playerManager.removePlayModeListener(_updatePlayMode);
+    sl.playerManager.removeCountdownListener(_updateCrossfadeCountdown);
     super.dispose();
   }
 
@@ -169,14 +164,14 @@ class _MiniPlayerComponentState extends State<MiniPlayerComponent> {
 
   void _togglePlay() async {
     if (_audioState == AudioState.playing) {
-      await _playerManager.pause();
+      await sl.playerManager.pause();
     } else {
-      await _playerManager.resume();
+      await sl.playerManager.resume();
     }
   }
 
   void _togglePlayMode() async {
-    await _playerManager.togglePlayMode();
+    await sl.playerManager.togglePlayMode();
   }
 
   IconData _getPlayModeIcon(PlayMode playMode) {
@@ -381,12 +376,12 @@ class _MiniPlayerComponentState extends State<MiniPlayerComponent> {
 
   @override
   Widget build(BuildContext context) {
-    if (_currentMusic == null && _playerManager.currentMusic == null) {
+    if (_currentMusic == null && sl.playerManager.currentMusic == null) {
       // 如果没有当前音乐，不显示迷你播放器
       return Container(height: 0);
     }
 
-    final music = _currentMusic ?? _playerManager.currentMusic;
+    final music = _currentMusic ?? sl.playerManager.currentMusic;
     final duration = music?.duration ?? Duration.zero;
     final position = _position;
     final progress = duration.inMilliseconds > 0
@@ -395,14 +390,14 @@ class _MiniPlayerComponentState extends State<MiniPlayerComponent> {
 
     bool isTablet = _isTabletMode();
     bool isPC = _isPCMode();
-    bool blurEffect = _settingsManager.blurEffect;
+    bool blurEffect = sl.settingsManager.blurEffect;
 
     // 当音乐变化时重新提取背景颜色并更新_currentMusic
     if (music != null &&
-        _playerManager.currentMusic != null &&
-        music.id != _playerManager.currentMusic!.id) {
+        sl.playerManager.currentMusic != null &&
+        music.id != sl.playerManager.currentMusic!.id) {
       setState(() {
-        _currentMusic = _playerManager.currentMusic;
+        _currentMusic = sl.playerManager.currentMusic;
       });
       _extractBackgroundColor();
     }
@@ -450,7 +445,7 @@ class _MiniPlayerComponentState extends State<MiniPlayerComponent> {
                         Navigator.pushNamed(
                           context,
                           '/detail',
-                          arguments: widget.playerManager,
+                          arguments: sl.playerManager,
                         );
                       },
                       child: Padding(
@@ -610,7 +605,7 @@ class _MiniPlayerComponentState extends State<MiniPlayerComponent> {
                       // 上一曲按钮
                       _buildAnimatedIconButton(
                         icon: Icons.skip_previous,
-                        onPressed: widget.playerManager.playPrevious,
+                        onPressed: sl.playerManager.playPrevious,
                         size: 26,
                       ),
                       // 播放/暂停按钮 - 添加缩放动画
@@ -618,7 +613,7 @@ class _MiniPlayerComponentState extends State<MiniPlayerComponent> {
                       // 下一曲按钮
                       _buildAnimatedIconButton(
                         icon: Icons.skip_next,
-                        onPressed: widget.playerManager.playNext,
+                        onPressed: sl.playerManager.playNext,
                         size: 26,
                       ),
                       // 播放列表按钮
@@ -714,7 +709,7 @@ class _MiniPlayerComponentState extends State<MiniPlayerComponent> {
                         Navigator.pushNamed(
                           context,
                           '/detail',
-                          arguments: widget.playerManager,
+                          arguments: sl.playerManager,
                         );
                       },
                       child: Padding(
@@ -843,7 +838,7 @@ class _MiniPlayerComponentState extends State<MiniPlayerComponent> {
                   if (isTablet) ...[
                     _buildAnimatedIconButton(
                       icon: Icons.skip_previous,
-                      onPressed: widget.playerManager.playPrevious,
+                      onPressed: sl.playerManager.playPrevious,
                       size: 24,
                     ),
                   ],
@@ -853,7 +848,7 @@ class _MiniPlayerComponentState extends State<MiniPlayerComponent> {
                   if (isTablet) ...[
                     _buildAnimatedIconButton(
                       icon: Icons.skip_next,
-                      onPressed: widget.playerManager.playNext,
+                      onPressed: sl.playerManager.playNext,
                       size: 24,
                     ),
                   ],

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:bilimusic/managers/player_manager.dart';
+import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/components/mini_player.dart';
 import 'package:bilimusic/components/desktop_window_controls.dart';
 
@@ -9,7 +9,6 @@ import 'package:bilimusic/components/desktop_window_controls.dart';
 class PortraitShell extends StatelessWidget {
   final int selectedIndex;
   final List<Widget> pages;
-  final PlayerManager playerManager;
   final bool isTabletMode;
   final bool isPcPlatform;
   final bool isPcMode;
@@ -21,7 +20,6 @@ class PortraitShell extends StatelessWidget {
     super.key,
     required this.selectedIndex,
     required this.pages,
-    required this.playerManager,
     required this.isTabletMode,
     required this.isPcPlatform,
     required this.isPcMode,
@@ -48,7 +46,7 @@ class PortraitShell extends StatelessWidget {
               child: DesktopNavBar(
                 selectedIndex: selectedIndex,
                 onNavTap: onItemTapped,
-                onClose: () => playerManager.stop(),
+                onClose: () => sl.playerManager.stop(),
               ),
             )
           : null,
@@ -99,7 +97,6 @@ class PortraitShell extends StatelessWidget {
                     child: SizedBox(
                       width: MediaQuery.of(context).size.width * 0.8,
                       child: MiniPlayerComponent(
-                        playerManager: playerManager,
                         onExpand: onExpand,
                         onPlayList: onPlayList,
                       ),
@@ -123,7 +120,7 @@ class PortraitShell extends StatelessWidget {
               child: DesktopNavBar(
                 selectedIndex: selectedIndex,
                 onNavTap: onItemTapped,
-                onClose: () => playerManager.stop(),
+                onClose: () => sl.playerManager.stop(),
               ),
             )
           : null,
@@ -139,7 +136,6 @@ class PortraitShell extends StatelessWidget {
               child: SizedBox(
                 width: MediaQuery.of(context).size.width * 0.95,
                 child: MiniPlayerComponent(
-                  playerManager: playerManager,
                   onExpand: onExpand,
                   onPlayList: onPlayList,
                 ),

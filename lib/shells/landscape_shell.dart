@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:bilimusic/models/playlist.dart';
 import 'package:bilimusic/models/playlist_tag.dart';
-import 'package:bilimusic/managers/player_manager.dart';
+import 'package:bilimusic/core/service_locator.dart';
+import 'package:bilimusic/pages/search_page.dart';
 import 'package:bilimusic/shells/landscape/landscape_sidebar.dart';
 import 'package:bilimusic/shells/landscape/landscape_player_bar.dart';
 import 'package:bilimusic/shells/landscape/landscape_home_content.dart';
-import 'package:bilimusic/providers/playlist_manager_provider.dart';
 import 'package:bilimusic/utils/platform_helper.dart';
 
 /// 横屏模式外壳 - 仿网易云音乐风格
@@ -21,13 +21,13 @@ class LandscapeShell extends StatelessWidget {
   final Function(int index) onNavTap;
   final Function(String playlistId)? onPlaylistTap;
   final VoidCallback? onCreatePlaylist;
-  final PlayerManager playerManager;
   final VoidCallback onExpand;
   final VoidCallback onPlayList;
   final VoidCallback onWindowClose;
-  final Function(String query)? onSearch; // 搜索回调
+  final Function(String query)? onSearchSubmit; // 搜索提交回调
   final VoidCallback? onProfileTap; // 用户页面回调
   final VoidCallback? onSettingsTap; // 设置页面回调
+  final String? landscapePendingQuery; // 横屏搜索栏的待搜索词
 
   const LandscapeShell({
     super.key,
@@ -39,13 +39,13 @@ class LandscapeShell extends StatelessWidget {
     required this.onNavTap,
     this.onPlaylistTap,
     this.onCreatePlaylist,
-    required this.playerManager,
     required this.onExpand,
     required this.onPlayList,
     required this.onWindowClose,
-    this.onSearch,
+    this.onSearchSubmit,
     this.onProfileTap,
     this.onSettingsTap,
+    this.landscapePendingQuery,
   });
 
   @override
@@ -95,10 +95,13 @@ class LandscapeShell extends StatelessWidget {
                           Expanded(
                             child: selectedIndex == 0
                                 ? _buildLandscapeHomeContent(context)
-                                : pages[selectedIndex],
+                                : selectedIndex == 1
+                                    ? SearchPage(
+                                        pendingQuery: landscapePendingQuery,
+                                      )
+                                    : pages[selectedIndex],
                           ),
                           LandscapePlayerBar(
-                            playerManager: playerManager,
                             onExpand: onExpand,
                             onPlayList: onPlayList,
                           ),
@@ -183,8 +186,8 @@ class LandscapeShell extends StatelessWidget {
           ),
           child: TextField(
             onSubmitted: (query) {
-              if (query.isNotEmpty && onSearch != null) {
-                onSearch!(query);
+              if (query.isNotEmpty) {
+                onSearchSubmit?.call(query);
                 // 切换到搜索页面（索引1）
                 onNavTap(1);
               }
@@ -245,18 +248,10 @@ class LandscapeShell extends StatelessWidget {
   }
 
   Widget _buildLandscapeHomeContent(BuildContext context) {
-    // 从 Provider 获取 PlaylistManager 实例
-    return Builder(
-      builder: (context) {
-        final playlistManager = PlaylistManagerProvider.of(context);
-        return LandscapeHomeContent(
-          playerManager: playerManager,
-          playlistManager: playlistManager,
-          playlists: playlists,
-          selectedPlaylistId: selectedPlaylistId,
-          onPlaylistTap: onPlaylistTap,
-        );
-      },
+    return LandscapeHomeContent(
+      playlists: playlists,
+      selectedPlaylistId: selectedPlaylistId,
+      onPlaylistTap: onPlaylistTap,
     );
   }
 }

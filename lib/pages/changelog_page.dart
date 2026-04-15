@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:bilimusic/components/autoAppBar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -19,7 +20,7 @@ class ChangelogPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: AutoAppBar(
         title: const Text('更新日志'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),

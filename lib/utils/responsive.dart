@@ -241,8 +241,8 @@ class LandscapeBreakpoints {
   /// 获取横屏控制条高度
   static double getControlsBarHeight(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width >= desktopMin) return 120; // 这里反直觉的是在桌面端需要控制按钮小一些
-    return 140; // 移动横屏端需要控制按钮大一些
+    if (width >= desktopMin) return 140; // 这里反直觉的是在桌面端需要控制按钮小一些
+    return 160; // 移动横屏端需要控制按钮大一些
   }
 
   /// 获取横屏歌词当前行字号

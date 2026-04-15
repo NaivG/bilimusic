@@ -1,24 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/managers/player_manager.dart';
-import 'package:bilimusic/managers/playlist_manager.dart';
+import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/components/common/cards/music_card.dart';
 import 'package:bilimusic/managers/recommendation_manager.dart';
 import 'package:bilimusic/utils/responsive.dart';
 
 /// 横屏模式首页内容 - 仿网易云音乐风格
 class LandscapeHomeContent extends StatefulWidget {
-  final PlayerManager playerManager;
-  final PlaylistManager playlistManager;
   final List<Playlist> playlists;
   final String? selectedPlaylistId;
   final Function(String playlistId)? onPlaylistTap;
 
   const LandscapeHomeContent({
     super.key,
-    required this.playerManager,
-    required this.playlistManager,
     required this.playlists,
     this.selectedPlaylistId,
     this.onPlaylistTap,
@@ -54,14 +49,14 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
 
   Future<void> _playMusic(Music music) async {
     final detailedMusic = await music.getVideoDetails();
-    widget.playerManager.play(detailedMusic);
+    sl.playerManager.play(detailedMusic);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final playHistory = widget.playerManager.playHistory;
+    final playHistory = sl.playerManager.playHistory;
 
     return Container(
       color: isDark ? const Color(0xFF1a1a1a) : const Color(0xFFFAFAFA),
@@ -136,7 +131,7 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
                   icon: Icons.favorite,
                   iconColor: Colors.red,
                   title: '我喜欢的音乐',
-                  subtitle: '${widget.playlistManager.favorites.length}首',
+                  subtitle: '${sl.playlistManager.favorites.length}首',
                   isSelected: widget.selectedPlaylistId == 'favorites',
                   onTap: () => widget.onPlaylistTap?.call('favorites'),
                 );
@@ -146,7 +141,7 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
                   icon: Icons.history,
                   iconColor: Colors.blue,
                   title: '最近播放',
-                  subtitle: '${widget.playerManager.playHistory.length}首',
+                  subtitle: '${sl.playerManager.playHistory.length}首',
                   isSelected: widget.selectedPlaylistId == 'history',
                   onTap: () => widget.onPlaylistTap?.call('history'),
                 );
@@ -372,8 +367,8 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
   Widget _buildMusicListItem(Music music) {
     return MusicListItem(
       music: music,
-      playerManager: widget.playerManager,
-      playlistManager: widget.playlistManager,
+      playerManager: sl.playerManager,
+      playlistManager: sl.playlistManager,
       onTap: () => _playMusic(music),
       showCover: true,
       showDetails: true,

@@ -1,3 +1,4 @@
+import 'package:bilimusic/components/autoAppBar.dart';
 import 'package:flutter/material.dart';
 import 'package:bilimusic/utils/network_config.dart';
 
@@ -9,7 +10,7 @@ class CookiePage extends StatelessWidget {
     final cookies = NetworkConfig.cookies;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: AutoAppBar(
         title: const Text('Cookie 信息'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
