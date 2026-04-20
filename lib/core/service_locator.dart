@@ -74,7 +74,7 @@ class ServiceLocator {
     // Init DualAudioService
     _dualAudioService = DualAudioService();
     _dualAudioService!.initialize();
-    
+
     _playlistService = PlaylistService();
     _notificationService = NotificationService();
     _apiService = ApiService();
