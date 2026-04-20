@@ -14,11 +14,7 @@ class HomeContent extends StatefulWidget {
   final bool showAppBar;
   final String? appBarTitle;
 
-  const HomeContent({
-    super.key,
-    this.showAppBar = false,
-    this.appBarTitle,
-  });
+  const HomeContent({super.key, this.showAppBar = false, this.appBarTitle});
 
   @override
   State<HomeContent> createState() => _HomeContentState();
@@ -84,9 +80,12 @@ class _HomeContentState extends State<HomeContent> {
       description: base.description,
       coverUrl: guessYouLikeList.isNotEmpty
           ? guessYouLikeList.first.safeCoverUrl
-          : (recommendedList.isNotEmpty ? recommendedList.first.safeCoverUrl : ''),
-      songCount:
-          guessYouLikeList.isNotEmpty ? guessYouLikeList.length : recommendedList.length,
+          : (recommendedList.isNotEmpty
+                ? recommendedList.first.safeCoverUrl
+                : ''),
+      songCount: guessYouLikeList.isNotEmpty
+          ? guessYouLikeList.length
+          : recommendedList.length,
       source: base.source,
       isDefault: base.isDefault,
       createdAt: base.createdAt,
@@ -124,10 +123,7 @@ class _HomeContentState extends State<HomeContent> {
       ],
     );
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: content,
-    );
+    return Scaffold(backgroundColor: Colors.transparent, body: content);
   }
 
   SliverAppBar _buildAppBar(BuildContext context, ScreenSize screenSize) {
@@ -207,11 +203,16 @@ class _HomeContentState extends State<HomeContent> {
     }
   }
 
-  SliverPadding _buildPlaylistSection(BuildContext context, ScreenSize screenSize) {
+  SliverPadding _buildPlaylistSection(
+    BuildContext context,
+    ScreenSize screenSize,
+  ) {
     final isDesktop = screenSize == ScreenSize.desktop;
 
     return SliverPadding(
-      padding: EdgeInsets.all(isDesktop ? _sectionSpacing / 2 : _cardSpacing / 2),
+      padding: EdgeInsets.all(
+        isDesktop ? _sectionSpacing / 2 : _cardSpacing / 2,
+      ),
       sliver: SliverToBoxAdapter(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -237,9 +238,9 @@ class _HomeContentState extends State<HomeContent> {
                   Text(
                     '歌单',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5,
-                        ),
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ],
               ),
@@ -308,14 +309,19 @@ class _HomeContentState extends State<HomeContent> {
     );
   }
 
-  SliverPadding _buildRecommendationSection(BuildContext context, ScreenSize screenSize) {
+  SliverPadding _buildRecommendationSection(
+    BuildContext context,
+    ScreenSize screenSize,
+  ) {
     final isDesktop = screenSize == ScreenSize.desktop;
     final displayList = recommendedList.isNotEmpty
         ? recommendedList.take(12).toList()
         : _recommendationManager.guessYouLikeList.take(12).toList();
 
     return SliverPadding(
-      padding: EdgeInsets.all(isDesktop ? _sectionSpacing / 2 : _cardSpacing / 2),
+      padding: EdgeInsets.all(
+        isDesktop ? _sectionSpacing / 2 : _cardSpacing / 2,
+      ),
       sliver: SliverToBoxAdapter(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -341,9 +347,9 @@ class _HomeContentState extends State<HomeContent> {
                   Text(
                     '官方推荐',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5,
-                        ),
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                   const Spacer(),
                   if (_isLoading)
@@ -362,9 +368,16 @@ class _HomeContentState extends State<HomeContent> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.music_off_outlined, size: 32, color: Colors.grey[400]),
+                      Icon(
+                        Icons.music_off_outlined,
+                        size: 32,
+                        color: Colors.grey[400],
+                      ),
                       const SizedBox(height: 8),
-                      Text('暂无推荐', style: TextStyle(fontSize: 14, color: Colors.grey[500])),
+                      Text(
+                        '暂无推荐',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                      ),
                     ],
                   ),
                 ),
@@ -379,12 +392,20 @@ class _HomeContentState extends State<HomeContent> {
                     final leftIndex = rowIndex * 2;
                     final rightIndex = leftIndex + 1;
                     final leftItem = displayList[leftIndex];
-                    final rightItem = rightIndex < displayList.length ? displayList[rightIndex] : null;
+                    final rightItem = rightIndex < displayList.length
+                        ? displayList[rightIndex]
+                        : null;
                     return Row(
                       children: [
-                        Expanded(child: _buildMusicListItem(leftItem, showCover: true)),
+                        Expanded(
+                          child: _buildMusicListItem(leftItem, showCover: true),
+                        ),
                         const SizedBox(width: 16),
-                        Expanded(child: rightItem != null ? _buildMusicListItem(rightItem, showCover: true) : const SizedBox()),
+                        Expanded(
+                          child: rightItem != null
+                              ? _buildMusicListItem(rightItem, showCover: true)
+                              : const SizedBox(),
+                        ),
                       ],
                     );
                   },
@@ -399,7 +420,10 @@ class _HomeContentState extends State<HomeContent> {
                   itemBuilder: (context, index) {
                     return SizedBox(
                       height: 64.0,
-                      child: _buildMusicListItem(displayList[index], showCover: true),
+                      child: _buildMusicListItem(
+                        displayList[index],
+                        showCover: true,
+                      ),
                     );
                   },
                 ),
@@ -410,13 +434,18 @@ class _HomeContentState extends State<HomeContent> {
     );
   }
 
-  SliverPadding _buildHistorySection(BuildContext context, ScreenSize screenSize) {
+  SliverPadding _buildHistorySection(
+    BuildContext context,
+    ScreenSize screenSize,
+  ) {
     final isDesktop = screenSize == ScreenSize.desktop;
     final playHistory = sl.playerManager.playHistory;
     final displayHistory = playHistory.take(12).toList();
 
     return SliverPadding(
-      padding: EdgeInsets.all(isDesktop ? _sectionSpacing / 2 : _cardSpacing / 2),
+      padding: EdgeInsets.all(
+        isDesktop ? _sectionSpacing / 2 : _cardSpacing / 2,
+      ),
       sliver: SliverToBoxAdapter(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -442,9 +471,9 @@ class _HomeContentState extends State<HomeContent> {
                   Text(
                     '历史记录',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5,
-                        ),
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ],
               ),
@@ -456,9 +485,16 @@ class _HomeContentState extends State<HomeContent> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.history_outlined, size: 32, color: Colors.grey[400]),
+                      Icon(
+                        Icons.history_outlined,
+                        size: 32,
+                        color: Colors.grey[400],
+                      ),
                       const SizedBox(height: 8),
-                      Text('暂无播放历史', style: TextStyle(fontSize: 14, color: Colors.grey[500])),
+                      Text(
+                        '暂无播放历史',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                      ),
                     ],
                   ),
                 ),
@@ -473,12 +509,20 @@ class _HomeContentState extends State<HomeContent> {
                     final leftIndex = rowIndex * 2;
                     final rightIndex = leftIndex + 1;
                     final leftItem = displayHistory[leftIndex];
-                    final rightItem = rightIndex < displayHistory.length ? displayHistory[rightIndex] : null;
+                    final rightItem = rightIndex < displayHistory.length
+                        ? displayHistory[rightIndex]
+                        : null;
                     return Row(
                       children: [
-                        Expanded(child: _buildMusicListItem(leftItem, showCover: true)),
+                        Expanded(
+                          child: _buildMusicListItem(leftItem, showCover: true),
+                        ),
                         const SizedBox(width: 16),
-                        Expanded(child: rightItem != null ? _buildMusicListItem(rightItem, showCover: true) : const SizedBox()),
+                        Expanded(
+                          child: rightItem != null
+                              ? _buildMusicListItem(rightItem, showCover: true)
+                              : const SizedBox(),
+                        ),
                       ],
                     );
                   },
@@ -493,7 +537,10 @@ class _HomeContentState extends State<HomeContent> {
                   itemBuilder: (context, index) {
                     return SizedBox(
                       height: 64.0,
-                      child: _buildMusicListItem(displayHistory[index], showCover: true),
+                      child: _buildMusicListItem(
+                        displayHistory[index],
+                        showCover: true,
+                      ),
                     );
                   },
                 ),
