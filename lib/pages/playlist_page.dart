@@ -11,14 +11,16 @@ import 'package:bilimusic/managers/cache_manager.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/pages/playlist/portrait_playlist_page.dart';
 import 'package:bilimusic/pages/playlist/landscape_playlist_page.dart';
+import 'package:bilimusic/shells/shell_page_manager.dart';
 
 /// 播放列表页面
 /// 根据屏幕方向路由到竖屏或横屏布局
 class PlaylistPage extends StatefulWidget {
   final String? playlistId;
   final List<Music>? songs;
+  final VoidCallback? onBack;
 
-  const PlaylistPage({super.key, this.playlistId, this.songs});
+  const PlaylistPage({super.key, this.playlistId, this.songs, this.onBack});
 
   @override
   State<PlaylistPage> createState() => _PlaylistPageState();
@@ -347,7 +349,13 @@ class _PlaylistPageState extends State<PlaylistPage>
       return LandscapePlaylistPage(
         playlistId: widget.playlistId,
         songs: _songs,
-        onBack: () => Navigator.pop(context),
+        currentPlaylist: _currentPlaylist,
+        isFavorited: _isFavorited,
+        onBack: widget.onBack ?? () => ShellPageManager.instance.pop(),
+        onSongTap: _playSong,
+        onPlayAll: _playAll,
+        onShufflePlay: _shufflePlay,
+        onToggleFavorite: _toggleFavorite,
       );
     }
 
@@ -360,7 +368,7 @@ class _PlaylistPageState extends State<PlaylistPage>
       allTags: _allTags,
       selectedTagId: _selectedTagId,
       isFavorited: _isFavorited,
-      onBack: () => Navigator.pop(context),
+      onBack: widget.onBack ?? () => ShellPageManager.instance.pop(),
       onSongTap: _playSong,
       onSongLongPress: _onSongLongPress,
       onRemoveSong: _removeSong,

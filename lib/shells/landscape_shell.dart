@@ -1,388 +1,244 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:bitsdojo_window/bitsdojo_window.dart';
+import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/playlist.dart';
 import 'package:bilimusic/models/playlist_tag.dart';
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:bilimusic/pages/playlist_page.dart';
 import 'package:bilimusic/pages/search_page.dart';
+import 'package:bilimusic/components/common/background_blur_widget.dart';
 import 'package:bilimusic/shells/landscape/landscape_sidebar.dart';
-import 'package:bilimusic/shells/landscape/landscape_player_bar.dart';
+import 'package:bilimusic/shells/landscape/landscape_bottom_control.dart';
 import 'package:bilimusic/shells/landscape/landscape_home_content.dart';
-import 'package:bilimusic/utils/platform_helper.dart';
+import 'package:bilimusic/shells/landscape/landscape_title_bar.dart';
+import 'package:bilimusic/utils/color_infra.dart';
+import 'package:bilimusic/core/service_locator.dart';
+import 'package:bilimusic/shells/shell_page_manager.dart';
+import 'package:bilimusic/pages/home_page.dart';
+import 'package:bilimusic/pages/profile_page.dart';
+import 'package:bilimusic/pages/settings_page.dart';
+import 'package:bilimusic/pages/detail_page.dart';
+import 'package:bilimusic/pages/changelog_page.dart';
+import 'package:bilimusic/pages/cookie_page.dart';
+import 'package:bilimusic/pages/data_management_page.dart';
+import 'package:bilimusic/pages/data_migration_page.dart';
 
-/// 横屏模式外壳 - 仿网易云音乐风格
-/// 布局：标题栏 + 左侧歌单栏 + 主内容区 + 底部播放器栏
-class LandscapeShell extends StatelessWidget {
-  final int selectedIndex;
-  final List<Widget> pages;
-  final List<Playlist> playlists;
-  final List<PlaylistTag> allTags;
-  final String? selectedPlaylistId;
-  final Function(int index) onNavTap;
-  final Function(String playlistId)? onPlaylistTap;
-  final VoidCallback? onCreatePlaylist;
-  final VoidCallback onExpand;
+/// 横屏模式外壳 - 基于ParticleMusic风格
+/// 布局：标题栏 + 侧边栏 + 主内容区 + 底部播放器栏
+class LandscapeShell extends StatefulWidget {
+  final ShellPage currentPage;
+  final ShellPageManager pageManager;
+  final bool isPcMode;
   final VoidCallback onPlayList;
-  final VoidCallback onWindowClose;
-  final Function(String query)? onSearchSubmit; // 搜索提交回调
-  final VoidCallback? onProfileTap; // 用户页面回调
-  final VoidCallback? onSettingsTap; // 设置页面回调
-  final String? landscapePendingQuery; // 横屏搜索栏的待搜索词
 
   const LandscapeShell({
     super.key,
-    required this.selectedIndex,
-    required this.pages,
-    required this.playlists,
-    required this.allTags,
-    this.selectedPlaylistId,
-    required this.onNavTap,
-    this.onPlaylistTap,
-    this.onCreatePlaylist,
-    required this.onExpand,
+    required this.currentPage,
+    required this.pageManager,
+    required this.isPcMode,
     required this.onPlayList,
-    required this.onWindowClose,
-    this.onSearchSubmit,
-    this.onProfileTap,
-    this.onSettingsTap,
-    this.landscapePendingQuery,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Scaffold(
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final sidebarWidth = 200.0;
-          return Column(
-            children: [
-              // 顶部AppBar - 全宽
-              SizedBox(
-                height: 80,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.grey[900]! : Colors.white,
-                  ),
-                  child: PlatformHelper.isDesktop
-                      ? MoveWindow(child: _buildAppBarContent(isDark))
-                      : _buildAppBarContent(isDark),
-                ),
-              ),
-              // 下方：侧栏 + 主内容区 + 底部播放器
-              Expanded(
-                child: Row(
-                  children: [
-                    // 左侧固定侧栏
-                    SizedBox(
-                      width: sidebarWidth,
-                      child: LandscapeSidebar(
-                        selectedIndex: selectedIndex,
-                        playlists: playlists,
-                        allTags: allTags,
-                        selectedPlaylistId: selectedPlaylistId,
-                        onNavTap: onNavTap,
-                        onPlaylistTap: onPlaylistTap,
-                        onCreatePlaylist: onCreatePlaylist,
-                      ),
-                    ),
-                    // 右侧主内容区 + 底部播放器
-                    Expanded(
-                      child: Column(
-                        children: [
-                          Expanded(
-                            child: selectedIndex == 0
-                                ? _buildLandscapeHomeContent(context)
-                                : selectedIndex == 1
-                                ? SearchPage(
-                                    pendingQuery: landscapePendingQuery,
-                                  )
-                                : pages[selectedIndex],
-                          ),
-                          LandscapePlayerBar(
-                            onExpand: onExpand,
-                            onPlayList: onPlayList,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  /// 构建AppBar内容
-  Widget _buildAppBarContent(bool isDark) {
-    return Row(
-      children: [
-        // 左侧 Logo + 标题
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12.0),
-          child: Row(
-            children: [
-              Image.asset(
-                'assets/ic_launcher.png',
-                width: 32,
-                height: 32,
-                fit: BoxFit.contain,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'BiliMusic',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white : Colors.grey[800],
-                  fontFamily: 'CabinSketch',
-                ),
-              ),
-              const SizedBox(width: 4),
-              kDebugMode
-                  ? Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.cyan.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        'Beta',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey[800],
-                        ),
-                      ),
-                    )
-                  : const SizedBox(width: 36),
-            ],
-          ),
-        ),
-        const SizedBox(width: 16),
-        _TitleBarButton(
-          icon: Icons.home_outlined,
-          onTap: () => onNavTap(0),
-          isDark: isDark,
-          tooltip: '返回主页',
-        ),
-        // 中间：搜索栏
-        Container(
-          constraints: const BoxConstraints(maxWidth: 400, minWidth: 200),
-          height: 36,
-          decoration: BoxDecoration(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : Colors.grey[100],
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: TextField(
-            onSubmitted: (query) {
-              if (query.isNotEmpty) {
-                onSearchSubmit?.call(query);
-                // 切换到搜索页面（索引1）
-                onNavTap(1);
-              }
-            },
-            decoration: InputDecoration(
-              hintText: '搜索音乐、视频、用户...',
-              hintStyle: TextStyle(
-                fontSize: 12,
-                color: isDark ? Colors.white38 : Colors.grey[500],
-              ),
-              prefixIcon: Icon(
-                Icons.search,
-                size: 16,
-                color: isDark ? Colors.white38 : Colors.grey[500],
-              ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 10),
-            ),
-            style: TextStyle(
-              fontSize: 12,
-              color: isDark ? Colors.white : Colors.grey[800],
-            ),
-          ),
-        ),
-        // 中间弹性区域
-        const Spacer(),
-        // 右侧：用户按钮 + 设置按钮
-        _TitleBarButton(
-          icon: Icons.person_outline,
-          onTap: () {
-            if (onProfileTap != null) {
-              onProfileTap!();
-            } else {
-              // 默认行为：切换到用户页面（索引2）
-              onNavTap(2);
-            }
-          },
-          isDark: isDark,
-        ),
-        _TitleBarButton(
-          icon: Icons.settings_outlined,
-          onTap: () {
-            if (onSettingsTap != null) {
-              onSettingsTap!();
-            } else {
-              // 默认行为：切换到设置页面（索引3）
-              onNavTap(3);
-            }
-          },
-          isDark: isDark,
-        ),
-        // 窗口控制按钮
-        PlatformHelper.isDesktop
-            ? const WindowButtons()
-            : const SizedBox(width: 16),
-      ],
-    );
-  }
-
-  Widget _buildLandscapeHomeContent(BuildContext context) {
-    return LandscapeHomeContent(
-      playlists: playlists,
-      selectedPlaylistId: selectedPlaylistId,
-      onPlaylistTap: onPlaylistTap,
-    );
-  }
+  State<LandscapeShell> createState() => _LandscapeShellState();
 }
 
-/// 标题栏按钮
-class _TitleBarButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool isDark;
-  final String? tooltip;
+class _LandscapeShellState extends State<LandscapeShell> {
+  @override
+  void initState() {
+    super.initState();
+    sl.playerManager.addStateListener((_) => _onMusicChanged());
+    widget.pageManager.addListener(_onPageChanged);
+  }
 
-  const _TitleBarButton({
-    required this.icon,
-    required this.onTap,
-    required this.isDark,
-    this.tooltip,
-  });
+  void _onMusicChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onPageChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
-  Widget build(BuildContext context) {
-    Widget button = GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 32,
-        height: 32,
-        margin: const EdgeInsets.symmetric(horizontal: 2),
-        decoration: BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Icon(
-          icon,
-          size: 18,
-          color: isDark ? Colors.white70 : Colors.grey[700],
-        ),
-      ),
-    );
+  void dispose() {
+    sl.playerManager.removeStateListener((_) => _onMusicChanged());
+    widget.pageManager.removeListener(_onPageChanged);
+    super.dispose();
+  }
 
-    if (tooltip != null) {
-      return Tooltip(message: tooltip!, child: button);
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    updateColors(isDark: isDark);
+  }
+
+
+  /// 主内容渲染
+  Widget _buildPageContent(ShellPage page) {
+    switch (page) {
+      case ShellPage.home:
+        return LandscapeHomeContent(
+          playlists: sl.playlistManager.userPlaylists,
+          selectedPlaylistId: null,
+          onPlaylistTap: (id) {
+            widget.pageManager.goToPlaylist(playlistId: id);
+          },
+        );
+      case ShellPage.search:
+        return const SearchPage();
+      case ShellPage.profile:
+        return const ProfilePage();
+      case ShellPage.settings:
+        return const SettingsPage();
+      case ShellPage.detail:
+        return const DetailPage();
+      case ShellPage.playlist:
+        final playlistId = widget.pageManager.getArgs<String>('playlistId');
+        final songs = widget.pageManager.getArgs<List<Music>>('songs');
+        return PlaylistPage(
+          playlistId: playlistId,
+          songs: songs,
+          onBack: () => widget.pageManager.pop(),
+        );
+      case ShellPage.changelog:
+        return const ChangelogPage();
+      case ShellPage.cookie:
+        return const CookiePage();
+      case ShellPage.dataManagement:
+        return const DataManagementPage();
+      case ShellPage.dataMigration:
+        return const DataMigrationPage();
+      case ShellPage.login:
+        return const ProfilePage(); // TODO: Login page
     }
-    return button;
   }
-}
 
-/// 窗口控制按钮组件
-class WindowButtons extends StatelessWidget {
-  const WindowButtons({super.key});
+  /// 是否显示侧边栏（除详情页外所有页面都显示侧边栏）
+  bool get _showSidebar {
+    return widget.currentPage != ShellPage.detail;
+  }
+
+  /// 是否显示 Shell 的导航 chrome（标题栏 + 底部播放器）
+  /// 详情页全屏显示，不需要这些
+  bool get _showShellChrome {
+    return widget.currentPage != ShellPage.detail;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = PlatformHelper.isDesktop;
-
-    return Row(
-      children: [
-        _WindowButton(
-          icon: Icons.minimize,
-          onTap: () {
-            if (isDesktop) appWindow.minimize();
-          },
-        ),
-        _WindowButton(
-          icon: isDesktop && appWindow.isMaximized
-              ? Icons.filter_none
-              : Icons.crop_square,
-          onTap: () {
-            if (isDesktop) {
-              if (appWindow.isMaximized) {
-                appWindow.restore();
-              } else {
-                appWindow.maximize();
-              }
-            }
-          },
-        ),
-        _WindowButton(
-          icon: Icons.close,
-          onTap: () {
-            if (isDesktop) appWindow.close();
-          },
-          isClose: true,
-        ),
-      ],
+    return ValueListenableBuilder(
+      valueListenable: updateColorNotifier,
+      builder: (context, _, child) {
+        return Scaffold(
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              // 背景模糊层
+              _buildBackground(),
+              // 主内容
+              Column(
+                children: [
+                  // 标题栏
+                  if (_showShellChrome) _buildTitleBar(),
+                  // 主内容区域
+                  Expanded(
+                    child: Row(
+                      children: [
+                        // 侧边栏
+                        if (_showSidebar) _buildSidebar(),
+                        // 内容区
+                        Expanded(
+                          child: Material(
+                            color: sidebarColor.withValues(alpha: 0.2),
+                            child: _buildPageContent(widget.currentPage),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // 底部播放器
+                  if (_showShellChrome)
+                    LandscapeBottomControl(
+                      onExpand: () => widget.pageManager.push(ShellPage.detail),
+                      onPlayList: widget.onPlayList,
+                    ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
-}
 
-class _WindowButton extends StatefulWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool isClose;
-
-  const _WindowButton({
-    required this.icon,
-    required this.onTap,
-    this.isClose = false,
-  });
-
-  @override
-  State<_WindowButton> createState() => _WindowButtonState();
-}
-
-class _WindowButtonState extends State<_WindowButton> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          width: 46,
-          height: 40,
-          color: _isHovered
-              ? (widget.isClose
-                    ? Colors.red
-                    : Colors.grey[400]!.withValues(alpha: 0.3))
-              : Colors.transparent,
-          child: Center(
-            child: Icon(
-              widget.icon,
-              size: 14,
-              color: _isHovered && widget.isClose
-                  ? Colors.white
-                  : Colors.grey[700],
-            ),
-          ),
-        ),
+  /// 背景模糊效果
+  Widget _buildBackground() {
+    final currentMusic = sl.playerManager.currentMusic;
+    return AnimatedSwitcher(
+      switchInCurve: Curves.linearToEaseOut,
+      switchOutCurve: Curves.easeInToLinear,
+      duration: const Duration(milliseconds: 400),
+      child: BackgroundBlurWidget(
+        key: ValueKey(currentMusic?.coverUrl),
+        coverUrl: currentMusic?.coverUrl,
       ),
     );
+  }
+
+  /// 标题栏
+  Widget _buildTitleBar() {
+    return LandscapeTitleBar(
+      onBack: () => widget.pageManager.pop(),
+      onSearchSubmit: (query) {
+        widget.pageManager.goToTab(1);
+      },
+      onSettingsTap: () {
+        widget.pageManager.goToTab(3);
+      },
+    );
+  }
+
+  /// 侧边栏
+  Widget _buildSidebar() {
+    final selectedLabel = _getSelectedLabel();
+    return LandscapeSidebar(
+      selectedLabel: selectedLabel,
+      playlists: sl.playlistManager.userPlaylists,
+      selectedPlaylistId: widget.pageManager.getArgs<String>('selectedPlaylistId'),
+      onNavTap: _onSidebarNavTap,
+      onPlaylistTap: (playlistId) {
+        widget.pageManager.goToPlaylist(playlistId: playlistId);
+      },
+      onCreatePlaylist: null,
+    );
+  }
+
+  String _getSelectedLabel() {
+    final index = widget.pageManager.selectedTabIndex;
+    switch (index) {
+      case 0:
+        return 'home';
+      case 1:
+        return 'search';
+      case 2:
+        return 'profile';
+      case 3:
+        return 'settings';
+      default:
+        return 'home';
+    }
+  }
+
+  void _onSidebarNavTap(String label) {
+    switch (label) {
+      case 'home':
+        widget.pageManager.goToTab(0);
+        break;
+      case 'search':
+        widget.pageManager.goToTab(1);
+        break;
+      case 'settings':
+        widget.pageManager.goToTab(3);
+        break;
+    }
   }
 }

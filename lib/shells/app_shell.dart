@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:bilimusic/core/service_locator.dart';
-import 'package:bilimusic/pages/home_page.dart';
-import 'package:bilimusic/pages/search_page.dart';
-import 'package:bilimusic/pages/profile_page.dart';
-import 'package:bilimusic/pages/settings_page.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/utils/platform_helper.dart';
 import 'package:bilimusic/components/playlist/playlist_sheet.dart';
 import 'package:bilimusic/shells/landscape_shell.dart';
 import 'package:bilimusic/shells/portrait_shell.dart';
+import 'package:bilimusic/shells/shell_page_manager.dart';
 
 /// 统一入口Shell - 根据屏幕方向路由到对应的Shell
 class AppShell extends StatefulWidget {
@@ -19,51 +16,35 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  int _selectedIndex = 0;
-  String? _selectedPlaylistId;
-  List<Widget> _pages = [];
+  final ShellPageManager _pageManager = ShellPageManager.instance;
   final bool _isPcPlatform = PlatformHelper.isDesktop;
-  String? _landscapePendingQuery; // 横屏搜索栏的待搜索词
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_pages.isEmpty) {
-      _pages = [
-        const HomePage(),
-        const SearchPage(),
-        const ProfilePage(),
-        const SettingsPage(),
-      ];
-      if (mounted) setState(() {});
+  void initState() {
+    super.initState();
+    _pageManager.addListener(_onPageChanged);
+  }
+
+  @override
+  void dispose() {
+    _pageManager.removeListener(_onPageChanged);
+    super.dispose();
+  }
+
+  void _onPageChanged() {
+    if (mounted) setState(() {});
+  }
+
+  bool _isTabletMode(BuildContext context) {
+    switch (sl.settingsManager.tabletMode) {
+      case 'on':
+        return true;
+      case 'off':
+        return false;
+      case 'auto':
+      default:
+        return MediaQuery.of(context).size.shortestSide >= 600;
     }
-  }
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
-  void _setLandscapeSearchQuery(String query) {
-    _landscapePendingQuery = query;
-  }
-
-  void _onPlaylistTap(String playlistId) {
-    setState(() {
-      _selectedPlaylistId = playlistId;
-    });
-
-    Navigator.pushNamed(
-      context,
-      '/playlist',
-      arguments: {'playlistId': playlistId},
-    );
-  }
-
-  void _openDetail() {
-    if (sl.playerManager.currentMusic == null) return;
-    Navigator.pushNamed(context, '/detail');
   }
 
   void _openPlayList() {
@@ -80,55 +61,48 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  bool get _isPcMode => sl.settingsManager.pcMode;
-
-  bool _isTabletMode(BuildContext context) {
-    switch (sl.settingsManager.tabletMode) {
-      case 'on':
-        return true;
-      case 'off':
-        return false;
-      case 'auto':
-      default:
-        return MediaQuery.of(context).size.shortestSide >= 600;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_pages.isEmpty) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _pageManager.canPop) {
+          _pageManager.pop();
+        }
+      },
+      child: ListenableBuilder(
+        listenable: _pageManager,
+        builder: (context, child) {
+          final currentPage = _pageManager.currentPage;
 
-    // 横屏布局优先判断
-    if (LandscapeBreakpoints.shouldUseLandscapeLayout(context)) {
-      return LandscapeShell(
-        selectedIndex: _selectedIndex,
-        pages: _pages,
-        playlists: sl.playlistManager.userPlaylists,
-        allTags: const [],
-        selectedPlaylistId: _selectedPlaylistId,
-        onNavTap: _onItemTapped,
-        onPlaylistTap: _onPlaylistTap,
-        onExpand: _openDetail,
-        onPlayList: _openPlayList,
-        onWindowClose: () => sl.playerManager.stop(),
-        onSearchSubmit: _setLandscapeSearchQuery,
-        onProfileTap: () => _onItemTapped(2),
-        onSettingsTap: () => _onItemTapped(3),
-        landscapePendingQuery: _landscapePendingQuery,
-      );
-    }
+          // 横屏布局优先判断
+          if (LandscapeBreakpoints.shouldUseLandscapeLayout(context)) {
+            return _buildLandscapeShell(currentPage);
+          }
 
-    // 竖屏布局
+          // 竖屏布局
+          return _buildPortraitShell(currentPage);
+        },
+      ),
+    );
+  }
+
+  Widget _buildLandscapeShell(ShellPage currentPage) {
+    return LandscapeShell(
+      currentPage: currentPage,
+      pageManager: _pageManager,
+      isPcMode: sl.settingsManager.pcMode,
+      onPlayList: _openPlayList,
+    );
+  }
+
+  Widget _buildPortraitShell(ShellPage currentPage) {
     return PortraitShell(
-      selectedIndex: _selectedIndex,
-      pages: _pages,
+      currentPage: currentPage,
+      pageManager: _pageManager,
       isTabletMode: _isTabletMode(context),
       isPcPlatform: _isPcPlatform,
-      isPcMode: _isPcMode,
-      onItemTapped: _onItemTapped,
-      onExpand: () {},
+      isPcMode: sl.settingsManager.pcMode,
       onPlayList: _openPlayList,
     );
   }

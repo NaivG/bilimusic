@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:bitsdojo_window/bitsdojo_window.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:bilimusic/utils/platform_helper.dart';
 
 /// 桌面端窗口控制栏：可拖动 + 窗口按钮
@@ -41,22 +41,22 @@ class DesktopWindowControls extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: MoveWindow(
+            child: GestureDetector(
+              onPanStart: (_) => windowManager.startDragging(),
               child: Row(
                 children: [
                   if (leading != null) leading!,
                   if (title != null)
                     Expanded(child: title!)
                   else
-                    Expanded(
+                    const Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.only(left: 12),
+                        padding: EdgeInsets.only(left: 12),
                         child: Text(
                           'BiliMusic',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: isDark ? Colors.white : Colors.grey[800]!,
                           ),
                         ),
                       ),
@@ -81,32 +81,18 @@ class _WindowButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = PlatformHelper.isDesktop;
-
     return Row(
       children: [
         _WindowButton(
           icon: Icons.minimize,
           isDark: isDark,
-          onTap: () {
-            if (isDesktop) appWindow.minimize();
-          },
+          onTap: () => windowManager.minimize(),
           hoverColor: isDark ? Colors.grey[800]! : Colors.grey[200]!,
         ),
         _WindowButton(
-          icon: isDesktop && appWindow.isMaximized
-              ? Icons.filter_none
-              : Icons.crop_square,
+          icon: Icons.crop_square,
           isDark: isDark,
-          onTap: () {
-            if (isDesktop) {
-              if (appWindow.isMaximized) {
-                appWindow.restore();
-              } else {
-                appWindow.maximize();
-              }
-            }
-          },
+          onTap: () => windowManager.maximize(),
           hoverColor: isDark ? Colors.grey[800]! : Colors.grey[200]!,
         ),
         _WindowButton(
@@ -114,7 +100,7 @@ class _WindowButtons extends StatelessWidget {
           isDark: isDark,
           onTap: () {
             onClose?.call();
-            if (isDesktop) appWindow.close();
+            windowManager.close();
           },
           hoverColor: Colors.red,
           iconHoverColor: Colors.white,
@@ -215,7 +201,8 @@ class DesktopNavBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          MoveWindow(
+          GestureDetector(
+            onPanStart: (_) => windowManager.startDragging(),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(

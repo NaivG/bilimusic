@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/utils/network_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import 'package:bilimusic/shells/shell_page_manager.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -180,6 +181,7 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.transparent,
       body: CustomScrollView(
         slivers: [
           // 用户信息头部
@@ -209,7 +211,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             _showLogoutDialog();
                           } else {
                             // 跳转到登录页面
-                            Navigator.pushNamed(context, '/login');
+                            ShellPageManager.instance.push(ShellPage.login);
                           }
                         },
                         child: CircleAvatar(
@@ -335,12 +337,9 @@ class _ProfilePageState extends State<ProfilePage> {
           title: Text('播放历史'),
           trailing: Icon(Icons.arrow_forward_ios),
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    PlaylistPage(songs: sl.playerManager.playHistory),
-              ),
+            ShellPageManager.instance.goToPlaylist(
+              playlistId: 'playHistory',
+              songs: sl.playerManager.playHistory,
             );
           },
         ),
@@ -360,12 +359,9 @@ class _ProfilePageState extends State<ProfilePage> {
           title: Text('我的收藏'),
           trailing: Icon(Icons.arrow_forward_ios),
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    PlaylistPage(songs: sl.playerManager.favorites),
-              ),
+            ShellPageManager.instance.goToPlaylist(
+              playlistId: 'favorites',
+              songs: sl.playerManager.favorites,
             );
           },
         ),

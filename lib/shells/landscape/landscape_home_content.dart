@@ -3,10 +3,11 @@ import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/playlist.dart';
 import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/components/common/cards/music_card.dart';
+import 'package:bilimusic/components/common/cards/playlist_card.dart';
 import 'package:bilimusic/managers/recommendation_manager.dart';
-import 'package:bilimusic/utils/responsive.dart';
+import 'package:bilimusic/utils/color_infra.dart';
 
-/// 横屏模式首页内容 - 仿网易云音乐风格
+/// 横屏模式首页内容 - 基于ParticleMusic风格
 class LandscapeHomeContent extends StatefulWidget {
   final List<Playlist> playlists;
   final String? selectedPlaylistId;
@@ -26,10 +27,9 @@ class LandscapeHomeContent extends StatefulWidget {
 class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
   late RecommendationManager _recommendationManager;
   List<Music> _recommendationList = [];
+  List<Music> _guessYouLikeList = [];
   bool _isLoading = false;
-
-  // 网易云音乐品牌红色
-  static const Color neteaseRed = Color(0xFFEC407A);
+  Playlist? _dailyRecommendedPlaylist;
 
   @override
   void initState() {
@@ -41,10 +41,35 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
   Future<void> _loadRecommendations() async {
     setState(() => _isLoading = true);
     await _recommendationManager.loadRecommendations();
+    await _recommendationManager.updateGuessYouLike(sl.playerManager.playHistory);
     setState(() {
       _recommendationList = _recommendationManager.recommendedList;
+      _guessYouLikeList = _recommendationManager.guessYouLikeList;
+      _dailyRecommendedPlaylist = _buildDailyRecommendedPlaylist();
       _isLoading = false;
     });
+  }
+
+  Playlist _buildDailyRecommendedPlaylist() {
+    final base = DefaultPlaylists.recommended;
+    return Playlist(
+      id: base.id,
+      name: base.name,
+      description: base.description,
+      coverUrl: _guessYouLikeList.isNotEmpty
+          ? _guessYouLikeList.first.safeCoverUrl
+          : '',
+      songCount: _guessYouLikeList.isNotEmpty
+          ? _guessYouLikeList.length
+          : _recommendationList.length,
+      source: base.source,
+      isDefault: base.isDefault,
+      createdAt: base.createdAt,
+      updatedAt: base.updatedAt,
+      songs: _guessYouLikeList.isNotEmpty
+          ? _guessYouLikeList
+          : _recommendationList,
+    );
   }
 
   Future<void> _playMusic(Music music) async {
@@ -54,12 +79,10 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final playHistory = sl.playerManager.playHistory;
 
     return Container(
-      color: isDark ? const Color(0xFF1a1a1a) : const Color(0xFFFAFAFA),
+      color: Colors.transparent,
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(
@@ -85,8 +108,6 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
   }
 
   Widget _buildPlaylistSection(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -99,7 +120,7 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
                 width: 4,
                 height: 18,
                 decoration: BoxDecoration(
-                  color: neteaseRed,
+                  color: selectedItemColor,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -109,7 +130,7 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface,
+                  color: textColor,
                 ),
               ),
             ],
@@ -118,42 +139,45 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
         const SizedBox(height: 12),
         // 歌单卡片横向滚动
         SizedBox(
-          height: 140,
+          height: 240,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount:
-                widget.playlists.length + 2, // +2 for favorites and history
+                widget.playlists.length + 3, // +3 for favorites, history, daily
             itemBuilder: (context, index) {
               if (index == 0) {
-                return _buildPlaylistCard(
-                  context,
-                  icon: Icons.favorite,
-                  iconColor: Colors.red,
-                  title: '我喜欢的音乐',
-                  subtitle: '${sl.playlistManager.favorites.length}首',
-                  isSelected: widget.selectedPlaylistId == 'favorites',
+                final favorites = DefaultPlaylists.favorites
+                  ..songs = sl.playlistManager.favorites;
+                return PlaylistCard(
+                  playlist: favorites,
+                  width: 140,
+                  height: 180,
                   onTap: () => widget.onPlaylistTap?.call('favorites'),
                 );
               } else if (index == 1) {
-                return _buildPlaylistCard(
-                  context,
-                  icon: Icons.history,
-                  iconColor: Colors.blue,
-                  title: '最近播放',
-                  subtitle: '${sl.playerManager.playHistory.length}首',
-                  isSelected: widget.selectedPlaylistId == 'history',
+                final history = DefaultPlaylists.history
+                  ..songs = sl.playerManager.playHistory;
+                return PlaylistCard(
+                  playlist: history,
+                  width: 140,
+                  height: 180,
                   onTap: () => widget.onPlaylistTap?.call('history'),
                 );
+              } else if (index == 2) {
+                return PlaylistCard(
+                  playlist: _dailyRecommendedPlaylist ??
+                      DefaultPlaylists.recommended,
+                  width: 140,
+                  height: 180,
+                  onTap: () => widget.onPlaylistTap?.call('recommended'),
+                );
               } else {
-                final playlist = widget.playlists[index - 2];
-                return _buildPlaylistCard(
-                  context,
-                  icon: Icons.queue_music,
-                  iconColor: neteaseRed,
-                  title: playlist.name,
-                  subtitle: '${playlist.songCount}首',
-                  isSelected: widget.selectedPlaylistId == playlist.id,
+                final playlist = widget.playlists[index - 3];
+                return PlaylistCard(
+                  playlist: playlist,
+                  width: 140,
+                  height: 180,
                   onTap: () => widget.onPlaylistTap?.call(playlist.id),
                 );
               }
@@ -164,94 +188,11 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
     );
   }
 
-  Widget _buildPlaylistCard(
-    BuildContext context, {
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String subtitle,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 120,
-          decoration: BoxDecoration(
-            color: isSelected
-                ? neteaseRed.withValues(alpha: 0.1)
-                : (isDark ? const Color(0xFF2a2a2a) : Colors.white),
-            borderRadius: BorderRadius.circular(12),
-            border: isSelected
-                ? Border.all(
-                    color: neteaseRed.withValues(alpha: 0.3),
-                    width: 1.5,
-                  )
-                : null,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, color: iconColor, size: 24),
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: isSelected
-                        ? neteaseRed
-                        : theme.colorScheme.onSurface,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildRecommendationSection(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 标题
+        // Section header
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Row(
@@ -260,7 +201,7 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
                 width: 4,
                 height: 18,
                 decoration: BoxDecoration(
-                  color: neteaseRed,
+                  color: selectedItemColor,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -270,7 +211,7 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface,
+                  color: textColor,
                 ),
               ),
               const Spacer(),
@@ -284,23 +225,46 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
           ),
         ),
         const SizedBox(height: 12),
-        // 双列列表音乐
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: _buildMusicGrid(_recommendationList),
+        // 双列ListView，每行两个音乐项
+        SizedBox(
+          height: 6 * 64.0, // 每条64px，6条完整内容
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: (_recommendationList.take(12).length / 2).ceil(),
+            itemBuilder: (context, rowIndex) {
+              final leftIndex = rowIndex * 2;
+              final rightIndex = leftIndex + 1;
+              final leftItem = _recommendationList[leftIndex];
+              final rightItem = rightIndex < _recommendationList.length
+                  ? _recommendationList[rightIndex]
+                  : null;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 0),
+                child: Row(
+                  children: [
+                    Expanded(child: _buildMusicListItem(leftItem)),
+                    const SizedBox(width: 16),
+                    Expanded(
+                        child: rightItem != null
+                            ? _buildMusicListItem(rightItem)
+                            : const SizedBox()),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ],
     );
   }
 
   Widget _buildHistorySection(BuildContext context, List<Music> playHistory) {
-    final theme = Theme.of(context);
-    final displayHistory = playHistory.take(20).toList();
+    final displayHistory = playHistory.take(12).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 标题
+        // Section header (change title color to blue instead of neteaseRed)
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Row(
@@ -319,45 +283,46 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface,
+                  color: textColor,
                 ),
               ),
             ],
           ),
         ),
         const SizedBox(height: 12),
-        // 双列列表音乐
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: playHistory.isEmpty
-              ? _buildEmptyState('暂无播放历史', Icons.history_outlined)
-              : _buildMusicGrid(displayHistory),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMusicGrid(List<Music> musicList) {
-    if (musicList.isEmpty) {
-      return _buildEmptyState('暂无音乐', Icons.music_off_outlined);
-    }
-
-    // 双列布局
-    return Column(
-      children: [
-        for (int i = 0; i < musicList.length; i += 2)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              children: [
-                Expanded(child: _buildMusicListItem(musicList[i])),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: i + 1 < musicList.length
-                      ? _buildMusicListItem(musicList[i + 1])
-                      : const SizedBox(),
-                ),
-              ],
+        // 双列ListView，每行两个音乐项
+        if (displayHistory.isEmpty)
+          SizedBox(
+            height: 64,
+            child: _buildEmptyState('暂无播放历史', Icons.history_outlined),
+          )
+        else
+          SizedBox(
+            height: 6 * 64.0, // 每条64px，6条完整内容
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: (displayHistory.length / 2).ceil(),
+              itemBuilder: (context, rowIndex) {
+                final leftIndex = rowIndex * 2;
+                final rightIndex = leftIndex + 1;
+                final leftItem = displayHistory[leftIndex];
+                final rightItem = rightIndex < displayHistory.length
+                    ? displayHistory[rightIndex]
+                    : null;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 0),
+                  child: Row(
+                    children: [
+                      Expanded(child: _buildMusicListItem(leftItem)),
+                      const SizedBox(width: 16),
+                      Expanded(
+                          child: rightItem != null
+                              ? _buildMusicListItem(rightItem)
+                              : const SizedBox()),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
       ],
@@ -377,7 +342,7 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
 
   Widget _buildEmptyState(String message, IconData icon) {
     return Container(
-      height: 120,
+      height: 64,
       alignment: Alignment.center,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

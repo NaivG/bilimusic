@@ -8,10 +8,10 @@ import 'package:bilimusic/pages/search/widgets/search_bar_widget.dart';
 import 'package:bilimusic/pages/search/widgets/search_type_tabs.dart';
 import 'package:bilimusic/pages/search/widgets/search_result_card.dart';
 import 'package:bilimusic/pages/search/widgets/search_empty_state.dart';
-import 'package:bilimusic/pages/playlist_page.dart';
 import 'package:bilimusic/components/common/cards/music_card.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/utils/animations.dart';
+import 'package:bilimusic/shells/shell_page_manager.dart';
 import 'package:rxdart/rxdart.dart';
 
 /// 搜索页 - 重构版本
@@ -227,6 +227,7 @@ class _SearchPageState extends State<SearchPage> {
     final screenSize = ResponsiveHelper.getScreenSize(context);
 
     return Scaffold(
+      backgroundColor:  Colors.transparent,
       body: CustomScrollView(
         slivers: [
           _buildAppBar(context, screenSize),
@@ -516,7 +517,7 @@ class _SearchPageState extends State<SearchPage> {
     final songs = pages.map<music_model.Music>((page) {
       return music_model.Music(
         id: result.id,
-        cid: page.cid, // ✓ 设置cid
+        cid: page.cid,
         title: page.part.isNotEmpty ? page.part : result.title,
         artist: result.subtitle.split(' - ').first,
         album: result.subtitle.split(' - ').last,
@@ -528,9 +529,10 @@ class _SearchPageState extends State<SearchPage> {
       );
     }).toList();
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => PlaylistPage(songs: songs)),
+    // 统一使用Shell导航
+    ShellPageManager.instance.goToPlaylist(
+      playlistId: 'search_${result.id}',
+      songs: songs,
     );
   }
 
