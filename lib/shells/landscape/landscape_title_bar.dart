@@ -308,9 +308,7 @@ class _WindowButtonState extends State<_WindowButton> {
           width: 46,
           height: 40,
           color: _isHovered
-              ? (widget.isClose
-                    ? Colors.red
-                    : iconColor.withValues(alpha: 0.1))
+              ? (widget.isClose ? Colors.red : iconColor.withValues(alpha: 0.1))
               : Colors.transparent,
           child: Center(
             child: Icon(

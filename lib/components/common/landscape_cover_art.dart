@@ -56,9 +56,7 @@ class LandscapeCoverArt extends StatelessWidget {
       placeholder: (context, url) => SizedBox(
         width: size,
         height: size,
-        child: const Center(
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
       ),
       errorWidget: (context, error, stackTrace) => musicNote(),
     );
@@ -109,8 +107,7 @@ class LandscapeBackgroundCover extends StatelessWidget {
           errorWidget: (context, error, stackTrace) =>
               Container(color: Colors.grey.shade900),
         ),
-        if (overlayColor != null)
-          Container(color: overlayColor!),
+        if (overlayColor != null) Container(color: overlayColor!),
       ],
     );
   }

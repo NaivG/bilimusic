@@ -145,11 +145,7 @@ class _PlaylistCardState extends State<PlaylistCard>
                   // 封面图片（正方形，全宽）
                   _buildCoverImage(coverSize, borderRadius),
                   // 左上角图标 + 名称（覆盖在封面上）
-                  Positioned(
-                    top: 8,
-                    left: 4,
-                    child: _buildIconBadge(),
-                  ),
+                  Positioned(top: 8, left: 4, child: _buildIconBadge()),
                 ],
               ),
             ),
@@ -174,13 +170,9 @@ class _PlaylistCardState extends State<PlaylistCard>
                   // 模糊背景
                   _buildBlurBackground(),
                   // 半透明遮罩
-                  Container(
-                    color: backgroundBaseColor.withValues(alpha: 0.3),
-                  ),
+                  Container(color: backgroundBaseColor.withValues(alpha: 0.3)),
                   // 描述文字
-                  Positioned.fill(
-                    child: _buildDescription(),
-                  ),
+                  Positioned.fill(child: _buildDescription()),
                 ],
               ),
             ),
@@ -243,17 +235,13 @@ class _PlaylistCardState extends State<PlaylistCard>
                 imageUrl: coverUrl,
                 httpHeaders: NetworkConfig.biliHeaders,
                 fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  color: Colors.grey[800],
-                ),
-                errorWidget: (context, url, error) => Container(
-                  color: Colors.grey[800],
-                ),
+                placeholder: (context, url) =>
+                    Container(color: Colors.grey[800]),
+                errorWidget: (context, url, error) =>
+                    Container(color: Colors.grey[800]),
                 cacheManager: imageCacheManager,
               )
-            : Container(
-                color: Colors.grey[800],
-              ),
+            : Container(color: Colors.grey[800]),
       ),
     );
   }
@@ -273,11 +261,7 @@ class _PlaylistCardState extends State<PlaylistCard>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            color: iconColor ?? Colors.white,
-            size: 14,
-          ),
+          Icon(icon, color: iconColor ?? Colors.white, size: 14),
           const SizedBox(width: 4),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 80),
@@ -319,9 +303,7 @@ class _PlaylistCardState extends State<PlaylistCard>
           ),
           BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
-            child: Container(
-              color: backgroundBaseColor.withValues(alpha: 0.5),
-            ),
+            child: Container(color: backgroundBaseColor.withValues(alpha: 0.5)),
           ),
         ],
       ),

@@ -71,7 +71,6 @@ class _LandscapeShellState extends State<LandscapeShell> {
     updateColors(isDark: isDark);
   }
 
-
   /// 主内容渲染
   Widget _buildPageContent(ShellPage page) {
     switch (page) {
@@ -203,7 +202,9 @@ class _LandscapeShellState extends State<LandscapeShell> {
     return LandscapeSidebar(
       selectedLabel: selectedLabel,
       playlists: sl.playlistManager.userPlaylists,
-      selectedPlaylistId: widget.pageManager.getArgs<String>('selectedPlaylistId'),
+      selectedPlaylistId: widget.pageManager.getArgs<String>(
+        'selectedPlaylistId',
+      ),
       onNavTap: _onSidebarNavTap,
       onPlaylistTap: (playlistId) {
         widget.pageManager.goToPlaylist(playlistId: playlistId);

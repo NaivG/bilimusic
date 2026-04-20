@@ -1,13 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:bilimusic/models/music.dart';
 
-enum ShellContentType {
-  home,
-  search,
-  profile,
-  settings,
-  playlist,
-}
+enum ShellContentType { home, search, profile, settings, playlist }
 
 class ShellNavigationNotifier extends ChangeNotifier {
   ShellNavigationNotifier._();

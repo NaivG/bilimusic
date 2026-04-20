@@ -13,11 +13,7 @@ class LandscapeBottomControl extends StatefulWidget {
   final VoidCallback? onExpand;
   final VoidCallback? onPlayList;
 
-  const LandscapeBottomControl({
-    super.key,
-    this.onExpand,
-    this.onPlayList,
-  });
+  const LandscapeBottomControl({super.key, this.onExpand, this.onPlayList});
 
   @override
   State<LandscapeBottomControl> createState() => _LandscapeBottomControlState();
@@ -214,9 +210,7 @@ class _LandscapeBottomControlState extends State<LandscapeBottomControl> {
           child: ValueListenableBuilder(
             valueListenable: updateColorNotifier,
             builder: (_, _, _) {
-              return LandscapeVolumeBar(
-                activeColor: volumeBarColor,
-              );
+              return LandscapeVolumeBar(activeColor: volumeBarColor);
             },
           ),
         ),

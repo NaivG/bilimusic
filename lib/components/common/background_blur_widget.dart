@@ -7,10 +7,7 @@ import 'package:bilimusic/utils/color_infra.dart';
 class BackgroundBlurWidget extends StatelessWidget {
   final String? coverUrl;
 
-  const BackgroundBlurWidget({
-    super.key,
-    this.coverUrl,
-  });
+  const BackgroundBlurWidget({super.key, this.coverUrl});
 
   @override
   Widget build(BuildContext context) {
@@ -24,13 +21,12 @@ class BackgroundBlurWidget extends StatelessWidget {
         Image.network(
           coverUrl!,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => Container(color: backgroundColor),
+          errorBuilder: (context, error, stackTrace) =>
+              Container(color: backgroundColor),
         ),
         BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
-          child: Container(
-            color: backgroundBaseColor.withValues(alpha: 0.5),
-          ),
+          child: Container(color: backgroundBaseColor.withValues(alpha: 0.5)),
         ),
       ],
     );

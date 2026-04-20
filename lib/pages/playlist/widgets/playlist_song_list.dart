@@ -70,10 +70,7 @@ class PlaylistSongList extends StatelessWidget {
         children: [
           Text(
             '${songs.length}首歌曲',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 13,
-            ),
+            style: TextStyle(color: Colors.grey[600], fontSize: 13),
           ),
           const Spacer(),
           if (onReorder != null)
@@ -110,7 +107,9 @@ class PlaylistSongList extends StatelessWidget {
           final music = songs[index];
           final isPlaying = _isCurrentPlaying(music);
           return MusicListItem(
-            key: ValueKey('${music.id}_${music.pages.isNotEmpty ? music.pages[0].cid : "0"}'),
+            key: ValueKey(
+              '${music.id}_${music.pages.isNotEmpty ? music.pages[0].cid : "0"}',
+            ),
             music: music,
             index: index,
             isPlaying: isPlaying,

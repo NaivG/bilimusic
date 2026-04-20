@@ -97,7 +97,9 @@ class _PlaylistItemState extends State<PlaylistItem> {
                         Row(
                           children: [
                             if (widget.isPlaying) ...[
-                              _PlayingIndicator(color: theme.colorScheme.primary),
+                              _PlayingIndicator(
+                                color: theme.colorScheme.primary,
+                              ),
                               const SizedBox(width: 6),
                             ],
                             Expanded(
@@ -110,7 +112,9 @@ class _PlaylistItemState extends State<PlaylistItem> {
                                       : FontWeight.w500,
                                   color: widget.isPlaying || _isHovered
                                       ? theme.colorScheme.primary
-                                      : (isDark ? Colors.white : Colors.black87),
+                                      : (isDark
+                                            ? Colors.white
+                                            : Colors.black87),
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -124,8 +128,12 @@ class _PlaylistItemState extends State<PlaylistItem> {
                           style: TextStyle(
                             fontSize: 12,
                             color: widget.isPlaying || _isHovered
-                                ? theme.colorScheme.primary.withValues(alpha: 0.7)
-                                : (isDark ? Colors.grey[400] : Colors.grey[600]),
+                                ? theme.colorScheme.primary.withValues(
+                                    alpha: 0.7,
+                                  )
+                                : (isDark
+                                      ? Colors.grey[400]
+                                      : Colors.grey[600]),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
