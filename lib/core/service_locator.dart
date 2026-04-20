@@ -71,7 +71,10 @@ class ServiceLocator {
     if (_isInitialized) return;
 
     // 创建基础服务
+    // Init DualAudioService
     _dualAudioService = DualAudioService();
+    _dualAudioService!.initialize();
+    
     _playlistService = PlaylistService();
     _notificationService = NotificationService();
     _apiService = ApiService();
