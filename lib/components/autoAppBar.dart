@@ -88,7 +88,9 @@ class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
       return appBar;
     }
 
-    return MoveWindow(child: appBar);
+    return GestureDetector(
+      child: appBar,
+    );
   }
 
   @override
