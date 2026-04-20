@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/utils/platform_helper.dart';
 import 'package:flutter/foundation.dart';
-
-import 'package:bilimusic/pages/cookie_page.dart';
-import 'package:bilimusic/pages/data_management_page.dart';
+import 'package:bilimusic/shells/shell_page_manager.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -22,6 +20,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(title: Text('设置')),
       body: SingleChildScrollView(
         child: Column(
@@ -254,12 +253,7 @@ class _SettingsPageState extends State<SettingsPage> {
               subtitle: Text('查看详细数据、缓存信息与数据操作'),
               trailing: Icon(Icons.arrow_forward_ios),
               onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const DataManagementPage(),
-                  ),
-                );
+                ShellPageManager.instance.push(ShellPage.dataManagement);
               },
             ),
 
@@ -344,7 +338,7 @@ class _SettingsPageState extends State<SettingsPage> {
     showAboutDialog(
       context: context,
       applicationName: 'BiliMusic',
-      applicationVersion: '1.4.6+build03',
+      applicationVersion: '1.5.0',
       applicationIcon: Image.asset(
         "assets/ic_launcher.png",
         width: 96,
@@ -359,7 +353,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _showChangelog() {
-    Navigator.pushNamed(context, '/changelog');
+    ShellPageManager.instance.push(ShellPage.changelog);
   }
 
   void _showFeedbackDialog() {
@@ -427,9 +421,6 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _showCookies() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const CookiePage()),
-    );
+    ShellPageManager.instance.push(ShellPage.cookie);
   }
 }

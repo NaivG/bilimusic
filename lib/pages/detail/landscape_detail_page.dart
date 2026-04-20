@@ -9,10 +9,11 @@ import 'package:bilimusic/utils/netease_music_api.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/components/landscape/background.dart';
 import 'package:bilimusic/components/landscape/album_section.dart';
-import 'package:bilimusic/components/landscape/controls_bar.dart';
+import 'package:bilimusic/pages/detail/widgets/controls_bar.dart';
 import 'package:bilimusic/components/lyric/lyric_section.dart';
 import 'package:bilimusic/components/lyric/lyric_source.dart';
 import 'package:bilimusic/components/playlist/playlist_sheet.dart';
+import 'package:bilimusic/providers/shell_navigation_provider.dart';
 
 /// 横屏详情页主容器
 /// Apple Music 风格的左右分栏布局
@@ -391,7 +392,8 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
                   size: 24,
                 ),
               ),
-              onPressed: () => Navigator.pop(context),
+              onPressed: () =>
+                  ShellNavigationNotifier.instance.maybePop(context),
             ),
             const Spacer(),
             // 标题

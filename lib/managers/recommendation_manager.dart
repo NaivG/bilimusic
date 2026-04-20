@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/utils/network_config.dart';
+import 'package:bilimusic/core/service_locator.dart';
 
 class RecommendationManager {
   static final RecommendationManager _instance =
@@ -32,6 +33,7 @@ class RecommendationManager {
 
     // 异步更新推荐列表
     await _updateRecommendations();
+    debugPrint('推荐列表已更新');
   }
 
   /// 刷新推荐音乐列表
@@ -113,6 +115,12 @@ class RecommendationManager {
 
     // 保存到缓存
     await _saveGuessToCache();
+
+    // 写入系统歌单
+    await sl.playlistManager.addSongsToPlaylist(
+      'recommended',
+      _guessYouLikeList,
+    );
   }
 
   /// 判断是否为音乐分类

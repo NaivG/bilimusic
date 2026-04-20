@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:bilimusic/components/autoAppBar.dart';
+import 'package:bilimusic/components/auto_appbar.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';

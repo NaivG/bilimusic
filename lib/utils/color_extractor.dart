@@ -48,4 +48,21 @@ class ColorExtractor {
     // 使用相对亮度公式计算亮度
     return (0.299 * color.red + 0.587 * color.green + 0.114 * color.blue) / 255;
   }
+
+  /// 从网络图片URL提取主色调，并自动处理State的mounted检查和setState回调
+  ///
+  /// [state] - State对象，用于检查mounted状态
+  /// [imageUrl] - 图片URL
+  /// [onColorExtracted] - 颜色提取成功后的回调，传入提取到的颜色
+  static void extractColorFromUrlWithState<T extends State>(
+    T state,
+    String imageUrl,
+    void Function(Color color) onColorExtracted,
+  ) async {
+    if (imageUrl.isEmpty) return;
+    final color = await extractColorFromUrl(imageUrl);
+    if (state.mounted && color != null) {
+      onColorExtracted(color);
+    }
+  }
 }

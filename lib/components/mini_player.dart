@@ -441,13 +441,7 @@ class _MiniPlayerComponentState extends State<MiniPlayerComponent> {
                   children: [
                     // 专辑封面 - 添加动画效果
                     GestureDetector(
-                      onTap: () {
-                        Navigator.pushNamed(
-                          context,
-                          '/detail',
-                          arguments: sl.playerManager,
-                        );
-                      },
+                      onTap: widget.onExpand,
                       child: Padding(
                         padding: EdgeInsets.only(left: 12),
                         child: AnimatedContainer(
@@ -705,13 +699,7 @@ class _MiniPlayerComponentState extends State<MiniPlayerComponent> {
                   children: [
                     // 专辑封面
                     GestureDetector(
-                      onTap: () {
-                        Navigator.pushNamed(
-                          context,
-                          '/detail',
-                          arguments: sl.playerManager,
-                        );
-                      },
+                      onTap: widget.onExpand,
                       child: Padding(
                         padding: EdgeInsets.only(left: 12),
                         child: AnimatedContainer(

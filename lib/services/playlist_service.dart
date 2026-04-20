@@ -408,6 +408,7 @@ class PlaylistService {
       await _saveFavorites();
 
       _updateFavoriteStatusInLists(music, true);
+      debugPrint('Added to favorites: ${music.title}');
     }
   }
 

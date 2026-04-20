@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'dart:math';
-import 'package:bilimusic/components/autoAppBar.dart';
+import 'package:bilimusic/components/auto_appbar.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bilimusic/managers/cache_manager.dart';
 import 'package:bilimusic/pages/data_migration_page.dart';
 import 'package:restart_app/restart_app.dart';
+import 'package:bilimusic/shells/shell_page_manager.dart';
 
 class DataManagementPage extends StatefulWidget {
   const DataManagementPage({super.key});
@@ -244,11 +245,8 @@ class _DataManagementPageState extends State<DataManagementPage> {
                             size: 16,
                           ),
                           onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => DataMigrationPage(),
-                              ),
+                            ShellPageManager.instance.push(
+                              ShellPage.dataMigration,
                             );
                           },
                         ),
