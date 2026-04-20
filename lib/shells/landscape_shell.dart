@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/models/playlist_tag.dart';
 import 'package:bilimusic/pages/playlist_page.dart';
 import 'package:bilimusic/pages/search_page.dart';
 import 'package:bilimusic/components/common/background_blur_widget.dart';
 import 'package:bilimusic/shells/landscape/landscape_sidebar.dart';
 import 'package:bilimusic/shells/landscape/landscape_bottom_control.dart';
-import 'package:bilimusic/shells/landscape/landscape_home_content.dart';
+import 'package:bilimusic/pages/home_content.dart';
 import 'package:bilimusic/shells/landscape/landscape_title_bar.dart';
 import 'package:bilimusic/utils/color_infra.dart';
 import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
-import 'package:bilimusic/pages/home_page.dart';
 import 'package:bilimusic/pages/profile_page.dart';
 import 'package:bilimusic/pages/settings_page.dart';
 import 'package:bilimusic/pages/detail_page.dart';
@@ -75,13 +72,7 @@ class _LandscapeShellState extends State<LandscapeShell> {
   Widget _buildPageContent(ShellPage page) {
     switch (page) {
       case ShellPage.home:
-        return LandscapeHomeContent(
-          playlists: sl.playlistManager.userPlaylists,
-          selectedPlaylistId: null,
-          onPlaylistTap: (id) {
-            widget.pageManager.goToPlaylist(playlistId: id);
-          },
-        );
+        return const HomeContent(showAppBar: false);
       case ShellPage.search:
         return const SearchPage();
       case ShellPage.profile:
