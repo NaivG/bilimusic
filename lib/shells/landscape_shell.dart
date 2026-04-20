@@ -71,7 +71,6 @@ class _LandscapeShellState extends State<LandscapeShell> {
     updateColors(isDark: isDark);
   }
 
-
   /// 主内容渲染
   Widget _buildPageContent(ShellPage page) {
     switch (page) {

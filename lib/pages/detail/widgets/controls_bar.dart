@@ -222,4 +222,3 @@ class _PlayPauseButton extends StatelessWidget {
     );
   }
 }
-
