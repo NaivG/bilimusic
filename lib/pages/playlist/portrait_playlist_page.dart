@@ -85,7 +85,9 @@ class _PortraitPlaylistPageState extends State<PortraitPlaylistPage> {
                   onSongTap: widget.onSongTap,
                   onSongLongPress: widget.onSongLongPress,
                   isEditable: widget.playlistId != null,
-                  onRemove: widget.playlistId != null ? widget.onRemoveSong : null,
+                  onRemove: widget.playlistId != null
+                      ? widget.onRemoveSong
+                      : null,
                 ),
               ),
             ],

@@ -573,11 +573,31 @@ class _PortraitDetailPageState extends State<PortraitDetailPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            infoRow('标题', widget.music.title, labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
-            infoRow('艺术家', widget.music.artist, labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
-            infoRow('专辑', widget.music.album, labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
-            infoRow('时长', _formatDuration(widget.duration ?? Duration.zero), labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
-            infoRow('来源', 'Bilibili', labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
+            infoRow(
+              '标题',
+              widget.music.title,
+              labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+            ),
+            infoRow(
+              '艺术家',
+              widget.music.artist,
+              labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+            ),
+            infoRow(
+              '专辑',
+              widget.music.album,
+              labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+            ),
+            infoRow(
+              '时长',
+              _formatDuration(widget.duration ?? Duration.zero),
+              labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+            ),
+            infoRow(
+              '来源',
+              'Bilibili',
+              labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+            ),
           ],
         ),
         actions: [

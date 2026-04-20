@@ -4,7 +4,6 @@ import 'package:bilimusic/utils/platform_helper.dart';
 import 'package:flutter/foundation.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
 
-
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 

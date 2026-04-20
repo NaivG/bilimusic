@@ -227,7 +227,7 @@ class _SearchPageState extends State<SearchPage> {
     final screenSize = ResponsiveHelper.getScreenSize(context);
 
     return Scaffold(
-      backgroundColor:  Colors.transparent,
+      backgroundColor: Colors.transparent,
       body: CustomScrollView(
         slivers: [
           _buildAppBar(context, screenSize),

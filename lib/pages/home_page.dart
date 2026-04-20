@@ -84,7 +84,9 @@ class _HomePageState extends State<HomePage> {
       description: base.description,
       coverUrl: guessYouLikeList.isNotEmpty
           ? guessYouLikeList.first.safeCoverUrl
-          : (recommendedList.isNotEmpty ? recommendedList.first.safeCoverUrl : ''),
+          : (recommendedList.isNotEmpty
+                ? recommendedList.first.safeCoverUrl
+                : ''),
       songCount: guessYouLikeList.isNotEmpty
           ? guessYouLikeList.length
           : recommendedList.length,
@@ -92,9 +94,7 @@ class _HomePageState extends State<HomePage> {
       isDefault: base.isDefault,
       createdAt: base.createdAt,
       updatedAt: base.updatedAt,
-      songs: guessYouLikeList.isNotEmpty
-          ? guessYouLikeList
-          : recommendedList,
+      songs: guessYouLikeList.isNotEmpty ? guessYouLikeList : recommendedList,
     );
   }
 
@@ -313,18 +313,20 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     // 自定义歌单
-                    ..._userPlaylists.map((playlist) => Padding(
-                      padding: const EdgeInsets.only(left: 12),
-                      child: PlaylistCard(
-                        playlist: playlist,
-                        width: 140,
-                        height: 180,
-                        onTap: () => ShellPageManager.instance.goToPlaylist(
-                          playlistId: playlist.id,
-                          songs: playlist.songs,
+                    ..._userPlaylists.map(
+                      (playlist) => Padding(
+                        padding: const EdgeInsets.only(left: 12),
+                        child: PlaylistCard(
+                          playlist: playlist,
+                          width: 140,
+                          height: 180,
+                          onTap: () => ShellPageManager.instance.goToPlaylist(
+                            playlistId: playlist.id,
+                            songs: playlist.songs,
+                          ),
                         ),
                       ),
-                    )),
+                    ),
                   ],
                 ),
               ),
@@ -397,7 +399,11 @@ class _HomePageState extends State<HomePage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.music_off_outlined, size: 32, color: Colors.grey[400]),
+                      Icon(
+                        Icons.music_off_outlined,
+                        size: 32,
+                        color: Colors.grey[400],
+                      ),
                       const SizedBox(height: 8),
                       Text(
                         '暂无推荐',
@@ -481,7 +487,11 @@ class _HomePageState extends State<HomePage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.history_outlined, size: 32, color: Colors.grey[400]),
+                      Icon(
+                        Icons.history_outlined,
+                        size: 32,
+                        color: Colors.grey[400],
+                      ),
                       const SizedBox(height: 8),
                       Text(
                         '暂无播放历史',

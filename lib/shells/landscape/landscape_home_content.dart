@@ -41,7 +41,9 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
   Future<void> _loadRecommendations() async {
     setState(() => _isLoading = true);
     await _recommendationManager.loadRecommendations();
-    await _recommendationManager.updateGuessYouLike(sl.playerManager.playHistory);
+    await _recommendationManager.updateGuessYouLike(
+      sl.playerManager.playHistory,
+    );
     setState(() {
       _recommendationList = _recommendationManager.recommendedList;
       _guessYouLikeList = _recommendationManager.guessYouLikeList;
@@ -166,8 +168,8 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
                 );
               } else if (index == 2) {
                 return PlaylistCard(
-                  playlist: _dailyRecommendedPlaylist ??
-                      DefaultPlaylists.recommended,
+                  playlist:
+                      _dailyRecommendedPlaylist ?? DefaultPlaylists.recommended,
                   width: 140,
                   height: 180,
                   onTap: () => widget.onPlaylistTap?.call('recommended'),
@@ -245,9 +247,10 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
                     Expanded(child: _buildMusicListItem(leftItem)),
                     const SizedBox(width: 16),
                     Expanded(
-                        child: rightItem != null
-                            ? _buildMusicListItem(rightItem)
-                            : const SizedBox()),
+                      child: rightItem != null
+                          ? _buildMusicListItem(rightItem)
+                          : const SizedBox(),
+                    ),
                   ],
                 ),
               );
@@ -316,9 +319,10 @@ class _LandscapeHomeContentState extends State<LandscapeHomeContent> {
                       Expanded(child: _buildMusicListItem(leftItem)),
                       const SizedBox(width: 16),
                       Expanded(
-                          child: rightItem != null
-                              ? _buildMusicListItem(rightItem)
-                              : const SizedBox()),
+                        child: rightItem != null
+                            ? _buildMusicListItem(rightItem)
+                            : const SizedBox(),
+                      ),
                     ],
                   ),
                 );

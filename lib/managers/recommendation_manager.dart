@@ -117,7 +117,10 @@ class RecommendationManager {
     await _saveGuessToCache();
 
     // 写入系统歌单
-    await sl.playlistManager.addSongsToPlaylist('recommended', _guessYouLikeList);
+    await sl.playlistManager.addSongsToPlaylist(
+      'recommended',
+      _guessYouLikeList,
+    );
   }
 
   /// 判断是否为音乐分类

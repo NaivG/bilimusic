@@ -67,10 +67,7 @@ class LandscapePlaylistPage extends StatelessWidget {
                     ),
                   ),
                   // 右侧歌曲列表
-                  Expanded(
-                    flex: 1,
-                    child: _buildRightSection(context),
-                  ),
+                  Expanded(flex: 1, child: _buildRightSection(context)),
                 ],
               ),
             ),
@@ -95,7 +92,11 @@ class LandscapePlaylistPage extends StatelessWidget {
                 color: Colors.black.withValues(alpha: 0.3),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 24),
+              child: const Icon(
+                Icons.keyboard_arrow_down,
+                color: Colors.white,
+                size: 24,
+              ),
             ),
             onPressed: onBack,
           ),
@@ -116,7 +117,11 @@ class LandscapePlaylistPage extends StatelessWidget {
                 color: Colors.black.withValues(alpha: 0.3),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.more_horiz, color: Colors.white, size: 20),
+              child: const Icon(
+                Icons.more_horiz,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
             onPressed: () {},
           ),
@@ -126,7 +131,9 @@ class LandscapePlaylistPage extends StatelessWidget {
   }
 
   Widget _buildRightSection(BuildContext context) {
-    final horizontalPadding = LandscapeBreakpoints.getHorizontalPadding(context);
+    final horizontalPadding = LandscapeBreakpoints.getHorizontalPadding(
+      context,
+    );
 
     return Container(
       decoration: const BoxDecoration(color: Colors.transparent),
@@ -164,10 +171,16 @@ class LandscapePlaylistPage extends StatelessWidget {
 
   Widget _buildListHeader(BuildContext context, double horizontalPadding) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: horizontalPadding / 2, vertical: 16),
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding / 2,
+        vertical: 16,
+      ),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1),
+          bottom: BorderSide(
+            color: Colors.white.withValues(alpha: 0.1),
+            width: 1,
+          ),
         ),
       ),
       child: Row(
@@ -189,7 +202,10 @@ class LandscapePlaylistPage extends StatelessWidget {
             ),
             child: Text(
               '${songs.length}',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: 12,
+              ),
             ),
           ),
         ],
@@ -202,11 +218,18 @@ class LandscapePlaylistPage extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.music_off, size: 64, color: Colors.white.withValues(alpha: 0.3)),
+          Icon(
+            Icons.music_off,
+            size: 64,
+            color: Colors.white.withValues(alpha: 0.3),
+          ),
           const SizedBox(height: 16),
           Text(
             '歌单为空',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 16),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.5),
+              fontSize: 16,
+            ),
           ),
         ],
       ),

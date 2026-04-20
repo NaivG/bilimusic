@@ -85,10 +85,7 @@ class _PortraitShellState extends State<PortraitShell> {
       case ShellPage.playlist:
         final playlistId = widget.pageManager.getArgs<String>('playlistId');
         final songs = widget.pageManager.getArgs<List<Music>>('songs');
-        return PlaylistPage(
-          playlistId: playlistId,
-          songs: songs,
-        );
+        return PlaylistPage(playlistId: playlistId, songs: songs);
       case ShellPage.changelog:
         return const ChangelogPage();
       case ShellPage.cookie:
@@ -177,7 +174,8 @@ class _PortraitShellState extends State<PortraitShell> {
                           child: SizedBox(
                             width: MediaQuery.of(context).size.width * 0.8,
                             child: MiniPlayerComponent(
-                              onExpand: () => widget.pageManager.push(ShellPage.detail),
+                              onExpand: () =>
+                                  widget.pageManager.push(ShellPage.detail),
                               onPlayList: widget.onPlayList,
                             ),
                           ),
