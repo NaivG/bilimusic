@@ -161,8 +161,9 @@ class _LandscapeSeekBarState extends State<LandscapeSeekBar> {
                   return;
                 }
                 if (dragValue != null) {
-                  await sl.playerManager
-                      .seek(Duration(milliseconds: dragValue!.toInt()));
+                  await sl.playerManager.seek(
+                    Duration(milliseconds: dragValue!.toInt()),
+                  );
                 }
                 setState(() {
                   dragValue = null;
@@ -174,8 +175,9 @@ class _LandscapeSeekBarState extends State<LandscapeSeekBar> {
                   return;
                 }
                 _seekByTouch(details.localPosition.dx, context, durationMs);
-                await sl.playerManager
-                    .seek(Duration(milliseconds: dragValue!.toInt()));
+                await sl.playerManager.seek(
+                  Duration(milliseconds: dragValue!.toInt()),
+                );
                 setState(() {
                   dragValue = null;
                   isDragging = false;

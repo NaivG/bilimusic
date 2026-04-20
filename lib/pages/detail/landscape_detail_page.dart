@@ -392,7 +392,8 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
                   size: 24,
                 ),
               ),
-              onPressed: () => ShellNavigationNotifier.instance.maybePop(context),
+              onPressed: () =>
+                  ShellNavigationNotifier.instance.maybePop(context),
             ),
             const Spacer(),
             // 标题

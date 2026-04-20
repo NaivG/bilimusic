@@ -55,9 +55,7 @@ class PlaylistHeader extends StatelessWidget {
       child: Container(
         width: coverSize,
         height: coverSize,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(8)),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: Stack(
@@ -80,11 +78,17 @@ class PlaylistHeader extends StatelessWidget {
                   httpHeaders: NetworkConfig.biliHeaders,
                   placeholder: (context, url) => Container(
                     color: Colors.grey[800],
-                    child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    child: const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
                   ),
                   errorWidget: (context, url, error) => Container(
                     color: Colors.grey[800],
-                    child: const Icon(Icons.music_note, size: 48, color: Colors.white54),
+                    child: const Icon(
+                      Icons.music_note,
+                      size: 48,
+                      color: Colors.white54,
+                    ),
                   ),
                   fit: BoxFit.cover,
                   cacheManager: imageCacheManager,
@@ -92,14 +96,21 @@ class PlaylistHeader extends StatelessWidget {
               else
                 Container(
                   color: Colors.grey[800],
-                  child: const Icon(Icons.music_note, size: 48, color: Colors.white54),
+                  child: const Icon(
+                    Icons.music_note,
+                    size: 48,
+                    color: Colors.white54,
+                  ),
                 ),
               if (songs.isNotEmpty)
                 Positioned(
                   right: 8,
                   bottom: 8,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black54,
                       borderRadius: BorderRadius.circular(12),
@@ -107,7 +118,11 @@ class PlaylistHeader extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.play_arrow, color: Colors.white, size: 14),
+                        const Icon(
+                          Icons.play_arrow,
+                          color: Colors.white,
+                          size: 14,
+                        ),
                         const SizedBox(width: 2),
                         Text(
                           '${songs.length}',
@@ -162,10 +177,7 @@ class PlaylistHeader extends StatelessWidget {
         if (playlist.hasDescription) ...[
           Text(
             playlist.description!,
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey[600],
-            ),
+            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -174,10 +186,7 @@ class PlaylistHeader extends StatelessWidget {
         // 属性信息
         Text(
           _buildInfoText(),
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors.grey[600],
-          ),
+          style: TextStyle(fontSize: 13, color: Colors.grey[600]),
         ),
       ],
     );
@@ -216,7 +225,9 @@ class PlaylistHeader extends StatelessWidget {
             label: const Text('播放全部'),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
             ),
           ),
         ),
@@ -229,7 +240,9 @@ class PlaylistHeader extends StatelessWidget {
             label: const Text('随机'),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
             ),
           ),
         ),
@@ -241,9 +254,7 @@ class PlaylistHeader extends StatelessWidget {
             isFavorited ? Icons.favorite : Icons.favorite_border,
             color: isFavorited ? Colors.red : null,
           ),
-          style: IconButton.styleFrom(
-            padding: const EdgeInsets.all(12),
-          ),
+          style: IconButton.styleFrom(padding: const EdgeInsets.all(12)),
         ),
       ],
     );

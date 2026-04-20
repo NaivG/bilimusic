@@ -31,9 +31,7 @@ class LandscapeSidebar extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             border: BoxBorder.fromLTRB(
-              right: BorderSide(
-                color: iconColor.withValues(alpha: 0.1),
-              ),
+              right: BorderSide(color: iconColor.withValues(alpha: 0.1)),
             ),
           ),
           child: Column(
@@ -43,64 +41,74 @@ class LandscapeSidebar extends StatelessWidget {
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                children: [
-                  // 发现音乐
-                  _SidebarItem(
-                    icon: Icons.home_outlined,
-                    activeIcon: Icons.home,
-                    label: '发现',
-                    isSelected: selectedLabel == 'home',
-                    onTap: () => onNavTap('home'),
-                  ),
-                  // 搜索
-                  _SidebarItem(
-                    icon: Icons.search,
-                    activeIcon: Icons.search,
-                    label: '搜索',
-                    isSelected: selectedLabel == 'search',
-                    onTap: () => onNavTap('search'),
-                  ),
-                  const SizedBox(height: 10),
-                  const Divider(height: 1, thickness: 0.5, indent: 20, endIndent: 20),
-                  const SizedBox(height: 10),
-                  // 我喜欢的音乐
-                  _SidebarItem(
-                    icon: Icons.favorite_outline,
-                    activeIcon: Icons.favorite,
-                    label: '我喜欢的音乐',
-                    iconColor: Colors.red,
-                    isSelected: selectedPlaylistId == 'favorites',
-                    onTap: () => onPlaylistTap?.call('favorites'),
-                  ),
-                  // 最近播放
-                  _SidebarItem(
-                    icon: Icons.history,
-                    activeIcon: Icons.history,
-                    label: '最近播放',
-                    iconColor: Colors.blue,
-                    isSelected: selectedPlaylistId == 'history',
-                    onTap: () => onPlaylistTap?.call('history'),
-                  ),
-                  const SizedBox(height: 10),
-                  const Divider(height: 1, thickness: 0.5, indent: 20, endIndent: 20),
-                  const SizedBox(height: 10),
-                  // 创建的歌单
-                  _buildPlaylistSection(),
-                ],
+                  children: [
+                    // 发现音乐
+                    _SidebarItem(
+                      icon: Icons.home_outlined,
+                      activeIcon: Icons.home,
+                      label: '发现',
+                      isSelected: selectedLabel == 'home',
+                      onTap: () => onNavTap('home'),
+                    ),
+                    // 搜索
+                    _SidebarItem(
+                      icon: Icons.search,
+                      activeIcon: Icons.search,
+                      label: '搜索',
+                      isSelected: selectedLabel == 'search',
+                      onTap: () => onNavTap('search'),
+                    ),
+                    const SizedBox(height: 10),
+                    const Divider(
+                      height: 1,
+                      thickness: 0.5,
+                      indent: 20,
+                      endIndent: 20,
+                    ),
+                    const SizedBox(height: 10),
+                    // 我喜欢的音乐
+                    _SidebarItem(
+                      icon: Icons.favorite_outline,
+                      activeIcon: Icons.favorite,
+                      label: '我喜欢的音乐',
+                      iconColor: Colors.red,
+                      isSelected: selectedPlaylistId == 'favorites',
+                      onTap: () => onPlaylistTap?.call('favorites'),
+                    ),
+                    // 最近播放
+                    _SidebarItem(
+                      icon: Icons.history,
+                      activeIcon: Icons.history,
+                      label: '最近播放',
+                      iconColor: Colors.blue,
+                      isSelected: selectedPlaylistId == 'history',
+                      onTap: () => onPlaylistTap?.call('history'),
+                    ),
+                    const SizedBox(height: 10),
+                    const Divider(
+                      height: 1,
+                      thickness: 0.5,
+                      indent: 20,
+                      endIndent: 20,
+                    ),
+                    const SizedBox(height: 10),
+                    // 创建的歌单
+                    _buildPlaylistSection(),
+                  ],
+                ),
               ),
-            ),
-            // 设置
-            _SidebarItem(
-              icon: Icons.settings_outlined,
-              activeIcon: Icons.settings,
-              label: '设置',
-              isSelected: selectedLabel == 'settings',
-              onTap: () => onNavTap('settings'),
-            ),
-            const SizedBox(height: 8),
-          ],
+              // 设置
+              _SidebarItem(
+                icon: Icons.settings_outlined,
+                activeIcon: Icons.settings,
+                label: '设置',
+                isSelected: selectedLabel == 'settings',
+                onTap: () => onNavTap('settings'),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -208,7 +216,9 @@ class _SidebarItem extends StatelessWidget {
                       label,
                       style: TextStyle(
                         fontSize: 15,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
                         color: isSelected
                             ? highlightTextColor
                             : textColor.withValues(alpha: 0.8),
@@ -270,7 +280,9 @@ class _PlaylistItem extends StatelessWidget {
                       title,
                       style: TextStyle(
                         fontSize: 14,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
                         color: isSelected
                             ? highlightTextColor
                             : textColor.withValues(alpha: 0.75),

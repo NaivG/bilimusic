@@ -202,7 +202,9 @@ class _LandscapeShellState extends State<LandscapeShell> {
     return LandscapeSidebar(
       selectedLabel: selectedLabel,
       playlists: sl.playlistManager.userPlaylists,
-      selectedPlaylistId: widget.pageManager.getArgs<String>('selectedPlaylistId'),
+      selectedPlaylistId: widget.pageManager.getArgs<String>(
+        'selectedPlaylistId',
+      ),
       onNavTap: _onSidebarNavTap,
       onPlaylistTap: (playlistId) {
         widget.pageManager.goToPlaylist(playlistId: playlistId);

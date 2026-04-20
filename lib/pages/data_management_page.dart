@@ -245,7 +245,9 @@ class _DataManagementPageState extends State<DataManagementPage> {
                             size: 16,
                           ),
                           onTap: () {
-                            ShellPageManager.instance.push(ShellPage.dataMigration);
+                            ShellPageManager.instance.push(
+                              ShellPage.dataMigration,
+                            );
                           },
                         ),
                         _buildDivider(),

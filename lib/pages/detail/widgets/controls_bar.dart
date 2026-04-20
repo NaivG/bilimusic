@@ -160,11 +160,7 @@ class _ControlButton extends StatelessWidget {
       child: SizedBox(
         width: size,
         height: size,
-        child: Icon(
-          icon,
-          color: iconColor,
-          size: iconSize,
-        ),
+        child: Icon(icon, color: iconColor, size: iconSize),
       ),
     );
   }

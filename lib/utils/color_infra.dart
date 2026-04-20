@@ -66,10 +66,7 @@ bool get isLightMode => mainPageThemeNotifier.value == 1;
 bool get isDarkMode => mainPageThemeNotifier.value == 2;
 
 /// 更新所有颜色（根据主题模式和封面颜色）
-void updateColors({
-  required bool isDark,
-  Color? coverColor,
-}) {
+void updateColors({required bool isDark, Color? coverColor}) {
   if (isDark) {
     backgroundColor = const Color(0xFF323232);
     iconColor = Colors.grey.shade400;
