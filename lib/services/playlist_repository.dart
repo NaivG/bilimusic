@@ -560,7 +560,7 @@ class PlaylistRepository {
   }
 
   /// 获取系统歌单详情
-  Playlist? getSystemPlaylistDetail(String playlistId) {
+  Future<Playlist?> getSystemPlaylistDetail(String playlistId) async {
     final defaultPlaylist = DefaultPlaylists.getById(playlistId);
     if (defaultPlaylist != null) {
       List<Music> songs;
@@ -570,6 +570,9 @@ class PlaylistRepository {
           break;
         case 'history':
           songs = _playHistory.value;
+          break;
+        case 'recommended':
+          songs = await loadPlaylistSongs('recommended');
           break;
         default:
           songs = [];

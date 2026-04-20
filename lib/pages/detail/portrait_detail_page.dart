@@ -1,13 +1,15 @@
 import 'dart:ui';
-import 'package:bilimusic/components/autoAppBar.dart';
+import 'package:bilimusic/components/auto_appbar.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/models/music.dart' as model;
 import 'package:bilimusic/utils/animations.dart';
+import 'package:bilimusic/utils/dialog_helpers.dart';
 import 'package:bilimusic/utils/lyric_parser.dart';
 import 'package:bilimusic/components/lyric/lyric_section.dart';
 import 'package:bilimusic/components/lyric/lyric_source.dart';
+import 'package:bilimusic/shells/shell_page_manager.dart';
 
 /// 竖屏详情页
 class PortraitDetailPage extends StatefulWidget {
@@ -98,7 +100,7 @@ class _PortraitDetailPageState extends State<PortraitDetailPage> {
             size: 24,
           ),
         ),
-        onPressed: () => Navigator.pop(context),
+        onPressed: () => ShellPageManager.instance.pop(),
       ),
       actions: [
         IconButton(
@@ -571,38 +573,17 @@ class _PortraitDetailPageState extends State<PortraitDetailPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _infoRow('标题', widget.music.title),
-            _infoRow('艺术家', widget.music.artist),
-            _infoRow('专辑', widget.music.album),
-            _infoRow('时长', _formatDuration(widget.duration ?? Duration.zero)),
-            _infoRow('来源', 'Bilibili'),
+            infoRow('标题', widget.music.title, labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
+            infoRow('艺术家', widget.music.artist, labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
+            infoRow('专辑', widget.music.album, labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
+            infoRow('时长', _formatDuration(widget.duration ?? Duration.zero), labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
+            infoRow('来源', 'Bilibili', labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('关闭'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _infoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 60,
-            child: Text(
-              label,
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
-            ),
-          ),
-          Expanded(
-            child: Text(value, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),

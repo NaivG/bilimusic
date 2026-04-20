@@ -20,7 +20,9 @@
 
 > [!important]
 > 
->本项目仅供学习交流使用，不得用于任何商业用途。音乐内容的版权归原作者所有。请尊重版权，合理使用音乐内容。
+>本项目仅供学习交流使用，不得用于任何商业用途。BiliMusic 仅提供音频播放功能，不提供任何视听服务。音乐内容的版权归原作者所有。请尊重版权，合理使用音乐内容。
+>
+> **由于不可抗拒力，请勿在任何平台宣传、讨论有关本项目的内容。**
 
 ---
 
@@ -33,6 +35,7 @@
 - [使用指南](#-使用指南)
 - [贡献](#-贡献)
 - [许可证](#-许可证)
+- [参考项目](#-参考项目)
 - [Star History](#Star-History)
 
 ---
@@ -44,7 +47,7 @@
 - 📚 **个人歌单管理** - 创建、编辑、删除个人歌单
 - ❤️ **收藏音乐** - 一键收藏喜欢的音乐
 - 🎧 **多端支持** - 适配Windows、Linux、Android 8+ 
-- 🌐 **网易云歌词匹配** - 自动匹配并显示歌词
+- 🌐 **歌词匹配** - 自动匹配并显示歌词
 - 🎨 **动态主题色彩** - 从封面提取主题色，自动切换界面配色
 - 📋 **播放列表管理** - 支持拖拽排序、循环模式切换
 - ⚙️ **个性化设置** - 多种设置选项满足不同需求
@@ -67,7 +70,7 @@
 
 ### 网络通信
 - 通过 [http](https://pub.dev/packages/http) 与<s>不可抗拒力</s>通信
-- 集成网易云音乐 API 实现歌词匹配
+- 集成某某云音乐 API 实现歌词匹配
 
 ### 数据存储
 - 采用 [shared_preferences](https://pub.dev/packages/shared_preferences) 进行本地数据存储
@@ -176,7 +179,7 @@ lib/
     ├── captcha_helper.dart # 验证码辅助
     ├── color_extractor.dart # 颜色提取工具
     ├── lyric_parser.dart   # 歌词解析器
-    ├── netease_music_api.dart # 网易云音乐API
+    ├── netease_music_api.dart # 某某云音乐API
     ├── network_config.dart  # 网络配置
     ├── platform_helper.dart # 平台辅助
     └── responsive.dart     # 响应式布局工具
@@ -197,11 +200,11 @@ lib/
 #### 📦 services/ - 服务层
 | 文件 | 职责 |
 |------|------|
-| `api_service.dart` | B站API封装，视频详情、音频URL获取 |
+| `api_service.dart` | API封装，视频详情、音频URL获取 |
 | `dual_audio_service.dart` | 双播放器引擎，实现交叉淡入淡出 |
 | `search_service.dart` | 搜索服务 |
 | `playlist_service.dart` | 歌单业务服务 |
-| `netease_music_api.dart` | 网易云音乐歌词API |
+| `netease_music_api.dart` | 某某云音乐歌词API |
 
 #### 📦 models/ - 数据模型
 | 文件 | 描述 |
@@ -300,8 +303,33 @@ flutter build apk        # Android
 
 本项目采用 GNU AFFERO GENERAL PUBLIC LICENSE v3.0 许可证，详情请参见 [LICENSE](LICENSE) 文件。
 
+```
+Copyright (C) 2026 NaivG and contributors.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+```
+
 ---
 
+## ✨ 参考项目
+
+ - [某某云音乐] UI参考
+ - <s>[不可抗拒力]</s> 接口参考
+ - [ParticleMusic](https://github.com/AfalpHy/ParticleMusic) 横屏UI参考
+ - [coriander_player](https://github.com/Ferry-200/coriander_player) 歌词渲染参考
+ - [FlutterHub](https://github.com/xmaihh/FlutterHub) github workflow参考
+---
 
 ## Star History
 

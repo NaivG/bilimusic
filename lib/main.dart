@@ -1,5 +1,7 @@
-import 'package:bitsdojo_window/bitsdojo_window.dart';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
+import 'package:window_manager/window_manager.dart';
+import 'package:bilimusic/utils/window_listener.dart';
 import 'package:flutter/material.dart';
 
 import 'package:bilimusic/core/service_locator.dart';
@@ -13,6 +15,23 @@ import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:bilimusic/utils/update_checker.dart';
 import 'package:bilimusic/components/dialogs/update_dialog.dart';
 import 'package:bilimusic/shells/app_shell.dart';
+
+Future<void> _setupMainWindow() async {
+  await windowManager.ensureInitialized();
+  WindowOptions windowOptions = WindowOptions(
+    size: const Size(1280, 720),
+    minimumSize: const Size(800, 600),
+    center: true,
+    backgroundColor: Colors.transparent,
+    titleBarStyle: TitleBarStyle.hidden,
+    windowButtonVisibility: false,
+  );
+  await windowManager.waitUntilReadyToShow(windowOptions, () async {
+    await windowManager.show();
+    await windowManager.focus();
+  });
+  windowManager.addListener(BilimusicWindowListener());
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,21 +68,14 @@ void main() async {
   // 初始化通知服务(音频处理器)
   sl.notificationService.initialize(audioHandler);
 
-  runApp(MyApp(audioHandler: audioHandler));
-
+  // 初始化桌面窗口
   if (!kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.windows ||
           defaultTargetPlatform == TargetPlatform.linux)) {
-    doWhenWindowReady(() async {
-      // 添加一个窗口按钮
-      final desktopWindow = appWindow;
-      desktopWindow.title = "BiliMusic";
-      desktopWindow.alignment = Alignment.center;
-      desktopWindow.minSize = Size(800, 600);
-      desktopWindow.size = Size(1280, 720);
-      desktopWindow.show();
-    });
+    await _setupMainWindow();
   }
+
+  runApp(MyApp(audioHandler: audioHandler));
 }
 
 /// 根Widget，负责管理播放器管理器实例
