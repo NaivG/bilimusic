@@ -1,11 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:bilimusic/models/music.dart';
+import 'package:bilimusic/models/playlist.dart';
 import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/managers/recommendation_manager.dart';
-import 'package:bilimusic/components/common/cards/music_card.dart';
+import 'package:bilimusic/components/common/cards/playlist_card.dart';
+import 'package:bilimusic/components/common/cards/music_list_item.dart';
 import 'package:bilimusic/utils/responsive.dart';
-import 'package:bilimusic/utils/animations.dart';
+import 'package:bilimusic/utils/color_infra.dart';
+import 'package:bilimusic/shells/shell_page_manager.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -16,8 +19,10 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   List<Music> recommendedList = [];
+  List<Music> guessYouLikeList = [];
   late RecommendationManager _recommendationManager;
   bool _isLoading = false;
+  List<Playlist> _userPlaylists = [];
 
   // 统一的间距常量 - 简约现代风格
   static const double _sectionSpacing = 32.0;
@@ -29,6 +34,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _recommendationManager = sl.recommendationManager;
+    _userPlaylists = sl.playlistManager.userPlaylists;
 
     _loadRecommendations();
   }
@@ -65,6 +71,31 @@ class _HomePageState extends State<HomePage> {
     await _recommendationManager.updateGuessYouLike(
       sl.playerManager.playHistory,
     );
+    setState(() {
+      guessYouLikeList = _recommendationManager.guessYouLikeList;
+    });
+  }
+
+  Playlist _buildDailyRecommendedPlaylist() {
+    final base = DefaultPlaylists.recommended;
+    return Playlist(
+      id: base.id,
+      name: base.name,
+      description: base.description,
+      coverUrl: guessYouLikeList.isNotEmpty
+          ? guessYouLikeList.first.safeCoverUrl
+          : (recommendedList.isNotEmpty ? recommendedList.first.safeCoverUrl : ''),
+      songCount: guessYouLikeList.isNotEmpty
+          ? guessYouLikeList.length
+          : recommendedList.length,
+      source: base.source,
+      isDefault: base.isDefault,
+      createdAt: base.createdAt,
+      updatedAt: base.updatedAt,
+      songs: guessYouLikeList.isNotEmpty
+          ? guessYouLikeList
+          : recommendedList,
+    );
   }
 
   Future<void> _playMusic(Music music) async {
@@ -75,8 +106,8 @@ class _HomePageState extends State<HomePage> {
     sl.playerManager.play(detailedMusic);
   }
 
-  Widget _buildMusicCard(Music music, {bool isPcMode = false}) {
-    return ResponsiveMusicCard(
+  Widget _buildMusicListItem(Music music) {
+    return MusicListItem(
       music: music,
       playerManager: sl.playerManager,
       playlistManager: sl.playlistManager,
@@ -94,19 +125,20 @@ class _HomePageState extends State<HomePage> {
     final screenSize = ResponsiveHelper.getScreenSize(context);
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       body: CustomScrollView(
         slivers: [
           // 应用栏
           _buildAppBar(context, screenSize),
 
-          // 推荐音乐区域
-          _buildRecommendationSection(context, screenSize),
+          // 歌单区域
+          _buildPlaylistSection(context, screenSize),
 
-          // 猜你喜欢区域
-          _buildGuessYouLikeSection(context, screenSize),
+          // 官方推荐区域
+          _buildOfficialRecommendationSection(context, screenSize),
 
-          // 最近播放区域
-          _buildRecentlyPlayedSection(context, screenSize),
+          // 历史记录区域
+          _buildHistorySection(context, screenSize),
         ],
       ),
     );
@@ -133,7 +165,7 @@ class _HomePageState extends State<HomePage> {
               contentPadding: const EdgeInsets.symmetric(vertical: 10),
             ),
             onTap: () {
-              Navigator.pushNamed(context, '/search');
+              ShellPageManager.instance.goToTab(1);
             },
           ),
         ),
@@ -184,7 +216,7 @@ class _HomePageState extends State<HomePage> {
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () {
-              Navigator.pushNamed(context, '/search');
+              ShellPageManager.instance.goToTab(1);
             },
           ),
         ],
@@ -192,8 +224,8 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // 构建推荐音乐区域
-  SliverPadding _buildRecommendationSection(
+  // 构建歌单区域
+  SliverPadding _buildPlaylistSection(
     BuildContext context,
     ScreenSize screenSize,
   ) {
@@ -207,7 +239,7 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 标题 - 简约现代风格
+            // 标题
             Padding(
               padding: EdgeInsets.fromLTRB(
                 isDesktop ? 0.0 : _horizontalPadding,
@@ -216,164 +248,178 @@ class _HomePageState extends State<HomePage> {
                 _titleBottomSpacing,
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  FadeInWidget(
-                    duration: const Duration(milliseconds: 400),
-                    child: Text(
-                      '推荐音乐',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                      ),
+                  Container(
+                    width: 4,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: selectedItemColor,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  if (isDesktop)
-                    TextButton(
-                      onPressed: _isLoading ? null : _refreshRecommendations,
-                      child: _isLoading
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('换一批'),
-                    )
-                  else
-                    IconButton(
-                      icon: _isLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.refresh),
-                      onPressed: _isLoading ? null : _refreshRecommendations,
-                    ),
-                ],
-              ),
-            ),
-
-            // 内容
-            if (recommendedList.isEmpty)
-              FadeInWidget(
-                duration: const Duration(milliseconds: 400),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: _sectionSpacing),
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.music_off_outlined,
-                          size: 48,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          '暂无推荐音乐',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              )
-            else if (isDesktop)
-              _buildDesktopGrid(recommendedList)
-            else
-              _buildMobileHorizontalList(recommendedList),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 构建猜你喜欢区域
-  SliverPadding _buildGuessYouLikeSection(
-    BuildContext context,
-    ScreenSize screenSize,
-  ) {
-    final isDesktop = screenSize == ScreenSize.desktop;
-
-    return SliverPadding(
-      padding: EdgeInsets.all(
-        isDesktop ? _sectionSpacing / 2 : _cardSpacing / 2,
-      ),
-      sliver: SliverToBoxAdapter(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 标题 - 简约现代风格
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                isDesktop ? 0.0 : _horizontalPadding,
-                isDesktop ? 0.0 : 16.0,
-                isDesktop ? 0.0 : _horizontalPadding,
-                _titleBottomSpacing,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  FadeInWidget(
-                    delay: const Duration(milliseconds: 100),
-                    duration: const Duration(milliseconds: 400),
-                    child: Text(
-                      '猜你喜欢',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
+                  const SizedBox(width: 8),
                   Text(
-                    '上次更新: ${_recommendationManager.lastGuessUpdated}',
-                    style: TextStyle(
-                      fontSize: isDesktop ? 14 : 12,
-                      color: Colors.grey[500],
+                    '歌单',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ],
               ),
             ),
-
-            // 内容
-            if (_recommendationManager.guessYouLikeList.isEmpty)
-              FadeInWidget(
-                delay: const Duration(milliseconds: 100),
-                duration: const Duration(milliseconds: 400),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: _sectionSpacing),
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.favorite_border_outlined,
-                          size: 48,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          '暂无推荐',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
+            // 歌单卡片横向滚动
+            SizedBox(
+              height: 240,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    // 收藏
+                    PlaylistCard(
+                      playlist: DefaultPlaylists.favorites
+                        ..songs = sl.playlistManager.favorites,
+                      width: 140,
+                      height: 180,
+                      onTap: () => ShellPageManager.instance.goToPlaylist(
+                        playlistId: 'favorites',
+                        songs: sl.playlistManager.favorites,
+                      ),
                     ),
+                    const SizedBox(width: 12),
+                    // 历史
+                    PlaylistCard(
+                      playlist: DefaultPlaylists.history
+                        ..songs = sl.playerManager.playHistory,
+                      width: 140,
+                      height: 180,
+                      onTap: () => ShellPageManager.instance.goToPlaylist(
+                        playlistId: 'history',
+                        songs: sl.playerManager.playHistory,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // 每日推荐
+                    PlaylistCard(
+                      playlist: _buildDailyRecommendedPlaylist(),
+                      width: 140,
+                      height: 180,
+                      onTap: () => ShellPageManager.instance.goToPlaylist(
+                        playlistId: 'recommended',
+                        songs: guessYouLikeList.isNotEmpty
+                            ? guessYouLikeList
+                            : recommendedList,
+                      ),
+                    ),
+                    // 自定义歌单
+                    ..._userPlaylists.map((playlist) => Padding(
+                      padding: const EdgeInsets.only(left: 12),
+                      child: PlaylistCard(
+                        playlist: playlist,
+                        width: 140,
+                        height: 180,
+                        onTap: () => ShellPageManager.instance.goToPlaylist(
+                          playlistId: playlist.id,
+                          songs: playlist.songs,
+                        ),
+                      ),
+                    )),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 构建官方推荐区域
+  SliverPadding _buildOfficialRecommendationSection(
+    BuildContext context,
+    ScreenSize screenSize,
+  ) {
+    final isDesktop = screenSize == ScreenSize.desktop;
+    final displayList = recommendedList.isNotEmpty
+        ? recommendedList.take(6).toList()
+        : _recommendationManager.guessYouLikeList.take(6).toList();
+
+    return SliverPadding(
+      padding: EdgeInsets.all(
+        isDesktop ? _sectionSpacing / 2 : _cardSpacing / 2,
+      ),
+      sliver: SliverToBoxAdapter(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 标题
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                isDesktop ? 0.0 : _horizontalPadding,
+                isDesktop ? 0.0 : 16.0,
+                isDesktop ? 0.0 : _horizontalPadding,
+                _titleBottomSpacing,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: selectedItemColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '官方推荐',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (_isLoading)
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                ],
+              ),
+            ),
+            // 单列ListView，显示6条
+            if (displayList.isEmpty)
+              SizedBox(
+                height: 64,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.music_off_outlined, size: 32, color: Colors.grey[400]),
+                      const SizedBox(height: 8),
+                      Text(
+                        '暂无推荐',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                      ),
+                    ],
                   ),
                 ),
               )
-            else if (isDesktop)
-              _buildDesktopGrid(_recommendationManager.guessYouLikeList)
             else
-              _buildMobileHorizontalList(
-                _recommendationManager.guessYouLikeList,
+              SizedBox(
+                height: 6 * 64.0,
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: displayList.length,
+                  itemBuilder: (context, index) {
+                    return SizedBox(
+                      height: 64.0,
+                      child: _buildMusicListItem(displayList[index]),
+                    );
+                  },
+                ),
               ),
           ],
         ),
@@ -381,14 +427,14 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // 构建最近播放区域
-  SliverPadding _buildRecentlyPlayedSection(
+  // 构建历史记录区域
+  SliverPadding _buildHistorySection(
     BuildContext context,
     ScreenSize screenSize,
   ) {
     final isDesktop = screenSize == ScreenSize.desktop;
     final playHistory = sl.playerManager.playHistory;
-    final displayCount = playHistory.length > 10 ? 10 : playHistory.length;
+    final displayHistory = playHistory.take(6).toList();
 
     return SliverPadding(
       padding: EdgeInsets.all(
@@ -398,7 +444,7 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 标题 - 简约现代风格
+            // 标题
             Padding(
               padding: EdgeInsets.fromLTRB(
                 isDesktop ? 0.0 : _horizontalPadding,
@@ -406,92 +452,62 @@ class _HomePageState extends State<HomePage> {
                 isDesktop ? 0.0 : _horizontalPadding,
                 _titleBottomSpacing,
               ),
-              child: FadeInWidget(
-                delay: const Duration(milliseconds: 200),
-                duration: const Duration(milliseconds: 400),
-                child: Text(
-                  '最近播放',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
+              child: Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: Colors.blue,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '历史记录',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
               ),
             ),
-
-            // 内容
-            if (playHistory.isEmpty)
-              FadeInWidget(
-                delay: const Duration(milliseconds: 200),
-                duration: const Duration(milliseconds: 400),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: _sectionSpacing),
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.history_outlined,
-                          size: 48,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          '没有找到播放历史',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
+            // 单列ListView，显示6条
+            if (displayHistory.isEmpty)
+              SizedBox(
+                height: 64,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.history_outlined, size: 32, color: Colors.grey[400]),
+                      const SizedBox(height: 8),
+                      Text(
+                        '暂无播放历史',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                      ),
+                    ],
                   ),
                 ),
               )
-            else if (isDesktop)
-              _buildDesktopGrid(playHistory.take(displayCount).toList())
             else
-              _buildMobileHorizontalList(
-                playHistory.take(displayCount).toList(),
+              SizedBox(
+                height: 6 * 64.0,
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: displayHistory.length,
+                  itemBuilder: (context, index) {
+                    return SizedBox(
+                      height: 64.0,
+                      child: _buildMusicListItem(displayHistory[index]),
+                    );
+                  },
+                ),
               ),
             const SizedBox(height: 120),
           ],
         ),
-      ),
-    );
-  }
-
-  // 构建桌面端网格布局
-  Widget _buildDesktopGrid(List<Music> musicList) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: ResponsiveHelper.responsiveGridColumns(context),
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 20,
-        childAspectRatio: 0.8,
-      ),
-      itemCount: musicList.length,
-      itemBuilder: (context, index) {
-        final music = musicList[index];
-        return _buildMusicCard(music, isPcMode: true);
-      },
-    );
-  }
-
-  // 构建移动端水平列表
-  Widget _buildMobileHorizontalList(List<Music> musicList) {
-    return SizedBox(
-      height: 200,
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 8.0),
-        scrollDirection: Axis.horizontal,
-        itemCount: musicList.length,
-        itemBuilder: (context, index) {
-          final music = musicList[index];
-          return _buildMusicCard(music, isPcMode: false);
-        },
       ),
     );
   }

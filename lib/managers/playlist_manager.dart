@@ -341,7 +341,7 @@ class PlaylistManager {
 
     // 检查是否为系统歌单
     if (_repository.isSystemPlaylist(playlistId)) {
-      final detail = _repository.getSystemPlaylistDetail(playlistId);
+      final detail = await _repository.getSystemPlaylistDetail(playlistId);
       if (detail != null) {
         songs = detail.songs;
         _cache.setSongs(playlistId, songs);

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:bitsdojo_window/bitsdojo_window.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:bilimusic/utils/platform_helper.dart';
 
 /// 自动适配的 AppBar
-/// 在桌面平台使用 MoveWindow 包裹，支持窗口拖动
+/// 在桌面平台使用 GestureDetector 包裹，支持窗口拖动
 class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Widget? leading;
   final bool automaticallyImplyLeading;
@@ -89,7 +89,10 @@ class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
       return appBar;
     }
 
-    return MoveWindow(child: appBar);
+    return GestureDetector(
+      onPanStart: (_) => windowManager.startDragging(),
+      child: appBar,
+    );
   }
 
   @override

@@ -136,10 +136,7 @@ class Playlist {
 
   /// 获取封面URL（带默认图）
   /// 返回第一个歌曲的封面URL，若列表为空返回空字符串
-  /// 注意：系统歌单不使用自动封面，始终返回空字符串
   String get safeCoverUrl {
-    // 系统歌单不使用自动封面，始终返回空字符串以显示特殊图标
-    if (isSystemPlaylist) return '';
     if (coverUrl != null && coverUrl!.isNotEmpty) {
       return coverUrl!;
     }

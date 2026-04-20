@@ -1,4 +1,4 @@
-import 'package:bilimusic/components/autoAppBar.dart';
+import 'package:bilimusic/components/auto_appbar.dart';
 import 'package:flutter/material.dart';
 import 'package:bilimusic/utils/network_config.dart';
 
