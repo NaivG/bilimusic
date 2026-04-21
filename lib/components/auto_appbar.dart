@@ -115,7 +115,8 @@ class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
     bool? centerTitle,
   }) {
     return AutoAppBar(
-      leading: leading ??
+      leading:
+          leading ??
           (showBackButton
               ? IconButton(
                   icon: const Icon(Icons.arrow_back),
