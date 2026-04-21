@@ -20,13 +20,7 @@ class ChangelogPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AutoAppBar(
-        title: const Text('更新日志'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+      appBar: AutoAppBar.generateAppBar(title: '更新日志'),
       body: FutureBuilder<List<ChangelogEntry>>(
         future: _loadChangelog(),
         builder: (context, snapshot) {

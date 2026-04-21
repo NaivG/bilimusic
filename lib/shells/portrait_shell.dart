@@ -15,6 +15,8 @@ import 'package:bilimusic/pages/changelog_page.dart';
 import 'package:bilimusic/pages/cookie_page.dart';
 import 'package:bilimusic/pages/data_management_page.dart';
 import 'package:bilimusic/pages/data_migration_page.dart';
+import 'package:bilimusic/pages/login_page.dart';
+import 'package:bilimusic/utils/platform_helper.dart';
 
 /// 竖屏模式外壳 - 包含平板模式和手机模式布局
 /// 平板：NavigationRail + 主内容 + 迷你播放器
@@ -95,7 +97,10 @@ class _PortraitShellState extends State<PortraitShell> {
       case ShellPage.dataMigration:
         return const DataMigrationPage();
       case ShellPage.login:
-        return const ProfilePage(); // TODO: Login page
+        if (PlatformHelper.isDesktop) {
+          return const _DesktopLoginPlaceholder();
+        }
+        return LoginPage();
     }
   }
 
@@ -283,5 +288,15 @@ class _PortraitShellState extends State<PortraitShell> {
         coverUrl: currentMusic?.coverUrl,
       ),
     );
+  }
+}
+
+/// 桌面端登录占位组件
+class _DesktopLoginPlaceholder extends StatelessWidget {
+  const _DesktopLoginPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(child: Text('桌面端暂不支持登录'));
   }
 }

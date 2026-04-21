@@ -1,5 +1,4 @@
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
+import 'package:bilimusic/utils/platform_helper.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:bilimusic/utils/window_listener.dart';
 import 'package:flutter/material.dart';
@@ -40,9 +39,7 @@ void main() async {
   await NetworkConfig.init();
 
   // 初始化just_audio_media_kit（仅在非Web和非Android/iOS平台上需要）
-  if (!kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.windows ||
-          defaultTargetPlatform == TargetPlatform.linux)) {
+  if (PlatformHelper.isDesktop) {
     JustAudioMediaKit.ensureInitialized();
   }
 
@@ -69,9 +66,7 @@ void main() async {
   sl.notificationService.initialize(audioHandler);
 
   // 初始化桌面窗口
-  if (!kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.windows ||
-          defaultTargetPlatform == TargetPlatform.linux)) {
+  if (PlatformHelper.isDesktop) {
     await _setupMainWindow();
   }
 

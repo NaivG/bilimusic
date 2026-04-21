@@ -10,13 +10,7 @@ class CookiePage extends StatelessWidget {
     final cookies = NetworkConfig.cookies;
 
     return Scaffold(
-      appBar: AutoAppBar(
-        title: const Text('Cookie 信息'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+      appBar: AutoAppBar.generateAppBar(title: 'Cookie 信息'),
       bottomSheet: Container(
         alignment: Alignment.bottomCenter,
         margin: const EdgeInsets.all(16),

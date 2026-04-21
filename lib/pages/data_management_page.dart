@@ -174,16 +174,7 @@ class _DataManagementPageState extends State<DataManagementPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AutoAppBar(
-        title: const Text('数据管理'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
-            onPressed: _loadData,
-          ),
-        ],
-      ),
+      appBar: AutoAppBar.generateAppBar(title: '数据管理'),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
