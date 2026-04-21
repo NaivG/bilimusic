@@ -95,94 +95,137 @@
 
 ```
 lib/
-├── main.dart                 # 应用入口
-├── index.dart               # 导出文件
+├── main.dart                      # 应用入口
+├── index.dart                     # 导出文件
+├── core/
+│   └── service_locator.dart       # 依赖注入容器
 │
-├── components/              # UI组件库
-│   ├── common/              # 通用组件
-│   │   └── cards/           # 卡片组件
-│   ├── landscape/           # 横屏布局组件
-│   ├── playlist/            # 播放列表相关组件
-│   ├── cover_display_widget.dart      # 封面显示组件
-│   ├── desktop_window_controls.dart   # 桌面窗口控制
-│   ├── function_controls_widget.dart  # 功能控制组件
-│   ├── lyric_display_widget.dart      # 歌词显示组件
-│   ├── mini_player.dart              # 迷你播放器
-│   ├── music_info_widget.dart        # 音乐信息组件
-│   ├── page_selector_widget.dart     # 分P选择器
-│   └── player_controls_widget.dart   # 播放器控制组件
+├── components/                    # UI组件库
+│   ├── auto_appbar.dart           # 自动导航栏
+│   ├── common/                     # 通用组件
+│   │   ├── background_blur_widget.dart  # 背景模糊组件
+│   │   ├── cards/                  # 卡片组件
+│   │   │   ├── bili_item_cards.dart
+│   │   │   ├── common_music_list_tile.dart
+│   │   │   ├── horizontal_music_card.dart
+│   │   │   ├── music_card.dart
+│   │   │   ├── music_list_item.dart
+│   │   │   ├── playlist_card.dart
+│   │   │   ├── responsive_music_card.dart
+│   │   │   └── stacked_music_card.dart
+│   │   ├── landscape_cover_art.dart    # 横屏封面
+│   │   ├── landscape_seek_bar.dart     # 横屏进度条
+│   │   ├── landscape_volume_bar.dart    # 横屏音量条
+│   │   └── widgets/index.dart
+│   ├── desktop_window_controls.dart     # 桌面窗口控制
+│   ├── dialogs/                       # 对话框
+│   │   └── update_dialog.dart
+│   ├── landscape/                     # 横屏布局组件
+│   │   ├── album_section.dart
+│   │   ├── apple_cover.dart
+│   │   ├── apple_slider.dart
+│   │   └── background.dart
+│   ├── lyric/                         # 歌词组件
+│   │   ├── lyric_line_widget.dart
+│   │   ├── lyric_section.dart
+│   │   └── lyric_source.dart
+│   ├── mini_player.dart               # 迷你播放器
+│   ├── playlist/                      # 播放列表组件
+│   │   ├── playlist_item.dart
+│   │   └── playlist_sheet.dart
+│   └── long_press_menu.dart           # 长按菜单
 │
-├── managers/                # 核心管理器
-│   ├── audio_handler.dart    # 音频处理handler
-│   ├── cache_manager.dart    # 缓存管理器
-│   ├── player_manager.dart   # 播放器管理器
-│   ├── playlist_manager.dart # 歌单管理器
-│   ├── recommendation_manager.dart # 推荐管理器
-│   └── settings_manager.dart # 设置管理器
+├── managers/                         # 核心管理器
+│   ├── audio_handler.dart             # 音频Handler
+│   ├── cache_manager.dart             # 缓存管理
+│   ├── player_manager.dart            # 播放器管理
+│   ├── playlist_manager.dart          # 歌单管理
+│   ├── recommendation_manager.dart    # 推荐管理
+│   └── settings_manager.dart          # 设置管理
 │
-├── models/                  # 数据模型
-│   ├── bili_item.dart       # B站视频项模型
-│   ├── music.dart           # 音乐模型（含分P支持）
-│   ├── playlist.dart        # 歌单模型
-│   ├── playlist_tag.dart    # 歌单标签模型
-│   └── search_result.dart   # 搜索结果模型
+├── models/                           # 数据模型
+│   ├── bili_item.dart                # B站视频项
+│   ├── changelog_entry.dart           # 更新日志条目
+│   ├── music.dart                    # 音乐模型
+│   ├── playlist.dart                  # 歌单模型
+│   ├── playlist_tag.dart              # 歌单标签
+│   └── search_result.dart             # 搜索结果
 │
-├── pages/                   # 页面模块
-│   ├── detail/              # 详情页
-│   ├── home/               # 首页
-│   ├── login/              # 登录页
-│   ├── playlist/           # 歌单页
-│   ├── profile/            # 个人中心页
-│   ├── search/             # 搜索页
-│   ├── settings/           # 设置页
-│   ├── changelog_page.dart  # 更新日志
-│   ├── cookie_page.dart    # Cookie设置页
-│   ├── data_migration_page.dart # 数据迁移页
-│   ├── detail_page.dart    # 详情页
-│   ├── home_page.dart      # 首页
-│   ├── login_page.dart      # 登录页
-│   ├── playlist_page.dart  # 歌单页
-│   ├── profile_page.dart   # 个人中心页
-│   ├── search_page.dart    # 搜索页
-│   └── settings_page.dart  # 设置页
+├── pages/                            # 页面模块
+│   ├── changelog_page.dart            # 更新日志
+│   ├── cookie_page.dart               # Cookie设置
+│   ├── data_management_page.dart      # 数据管理
+│   ├── data_migration_page.dart       # 数据迁移
+│   ├── detail/                        # 详情页
+│   │   ├── landscape_detail_page.dart
+│   │   ├── portrait_detail_page.dart
+│   │   └── widgets/controls_bar.dart
+│   ├── detail_page.dart               # 详情页入口
+│   ├── home_content.dart              # 首页内容
+│   ├── home_page.dart                 # 首页
+│   ├── login_page.dart                # 登录页
+│   ├── playlist/                      # 歌单页
+│   │   ├── landscape_playlist_page.dart
+│   │   ├── portrait_playlist_page.dart
+│   │   └── widgets/
+│   │       ├── playlist_header.dart
+│   │       ├── playlist_sidebar.dart
+│   │       └── playlist_song_list.dart
+│   ├── playlist_page.dart             # 歌单页入口
+│   ├── profile_page.dart              # 个人中心
+│   ├── search/                        # 搜索页
+│   │   └── widgets/
+│   │       ├── search_bar_widget.dart
+│   │       ├── search_empty_state.dart
+│   │       ├── search_result_card.dart
+│   │       └── search_type_tabs.dart
+│   ├── search_page.dart               # 搜索页入口
+│   └── settings_page.dart             # 设置页
 │
-├── providers/              # Riverpod状态管理
-│   ├── player_manager_provider.dart
-│   ├── playlist_manager_provider.dart
-│   └── search_state_provider.dart
+├── providers/                        # Riverpod状态管理
+│   ├── search_state_provider.dart
+│   └── shell_navigation_provider.dart
 │
-├── routes/                 # 路由配置
-│   └── app_routes.dart     # 应用路由定义
+├── routes/                           # 路由配置
+│   ├── app_routes.dart               # 应用路由
+│   └── index.dart
 │
-├── services/              # 服务层
-│   ├── api_service.dart    # B站API服务
-│   ├── audio_service.dart  # 音频服务
-│   ├── dual_audio_service.dart # 双播放器服务
-│   ├── notification_service.dart # 通知服务
-│   ├── page_cache.dart     # 页面缓存
-│   ├── page_service.dart   # 页面服务
-│   ├── player_coordinator.dart # 播放器协调器
-│   ├── playlist_cache.dart # 歌单缓存
-│   ├── playlist_repository.dart # 歌单仓库
-│   ├── playlist_service.dart # 歌单服务
-│   └── search_service.dart # 搜索服务
+├── services/                         # 服务层
+│   ├── api_service.dart               # B站API
+│   ├── audio_service.dart             # 音频服务
+│   ├── dual_audio_service.dart        # 双播放器服务
+│   ├── notification_service.dart      # 通知服务
+│   ├── page_cache.dart                # 页面缓存
+│   ├── page_service.dart              # 页面服务
+│   ├── player_coordinator.dart        # 播放器协调
+│   ├── playlist_cache.dart           # 歌单缓存
+│   ├── playlist_repository.dart       # 歌单仓库
+│   ├── playlist_service.dart          # 歌单服务
+│   └── search_service.dart            # 搜索服务
 │
-├── shells/                # 布局外壳
-│   ├── landscape/          # 横屏布局
-│   ├── portrait/           # 竖屏布局
-│   ├── app_shell.dart      # 应用外壳
-│   ├── landscape_shell.dart # 横屏布局壳
-│   └── portrait_shell.dart # 竖屏布局壳
+├── shells/                           # 布局外壳
+│   ├── app_shell.dart                # 应用外壳
+│   ├── landscape/                    # 横屏布局
+│   │   ├── landscape_bottom_control.dart
+│   │   ├── landscape_sidebar.dart
+│   │   └── landscape_title_bar.dart
+│   ├── landscape_shell.dart           # 横屏外壳
+│   ├── portrait_shell.dart            # 竖屏外壳
+│   └── shell_page_manager.dart        # 页面管理
 │
-└── utils/                 # 工具类
-    ├── animations.dart     # 动画工具
-    ├── captcha_helper.dart # 验证码辅助
-    ├── color_extractor.dart # 颜色提取工具
-    ├── lyric_parser.dart   # 歌词解析器
-    ├── netease_music_api.dart # 某某云音乐API
-    ├── network_config.dart  # 网络配置
-    ├── platform_helper.dart # 平台辅助
-    └── responsive.dart     # 响应式布局工具
+└── utils/                            # 工具类
+    ├── animations.dart                # 动画工具
+    ├── captcha_helper.dart            # 验证码辅助
+    ├── color_extractor.dart           # 颜色提取
+    ├── color_infra.dart               # 颜色基础设施
+    ├── dialog_helpers.dart            # 对话框辅助
+    ├── lyric_parser.dart              # 歌词解析
+    ├── netease_music_api.dart         # 某某云音乐API
+    ├── network_config.dart            # 网络配置
+    ├── platform_helper.dart           # 平台辅助
+    ├── responsive.dart                # 响应式布局
+    ├── update_checker.dart            # 更新检查
+    └── window_listener.dart          # 窗口监听
 ```
 
 ### 模块说明
