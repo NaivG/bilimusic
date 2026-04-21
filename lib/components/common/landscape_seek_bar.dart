@@ -33,6 +33,10 @@ class _LandscapeSeekBarState extends State<LandscapeSeekBar> {
   @override
   void initState() {
     super.initState();
+    // Initialize with current values before listening
+    _position = sl.playerManager.currentPosition;
+    final music = sl.playerManager.currentMusic;
+    _duration = music?.duration ?? Duration.zero;
     _setupListeners();
   }
 
