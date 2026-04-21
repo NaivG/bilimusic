@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:bilimusic/utils/platform_helper.dart';
+import 'package:bilimusic/shells/shell_page_manager.dart';
 
 /// 自动适配的 AppBar
 /// 在桌面平台使用 GestureDetector 包裹，支持窗口拖动
@@ -99,4 +100,37 @@ class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => Size.fromHeight(
     toolbarHeight ?? kToolbarHeight + (bottom?.preferredSize.height ?? 0),
   );
+
+  /// 快速生成带有返回按钮和标题的 AppBar
+  static AutoAppBar generateAppBar({
+    required String title,
+    bool showBackButton = true,
+    List<Widget>? actions,
+    Widget? leading,
+    PreferredSizeWidget? bottom,
+    double? elevation,
+    Color? backgroundColor,
+    Color? foregroundColor,
+    double? toolbarHeight,
+    bool? centerTitle,
+  }) {
+    return AutoAppBar(
+      leading: leading ??
+          (showBackButton
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => ShellPageManager.instance.pop(),
+                )
+              : null),
+      automaticallyImplyLeading: leading != null,
+      title: Text(title),
+      actions: actions,
+      bottom: bottom,
+      elevation: elevation,
+      backgroundColor: backgroundColor,
+      foregroundColor: foregroundColor,
+      toolbarHeight: toolbarHeight,
+      centerTitle: centerTitle,
+    );
+  }
 }

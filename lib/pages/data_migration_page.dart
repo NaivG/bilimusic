@@ -25,13 +25,7 @@ class _DataMigrationPageState extends State<DataMigrationPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AutoAppBar(
-        title: Text('数据迁移'),
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+      appBar: AutoAppBar.generateAppBar(title: '数据迁移'),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
