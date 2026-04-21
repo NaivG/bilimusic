@@ -215,8 +215,8 @@ class _ProfilePageState extends State<ProfilePage> {
                             if (PlatformHelper.isDesktop) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                    content: Text(
-                                        '桌面端暂不支持登录，请使用移动端App')),
+                                  content: Text('桌面端暂不支持登录，请使用移动端App'),
+                                ),
                               );
                             } else {
                               ShellPageManager.instance.push(ShellPage.login);

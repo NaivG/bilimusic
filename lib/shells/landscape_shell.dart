@@ -246,8 +246,6 @@ class _DesktopLoginPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text('桌面端暂不支持登录'),
-    );
+    return const Center(child: Text('桌面端暂不支持登录'));
   }
 }
