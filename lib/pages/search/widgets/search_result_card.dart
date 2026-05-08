@@ -349,7 +349,6 @@ class _SearchResultCardState extends State<SearchResultCard>
         return '用户';
     }
   }
-
 }
 
 /// 搜索结果网格组件

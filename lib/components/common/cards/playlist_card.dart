@@ -97,16 +97,19 @@ class _PlaylistCardState extends State<PlaylistCard>
 
     switch (screenSize) {
       case ScreenSize.mobile:
-        return _buildCard(cardWidth: 120.0, borderRadius: LucentTokens.radiusMd);
+        return _buildCard(
+          cardWidth: 120.0,
+          borderRadius: LucentTokens.radiusMd,
+        );
       case _:
-        return _buildCard(cardWidth: 160.0, borderRadius: LucentTokens.radiusMd);
+        return _buildCard(
+          cardWidth: 160.0,
+          borderRadius: LucentTokens.radiusMd,
+        );
     }
   }
 
-  Widget _buildCard({
-    required double cardWidth,
-    required double borderRadius,
-  }) {
+  Widget _buildCard({required double cardWidth, required double borderRadius}) {
     return SizedBox(
       width: cardWidth,
       child: Column(
@@ -124,11 +127,7 @@ class _PlaylistCardState extends State<PlaylistCard>
                 ),
                 // "+N" 数量
                 if (widget.count != null && widget.count! > 0)
-                  Positioned(
-                    right: 8,
-                    bottom: 8,
-                    child: _buildCountBadge(),
-                  ),
+                  Positioned(right: 8, bottom: 8, child: _buildCountBadge()),
               ],
             ),
           ),
@@ -138,10 +137,7 @@ class _PlaylistCardState extends State<PlaylistCard>
             widget.playlist.displayName,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -157,8 +153,7 @@ class _PlaylistCardState extends State<PlaylistCard>
               imageUrl: coverUrl,
               httpHeaders: NetworkConfig.biliHeaders,
               fit: BoxFit.cover,
-              placeholder: (context, url) =>
-                  Container(color: Colors.grey[800]),
+              placeholder: (context, url) => Container(color: Colors.grey[800]),
               errorWidget: (context, url, error) =>
                   Container(color: Colors.grey[800]),
               cacheManager: imageCacheManager,

@@ -29,16 +29,14 @@ FutureOr<Menu?> buildMusicContextMenu({
             await playerManager.play(detailedMusic);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('开始播放"${detailedMusic.title}"'),
-                ),
+                SnackBar(content: Text('开始播放"${detailedMusic.title}"')),
               );
             }
           } catch (e) {
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('播放失败: $e')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('播放失败: $e')));
             }
           }
         },
@@ -52,16 +50,14 @@ FutureOr<Menu?> buildMusicContextMenu({
             await playerManager.playNextFromIndex(detailedMusic);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('已添加到下一首播放"${detailedMusic.title}"'),
-                ),
+                SnackBar(content: Text('已添加到下一首播放"${detailedMusic.title}"')),
               );
             }
           } catch (e) {
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('添加下一首播放失败: $e')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('添加下一首播放失败: $e')));
             }
           }
         },
@@ -74,23 +70,23 @@ FutureOr<Menu?> buildMusicContextMenu({
             if (isFav) {
               await playerManager.removeFromFavorites(music);
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('已取消收藏')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('已取消收藏')));
               }
             } else {
               await playerManager.addToFavorites(music);
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('已添加到收藏')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('已添加到收藏')));
               }
             }
           } catch (e) {
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('收藏操作失败: $e')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('收藏操作失败: $e')));
             }
           }
         },
@@ -162,16 +158,14 @@ Menu _buildAddToPlaylistSubmenu(
               await playlistManager.addSongToPlaylist(playlist.id, music);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('已添加到歌单"${playlist.name}"'),
-                  ),
+                  SnackBar(content: Text('已添加到歌单"${playlist.name}"')),
                 );
               }
             } catch (e) {
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('添加失败: $e')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('添加失败: $e')));
               }
             }
           },
@@ -231,9 +225,9 @@ void _createNewPlaylist(BuildContext context, PlaylistManager playlistManager) {
                   }
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('创建歌单失败: $e')),
-                    );
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('创建歌单失败: $e')));
                   }
                 }
               }

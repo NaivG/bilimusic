@@ -28,7 +28,10 @@ class BackgroundBlurWidget extends StatelessWidget {
               Container(color: backgroundColor),
         ),
         BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: LucentTokens.heavyGlassBlurSigma, sigmaY: LucentTokens.heavyGlassBlurSigma),
+          filter: ImageFilter.blur(
+            sigmaX: LucentTokens.heavyGlassBlurSigma,
+            sigmaY: LucentTokens.heavyGlassBlurSigma,
+          ),
           child: Container(color: backgroundColor.withValues(alpha: 0.6)),
         ),
       ],

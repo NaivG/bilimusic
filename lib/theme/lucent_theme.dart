@@ -37,7 +37,9 @@ abstract class LucentTokens {
 
   // ===== Border Subtle =====
   static const Color lightBorderSubtle = Color(0x0F000000); // rgba(0,0,0,0.06)
-  static const Color darkBorderSubtle = Color(0x14FFFFFF); // rgba(255,255,255,0.08)
+  static const Color darkBorderSubtle = Color(
+    0x14FFFFFF,
+  ); // rgba(255,255,255,0.08)
 
   // ===== Radius Tokens =====
   static const double radiusSm = 8.0;
@@ -130,7 +132,9 @@ abstract class LucentTokens {
       brightness == Brightness.light ? lightSeekBarActive : darkSeekBarActive;
 
   static Color volumeBarActive(Brightness brightness) =>
-      brightness == Brightness.light ? lightVolumeBarActive : darkVolumeBarActive;
+      brightness == Brightness.light
+      ? lightVolumeBarActive
+      : darkVolumeBarActive;
 }
 
 /// Lucent color scheme for Flutter ThemeData

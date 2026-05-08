@@ -132,46 +132,40 @@ class PlaylistSongList extends StatelessWidget {
   Widget _buildSliverList(BuildContext context) {
     if (isLandscape) {
       return SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            if (index == 0) return _buildTableHeader(context);
-            final music = songs[index - 1];
-            return SizedBox(
-              height: 56,
-              child: PlaylistTrackRow(
-                music: music,
-                index: index - 1,
-                isPlaying: _isCurrentPlaying(music),
-                isLandscape: isLandscape,
-                onTap: () => onSongTap(music),
-                onRemoveFromPlaylist: isEditable && onRemove != null
-                    ? () => onRemove?.call(music)
-                    : null,
-              ),
-            );
-          },
-          childCount: songs.length + 1,
-        ),
+        delegate: SliverChildBuilderDelegate((context, index) {
+          if (index == 0) return _buildTableHeader(context);
+          final music = songs[index - 1];
+          return SizedBox(
+            height: 56,
+            child: PlaylistTrackRow(
+              music: music,
+              index: index - 1,
+              isPlaying: _isCurrentPlaying(music),
+              isLandscape: isLandscape,
+              onTap: () => onSongTap(music),
+              onRemoveFromPlaylist: isEditable && onRemove != null
+                  ? () => onRemove?.call(music)
+                  : null,
+            ),
+          );
+        }, childCount: songs.length + 1),
       );
     }
 
     return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          final music = songs[index];
-          return PlaylistTrackRow(
-            music: music,
-            index: index,
-            isPlaying: _isCurrentPlaying(music),
-            isLandscape: isLandscape,
-            onTap: () => onSongTap(music),
-            onRemoveFromPlaylist: isEditable && onRemove != null
-                ? () => onRemove?.call(music)
-                : null,
-          );
-        },
-        childCount: songs.length,
-      ),
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final music = songs[index];
+        return PlaylistTrackRow(
+          music: music,
+          index: index,
+          isPlaying: _isCurrentPlaying(music),
+          isLandscape: isLandscape,
+          onTap: () => onSongTap(music),
+          onRemoveFromPlaylist: isEditable && onRemove != null
+              ? () => onRemove?.call(music)
+              : null,
+        );
+      }, childCount: songs.length),
     );
   }
 
@@ -227,7 +221,6 @@ class PlaylistSongList extends StatelessWidget {
                 currentPlayingMusic!.pages.isNotEmpty &&
                 music.pages[0].cid == currentPlayingMusic!.pages[0].cid);
   }
-
 }
 
 /// Track row widget for playlist song list.
@@ -285,101 +278,102 @@ class _PlaylistTrackRowState extends State<PlaylistTrackRow> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedContainer(
-          duration: LucentTokens.standardDuration,
-          curve: Curves.easeOutCubic,
-          height: 56,
-          decoration: BoxDecoration(
-            color: _isHovered
-                ? LucentTokens.surfaceHover(brightness)
-                : Colors.transparent,
-            border: Border(
-              bottom: BorderSide(
-                color: LucentTokens.borderSubtle(brightness),
-                width: 1,
+            duration: LucentTokens.standardDuration,
+            curve: Curves.easeOutCubic,
+            height: 56,
+            decoration: BoxDecoration(
+              color: _isHovered
+                  ? LucentTokens.surfaceHover(brightness)
+                  : Colors.transparent,
+              border: Border(
+                bottom: BorderSide(
+                  color: LucentTokens.borderSubtle(brightness),
+                  width: 1,
+                ),
               ),
             ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                // Index
-                SizedBox(
-                  width: 32,
-                  child: Text(
-                    '${widget.index + 1}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: widget.isPlaying
-                          ? LucentTokens.accentPrimary
-                          : LucentTokens.textTertiary(brightness),
-                      fontWeight:
-                          widget.isPlaying ? FontWeight.w600 : FontWeight.normal,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  // Index
+                  SizedBox(
+                    width: 32,
+                    child: Text(
+                      '${widget.index + 1}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: widget.isPlaying
+                            ? LucentTokens.accentPrimary
+                            : LucentTokens.textTertiary(brightness),
+                        fontWeight: widget.isPlaying
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 4),
-                // Title + artist subtitle
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.music.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: widget.isPlaying
-                              ? LucentTokens.accentPrimary
-                              : LucentTokens.textPrimary(brightness),
+                  const SizedBox(width: 4),
+                  // Title + artist subtitle
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.music.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: widget.isPlaying
+                                ? LucentTokens.accentPrimary
+                                : LucentTokens.textPrimary(brightness),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${widget.music.artist} - ${widget.music.album}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: LucentTokens.textTertiary(brightness),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${widget.music.artist} - ${widget.music.album}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: LucentTokens.textTertiary(brightness),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Duration
-                SizedBox(
-                  width: 48,
-                  child: Text(
-                    _formatDuration(widget.music),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: LucentTokens.textSecondary(brightness),
+                      ],
                     ),
-                    textAlign: TextAlign.right,
                   ),
-                ),
-                const SizedBox(width: 4),
-                // Heart icon
-                Icon(
-                  widget.music.isFavorite
-                      ? Icons.favorite
-                      : Icons.favorite_border,
-                  size: 16,
-                  color: widget.music.isFavorite
-                      ? LucentTokens.accentError
-                      : LucentTokens.textTertiary(brightness),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  // Duration
+                  SizedBox(
+                    width: 48,
+                    child: Text(
+                      _formatDuration(widget.music),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: LucentTokens.textSecondary(brightness),
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // Heart icon
+                  Icon(
+                    widget.music.isFavorite
+                        ? Icons.favorite
+                        : Icons.favorite_border,
+                    size: 16,
+                    color: widget.music.isFavorite
+                        ? LucentTokens.accentError
+                        : LucentTokens.textTertiary(brightness),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
-    ),
     );
   }
 }

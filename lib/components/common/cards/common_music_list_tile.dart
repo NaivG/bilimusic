@@ -81,42 +81,42 @@ class _CommonMusicListTileState extends State<CommonMusicListTile> {
               borderRadius: BorderRadius.circular(10),
               onTap: widget.onTap ?? () => _playMusic(context),
               child: Padding(
-              padding: const EdgeInsets.symmetric(
-                vertical: 8.0,
-                horizontal: 16.0,
-              ),
-              child: Row(
-                children: [
-                  if (widget.showIndex && widget.index != null)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 12.0),
-                      child: SizedBox(
-                        width: 24,
-                        child: Text(
-                          '${widget.index! + 1}',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: _isHovered
-                                ? theme.primaryColor
-                                : Colors.grey[600],
+                padding: const EdgeInsets.symmetric(
+                  vertical: 8.0,
+                  horizontal: 16.0,
+                ),
+                child: Row(
+                  children: [
+                    if (widget.showIndex && widget.index != null)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 12.0),
+                        child: SizedBox(
+                          width: 24,
+                          child: Text(
+                            '${widget.index! + 1}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: _isHovered
+                                  ? theme.primaryColor
+                                  : Colors.grey[600],
+                            ),
+                            textAlign: TextAlign.center,
                           ),
-                          textAlign: TextAlign.center,
                         ),
                       ),
-                    ),
-                  if (widget.showCover) _buildCover(context),
-                  if (widget.showDetails)
-                    Expanded(child: _buildDetails(context)),
-                  if (widget.showPageIndicator && widget.music.isSeries)
-                    _buildPageIndicator(context),
-                ],
+                    if (widget.showCover) _buildCover(context),
+                    if (widget.showDetails)
+                      Expanded(child: _buildDetails(context)),
+                    if (widget.showPageIndicator && widget.music.isSeries)
+                      _buildPageIndicator(context),
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
   }
 
   Widget _buildCover(BuildContext context) {
@@ -211,5 +211,4 @@ class _CommonMusicListTileState extends State<CommonMusicListTile> {
     final detailedMusic = await widget.music.getVideoDetails();
     widget.playerManager.play(detailedMusic);
   }
-
 }

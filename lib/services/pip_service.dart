@@ -63,10 +63,8 @@ class PipService extends ChangeNotifier {
       await windowManager.setMinimumSize(pipMinimumSize);
 
       // 计算 PiP 窗口位置（居中于原窗口区域）
-      final centerX = _savedPosition!.dx +
-          (_savedSize!.width - pipWidth) / 2;
-      final centerY = _savedPosition!.dy +
-          (_savedSize!.height - pipHeight) / 2;
+      final centerX = _savedPosition!.dx + (_savedSize!.width - pipWidth) / 2;
+      final centerY = _savedPosition!.dy + (_savedSize!.height - pipHeight) / 2;
       await windowManager.setPosition(Offset(centerX, centerY));
       await windowManager.setSize(const Size(pipWidth, pipHeight));
 
@@ -75,7 +73,6 @@ class PipService extends ChangeNotifier {
 
       // 6. 置顶窗口
       await windowManager.setAlwaysOnTop(true);
-
     } catch (e) {
       // 出错时确保恢复显示
       await windowManager.show();

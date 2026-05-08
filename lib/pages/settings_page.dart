@@ -216,7 +216,10 @@ class _SettingsPageState extends State<SettingsPage> {
             // 主题设置
             _buildSectionTitle('主题 (需要重启生效)'),
             ListTile(
-              leading: Icon(Icons.settings_brightness, color: _getPrimaryColor(context)),
+              leading: Icon(
+                Icons.settings_brightness,
+                color: _getPrimaryColor(context),
+              ),
               title: Text('主题模式'),
               subtitle: Text(
                 sl.settingsManager.getThemeModeText(

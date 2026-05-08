@@ -82,9 +82,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
             const SizedBox(height: 16),
             // 搜索栏
             Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: isDesktop ? 0 : 16,
-              ),
+              padding: EdgeInsets.symmetric(horizontal: isDesktop ? 0 : 16),
               child: Row(
                 children: [
                   if (!isDesktop)
@@ -109,13 +107,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
                   ? const SizedBox()
                   : SearchEmptyState(
                       type: EmptyStateType.initial,
-                      suggestions: const [
-                        '周杰伦',
-                        '林俊杰',
-                        '五月天',
-                        '陈奕迅',
-                        '邓紫棋',
-                      ],
+                      suggestions: const ['周杰伦', '林俊杰', '五月天', '陈奕迅', '邓紫棋'],
                     ),
             ),
           ],

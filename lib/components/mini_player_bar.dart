@@ -166,7 +166,8 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
     if (_isTransitioning) return;
 
     if (!_isDragging) {
-      if (details.delta.dy.abs() > 1 && details.delta.dy.abs() > details.delta.dx.abs()) {
+      if (details.delta.dy.abs() > 1 &&
+          details.delta.dy.abs() > details.delta.dx.abs()) {
         _isVerticalSwipe = true;
         return;
       }
@@ -239,11 +240,7 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
     );
 
     final simulation = SpringSimulation(
-      SpringDescription.withDampingRatio(
-        mass: 1,
-        stiffness: 500,
-        ratio: 1,
-      ),
+      SpringDescription.withDampingRatio(mass: 1, stiffness: 500, ratio: 1),
       _dragX,
       0,
       0,
@@ -288,7 +285,9 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
 
     // Compute scale/opacity based on drag distance
     final absDragX = _dragX.abs();
-    final scale = absDragX > 20 ? (1 - (absDragX.abs() / 1000)).clamp(0.92, 1.0) : 1.0;
+    final scale = absDragX > 20
+        ? (1 - (absDragX.abs() / 1000)).clamp(0.92, 1.0)
+        : 1.0;
 
     // 计算滑动方向图标 scale 和 opacity
     final iconScale = absDragX > 20
@@ -308,204 +307,224 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
         onVerticalDragUpdate: _onDragUpdate,
         onVerticalDragEnd: _onDragEnd,
         child: Transform.translate(
-          offset: Offset(_slideController.isAnimating ? _slideAnimation.value : _dragX, 0),
+          offset: Offset(
+            _slideController.isAnimating ? _slideAnimation.value : _dragX,
+            0,
+          ),
           child: Transform.scale(
             scale: scale,
             child: LayoutBuilder(
-        builder: (context, constraints) {
-          return Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // 毛玻璃层
-              ClipRRect(
-                borderRadius: BorderRadius.circular(LucentTokens.radiusLg),
-                child: BackdropFilter(
-                  filter: blurEffect
-                  ? ImageFilter.blur(
-                    sigmaX: LucentTokens.overlayBlurSigma,
-                    sigmaY: LucentTokens.overlayBlurSigma,
-                  )
-                  : ImageFilter.blur(),
-                  child: Container(
-                    height: 68,
-                    decoration: BoxDecoration(
-                      color: baseColor,
-                      borderRadius: BorderRadius.circular(LucentTokens.radiusLg),
-                    ),
-                  ),
-                ),
-              ),
-              // 背景进度条层
-              Positioned.fill(
-                child: ClipRRect( // 圆角遮罩
-                  borderRadius: BorderRadius.circular(LucentTokens.radiusLg),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: TweenAnimationBuilder<double>( // 进度条动画
-                      tween: Tween(begin: 0, end: _progress.clamp(0.0, 1.0)),
-                      duration: LucentTokens.standardDuration,
-                      curve: LucentTokens.standardEasing,
-                      builder: (context, value, child) {
-                        return Container(
-                          width: constraints.maxWidth * value,
-                          color: progressColor,
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ),
-              // 滑动方向图标层
-              if (_currentMusic != null) ...[
-                // 上一首图标（向右滑时显示在左侧）
-                if (_dragX > 20)
-                  Positioned(
-                    left: -44 - (_dragX * 0.2).clamp(0.0, 20.0),
-                    top: 0,
-                    bottom: 0,
-                    child: Center(
-                      child: Transform.scale(
-                        scale: iconScale,
-                        child: Opacity(
-                          opacity: iconOpacity,
-                          child: Icon(
-                            Icons.skip_previous_rounded,
-                            color: textPrimary,
-                            size: 44,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                // 下一首图标（向左滑时显示在右侧）
-                if (_dragX < -20)
-                  Positioned(
-                    right: -44 - (_dragX.abs() * 0.2).clamp(0.0, 20.0),
-                    top: 0,
-                    bottom: 0,
-                    child: Center(
-                      child: Transform.scale(
-                        scale: iconScale,
-                        child: Opacity(
-                          opacity: iconOpacity,
-                          child: Icon(
-                            Icons.skip_next_rounded,
-                            color: textPrimary,
-                            size: 44,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-              // 内容层
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                child: Row(
+              builder: (context, constraints) {
+                return Stack(
+                  clipBehavior: Clip.none,
                   children: [
-                    // 专辑封面
-                    GestureDetector(
-                      onTap: widget.onExpand,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(LucentTokens.radiusMd),
-                        child: _currentMusic != null
-                            ? CachedNetworkImage(
-                                imageUrl: _currentMusic!.safeCoverUrl,
-                                width: 44,
-                                height: 44,
-                                fit: BoxFit.cover,
-                                placeholder: (context, url) => _buildCoverPlaceholder(),
-                                errorWidget: (context, url, error) =>
-                                    _buildCoverPlaceholder(),
-                                cacheManager: imageCacheManager,
-                                cacheKey: _currentMusic!.id,
-                              )
-                            : _buildCoverPlaceholder(),
+                    // 毛玻璃层
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(
+                        LucentTokens.radiusLg,
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    // 歌曲信息
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _currentMusic?.title ?? 'Not Playing',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: textPrimary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
+                      child: BackdropFilter(
+                        filter: blurEffect
+                            ? ImageFilter.blur(
+                                sigmaX: LucentTokens.overlayBlurSigma,
+                                sigmaY: LucentTokens.overlayBlurSigma,
+                              )
+                            : ImageFilter.blur(),
+                        child: Container(
+                          height: 68,
+                          decoration: BoxDecoration(
+                            color: baseColor,
+                            borderRadius: BorderRadius.circular(
+                              LucentTokens.radiusLg,
                             ),
                           ),
-                          if (_currentMusic != null) ...[
-                            const SizedBox(height: 2),
-                            AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 300),
-                              child: _crossfadeCountdown > 0
-                                  ? _buildTransitionText()
-                                  : Text(
-                                      _currentMusic!.artist,
-                                      key: const ValueKey('artist'),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: textSecondary,
-                                        fontSize: 12,
-                                      ),
-                                    ),
+                        ),
+                      ),
+                    ),
+                    // 背景进度条层
+                    Positioned.fill(
+                      child: ClipRRect(
+                        // 圆角遮罩
+                        borderRadius: BorderRadius.circular(
+                          LucentTokens.radiusLg,
+                        ),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: TweenAnimationBuilder<double>(
+                            // 进度条动画
+                            tween: Tween(
+                              begin: 0,
+                              end: _progress.clamp(0.0, 1.0),
                             ),
-                          ],
+                            duration: LucentTokens.standardDuration,
+                            curve: LucentTokens.standardEasing,
+                            builder: (context, value, child) {
+                              return Container(
+                                width: constraints.maxWidth * value,
+                                color: progressColor,
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                    // 滑动方向图标层
+                    if (_currentMusic != null) ...[
+                      // 上一首图标（向右滑时显示在左侧）
+                      if (_dragX > 20)
+                        Positioned(
+                          left: -44 - (_dragX * 0.2).clamp(0.0, 20.0),
+                          top: 0,
+                          bottom: 0,
+                          child: Center(
+                            child: Transform.scale(
+                              scale: iconScale,
+                              child: Opacity(
+                                opacity: iconOpacity,
+                                child: Icon(
+                                  Icons.skip_previous_rounded,
+                                  color: textPrimary,
+                                  size: 44,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      // 下一首图标（向左滑时显示在右侧）
+                      if (_dragX < -20)
+                        Positioned(
+                          right: -44 - (_dragX.abs() * 0.2).clamp(0.0, 20.0),
+                          top: 0,
+                          bottom: 0,
+                          child: Center(
+                            child: Transform.scale(
+                              scale: iconScale,
+                              child: Opacity(
+                                opacity: iconOpacity,
+                                child: Icon(
+                                  Icons.skip_next_rounded,
+                                  color: textPrimary,
+                                  size: 44,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                    // 内容层
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        children: [
+                          // 专辑封面
+                          GestureDetector(
+                            onTap: widget.onExpand,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(
+                                LucentTokens.radiusMd,
+                              ),
+                              child: _currentMusic != null
+                                  ? CachedNetworkImage(
+                                      imageUrl: _currentMusic!.safeCoverUrl,
+                                      width: 44,
+                                      height: 44,
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) =>
+                                          _buildCoverPlaceholder(),
+                                      errorWidget: (context, url, error) =>
+                                          _buildCoverPlaceholder(),
+                                      cacheManager: imageCacheManager,
+                                      cacheKey: _currentMusic!.id,
+                                    )
+                                  : _buildCoverPlaceholder(),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // 歌曲信息
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _currentMusic?.title ?? 'Not Playing',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: textPrimary,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                if (_currentMusic != null) ...[
+                                  const SizedBox(height: 2),
+                                  AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 300),
+                                    child: _crossfadeCountdown > 0
+                                        ? _buildTransitionText()
+                                        : Text(
+                                            _currentMusic!.artist,
+                                            key: const ValueKey('artist'),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: textSecondary,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          // 控制按钮
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // 播放/暂停按钮
+                              GestureDetector(
+                                onTap: _togglePlay,
+                                child: Container(
+                                  width: 44,
+                                  height: 44,
+                                  alignment: Alignment.center,
+                                  child: Icon(
+                                    _audioState == AudioState.playing
+                                        ? Icons.pause_rounded
+                                        : Icons.play_arrow_rounded,
+                                    color: LucentTokens.accentPrimary,
+                                    size: 28,
+                                  ),
+                                ),
+                              ),
+                              // 播放列表按钮
+                              GestureDetector(
+                                onTap: widget.onPlayList,
+                                child: Container(
+                                  width: 44,
+                                  height: 44,
+                                  alignment: Alignment.center,
+                                  child: Icon(
+                                    Icons.playlist_play_rounded,
+                                    color: textSecondary,
+                                    size: 24,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
-                    // 控制按钮
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // 播放/暂停按钮
-                        GestureDetector(
-                          onTap: _togglePlay,
-                          child: Container(
-                            width: 44,
-                            height: 44,
-                            alignment: Alignment.center,
-                            child: Icon(
-                              _audioState == AudioState.playing
-                                  ? Icons.pause_rounded
-                                  : Icons.play_arrow_rounded,
-                              color: LucentTokens.accentPrimary,
-                              size: 28,
-                            ),
-                          ),
-                        ),
-                        // 播放列表按钮
-                        GestureDetector(
-                          onTap: widget.onPlayList,
-                          child: Container(
-                            width: 44,
-                            height: 44,
-                            alignment: Alignment.center,
-                            child: Icon(
-                              Icons.playlist_play_rounded,
-                              color: textSecondary,
-                              size: 24,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-      ),
-      ),
+                );
+              },
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -525,11 +544,7 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
       width: 44,
       height: 44,
       color: surfaceHover,
-      child: Icon(
-        Icons.music_note_rounded,
-        color: textTertiary,
-        size: 24,
-      ),
+      child: Icon(Icons.music_note_rounded, color: textTertiary, size: 24),
     );
   }
 
@@ -557,10 +572,7 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
           child: Text(
             '过渡中',
             maxLines: 1,
-            style: TextStyle(
-              color: transitionColor,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: transitionColor, fontSize: 12),
           ),
         ),
       ],

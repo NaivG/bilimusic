@@ -37,41 +37,27 @@ class PlaylistHero extends StatelessWidget {
     return _buildHeroContent(context, brightness);
   }
 
-  Widget _buildHeroContent(
-    BuildContext context,
-    Brightness brightness,
-  ) {
+  Widget _buildHeroContent(BuildContext context, Brightness brightness) {
     return isLandscape
         ? _buildLandscapeLayout(context, brightness)
         : _buildPortraitLayout(context, brightness);
   }
 
-  Widget _buildLandscapeLayout(
-    BuildContext context,
-    Brightness brightness,
-  ) {
+  Widget _buildLandscapeLayout(BuildContext context, Brightness brightness) {
     return Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: 24,
-        vertical: 24,
-      ),
+      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildCover(context, brightness, 180),
           const SizedBox(width: 32),
-          Expanded(
-            child: _buildInfoAndActions(context, brightness),
-          ),
+          Expanded(child: _buildInfoAndActions(context, brightness)),
         ],
       ),
     );
   }
 
-  Widget _buildPortraitLayout(
-    BuildContext context,
-    Brightness brightness,
-  ) {
+  Widget _buildPortraitLayout(BuildContext context, Brightness brightness) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: Column(
@@ -89,11 +75,7 @@ class PlaylistHero extends StatelessWidget {
     );
   }
 
-  Widget _buildCover(
-    BuildContext context,
-    Brightness brightness,
-    double size,
-  ) {
+  Widget _buildCover(BuildContext context, Brightness brightness, double size) {
     final coverUrl = playlist.safeCoverUrl;
     final systemIcon = playlist.systemPlaylistIcon;
     final systemIconColor = playlist.systemPlaylistIconColor;
@@ -121,15 +103,16 @@ class PlaylistHero extends StatelessWidget {
             children: [
               if (systemIcon != null)
                 Container(
-                  color: systemIconColor?.withValues(alpha: 0.15) ??
+                  color:
+                      systemIconColor?.withValues(alpha: 0.15) ??
                       LucentTokens.surfaceHover(brightness),
                   child: Center(
                     child: Icon(
                       systemIcon,
                       size: size * 0.4,
-                      color: systemIconColor ?? LucentTokens.textSecondary(
-                        brightness,
-                      ),
+                      color:
+                          systemIconColor ??
+                          LucentTokens.textSecondary(brightness),
                     ),
                   ),
                 )
@@ -183,11 +166,7 @@ class PlaylistHero extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          Icons.play_arrow,
-                          color: Colors.white,
-                          size: 14,
-                        ),
+                        Icon(Icons.play_arrow, color: Colors.white, size: 14),
                         const SizedBox(width: 2),
                         Text(
                           '$songCount',
@@ -208,10 +187,7 @@ class PlaylistHero extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoAndActions(
-    BuildContext context,
-    Brightness brightness,
-  ) {
+  Widget _buildInfoAndActions(BuildContext context, Brightness brightness) {
     final songCount = songs.length;
     final totalMinutes = songs.fold<int>(
       0,
@@ -225,9 +201,7 @@ class PlaylistHero extends StatelessWidget {
     if (playlist.formattedDuration.isNotEmpty) {
       durationText = playlist.formattedDuration;
     } else if (totalMinutes > 0) {
-      durationText = seconds > 0
-          ? '${minutes}m ${seconds}s'
-          : '${minutes}m';
+      durationText = seconds > 0 ? '${minutes}m ${seconds}s' : '${minutes}m';
     } else {
       durationText = '';
     }
@@ -318,10 +292,7 @@ class PlaylistHero extends StatelessWidget {
     );
   }
 
-  Widget _buildPillButtons(
-    BuildContext context,
-    Brightness brightness,
-  ) {
+  Widget _buildPillButtons(BuildContext context, Brightness brightness) {
     final hasSongs = songs.isNotEmpty;
 
     return Wrap(
@@ -382,10 +353,7 @@ class PlaylistHero extends StatelessWidget {
     );
   }
 
-  Widget _buildActionIcons(
-    BuildContext context,
-    Brightness brightness,
-  ) {
+  Widget _buildActionIcons(BuildContext context, Brightness brightness) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

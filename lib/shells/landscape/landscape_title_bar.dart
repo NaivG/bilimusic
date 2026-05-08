@@ -79,7 +79,10 @@ class LandscapeTitleBar extends StatelessWidget {
                         IconButton(
                           color: iconColor,
                           onPressed: onBack,
-                          icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
+                          icon: const Icon(
+                            Icons.arrow_back_ios_rounded,
+                            size: 20,
+                          ),
                         ),
                         const SizedBox(width: 8),
                         _TitleSearchField(

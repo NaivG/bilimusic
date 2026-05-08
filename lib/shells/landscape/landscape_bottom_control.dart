@@ -181,22 +181,22 @@ class _LandscapeBottomControlState extends State<LandscapeBottomControl> {
                 ),
                 const SizedBox(height: 2),
                 music?.artist != null
-                  ? AnimatedSwitcher(
-                  duration: LucentTokens.standardDuration,
-                  child: _crossfadeCountdown > 0
-                      ? _buildCrossfadeIndicator()
-                      : Text(
-                          music?.artist ?? 'Unknown Artist',
-                          key: const ValueKey('artist'),
-                          style: TextStyle(
-                            color: textSecondary,
-                            fontSize: 12,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                )
-                  : const SizedBox.shrink(),
+                    ? AnimatedSwitcher(
+                        duration: LucentTokens.standardDuration,
+                        child: _crossfadeCountdown > 0
+                            ? _buildCrossfadeIndicator()
+                            : Text(
+                                music?.artist ?? 'Unknown Artist',
+                                key: const ValueKey('artist'),
+                                style: TextStyle(
+                                  color: textSecondary,
+                                  fontSize: 12,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                      )
+                    : const SizedBox.shrink(),
               ],
             ),
           ),

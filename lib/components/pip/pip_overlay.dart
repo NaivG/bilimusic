@@ -206,11 +206,7 @@ class _PipOverlayState extends State<PipOverlay> {
               width: 36,
               height: 36,
               alignment: Alignment.center,
-              child: Icon(
-                Icons.close,
-                size: 18,
-                color: textSecondary,
-              ),
+              child: Icon(Icons.close, size: 18, color: textSecondary),
             ),
           ),
         ],
@@ -310,11 +306,7 @@ class _PipOverlayState extends State<PipOverlay> {
       width: 52,
       height: 52,
       color: surfaceHover,
-      child: Icon(
-        Icons.music_note_rounded,
-        color: textTertiary,
-        size: 28,
-      ),
+      child: Icon(Icons.music_note_rounded, color: textTertiary, size: 28),
     );
   }
 

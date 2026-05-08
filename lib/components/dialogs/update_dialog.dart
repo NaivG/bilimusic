@@ -53,9 +53,7 @@ class UpdateAvailableDialog extends StatelessWidget {
           children: [
             Text(
               '以下是本次更新内容：',
-              style: TextStyle(
-                color: LucentTokens.textSecondary(brightness),
-              ),
+              style: TextStyle(color: LucentTokens.textSecondary(brightness)),
             ),
             const SizedBox(height: 12),
             ...changelog.map((entry) => _buildChangelogItem(entry, brightness)),

@@ -98,11 +98,14 @@ class ShellPageManager extends ChangeNotifier {
     List<Music>? songs,
     String? playlistName,
   }) {
-    push(ShellPage.playlist, args: {
-      'playlistId': playlistId,
-      'songs': songs,
-      'playlistName': playlistName,
-    });
+    push(
+      ShellPage.playlist,
+      args: {
+        'playlistId': playlistId,
+        'songs': songs,
+        'playlistName': playlistName,
+      },
+    );
   }
 
   void goToDetail() {

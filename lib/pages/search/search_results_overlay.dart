@@ -249,13 +249,7 @@ class _SearchResultsOverlayState extends State<SearchResultsOverlay> {
       hasScrollBody: false,
       child: SearchEmptyState(
         type: EmptyStateType.initial,
-        suggestions: const [
-          '周杰伦',
-          '林俊杰',
-          '五月天',
-          '陈奕迅',
-          '邓紫棋',
-        ],
+        suggestions: const ['周杰伦', '林俊杰', '五月天', '陈奕迅', '邓紫棋'],
       ),
     );
   }
@@ -318,8 +312,8 @@ class _SearchResultsOverlayState extends State<SearchResultsOverlay> {
                   Text(
                     '找到 ${_filteredResults.length} 个结果',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   if (!isDesktop && _availableTypes.length > 1)
                     Text(
@@ -337,9 +331,9 @@ class _SearchResultsOverlayState extends State<SearchResultsOverlay> {
           Text(
             '单曲 (${singlePartResults.length})',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).primaryColor,
-                ),
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).primaryColor,
+            ),
           ),
           const SizedBox(height: _cardSpacing),
           ...singlePartResults.map(
@@ -368,9 +362,9 @@ class _SearchResultsOverlayState extends State<SearchResultsOverlay> {
           child: Text(
             '系列视频 (${results.length})',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).primaryColor,
-                ),
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).primaryColor,
+            ),
           ),
         ),
         const SizedBox(height: _cardSpacing),
@@ -396,8 +390,7 @@ class _SearchResultsOverlayState extends State<SearchResultsOverlay> {
     final pages = _pagesCache[result.id] ?? [];
     final isLoading = _pagesLoading[result.id] == true;
 
-    if (result.type != SearchResultType.video ||
-        (isLoading && pages.isEmpty)) {
+    if (result.type != SearchResultType.video || (isLoading && pages.isEmpty)) {
       return Padding(
         padding: const EdgeInsets.only(bottom: _cardSpacing),
         child: _SearchResultCard(
@@ -511,11 +504,7 @@ class _SearchResultCard extends StatelessWidget {
           fit: BoxFit.cover,
         ),
       ),
-      title: Text(
-        result.title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
+      title: Text(result.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
         result.subtitle,
         maxLines: 1,

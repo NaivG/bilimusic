@@ -102,7 +102,11 @@ class LandscapeSidebar extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     // 创建的歌单
-                    _buildPlaylistSection(brightness, colorScheme, selectedItemColor),
+                    _buildPlaylistSection(
+                      brightness,
+                      colorScheme,
+                      selectedItemColor,
+                    ),
                   ],
                 ),
               ),
@@ -152,11 +156,7 @@ class LandscapeSidebar extends StatelessWidget {
               if (onCreatePlaylist != null)
                 GestureDetector(
                   onTap: onCreatePlaylist,
-                  child: Icon(
-                    Icons.add,
-                    size: 16,
-                    color: subtitleColor,
-                  ),
+                  child: Icon(Icons.add, size: 16, color: subtitleColor),
                 ),
             ],
           ),
@@ -178,10 +178,7 @@ class LandscapeSidebar extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Text(
               '暂无歌单',
-              style: TextStyle(
-                fontSize: 12,
-                color: subtitleColor,
-              ),
+              style: TextStyle(fontSize: 12, color: subtitleColor),
             ),
           ),
       ],
@@ -316,7 +313,9 @@ class _PlaylistItem extends StatelessWidget {
                             : FontWeight.w400,
                         color: isSelected
                             ? colorScheme.onSurface
-                            : colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
+                            : colorScheme.onSurfaceVariant.withValues(
+                                alpha: 0.75,
+                              ),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -325,10 +324,7 @@ class _PlaylistItem extends StatelessWidget {
                   if (subtitle != null)
                     Text(
                       subtitle!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: subtitleColor,
-                      ),
+                      style: TextStyle(fontSize: 12, color: subtitleColor),
                     ),
                 ],
               ),
