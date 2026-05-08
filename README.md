@@ -79,7 +79,7 @@
 
 ### UI/UX
 - 利用 [cached_network_image](https://pub.dev/packages/cached_network_image) 优化图片加载
-- 使用 [bitsdojo_window](https://pub.dev/packages/bitsdojo_window) 提供桌面端窗口定制
+- 使用 [window_manager](https://pub.dev/packages/window_manager) 提供桌面端窗口定制
 - 使用 [color_thief_dart](https://pub.dev/packages/color_thief_dart) 实现动态主题色提取
 - 使用 [flutter_lyric](https://pub.dev/packages/flutter_lyric) 展示歌词
 
