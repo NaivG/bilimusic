@@ -57,6 +57,7 @@ class DesktopWindowControls extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
+                            fontFamily: 'CabinSketch'
                           ),
                         ),
                       ),

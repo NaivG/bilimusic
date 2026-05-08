@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/components/long_press_menu.dart';
 import 'package:bilimusic/managers/player_manager.dart';
 import 'package:bilimusic/managers/playlist_manager.dart';
+import 'package:bilimusic/components/long_press_menu.dart';
+import 'package:super_context_menu/super_context_menu.dart';
 import 'package:bilimusic/managers/cache_manager.dart';
 import 'package:bilimusic/utils/network_config.dart';
+import 'package:bilimusic/theme/lucent_theme.dart';
 
 /// 通用音乐列表项组件
 /// 悬停/选中时背景和圆角边框从透明渐变至半透明(alpha: 0 -> 0.2)
@@ -51,34 +53,34 @@ class _CommonMusicListTileState extends State<CommonMusicListTile> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final brightness = theme.brightness;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: LucentTokens.standardDuration,
         curve: Curves.easeOutCubic,
-        height: 64, // 组件本身约束固定高度
+        height: 64,
         decoration: BoxDecoration(
           color: _isHovered
-              ? theme.primaryColor.withValues(alpha: 0.2)
+              ? LucentTokens.surfaceHover(brightness)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: _isHovered
-                ? theme.primaryColor.withValues(alpha: 0.2)
-                : Colors.transparent,
-            width: 1.5,
-          ),
+          borderRadius: BorderRadius.circular(LucentTokens.radiusSm),
         ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(10),
-            onTap: widget.onTap ?? () => _playMusic(context),
-            onLongPress: () => _showLongPressMenu(context),
-            onSecondaryTap: () => _showLongPressDialog(context),
-            child: Padding(
+        child: ContextMenuWidget(
+          menuProvider: (_) => buildMusicContextMenu(
+            context: context,
+            music: widget.music,
+            playerManager: widget.playerManager,
+            playlistManager: widget.playlistManager,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: widget.onTap ?? () => _playMusic(context),
+              child: Padding(
               padding: const EdgeInsets.symmetric(
                 vertical: 8.0,
                 horizontal: 16.0,
@@ -113,7 +115,8 @@ class _CommonMusicListTileState extends State<CommonMusicListTile> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildCover(BuildContext context) {
@@ -209,33 +212,4 @@ class _CommonMusicListTileState extends State<CommonMusicListTile> {
     widget.playerManager.play(detailedMusic);
   }
 
-  void _showLongPressMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: LongPressMenu(
-          music: widget.music,
-          playerManager: widget.playerManager,
-          playlistManager: widget.playlistManager,
-        ),
-      ),
-    );
-  }
-
-  void _showLongPressDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          contentPadding: const EdgeInsets.all(16.0),
-          content: LongPressMenu(
-            music: widget.music,
-            playerManager: widget.playerManager,
-            playlistManager: widget.playlistManager,
-          ),
-        );
-      },
-    );
-  }
 }

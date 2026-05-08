@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/models/music.dart';
+import 'package:bilimusic/theme/lucent_theme.dart';
 
 /// 播放列表中的歌曲项组件
 class PlaylistItem extends StatefulWidget {
@@ -33,25 +34,19 @@ class _PlaylistItemState extends State<PlaylistItem> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final brightness = theme.brightness;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: LucentTokens.standardDuration,
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
           color: _isHovered || widget.isPlaying
-              ? theme.colorScheme.primary.withValues(alpha: 0.2)
+              ? LucentTokens.surfaceHover(brightness)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: _isHovered
-                ? theme.colorScheme.primary.withValues(alpha: 0.2)
-                : Colors.transparent,
-            width: 1.5,
-          ),
+          borderRadius: BorderRadius.circular(LucentTokens.radiusSm),
         ),
         child: Material(
           color: Colors.transparent,
@@ -72,17 +67,25 @@ class _PlaylistItemState extends State<PlaylistItem> {
                         imageUrl: widget.music.safeCoverUrl,
                         fit: BoxFit.cover,
                         placeholder: (context, url) => Container(
-                          color: isDark ? Colors.grey[800] : Colors.grey[200],
+                          color: brightness == Brightness.dark
+                              ? Colors.grey[800]
+                              : Colors.grey[200],
                           child: Icon(
                             Icons.music_note,
-                            color: isDark ? Colors.grey[600] : Colors.grey[400],
+                            color: brightness == Brightness.dark
+                                ? Colors.grey[600]
+                                : Colors.grey[400],
                           ),
                         ),
                         errorWidget: (context, url, error) => Container(
-                          color: isDark ? Colors.grey[800] : Colors.grey[200],
+                          color: brightness == Brightness.dark
+                              ? Colors.grey[800]
+                              : Colors.grey[200],
                           child: Icon(
                             Icons.music_note,
-                            color: isDark ? Colors.grey[600] : Colors.grey[400],
+                            color: brightness == Brightness.dark
+                                ? Colors.grey[600]
+                                : Colors.grey[400],
                           ),
                         ),
                       ),
@@ -111,10 +114,8 @@ class _PlaylistItemState extends State<PlaylistItem> {
                                       ? FontWeight.w600
                                       : FontWeight.w500,
                                   color: widget.isPlaying || _isHovered
-                                      ? theme.colorScheme.primary
-                                      : (isDark
-                                            ? Colors.white
-                                            : Colors.black87),
+                                      ? LucentTokens.accentPrimary
+                                      : LucentTokens.textPrimary(brightness),
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -128,12 +129,10 @@ class _PlaylistItemState extends State<PlaylistItem> {
                           style: TextStyle(
                             fontSize: 12,
                             color: widget.isPlaying || _isHovered
-                                ? theme.colorScheme.primary.withValues(
+                                ? LucentTokens.accentPrimary.withValues(
                                     alpha: 0.7,
                                   )
-                                : (isDark
-                                      ? Colors.grey[400]
-                                      : Colors.grey[600]),
+                                : LucentTokens.textSecondary(brightness),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -145,7 +144,9 @@ class _PlaylistItemState extends State<PlaylistItem> {
                   IconButton(
                     icon: Icon(
                       Icons.more_vert,
-                      color: isDark ? Colors.grey[500] : Colors.grey[400],
+                      color: brightness == Brightness.dark
+                          ? Colors.grey[500]
+                          : Colors.grey[400],
                       size: 20,
                     ),
                     onPressed: widget.onFavoriteToggle,

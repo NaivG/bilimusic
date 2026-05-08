@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/pages/playlist_page.dart';
-import 'package:bilimusic/pages/search_page.dart';
+import 'package:bilimusic/pages/search/search_overlay.dart';
+import 'package:bilimusic/pages/search/search_results_overlay.dart';
 import 'package:bilimusic/components/common/background_blur_widget.dart';
 import 'package:bilimusic/shells/landscape/landscape_sidebar.dart';
 import 'package:bilimusic/shells/landscape/landscape_bottom_control.dart';
-import 'package:bilimusic/pages/home_content.dart';
 import 'package:bilimusic/shells/landscape/landscape_title_bar.dart';
-import 'package:bilimusic/utils/color_infra.dart';
+import 'package:bilimusic/pages/home_content.dart';
+import 'package:bilimusic/theme/lucent_theme.dart';
 import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
+import 'package:bilimusic/providers/search_state_provider.dart';
 import 'package:bilimusic/pages/profile_page.dart';
 import 'package:bilimusic/pages/settings_page.dart';
 import 'package:bilimusic/pages/detail_page.dart';
@@ -25,14 +27,12 @@ import 'package:bilimusic/utils/platform_helper.dart';
 class LandscapeShell extends StatefulWidget {
   final ShellPage currentPage;
   final ShellPageManager pageManager;
-  final bool isPcMode;
   final VoidCallback onPlayList;
 
   const LandscapeShell({
     super.key,
     required this.currentPage,
     required this.pageManager,
-    required this.isPcMode,
     required this.onPlayList,
   });
 
@@ -63,20 +63,16 @@ class _LandscapeShellState extends State<LandscapeShell> {
     super.dispose();
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    updateColors(isDark: isDark);
-  }
-
   /// 主内容渲染
   Widget _buildPageContent(ShellPage page) {
     switch (page) {
       case ShellPage.home:
         return const HomeContent(showAppBar: false);
       case ShellPage.search:
-        return const SearchPage();
+        return const SearchOverlay();
+      case ShellPage.searchResults:
+        final query = widget.pageManager.getArgs<String>('query') ?? '';
+        return SearchResultsOverlay(query: query);
       case ShellPage.profile:
         return const ProfilePage();
       case ShellPage.settings:
@@ -86,9 +82,11 @@ class _LandscapeShellState extends State<LandscapeShell> {
       case ShellPage.playlist:
         final playlistId = widget.pageManager.getArgs<String>('playlistId');
         final songs = widget.pageManager.getArgs<List<Music>>('songs');
+        final playlistName = widget.pageManager.getArgs<String>('playlistName');
         return PlaylistPage(
           playlistId: playlistId,
           songs: songs,
+          playlistName: playlistName,
           onBack: () => widget.pageManager.pop(),
         );
       case ShellPage.changelog:
@@ -120,48 +118,65 @@ class _LandscapeShellState extends State<LandscapeShell> {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder(
-      valueListenable: updateColorNotifier,
-      builder: (context, _, child) {
-        return Scaffold(
-          body: Stack(
-            fit: StackFit.expand,
+    final brightness = Theme.of(context).brightness;
+    final sidebarSurface = LucentTokens.sidebarSurface(brightness);
+    return Scaffold(
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 背景模糊层
+          _buildBackground(),
+          // 主内容
+          Column(
             children: [
-              // 背景模糊层
-              _buildBackground(),
-              // 主内容
-              Column(
-                children: [
-                  // 标题栏
-                  if (_showShellChrome) _buildTitleBar(),
-                  // 主内容区域
-                  Expanded(
-                    child: Row(
-                      children: [
-                        // 侧边栏
-                        if (_showSidebar) _buildSidebar(),
-                        // 内容区
-                        Expanded(
-                          child: Material(
-                            color: sidebarColor.withValues(alpha: 0.2),
-                            child: _buildPageContent(widget.currentPage),
-                          ),
+              // 标题栏
+              if (_showShellChrome) _buildTitleBar(),
+              // 主内容区域
+              Expanded(
+                child: Row(
+                  children: [
+                    // 侧边栏
+                    if (_showSidebar) _buildSidebar(),
+                    // 内容区
+                    Expanded(
+                      child: Material(
+                        color: sidebarSurface.withValues(alpha: 0.2),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          switchInCurve: Curves.easeOut,
+                          switchOutCurve: Curves.easeIn,
+                          transitionBuilder: (child, animation) {
+                            return FadeTransition(
+                              opacity: animation,
+                              child: SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(0.03, 0),
+                                  end: Offset.zero,
+                                ).animate(CurvedAnimation(
+                                  parent: animation,
+                                  curve: Curves.easeOutCubic,
+                                )),
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: _buildPageContent(widget.currentPage),
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                  // 底部播放器
-                  if (_showShellChrome)
-                    LandscapeBottomControl(
-                      onExpand: () => widget.pageManager.push(ShellPage.detail),
-                      onPlayList: widget.onPlayList,
-                    ),
-                ],
+                  ],
+                ),
               ),
+              // 底部播放器
+              if (_showShellChrome)
+                LandscapeBottomControl(
+                  onExpand: () => widget.pageManager.push(ShellPage.detail),
+                  onPlayList: widget.onPlayList,
+                ),
             ],
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -184,6 +199,7 @@ class _LandscapeShellState extends State<LandscapeShell> {
     return LandscapeTitleBar(
       onBack: () => widget.pageManager.pop(),
       onSearchSubmit: (query) {
+        SearchStateNotifier.instance.setQuery(query);
         widget.pageManager.goToTab(1);
       },
       onSettingsTap: () {

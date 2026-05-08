@@ -3,6 +3,7 @@ import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/utils/platform_helper.dart';
 import 'package:flutter/foundation.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -21,7 +22,12 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: Text('设置')),
+      appBar: AppBar(
+        title: Text('设置'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        forceMaterialTransparency: true,
+      ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -146,8 +152,8 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             _buildSwitchListTile(
               icon: Icons.blur_on,
-              title: '毛玻璃取色效果',
-              subtitle: '为迷你播放器栏启用毛玻璃动态取色效果',
+              title: '毛玻璃效果',
+              subtitle: '为迷你播放器栏启用毛玻璃效果',
               value: sl.settingsManager.blurEffect,
               onChanged: (value) {
                 sl.settingsManager.setBlurEffect(value);
@@ -176,16 +182,6 @@ class _SettingsPageState extends State<SettingsPage> {
                   }
                 },
               ),
-            ),
-            _buildSwitchListTile(
-              icon: Icons.computer,
-              title: 'PC模式',
-              subtitle: '启用PC端界面',
-              value: sl.settingsManager.pcMode,
-              onChanged: (value) {
-                sl.settingsManager.setPcMode(value);
-                setState(() {}); // 刷新UI
-              },
             ),
 
             // 音频设置（仅在安卓平台可用）
@@ -218,10 +214,10 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
 
             // 主题设置
-            _buildSectionTitle('主题'),
+            _buildSectionTitle('主题 (需要重启生效)'),
             ListTile(
-              leading: Icon(Icons.palette, color: _getPrimaryColor(context)),
-              title: Text('主题模式(需要重启生效)'),
+              leading: Icon(Icons.settings_brightness, color: _getPrimaryColor(context)),
+              title: Text('主题模式'),
               subtitle: Text(
                 sl.settingsManager.getThemeModeText(
                   sl.settingsManager.themeMode,
@@ -244,6 +240,22 @@ class _SettingsPageState extends State<SettingsPage> {
                 },
               ),
             ),
+            ListTile(
+              leading: Icon(Icons.palette, color: _getPrimaryColor(context)),
+              title: Text('主题配色'),
+              subtitle: Text('设置全局配色方案'),
+              trailing: DropdownButton<String>(
+                value: sl.settingsManager.themeColor,
+                items: [
+                  DropdownMenuItem(value: 'lucent', child: Text('Lucent (推荐)')),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {});
+                  }
+                },
+              ),
+            ),
 
             // 数据管理
             _buildSectionTitle('数据管理'),
@@ -251,7 +263,7 @@ class _SettingsPageState extends State<SettingsPage> {
               leading: Icon(Icons.storage, color: _getPrimaryColor(context)),
               title: Text('数据管理'),
               subtitle: Text('查看详细数据、缓存信息与数据操作'),
-              trailing: Icon(Icons.arrow_forward_ios),
+              trailing: Icon(Icons.arrow_forward_ios_rounded),
               onTap: () {
                 ShellPageManager.instance.push(ShellPage.dataManagement);
               },
@@ -270,11 +282,6 @@ class _SettingsPageState extends State<SettingsPage> {
               onTap: _showChangelog,
             ),
             ListTile(
-              leading: Icon(Icons.feedback, color: _getPrimaryColor(context)),
-              title: Text('意见反馈'),
-              onTap: _showFeedbackDialog,
-            ),
-            ListTile(
               leading: Icon(
                 Icons.privacy_tip,
                 color: _getPrimaryColor(context),
@@ -286,7 +293,18 @@ class _SettingsPageState extends State<SettingsPage> {
               leading: Icon(Icons.cookie, color: _getPrimaryColor(context)),
               title: Text('查看 Cookie'),
               subtitle: Text('查看当前保存的 Cookie 信息'),
+              trailing: Icon(Icons.arrow_forward_ios_rounded),
               onTap: _showCookies,
+            ),
+            ListTile(
+              leading: Icon(Icons.code, color: _getPrimaryColor(context)),
+              title: Text('查看 Github 仓库'),
+              subtitle: Text('NaivG/BiliMusic'),
+              trailing: Icon(Icons.open_in_new),
+              onTap: () {
+                final url = Uri.parse('https://github.com/NaivG/BiliMusic');
+                launchUrl(url, mode: LaunchMode.externalApplication);
+              },
             ),
             SizedBox(height: 120),
           ],
@@ -338,11 +356,11 @@ class _SettingsPageState extends State<SettingsPage> {
     showAboutDialog(
       context: context,
       applicationName: 'BiliMusic',
-      applicationVersion: '1.5.0',
+      applicationVersion: '1.6.0',
       applicationIcon: Image.asset(
         "assets/ic_launcher.png",
-        width: 96,
-        height: 96,
+        width: 84,
+        height: 84,
       ),
       applicationLegalese: '© 2025-2026 NaivG.',
       children: [
@@ -354,42 +372,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _showChangelog() {
     ShellPageManager.instance.push(ShellPage.changelog);
-  }
-
-  void _showFeedbackDialog() {
-    final TextEditingController _controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('意见反馈'),
-          content: TextField(
-            controller: _controller,
-            maxLines: 5,
-            decoration: InputDecoration(
-              hintText: '请输入您的意见或建议...(还没做逻辑)',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('取消'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                // 这里可以添加提交反馈的逻辑
-                Navigator.pop(context);
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text('感谢您的反馈！')));
-              },
-              child: Text('提交'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   void _showPrivacyPolicy() {

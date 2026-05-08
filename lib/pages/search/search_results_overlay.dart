@@ -1,32 +1,27 @@
-import 'package:bilimusic/providers/search_state_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:bilimusic/models/search_result.dart';
 import 'package:bilimusic/models/music.dart' as music_model;
 import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/services/search_service.dart';
-import 'package:bilimusic/pages/search/widgets/search_bar_widget.dart';
 import 'package:bilimusic/pages/search/widgets/search_type_tabs.dart';
-import 'package:bilimusic/pages/search/widgets/search_result_card.dart';
 import 'package:bilimusic/pages/search/widgets/search_empty_state.dart';
-import 'package:bilimusic/components/common/cards/music_card.dart';
+import 'package:bilimusic/components/common/cards/music_list_item.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/utils/animations.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
 import 'package:rxdart/rxdart.dart';
 
-/// 搜索页 - 重构版本
-class SearchPage extends StatefulWidget {
-  final String? initialQuery; // 可选的初始搜索参数
-  final String? pendingQuery; // 来自横屏搜索栏的待搜索词
+/// 搜索结果Overlay - 接收搜索关键词，展示搜索结果
+class SearchResultsOverlay extends StatefulWidget {
+  final String query;
 
-  const SearchPage({super.key, this.initialQuery, this.pendingQuery});
+  const SearchResultsOverlay({super.key, required this.query});
 
   @override
-  State<SearchPage> createState() => _SearchPageState();
+  State<SearchResultsOverlay> createState() => _SearchResultsOverlayState();
 }
 
-class _SearchPageState extends State<SearchPage> {
-  final TextEditingController _searchController = TextEditingController();
+class _SearchResultsOverlayState extends State<SearchResultsOverlay> {
   final SearchService _searchService = SearchService();
 
   // 搜索状态
@@ -36,7 +31,6 @@ class _SearchPageState extends State<SearchPage> {
   List<SearchResultType> _availableTypes = [];
   bool _isLoading = false;
   String? _errorMessage;
-  String _currentQuery = '';
 
   // 分P加载状态
   final Map<String, bool> _pagesLoading = {};
@@ -46,7 +40,6 @@ class _SearchPageState extends State<SearchPage> {
   // 防抖
   final _searchSubject = BehaviorSubject<String>();
 
-  // 统一间距
   static const double _sectionSpacing = 24.0;
   static const double _cardSpacing = 12.0;
   static const double _horizontalPadding = 16.0;
@@ -54,57 +47,18 @@ class _SearchPageState extends State<SearchPage> {
   @override
   void initState() {
     super.initState();
-
-    // 防抖处理搜索
     _searchSubject
         .debounceTime(const Duration(milliseconds: 300))
         .listen(_performSearch);
 
-    // 监听 SearchStateNotifier 的变化（兼容独立路由 /search）
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _setupSearchStateListener();
+      _performSearch(widget.query);
     });
-
-    // 处理来自横屏搜索栏的待搜索词（优先级最高）
-    if (widget.pendingQuery != null && widget.pendingQuery!.isNotEmpty) {
-      _searchController.text = widget.pendingQuery!;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _performSearch(widget.pendingQuery!);
-      });
-    }
-    // 如果有初始搜索参数且没有待搜索词，立即执行搜索
-    else if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
-      _searchController.text = widget.initialQuery!;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _performSearch(widget.initialQuery!);
-      });
-    }
-  }
-
-  void _setupSearchStateListener() {
-    SearchStateNotifier.instance.addListener(_onSearchStateChanged);
-  }
-
-  void _onSearchStateChanged() {
-    final searchState = SearchStateNotifier.instance;
-    if (searchState.shouldSearch && searchState.query.isNotEmpty) {
-      // 更新搜索框文字并执行搜索
-      if (_searchController.text != searchState.query) {
-        _searchController.text = searchState.query;
-      }
-      _performSearch(searchState.query).then((_) {
-        // 搜索完成后标记已搜索
-        searchState.markSearched();
-      });
-    }
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
     _searchSubject.close();
-    // 移除 SearchStateNotifier 监听器
-    SearchStateNotifier.instance.removeListener(_onSearchStateChanged);
     super.dispose();
   }
 
@@ -114,9 +68,6 @@ class _SearchPageState extends State<SearchPage> {
         _allResults = [];
         _filteredResults = [];
         _availableTypes = [];
-        _currentQuery = '';
-        _pagesCache.clear();
-        _pagesLoading.clear();
       });
       return;
     }
@@ -124,9 +75,6 @@ class _SearchPageState extends State<SearchPage> {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
-      _currentQuery = query;
-      _pagesCache.clear();
-      _pagesLoading.clear();
     });
 
     final response = await _searchService.search(query);
@@ -145,13 +93,11 @@ class _SearchPageState extends State<SearchPage> {
       }
     });
 
-    // 搜索完成后，加载所有视频的分P信息
     if (response.results.isNotEmpty) {
       _fetchAllPagesWithDelay(response.results);
     }
   }
 
-  // 延时加载所有视频的分P信息
   Future<void> _fetchAllPagesWithDelay(List<SearchResult> results) async {
     if (_isPagesLoading) return;
     _isPagesLoading = true;
@@ -178,7 +124,6 @@ class _SearchPageState extends State<SearchPage> {
         }
       }
 
-      // 延时50ms避免请求过快
       await Future.delayed(const Duration(milliseconds: 50));
     }
 
@@ -201,19 +146,6 @@ class _SearchPageState extends State<SearchPage> {
     });
   }
 
-  void _onSearch(String query) {
-    _searchSubject.add(query);
-  }
-
-  void _onClear() {
-    setState(() {
-      _allResults = [];
-      _filteredResults = [];
-      _availableTypes = [];
-      _currentQuery = '';
-    });
-  }
-
   Future<void> _playResult(SearchResult result) async {
     if (result.type == SearchResultType.video) {
       final music = result.toMusic();
@@ -228,37 +160,48 @@ class _SearchPageState extends State<SearchPage> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: CustomScrollView(
-        slivers: [
-          _buildAppBar(context, screenSize),
-          if (_allResults.isEmpty && !_isLoading)
-            _buildInitialContent(context, screenSize)
-          else if (_isLoading)
-            _buildLoadingContent()
-          else if (_filteredResults.isEmpty)
-            _buildEmptyContent()
-          else
-            _buildResultsContent(context, screenSize),
-        ],
+      body: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop) {
+            ShellPageManager.instance.pop();
+          }
+        },
+        child: CustomScrollView(
+          slivers: [
+            _buildAppBar(context, screenSize),
+            if (_allResults.isEmpty && !_isLoading)
+              _buildInitialContent(context, screenSize)
+            else if (_isLoading)
+              _buildLoadingContent()
+            else if (_filteredResults.isEmpty)
+              _buildEmptyContent()
+            else
+              _buildResultsContent(context, screenSize),
+          ],
+        ),
       ),
     );
   }
 
-  // 构建应用栏
   SliverAppBar _buildAppBar(BuildContext context, ScreenSize screenSize) {
     if (screenSize == ScreenSize.desktop) {
       return SliverAppBar(
+        backgroundColor: Colors.transparent,
         floating: true,
         snap: true,
         automaticallyImplyLeading: false,
         title: Row(
           children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
+              onPressed: () => ShellPageManager.instance.pop(),
+            ),
             Expanded(
-              child: SearchBarWidget(
-                controller: _searchController,
-                onSearch: _onSearch,
-                onClear: _onClear,
-                hintText: '搜索音乐、视频、UP主...',
+              child: Text(
+                '搜索: ${widget.query}',
+                style: const TextStyle(fontSize: 16),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             const SizedBox(width: 12),
@@ -272,13 +215,17 @@ class _SearchPageState extends State<SearchPage> {
       );
     } else {
       return SliverAppBar(
+        backgroundColor: Colors.transparent,
         floating: true,
         snap: true,
-        title: SearchBarWidget(
-          controller: _searchController,
-          onSearch: _onSearch,
-          onClear: _onClear,
-          autoFocus: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => ShellPageManager.instance.pop(),
+        ),
+        title: Text(
+          '搜索: ${widget.query}',
+          style: const TextStyle(fontSize: 16),
+          overflow: TextOverflow.ellipsis,
         ),
         bottom: _availableTypes.isNotEmpty
             ? PreferredSize(
@@ -297,20 +244,22 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
-  // 构建初始内容（未搜索状态）
   Widget _buildInitialContent(BuildContext context, ScreenSize screenSize) {
-    final suggestions = ['周杰伦', '林俊杰', '五月天', '陈奕迅', '邓紫棋'];
-
     return SliverFillRemaining(
       hasScrollBody: false,
       child: SearchEmptyState(
         type: EmptyStateType.initial,
-        suggestions: suggestions,
+        suggestions: const [
+          '周杰伦',
+          '林俊杰',
+          '五月天',
+          '陈奕迅',
+          '邓紫棋',
+        ],
       ),
     );
   }
 
-  // 构建加载内容
   Widget _buildLoadingContent() {
     return const SliverFillRemaining(
       hasScrollBody: false,
@@ -318,12 +267,11 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  // 构建空内容
   Widget _buildEmptyContent() {
     return SliverFillRemaining(
       hasScrollBody: false,
       child: SearchEmptyState(
-        type: _currentQuery.isEmpty
+        type: _errorMessage == null
             ? EmptyStateType.initial
             : EmptyStateType.noResults,
         customMessage: _errorMessage ?? '没有找到相关结果',
@@ -331,18 +279,15 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  // 构建搜索结果内容 - 混合布局
   Widget _buildResultsContent(BuildContext context, ScreenSize screenSize) {
     final isDesktop = screenSize == ScreenSize.desktop;
     final spacing = isDesktop ? _sectionSpacing / 2 : _cardSpacing / 2;
 
-    // 分离多P和单P视频
     final multiPartResults = <SearchResult>[];
     final singlePartResults = <SearchResult>[];
 
     for (final result in _filteredResults) {
       if (result.type != SearchResultType.video) {
-        // 非视频类型（专辑、UP主等）归为单P
         singlePartResults.add(result);
       } else {
         final pages = _pagesCache[result.id] ?? [];
@@ -358,7 +303,6 @@ class _SearchPageState extends State<SearchPage> {
       padding: EdgeInsets.all(spacing),
       sliver: SliverList(
         delegate: SliverChildListDelegate([
-          // 搜索结果标题
           FadeInWidget(
             duration: const Duration(milliseconds: 400),
             child: Padding(
@@ -374,8 +318,8 @@ class _SearchPageState extends State<SearchPage> {
                   Text(
                     '找到 ${_filteredResults.length} 个结果',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                          fontWeight: FontWeight.w600,
+                        ),
                   ),
                   if (!isDesktop && _availableTypes.length > 1)
                     Text(
@@ -386,33 +330,33 @@ class _SearchPageState extends State<SearchPage> {
               ),
             ),
           ),
-
-          // 多P视频网格布局（紧凑排列）
           if (multiPartResults.isNotEmpty) ...[
-            _buildMultiPartGrid(context, multiPartResults, screenSize),
+            _buildMultiPartList(context, multiPartResults, screenSize),
             const SizedBox(height: _cardSpacing * 2),
           ],
-
-          // 单P视频列表样式
+          Text(
+            '单曲 (${singlePartResults.length})',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).primaryColor,
+                ),
+          ),
+          const SizedBox(height: _cardSpacing),
           ...singlePartResults.map(
             (result) => _buildResultItem(context, result, screenSize),
           ),
-
-          const SizedBox(height: 120), // 底部占位
+          const SizedBox(height: 120),
         ]),
       ),
     );
   }
 
-  // 构建多P视频网格布局（像首页一样紧凑排列）
-  Widget _buildMultiPartGrid(
+  Widget _buildMultiPartList(
     BuildContext context,
     List<SearchResult> results,
     ScreenSize screenSize,
   ) {
     final isDesktop = screenSize == ScreenSize.desktop;
-    final columns = ResponsiveHelper.responsiveGridColumns(context);
-    final gridSpacing = ResponsiveHelper.responsiveSpacing(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -424,38 +368,26 @@ class _SearchPageState extends State<SearchPage> {
           child: Text(
             '系列视频 (${results.length})',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).primaryColor,
-            ),
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).primaryColor,
+                ),
           ),
         ),
         const SizedBox(height: _cardSpacing),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: gridSpacing),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            crossAxisSpacing: gridSpacing,
-            mainAxisSpacing: gridSpacing,
-            childAspectRatio: screenSize == ScreenSize.mobile ? 0.8 : 0.85,
-          ),
-          itemCount: results.length,
-          itemBuilder: (context, index) {
-            final result = results[index];
-            final pages = _pagesCache[result.id] ?? [];
-            return FadeInWidget(
+        ...results.map((result) {
+          final pages = _pagesCache[result.id] ?? [];
+          return Padding(
+            padding: EdgeInsets.only(bottom: _cardSpacing),
+            child: FadeInWidget(
               duration: const Duration(milliseconds: 400),
-              delay: Duration(milliseconds: (index % columns) * 50),
-              child: _buildStackedCard(context, result, pages),
-            );
-          },
-        ),
+              child: _buildMultiPartListItem(context, result, pages),
+            ),
+          );
+        }),
       ],
     );
   }
 
-  // 根据类型选择卡片或列表样式
   Widget _buildResultItem(
     BuildContext context,
     SearchResult result,
@@ -464,11 +396,11 @@ class _SearchPageState extends State<SearchPage> {
     final pages = _pagesCache[result.id] ?? [];
     final isLoading = _pagesLoading[result.id] == true;
 
-    // 非视频类型或单P视频，使用原有卡片样式
-    if (result.type != SearchResultType.video || (isLoading && pages.isEmpty)) {
+    if (result.type != SearchResultType.video ||
+        (isLoading && pages.isEmpty)) {
       return Padding(
         padding: const EdgeInsets.only(bottom: _cardSpacing),
-        child: SearchResultCard(
+        child: _SearchResultCard(
           result: result,
           playerManager: sl.playerManager,
           playlistManager: sl.playlistManager,
@@ -477,31 +409,30 @@ class _SearchPageState extends State<SearchPage> {
       );
     }
 
-    // 单P视频：使用列表样式
     return Padding(
       padding: const EdgeInsets.only(bottom: _cardSpacing),
       child: _buildListItem(context, result),
     );
   }
 
-  // 构建叠加卡片样式（多P视频）
-  Widget _buildStackedCard(
+  Widget _buildMultiPartListItem(
     BuildContext context,
     SearchResult result,
     List<music_model.Page> pages,
   ) {
     final music = result.toMusic(pages: pages);
 
-    return StackedMusicCard(
+    return MusicListItem(
       music: music,
       playerManager: sl.playerManager,
       playlistManager: sl.playlistManager,
       onTap: () => _navigateToPlaylist(result, pages),
-      showBadge: true,
+      showCover: true,
+      showDetails: true,
+      showPageIndicator: true,
     );
   }
 
-  // 构建列表样式（单P视频）
   Widget _buildListItem(BuildContext context, SearchResult result) {
     return MusicListItem(
       music: result.toMusic(),
@@ -511,9 +442,7 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  // 导航到Playlist页面展示所有分P
   void _navigateToPlaylist(SearchResult result, List<music_model.Page> pages) {
-    // 将分P转换为Music列表，每个分P使用分P的名称、时长和cid
     final songs = pages.map<music_model.Music>((page) {
       return music_model.Music(
         id: result.id,
@@ -529,10 +458,10 @@ class _SearchPageState extends State<SearchPage> {
       );
     }).toList();
 
-    // 统一使用Shell导航
     ShellPageManager.instance.goToPlaylist(
       playlistId: 'search_${result.id}',
       songs: songs,
+      playlistName: result.title,
     );
   }
 
@@ -551,5 +480,53 @@ class _SearchPageState extends State<SearchPage> {
       case SearchResultType.upuser:
         return '用户';
     }
+  }
+}
+
+/// 简化版搜索结果卡片（用于搜索结果页）
+class _SearchResultCard extends StatelessWidget {
+  final SearchResult result;
+  final dynamic playerManager;
+  final dynamic playlistManager;
+  final VoidCallback? onTap;
+
+  const _SearchResultCard({
+    required this.result,
+    required this.playerManager,
+    required this.playlistManager,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          result.coverUrl.isNotEmpty
+              ? result.coverUrl
+              : 'https://i0.hdslb.com/bfs/static/jinkela/video/asserts/no_video.png',
+          width: 56,
+          height: 56,
+          fit: BoxFit.cover,
+        ),
+      ),
+      title: Text(
+        result.title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Text(
+        result.subtitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+      ),
+      trailing: IconButton(
+        icon: const Icon(Icons.play_circle_outline),
+        onPressed: onTap,
+      ),
+      onTap: onTap,
+    );
   }
 }

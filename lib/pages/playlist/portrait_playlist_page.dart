@@ -1,98 +1,88 @@
 import 'package:flutter/material.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/models/playlist_tag.dart';
 import 'package:bilimusic/core/service_locator.dart';
-import 'package:bilimusic/pages/playlist/widgets/playlist_header.dart';
+import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/pages/playlist/widgets/playlist_hero.dart';
 import 'package:bilimusic/pages/playlist/widgets/playlist_song_list.dart';
 
-/// 竖屏播放列表页面
-class PortraitPlaylistPage extends StatefulWidget {
+/// Portrait playlist page with hero Column + track list in a single scroll.
+class PortraitPlaylistPage extends StatelessWidget {
   final String? playlistId;
   final List<Music> songs;
   final Playlist? currentPlaylist;
-  final List<Playlist> userPlaylists;
-  final List<PlaylistTag> allTags;
-  final String? selectedTagId;
   final bool isFavorited;
   final VoidCallback onBack;
   final Function(Music) onSongTap;
-  final Function(Music) onSongLongPress;
-  final Function(Music) onRemoveSong;
+  final Function(Music)? onRemoveSong;
   final VoidCallback onPlayAll;
   final VoidCallback onShufflePlay;
   final VoidCallback onToggleFavorite;
-  final Function(String) onFilterByTag;
-  final VoidCallback onCreatePlaylist;
 
   const PortraitPlaylistPage({
     super.key,
     this.playlistId,
     required this.songs,
     this.currentPlaylist,
-    required this.userPlaylists,
-    required this.allTags,
-    this.selectedTagId,
-    required this.isFavorited,
+    this.isFavorited = false,
     required this.onBack,
     required this.onSongTap,
-    required this.onSongLongPress,
-    required this.onRemoveSong,
+    this.onRemoveSong,
     required this.onPlayAll,
     required this.onShufflePlay,
     required this.onToggleFavorite,
-    required this.onFilterByTag,
-    required this.onCreatePlaylist,
   });
 
   @override
-  State<PortraitPlaylistPage> createState() => _PortraitPlaylistPageState();
-}
-
-class _PortraitPlaylistPageState extends State<PortraitPlaylistPage> {
-  @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: SafeArea(
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            children: [
-              const SizedBox(height: 16),
-              // 歌单信息头部
-              PlaylistHeader(
-                playlist:
-                    widget.currentPlaylist ??
-                    Playlist(
-                      id: 'temp',
-                      name: '播放列表',
-                      createdAt: DateTime.now(),
-                      updatedAt: DateTime.now(),
-                    ),
-                songs: widget.songs,
-                onPlayAll: widget.onPlayAll,
-                onShufflePlay: widget.onShufflePlay,
-                onFavorite: widget.onToggleFavorite,
-                isFavorited: widget.isFavorited,
-              ),
-              const SizedBox(height: 16),
-              // 歌曲列表
-              Expanded(
-                child: PlaylistSongList(
-                  songs: widget.songs,
-                  currentPlayingMusic: sl.playerManager.currentMusic,
-                  onSongTap: widget.onSongTap,
-                  onSongLongPress: widget.onSongLongPress,
-                  isEditable: widget.playlistId != null,
-                  onRemove: widget.playlistId != null
-                      ? widget.onRemoveSong
-                      : null,
-                ),
-              ),
-            ],
+      body: CustomScrollView(
+        slivers: [
+          // Top spacing
+          SliverToBoxAdapter(child: SizedBox(height: 8)),
+          // Hero section
+          SliverToBoxAdapter(
+            child: PlaylistHero(
+              playlist:
+                  currentPlaylist ??
+                  Playlist(
+                    id: 'temp',
+                    name: '播放列表',
+                    createdAt: DateTime.now(),
+                    updatedAt: DateTime.now(),
+                  ),
+              songs: songs,
+              isLandscape: false,
+              isFavorited: isFavorited,
+              onPlayAll: onPlayAll,
+              onShufflePlay: onShufflePlay,
+              onToggleFavorite: onToggleFavorite,
+            ),
           ),
-        ),
+          // Divider between hero and track list
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Divider(
+                height: 1,
+                thickness: 1,
+                color: LucentTokens.borderSubtle(brightness),
+              ),
+            ),
+          ),
+          // Track list
+          PlaylistSongList(
+              songs: songs,
+              currentPlayingMusic: sl.playerManager.currentMusic,
+              onSongTap: onSongTap,
+              isEditable: playlistId != null,
+              onRemove: playlistId != null ? onRemoveSong : null,
+              isLandscape: false,
+            ),
+        ],
       ),
     );
   }

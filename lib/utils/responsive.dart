@@ -263,9 +263,8 @@ class LandscapeBreakpoints {
   /// 获取横屏主播放按钮尺寸
   static double getMainPlayButtonSize(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width >= desktopMin) return 68;
-    if (width >= largeTabletMin) return 64;
-    return 60;
+    if (width >= largeTabletMin) return 48;
+    return 36;
   }
 
   /// 获取横屏左侧区域比例

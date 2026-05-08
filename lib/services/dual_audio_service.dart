@@ -460,27 +460,23 @@ class DualAudioService {
   Future<void> pause() async {
     if (_isCrossfading) {
       _isCrossfading = false;
-      // 注意：不需要在这里暂停两个播放器
-      // executeCrossfade的中断清理逻辑会处理
       debugPrint('DualAudioService: Crossfade中暂停');
     } else {
       await _activePlayer.player.pause();
     }
-    _state.value = AudioState.paused;
-    onStateChanged?.call(AudioState.paused);
+    // 不在这里手动设置状态，让 playerStateStream 监听器自动处理
+    // 这样可以避免手动设置与监听器回调之间的竞态条件
   }
 
   /// 恢复播放
   Future<void> resume() async {
-    // 直接恢复当前active播放器
     await _activePlayer.player.play();
 
     // 确保音量为1.0
     await _activePlayer.player.setVolume(1.0);
     _activePlayer.volume = 1.0;
 
-    _state.value = AudioState.playing;
-    onStateChanged?.call(AudioState.playing);
+    // 不在这里手动设置状态，让 playerStateStream 监听器自动处理
   }
 
   /// 停止播放

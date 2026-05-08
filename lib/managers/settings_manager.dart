@@ -1,3 +1,5 @@
+// ignore_for_file: constant_identifier_names
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// 设置管理器
@@ -6,6 +8,7 @@ class SettingsManager {
   static const String KEY_NOTIFICATIONS_ENABLED = 'notifications_enabled';
   static const String KEY_DOWNLOAD_QUALITY_HIGH = 'download_quality_high';
   static const String KEY_THEME_MODE = 'theme_mode';
+  static const String KEY_THEME_COLOR = 'theme_color';
   static const String KEY_AUTO_PLAY_NEXT = 'auto_play_next';
   static const String KEY_SHOW_LYRICS = 'show_lyrics';
   static const String KEY_TABLET_MODE = 'tablet_mode'; // 平板模式设置项
@@ -13,7 +16,6 @@ class SettingsManager {
   static const String KEY_BLUR_EFFECT = 'blur_effect'; // 新增毛玻璃取色效果设置项
   static const String KEY_AUDIO_OUTPUT_MODE = 'audio_output_mode'; // 音频输出模式设置项
   static const String KEY_VERSION_CODE = 'version_code';
-  static const String KEY_PC_MODE = 'pc_mode';
 
   // Crossfade相关设置键名
   static const String KEY_CROSSFADE_ENABLED = 'crossfade_enabled';
@@ -24,11 +26,12 @@ class SettingsManager {
   static const bool DEFAULT_NOTIFICATIONS_ENABLED = true;
   static const bool DEFAULT_DOWNLOAD_QUALITY_HIGH = true;
   static const String DEFAULT_THEME_MODE = 'system';
+  static const String DEFAULT_THEME_COLOR = 'lucent';
   static const bool DEFAULT_AUTO_PLAY_NEXT = true;
   static const bool DEFAULT_SHOW_LYRICS = true;
   static const String DEFAULT_TABLET_MODE = 'auto';
   static const bool DEFAULT_FLUID_BACKGROUND = true;
-  static const bool DEFAULT_BLUR_EFFECT = true; // 新增默认值
+  static const bool DEFAULT_BLUR_EFFECT = true;
   static const String DEFAULT_AUDIO_OUTPUT_MODE =
       'audiotrack'; // 默认使用AudioTrack
   static const int DEFAULT_VERSION_CODE = 26;
@@ -64,6 +67,9 @@ class SettingsManager {
         DEFAULT_DOWNLOAD_QUALITY_HIGH;
     _cache[KEY_THEME_MODE] =
         prefs.getString(KEY_THEME_MODE) ?? DEFAULT_THEME_MODE;
+    _cache[KEY_THEME_COLOR] =
+        prefs.getString(KEY_THEME_COLOR) ?? DEFAULT_THEME_COLOR;
+
     _cache[KEY_AUTO_PLAY_NEXT] =
         prefs.getBool(KEY_AUTO_PLAY_NEXT) ?? DEFAULT_AUTO_PLAY_NEXT;
     _cache[KEY_SHOW_LYRICS] =
@@ -78,7 +84,6 @@ class SettingsManager {
         prefs.getString(KEY_AUDIO_OUTPUT_MODE) ??
         DEFAULT_AUDIO_OUTPUT_MODE; // 加载音频输出模式
     _cache[KEY_VERSION_CODE] = DEFAULT_VERSION_CODE;
-    _cache[KEY_PC_MODE] = prefs.getBool(KEY_PC_MODE) ?? DEFAULT_PC_MODE;
 
     // 加载Crossfade相关设置
     _cache[KEY_CROSSFADE_ENABLED] =
@@ -116,6 +121,15 @@ class SettingsManager {
   Future<void> setThemeMode(String value) async {
     await _saveSetting(KEY_THEME_MODE, value);
     _cache[KEY_THEME_MODE] = value;
+  }
+
+  /// 获取主题配色设置
+  String get themeColor => _cache[KEY_THEME_COLOR] ?? DEFAULT_THEME_COLOR;
+
+  /// 设置主题配色
+  Future<void> setThemeColor(String value) async {
+    await _saveSetting(KEY_THEME_COLOR, value);
+    _cache[KEY_THEME_COLOR] = value;
   }
 
   /// 获取自动播放下一首设置
@@ -279,12 +293,5 @@ class SettingsManager {
       default:
         return 'AudioTrack';
     }
-  }
-
-  bool get pcMode => _cache[KEY_PC_MODE] ?? DEFAULT_PC_MODE;
-
-  Future<void> setPcMode(bool value) async {
-    await _saveSetting(KEY_PC_MODE, value);
-    _cache[KEY_PC_MODE] = value;
   }
 }

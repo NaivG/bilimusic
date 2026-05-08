@@ -4,7 +4,6 @@
 export 'animations.dart';
 export 'captcha_helper.dart';
 export 'color_extractor.dart';
-export 'color_infra.dart';
 export 'dialog_helpers.dart';
 export 'lyric_parser.dart';
 export 'netease_music_api.dart';

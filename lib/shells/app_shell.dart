@@ -3,6 +3,8 @@ import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/utils/platform_helper.dart';
 import 'package:bilimusic/components/playlist/playlist_sheet.dart';
+import 'package:bilimusic/components/pip/pip_overlay.dart';
+import 'package:bilimusic/services/pip_service.dart';
 import 'package:bilimusic/shells/landscape_shell.dart';
 import 'package:bilimusic/shells/portrait_shell.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
@@ -17,21 +19,28 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   final ShellPageManager _pageManager = ShellPageManager.instance;
+  final PipService _pipService = PipService();
   final bool _isPcPlatform = PlatformHelper.isDesktop;
 
   @override
   void initState() {
     super.initState();
     _pageManager.addListener(_onPageChanged);
+    _pipService.addListener(_onPipChanged);
   }
 
   @override
   void dispose() {
     _pageManager.removeListener(_onPageChanged);
+    _pipService.removeListener(_onPipChanged);
     super.dispose();
   }
 
   void _onPageChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onPipChanged() {
     if (mounted) setState(() {});
   }
 
@@ -63,6 +72,11 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    // 桌面端 PiP 模式优先渲染
+    if (_pipService.isPipMode) {
+      return const PipOverlay();
+    }
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -91,7 +105,6 @@ class _AppShellState extends State<AppShell> {
     return LandscapeShell(
       currentPage: currentPage,
       pageManager: _pageManager,
-      isPcMode: sl.settingsManager.pcMode,
       onPlayList: _openPlayList,
     );
   }
@@ -102,7 +115,6 @@ class _AppShellState extends State<AppShell> {
       pageManager: _pageManager,
       isTabletMode: _isTabletMode(context),
       isPcPlatform: _isPcPlatform,
-      isPcMode: sl.settingsManager.pcMode,
       onPlayList: _openPlayList,
     );
   }

@@ -4,6 +4,7 @@ import 'package:bilimusic/models/music.dart';
 enum ShellPage {
   home,
   search,
+  searchResults,
   profile,
   settings,
   detail,
@@ -31,6 +32,7 @@ class ShellPageManager extends ChangeNotifier {
       case ShellPage.home:
         return 0;
       case ShellPage.search:
+      case ShellPage.searchResults:
         return 1;
       case ShellPage.profile:
         return 2;
@@ -91,8 +93,16 @@ class ShellPageManager extends ChangeNotifier {
     }
   }
 
-  void goToPlaylist({required String playlistId, List<Music>? songs}) {
-    push(ShellPage.playlist, args: {'playlistId': playlistId, 'songs': songs});
+  void goToPlaylist({
+    required String playlistId,
+    List<Music>? songs,
+    String? playlistName,
+  }) {
+    push(ShellPage.playlist, args: {
+      'playlistId': playlistId,
+      'songs': songs,
+      'playlistName': playlistName,
+    });
   }
 
   void goToDetail() {

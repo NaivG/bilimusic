@@ -11,6 +11,7 @@ class CookiePage extends StatelessWidget {
 
     return Scaffold(
       appBar: AutoAppBar.generateAppBar(title: 'Cookie 信息'),
+      backgroundColor: Colors.transparent,
       bottomSheet: Container(
         alignment: Alignment.bottomCenter,
         margin: const EdgeInsets.all(16),

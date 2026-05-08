@@ -2,10 +2,7 @@
 // Export all components for convenient imports
 
 // Mini player
-export 'mini_player.dart';
-
-// Common widgets
-export 'common/widgets/index.dart';
+export 'mini_player_bar.dart';
 
 // Playlist components
 export 'playlist/playlist_item.dart';

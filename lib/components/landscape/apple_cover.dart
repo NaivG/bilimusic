@@ -1,6 +1,8 @@
+import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:bilimusic/utils/responsive.dart';
+import 'package:bilimusic/theme/lucent_theme.dart';
 
 /// Apple Music 风格的专辑封面组件
 /// 大圆角 + 双色阴影效果
@@ -68,7 +70,9 @@ class _AppleMusicCoverState extends State<AppleMusicCover>
   Widget build(BuildContext context) {
     final size =
         widget.customSize ?? LandscapeBreakpoints.getCoverSize(context);
-    final borderRadius = size > 300 ? 20.0 : 16.0;
+    final borderRadius = size > 300
+        ? LucentTokens.radiusLg
+        : LucentTokens.radiusMd;
     final dominantColor = widget.dominantColor ?? Colors.pink;
 
     return GestureDetector(

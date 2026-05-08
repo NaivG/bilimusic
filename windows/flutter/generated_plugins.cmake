@@ -4,10 +4,12 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   audio_service_win
+  irondash_engine_context
   media_kit_libs_windows_audio
   restart_app
   screen_retriever_windows
   share_plus
+  super_native_extensions
   url_launcher_windows
   window_manager
 )

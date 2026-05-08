@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:bilimusic/utils/animations.dart';
+import 'package:bilimusic/theme/lucent_theme.dart';
 
 /// Apple Music 风格的进度条组件
 /// 简洁白色设计，带触摸反馈
