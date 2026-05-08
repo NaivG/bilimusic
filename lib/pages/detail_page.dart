@@ -85,7 +85,7 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
         });
       }
     };
-    
+
     _stateListener = (state) {
       if (mounted) {
         setState(() {
