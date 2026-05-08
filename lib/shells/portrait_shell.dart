@@ -1,3 +1,4 @@
+import 'package:bilimusic/theme/lucent_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/core/service_locator.dart';
@@ -300,6 +301,14 @@ class _PortraitShellState extends State<PortraitShell> {
 
   /// 背景模糊效果
   Widget _buildBackground() {
+    if (sl.settingsManager.fluidBackground == false) {
+      final isDark = Theme.of(context).brightness;
+      return Container(
+        color: isDark == Brightness.dark
+            ? LucentTokens.darkSurfaceBase
+            : LucentTokens.lightSurfaceBase,
+      );
+    }
     final currentMusic = sl.playerManager.currentMusic;
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 400),

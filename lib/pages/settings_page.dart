@@ -143,7 +143,7 @@ class _SettingsPageState extends State<SettingsPage> {
             _buildSwitchListTile(
               icon: Icons.auto_awesome,
               title: '流体背景效果',
-              subtitle: '为详情页面启用动态模糊背景',
+              subtitle: '为页面启用模糊背景',
               value: sl.settingsManager.fluidBackground,
               onChanged: (value) {
                 sl.settingsManager.setFluidBackground(value);

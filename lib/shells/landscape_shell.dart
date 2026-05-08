@@ -185,6 +185,14 @@ class _LandscapeShellState extends State<LandscapeShell> {
 
   /// 背景模糊效果
   Widget _buildBackground() {
+    if (sl.settingsManager.fluidBackground == false) {
+      final isDark = Theme.of(context).brightness;
+      return Container(
+        color: isDark == Brightness.dark
+            ? LucentTokens.darkSurfaceBase
+            : LucentTokens.lightSurfaceBase,
+      );
+    }
     final currentMusic = sl.playerManager.currentMusic;
     return AnimatedSwitcher(
       switchInCurve: Curves.linearToEaseOut,
