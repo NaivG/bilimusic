@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:bilimusic/utils/color_infra.dart';
+import 'package:bilimusic/services/pip_service.dart';
+import 'package:bilimusic/theme/lucent_theme.dart';
 import 'package:bilimusic/utils/platform_helper.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -18,7 +19,111 @@ class LandscapeTitleBar extends StatelessWidget {
     this.onSettingsTap,
   });
 
-  Row _buildLogo() {
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final brightness = View.of(context).platformDispatcher.platformBrightness;
+    final iconColor = LucentTokens.textSecondary(brightness);
+    final searchFieldColor = LucentTokens.searchField(brightness);
+
+    return SizedBox(
+      height: 75,
+      child: Stack(
+        children: [
+          // 可拖拽区域 + 双击最大化
+          GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onPanStart: (details) {
+              if (!PlatformHelper.isDesktop) return;
+              windowManager.startDragging();
+            },
+            onDoubleTap: () async {
+              if (!PlatformHelper.isDesktop) return;
+              final isMaximized = await windowManager.isMaximized();
+              if (isMaximized) {
+                windowManager.unmaximize();
+              } else {
+                windowManager.maximize();
+              }
+            },
+            child: Container(),
+          ),
+          // 主内容
+          Stack(
+            children: [
+              // 左侧品牌元素
+              Positioned(
+                left: 20,
+                top: 0,
+                bottom: 0,
+                child: _buildLogo(colorScheme),
+              ),
+              // 搜索框 - 位于侧栏右侧，始终带返回按钮
+              if (onSearchSubmit != null)
+                Positioned(
+                  left: 220,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    decoration: BoxDecoration(
+                      border: BoxBorder.fromLTRB(
+                        left: BorderSide(
+                          color: colorScheme.outline.withValues(alpha: 0.1),
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          color: iconColor,
+                          onPressed: onBack,
+                          icon: const Icon(
+                            Icons.arrow_back_ios_rounded,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _TitleSearchField(
+                          hintText: '搜索音乐、视频、用户...',
+                          pendingQuery: pendingQuery,
+                          iconColor: iconColor,
+                          searchFieldColor: searchFieldColor,
+                          textColor: colorScheme.onSurface,
+                          onSubmitted: onSearchSubmit!,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              // 右侧设置和窗口控制
+              Positioned(
+                right: 30,
+                top: 0,
+                bottom: 0,
+                child: Row(
+                  children: [
+                    // 设置按钮
+                    if (onSettingsTap != null)
+                      IconButton(
+                        color: iconColor,
+                        onPressed: onSettingsTap,
+                        icon: const Icon(Icons.settings_outlined, size: 22),
+                      ),
+                    // 窗口控制按钮
+                    if (PlatformHelper.isDesktop) const _WindowControls(),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLogo(ColorScheme colorScheme) {
     return Row(
       children: [
         // 品牌图标
@@ -30,7 +135,7 @@ class LandscapeTitleBar extends StatelessWidget {
           style: TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 24,
-            color: highlightTextColor,
+            color: colorScheme.onSurface,
             fontFamily: 'CabinSketch',
           ),
         ),
@@ -54,104 +159,6 @@ class LandscapeTitleBar extends StatelessWidget {
       ],
     );
   }
-
-  /// 构建返回按钮
-  Widget _buildBackButton() {
-    return IconButton(
-      color: iconColor,
-      onPressed: onBack,
-      icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder(
-      valueListenable: updateColorNotifier,
-      builder: (context, _, _) {
-        return SizedBox(
-          height: 75,
-          child: Stack(
-            children: [
-              // 可拖拽区域 + 双击最大化
-              GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onPanStart: (details) {
-                  if (!PlatformHelper.isDesktop) return;
-                  windowManager.startDragging();
-                },
-                onDoubleTap: () async {
-                  if (!PlatformHelper.isDesktop) return;
-                  final isMaximized = await windowManager.isMaximized();
-                  if (isMaximized) {
-                    windowManager.unmaximize();
-                  } else {
-                    windowManager.maximize();
-                  }
-                },
-                child: Container(),
-              ),
-              // 主内容
-              Stack(
-                children: [
-                  // 左侧品牌元素
-                  Positioned(left: 20, top: 0, bottom: 0, child: _buildLogo()),
-                  // 搜索框 - 位于侧栏右侧，始终带返回按钮
-                  if (onSearchSubmit != null)
-                    Positioned(
-                      left: 220,
-                      top: 0,
-                      bottom: 0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        decoration: BoxDecoration(
-                          border: BoxBorder.fromLTRB(
-                            left: BorderSide(
-                              color: iconColor.withValues(alpha: 0.1),
-                            ),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _buildBackButton(),
-                            const SizedBox(width: 8),
-                            _TitleSearchField(
-                              hintText: '搜索音乐、视频、用户...',
-                              pendingQuery: pendingQuery,
-                              onSubmitted: onSearchSubmit!,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  // 右侧设置和窗口控制
-                  Positioned(
-                    right: 30,
-                    top: 0,
-                    bottom: 0,
-                    child: Row(
-                      children: [
-                        // 设置按钮
-                        if (onSettingsTap != null)
-                          IconButton(
-                            color: iconColor,
-                            onPressed: onSettingsTap,
-                            icon: const Icon(Icons.settings_outlined, size: 22),
-                          ),
-                        // 窗口控制按钮
-                        if (PlatformHelper.isDesktop) const _WindowControls(),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 }
 
 /// 标题栏搜索框
@@ -159,11 +166,17 @@ class _TitleSearchField extends StatefulWidget {
   final String hintText;
   final String? pendingQuery;
   final Function(String query) onSubmitted;
+  final Color iconColor;
+  final Color searchFieldColor;
+  final Color textColor;
 
   const _TitleSearchField({
     required this.hintText,
     this.pendingQuery,
     required this.onSubmitted,
+    required this.iconColor,
+    required this.searchFieldColor,
+    required this.textColor,
   });
 
   @override
@@ -199,17 +212,17 @@ class _TitleSearchFieldState extends State<_TitleSearchField> {
         child: TextField(
           controller: _textController,
           focusNode: _focusNode,
-          style: TextStyle(fontSize: 14, color: textColor),
+          style: TextStyle(fontSize: 14, color: widget.textColor),
           decoration: InputDecoration(
             hintText: widget.hintText,
             hintStyle: TextStyle(
               fontSize: 14,
-              color: textColor.withValues(alpha: 0.5),
+              color: widget.textColor.withValues(alpha: 0.5),
             ),
             contentPadding: EdgeInsets.zero,
             prefixIcon: Icon(
               Icons.search,
-              color: iconColor.withValues(alpha: 0.65),
+              color: widget.iconColor.withValues(alpha: 0.65),
               size: 18,
             ),
             suffixIcon: _textController.text.isNotEmpty
@@ -221,12 +234,12 @@ class _TitleSearchFieldState extends State<_TitleSearchField> {
                     icon: Icon(
                       Icons.close,
                       size: 18,
-                      color: iconColor.withValues(alpha: 0.65),
+                      color: widget.iconColor.withValues(alpha: 0.65),
                     ),
                   )
                 : null,
             filled: true,
-            fillColor: searchFieldColor,
+            fillColor: widget.searchFieldColor,
             hoverColor: Colors.transparent,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
@@ -251,16 +264,26 @@ class _WindowControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = View.of(context).platformDispatcher.platformBrightness;
+    final iconColor = LucentTokens.textSecondary(brightness);
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _WindowButton(
-          icon: Icons.minimize,
-          onTap: () => windowManager.minimize(),
+        IconButton(
+          icon: const Icon(Icons.picture_in_picture_alt, size: 20),
+          color: iconColor,
+          onPressed: () => PipService().toggle(),
         ),
-        _WindowButton(
-          icon: Icons.crop_square,
-          onTap: () async {
+        IconButton(
+          icon: const Icon(Icons.minimize_rounded, size: 20),
+          color: iconColor,
+          onPressed: () => windowManager.minimize(),
+        ),
+        IconButton(
+          icon: const Icon(Icons.crop_square_rounded, size: 20),
+          color: iconColor,
+          onPressed: () async {
             final isMaximized = await windowManager.isMaximized();
             if (isMaximized) {
               windowManager.unmaximize();
@@ -269,58 +292,13 @@ class _WindowControls extends StatelessWidget {
             }
           },
         ),
-        _WindowButton(
-          icon: Icons.close,
-          onTap: () => windowManager.close(),
-          isClose: true,
+        IconButton(
+          icon: const Icon(Icons.close_rounded, size: 20),
+          color: iconColor,
+          onPressed: () => windowManager.close(),
+          hoverColor: Colors.red.withValues(alpha: 0.1),
         ),
       ],
-    );
-  }
-}
-
-class _WindowButton extends StatefulWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool isClose;
-
-  const _WindowButton({
-    required this.icon,
-    required this.onTap,
-    this.isClose = false,
-  });
-
-  @override
-  State<_WindowButton> createState() => _WindowButtonState();
-}
-
-class _WindowButtonState extends State<_WindowButton> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          width: 46,
-          height: 40,
-          color: _isHovered
-              ? (widget.isClose ? Colors.red : iconColor.withValues(alpha: 0.1))
-              : Colors.transparent,
-          child: Center(
-            child: Icon(
-              widget.icon,
-              size: 14,
-              color: _isHovered && widget.isClose
-                  ? Colors.white
-                  : iconColor.withValues(alpha: 0.7),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

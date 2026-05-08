@@ -48,5 +48,6 @@ app.*.map.json
 # other
 bilibili-API-collect/
 ParticleMusic/
+LDDC/
 lib.bak
 CLAUDE.md

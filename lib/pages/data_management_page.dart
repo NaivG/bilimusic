@@ -4,7 +4,6 @@ import 'package:bilimusic/components/auto_appbar.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bilimusic/managers/cache_manager.dart';
-import 'package:bilimusic/pages/data_migration_page.dart';
 import 'package:restart_app/restart_app.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
 
@@ -175,6 +174,7 @@ class _DataManagementPageState extends State<DataManagementPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AutoAppBar.generateAppBar(title: '数据管理'),
+      backgroundColor: Colors.transparent,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(

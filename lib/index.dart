@@ -10,9 +10,6 @@ export 'services/index.dart';
 // Utils
 export 'utils/index.dart';
 
-// Routes
-export 'routes/index.dart';
-
 // Managers
 export 'managers/index.dart';
 

@@ -27,6 +27,7 @@ class PlayerCoordinator {
   final ValueNotifier<int> _crossfadeCountdown = ValueNotifier(
     -1,
   ); // 倒计时值（秒），-1表示未激活
+  final ValueNotifier<Music?> _music = ValueNotifier(null); // 当前音乐
   Music? _preloadedMusic; // 记录已预加载的音乐
 
   PlayerCoordinator({
@@ -63,6 +64,7 @@ class PlayerCoordinator {
     await _playlistService.initialize();
     await _settingsManager.init();
     _audioService.initialize();
+    _music.value = _playlistService.currentMusic;
     debugPrint('PlayerCoordinator: 初始化完成,使用DualAudioService');
   }
 
@@ -558,6 +560,7 @@ class PlayerCoordinator {
   /// 当前索引变化处理
   void _onCurrentIndexChanged() {
     _updateNotificationControls();
+    _music.value = _playlistService.currentMusic;
   }
 
   /// 更新通知控制按钮
@@ -630,6 +633,9 @@ class PlayerCoordinator {
   /// 获取crossfade倒计时（秒），-1表示未激活
   ValueListenable<int> get crossfadeCountdown => _crossfadeCountdown;
 
+  /// 获取当前音乐
+  ValueListenable<Music?> get music => _music;
+
   /// 释放资源
   Future<void> dispose() async {
     _audioService.onPlaybackCompleted = null;
@@ -643,6 +649,7 @@ class PlayerCoordinator {
     _debounceTimer?.cancel();
     _countdownTimer?.cancel();
     _crossfadeCountdown.dispose();
+    _music.dispose();
     await _audioService.dispose();
     await _playlistService.dispose();
   }

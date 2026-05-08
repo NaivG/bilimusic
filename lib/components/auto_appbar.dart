@@ -29,6 +29,7 @@ class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
   final double? titleSpacing;
   final double? toolbarOpacity;
   final double? bottomOpacity;
+  final bool? forceMaterialTransparency;
 
   const AutoAppBar({
     super.key,
@@ -55,6 +56,7 @@ class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.titleSpacing,
     this.toolbarOpacity,
     this.bottomOpacity,
+    this.forceMaterialTransparency,
   });
 
   @override
@@ -84,6 +86,7 @@ class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
       titleSpacing: titleSpacing,
       toolbarOpacity: toolbarOpacity ?? 1.0,
       bottomOpacity: bottomOpacity ?? 1.0,
+      forceMaterialTransparency: forceMaterialTransparency ?? false,
     );
 
     if (!PlatformHelper.isDesktop) {
@@ -128,10 +131,11 @@ class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
       actions: actions,
       bottom: bottom,
       elevation: elevation,
-      backgroundColor: backgroundColor,
+      backgroundColor: backgroundColor ?? Colors.transparent,
       foregroundColor: foregroundColor,
       toolbarHeight: toolbarHeight,
       centerTitle: centerTitle,
+      forceMaterialTransparency: true,
     );
   }
 }

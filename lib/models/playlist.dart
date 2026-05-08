@@ -98,9 +98,9 @@ class Playlist {
 
   /// 获取显示名称（默认歌单有特殊名称）
   String get displayName {
-    if (id == 'favorites') return '我喜欢的音乐';
-    if (id == 'history') return '最近播放';
-    if (id == 'recommended') return '每日推荐';
+    if (id == 'favorites') return '❤ 我喜欢的音乐';
+    if (id == 'history') return '🕒 最近播放';
+    if (id == 'recommended') return '🌟 每日推荐';
     return name;
   }
 

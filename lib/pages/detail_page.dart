@@ -40,6 +40,7 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
   // 播放模式
   IconData _playModeIcon = Icons.repeat;
   int _crossfadeCountdown = -1;
+  late Function(model.Music?) _musicChangedListener;
   late Function(AudioState) _stateListener;
   late Function(Duration) _positionListener;
   late Function(PlayMode) _playModeListener;
@@ -73,16 +74,22 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
     // 提取初始背景颜色
     _extractBackgroundColor(_music.coverUrl);
 
-    _stateListener = (state) {
-      if (mounted) {
-        final updatedMusic = sl.playerManager.currentMusic ?? _music;
-        if (updatedMusic.id != _music.id) {
-          _updateBackgroundColor(updatedMusic.coverUrl);
+    _musicChangedListener = (music) {
+      if (mounted && music != null) {
+        if (music.id != _music.id) {
+          _updateBackgroundColor(music.coverUrl);
         }
         setState(() {
+          _music = music;
+          _duration = music.duration;
+        });
+      }
+    };
+
+    _stateListener = (state) {
+      if (mounted) {
+        setState(() {
           _isPlaying = state == AudioState.playing;
-          _music = updatedMusic;
-          _duration = updatedMusic.duration;
         });
       }
     };
@@ -124,6 +131,7 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
       }
     };
 
+    sl.playerManager.addMusicListener(_musicChangedListener);
     sl.playerManager.addStateListener(_stateListener);
     sl.playerManager.addPositionListener(_positionListener);
     sl.playerManager.addPlayModeListener(_playModeListener);
@@ -277,6 +285,7 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
   @override
   void dispose() {
     _colorAnimationController.dispose();
+    sl.playerManager.removeMusicListener(_musicChangedListener);
     sl.playerManager.removeStateListener(_stateListener);
     sl.playerManager.removePositionListener(_positionListener);
     sl.playerManager.removePlayModeListener(_playModeListener);

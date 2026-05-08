@@ -5,6 +5,7 @@ import 'package:bilimusic/managers/player_manager.dart';
 import 'package:bilimusic/managers/playlist_manager.dart';
 import 'package:bilimusic/components/long_press_menu.dart';
 import 'package:bilimusic/utils/responsive.dart';
+import 'package:super_context_menu/super_context_menu.dart';
 import 'package:bilimusic/managers/cache_manager.dart';
 import 'package:bilimusic/utils/network_config.dart';
 
@@ -78,12 +79,23 @@ class _SearchResultCardState extends State<SearchResultCard>
         builder: (context, child) {
           return Transform.scale(scale: _scaleAnimation.value, child: child);
         },
-        child: GestureDetector(
-          onTapDown: _onTapDown,
-          onTapUp: _onTapUp,
-          onTapCancel: _onTapCancel,
-          onLongPress: () => _showContextMenu(context),
-          child: _buildCardContent(context, screenSize),
+        child: ContextMenuWidget(
+          menuProvider: (_) {
+            if (widget.result.type != SearchResultType.video) return null;
+            final music = widget.result.toMusic();
+            return buildMusicContextMenu(
+              context: context,
+              music: music,
+              playerManager: widget.playerManager,
+              playlistManager: widget.playlistManager,
+            );
+          },
+          child: GestureDetector(
+            onTapDown: _onTapDown,
+            onTapUp: _onTapUp,
+            onTapCancel: _onTapCancel,
+            child: _buildCardContent(context, screenSize),
+          ),
         ),
       ),
     );
@@ -335,23 +347,6 @@ class _SearchResultCardState extends State<SearchResultCard>
         return '话题';
       case SearchResultType.upuser:
         return '用户';
-    }
-  }
-
-  void _showContextMenu(BuildContext context) {
-    if (widget.result.type == SearchResultType.video) {
-      final music = widget.result.toMusic();
-      showModalBottomSheet(
-        context: context,
-        builder: (context) => Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: LongPressMenu(
-            music: music,
-            playerManager: widget.playerManager,
-            playlistManager: widget.playlistManager,
-          ),
-        ),
-      );
     }
   }
 }

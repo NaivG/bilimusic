@@ -48,6 +48,7 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
   IconData _playModeIcon = Icons.repeat;
 
   // 监听器
+  late Function(model.Music?) _musicChangedListener;
   late Function(AudioState) _stateListener;
   late Function(Duration) _positionListener;
   late Function(PlayMode) _playModeListener;
@@ -85,33 +86,34 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
   }
 
   void _setupListeners() {
-    _stateListener = (state) {
+    _musicChangedListener = (music) {
       if (!mounted) return;
+      if (music == null) return;
 
-      final updatedMusic = sl.playerManager.currentMusic;
-      if (updatedMusic == null) return;
-
-      final musicChanged = _previousMusicId != updatedMusic.id;
+      final musicChanged = _previousMusicId != music.id;
 
       if (musicChanged) {
-        _previousMusicId = updatedMusic.id;
+        _previousMusicId = music.id;
         _previousDominantColor = _dominantColor;
-        _updateBackgroundColor(updatedMusic.coverUrl);
+        _updateBackgroundColor(music.coverUrl);
 
         // 重新加载歌词
         _initLyricOptions();
 
         setState(() {
-          _isPlaying = state == AudioState.playing;
-          _music = updatedMusic;
-          _duration = updatedMusic.duration;
+          _music = music;
+          _duration = music.duration;
           _isFavorite = sl.playerManager.isFavorite(_music);
         });
-      } else {
-        setState(() {
-          _isPlaying = state == AudioState.playing;
-        });
       }
+    };
+
+    _stateListener = (state) {
+      if (!mounted) return;
+
+      setState(() {
+        _isPlaying = state == AudioState.playing;
+      });
     };
 
     _positionListener = (position) {
@@ -145,6 +147,7 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
       }
     };
 
+    sl.playerManager.addMusicListener(_musicChangedListener);
     sl.playerManager.addStateListener(_stateListener);
     sl.playerManager.addPositionListener(_positionListener);
     sl.playerManager.addPlayModeListener(_playModeListener);
@@ -282,6 +285,7 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
 
   @override
   void dispose() {
+    sl.playerManager.removeMusicListener(_musicChangedListener);
     sl.playerManager.removeStateListener(_stateListener);
     sl.playerManager.removePositionListener(_positionListener);
     sl.playerManager.removePlayModeListener(_playModeListener);

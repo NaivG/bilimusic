@@ -1,12 +1,14 @@
+import 'package:bilimusic/theme/lucent_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/core/service_locator.dart';
-import 'package:bilimusic/components/mini_player.dart';
+import 'package:bilimusic/components/mini_player_bar.dart';
 import 'package:bilimusic/components/desktop_window_controls.dart';
 import 'package:bilimusic/components/common/background_blur_widget.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
 import 'package:bilimusic/pages/home_page.dart';
-import 'package:bilimusic/pages/search_page.dart';
+import 'package:bilimusic/pages/search/search_overlay.dart';
+import 'package:bilimusic/pages/search/search_results_overlay.dart';
 import 'package:bilimusic/pages/profile_page.dart';
 import 'package:bilimusic/pages/settings_page.dart';
 import 'package:bilimusic/pages/detail_page.dart';
@@ -26,7 +28,6 @@ class PortraitShell extends StatefulWidget {
   final ShellPageManager pageManager;
   final bool isTabletMode;
   final bool isPcPlatform;
-  final bool isPcMode;
   final VoidCallback onPlayList;
 
   const PortraitShell({
@@ -35,7 +36,6 @@ class PortraitShell extends StatefulWidget {
     required this.pageManager,
     required this.isTabletMode,
     required this.isPcPlatform,
-    required this.isPcMode,
     required this.onPlayList,
   });
 
@@ -47,18 +47,16 @@ class _PortraitShellState extends State<PortraitShell> {
   @override
   void initState() {
     super.initState();
-    sl.playlistService.currentIndex.addListener(_onMusicChanged);
-    sl.playerManager.addStateListener((_) => _onMusicChanged());
+    sl.playerManager.addMusicListener(_onMusicChanged);
   }
 
   @override
   void dispose() {
-    sl.playlistService.currentIndex.removeListener(_onMusicChanged);
-    sl.playerManager.removeStateListener((_) => _onMusicChanged());
+    sl.playerManager.removeMusicListener(_onMusicChanged);
     super.dispose();
   }
 
-  void _onMusicChanged() {
+  void _onMusicChanged(Music? music) {
     if (mounted) setState(() {});
   }
 
@@ -77,7 +75,10 @@ class _PortraitShellState extends State<PortraitShell> {
       case ShellPage.home:
         return const HomePage();
       case ShellPage.search:
-        return const SearchPage();
+        return const SearchOverlay();
+      case ShellPage.searchResults:
+        final query = widget.pageManager.getArgs<String>('query') ?? '';
+        return SearchResultsOverlay(query: query);
       case ShellPage.profile:
         return const ProfilePage();
       case ShellPage.settings:
@@ -87,7 +88,12 @@ class _PortraitShellState extends State<PortraitShell> {
       case ShellPage.playlist:
         final playlistId = widget.pageManager.getArgs<String>('playlistId');
         final songs = widget.pageManager.getArgs<List<Music>>('songs');
-        return PlaylistPage(playlistId: playlistId, songs: songs);
+        final playlistName = widget.pageManager.getArgs<String>('playlistName');
+        return PlaylistPage(
+          playlistId: playlistId,
+          songs: songs,
+          playlistName: playlistName,
+        );
       case ShellPage.changelog:
         return const ChangelogPage();
       case ShellPage.cookie:
@@ -133,42 +139,34 @@ class _PortraitShellState extends State<PortraitShell> {
           _buildBackground(),
           Row(
             children: [
-              // 侧边导航栏（非PC模式）
-              widget.isPcMode
-                  ? const SizedBox(width: 0)
-                  : SizedBox(
-                      width: 80,
-                      child: NavigationRail(
-                        selectedIndex: selectedIndex,
-                        onDestinationSelected: (int index) {
-                          widget.pageManager.goToTab(index);
-                        },
-                        labelType: NavigationRailLabelType.all,
-                        destinations: const [
-                          NavigationRailDestination(
-                            icon: Icon(Icons.home),
-                            label: Text('首页'),
-                          ),
-                          NavigationRailDestination(
-                            icon: Icon(Icons.search),
-                            label: Text('搜索'),
-                          ),
-                          NavigationRailDestination(
-                            icon: Icon(Icons.person),
-                            label: Text('我的'),
-                          ),
-                          NavigationRailDestination(
-                            icon: Icon(Icons.settings),
-                            label: Text('设置'),
-                          ),
-                        ],
-                      ),
-                    ),
               // 主内容区域
               Expanded(
                 child: Stack(
                   children: [
-                    _buildPageContent(widget.currentPage),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeIn,
+                      transitionBuilder: (child, animation) {
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position:
+                                Tween<Offset>(
+                                  begin: const Offset(0.03, 0),
+                                  end: Offset.zero,
+                                ).animate(
+                                  CurvedAnimation(
+                                    parent: animation,
+                                    curve: Curves.easeOutCubic,
+                                  ),
+                                ),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: _buildPageContent(widget.currentPage),
+                    ),
                     // 平板模式下的悬浮迷你播放器
                     if (_showBottomBar)
                       Positioned(
@@ -178,7 +176,7 @@ class _PortraitShellState extends State<PortraitShell> {
                         child: Center(
                           child: SizedBox(
                             width: MediaQuery.of(context).size.width * 0.8,
-                            child: MiniPlayerComponent(
+                            child: MiniPlayerBar(
                               onExpand: () =>
                                   widget.pageManager.push(ShellPage.detail),
                               onPlayList: widget.onPlayList,
@@ -215,7 +213,30 @@ class _PortraitShellState extends State<PortraitShell> {
         fit: StackFit.expand,
         children: [
           _buildBackground(),
-          _buildPageContent(widget.currentPage),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            transitionBuilder: (child, animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position:
+                      Tween<Offset>(
+                        begin: const Offset(0.03, 0),
+                        end: Offset.zero,
+                      ).animate(
+                        CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOutCubic,
+                        ),
+                      ),
+                  child: child,
+                ),
+              );
+            },
+            child: _buildPageContent(widget.currentPage),
+          ),
           // 悬浮迷你播放器
           if (_showBottomBar)
             Positioned(
@@ -225,7 +246,7 @@ class _PortraitShellState extends State<PortraitShell> {
               child: Center(
                 child: SizedBox(
                   width: MediaQuery.of(context).size.width * 0.95,
-                  child: MiniPlayerComponent(
+                  child: MiniPlayerBar(
                     onExpand: () => widget.pageManager.push(ShellPage.detail),
                     onPlayList: widget.onPlayList,
                   ),
@@ -280,6 +301,14 @@ class _PortraitShellState extends State<PortraitShell> {
 
   /// 背景模糊效果
   Widget _buildBackground() {
+    if (sl.settingsManager.fluidBackground == false) {
+      final isDark = Theme.of(context).brightness;
+      return Container(
+        color: isDark == Brightness.dark
+            ? LucentTokens.darkSurfaceBase
+            : LucentTokens.lightSurfaceBase,
+      );
+    }
     final currentMusic = sl.playerManager.currentMusic;
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 400),

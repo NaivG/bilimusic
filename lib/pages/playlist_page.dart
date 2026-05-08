@@ -1,13 +1,8 @@
 import 'dart:math';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:bilimusic/components/long_press_menu.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/models/playlist_tag.dart';
 import 'package:bilimusic/core/service_locator.dart';
-import 'package:bilimusic/utils/network_config.dart';
-import 'package:bilimusic/managers/cache_manager.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/pages/playlist/portrait_playlist_page.dart';
 import 'package:bilimusic/pages/playlist/landscape_playlist_page.dart';
@@ -18,43 +13,32 @@ import 'package:bilimusic/shells/shell_page_manager.dart';
 class PlaylistPage extends StatefulWidget {
   final String? playlistId;
   final List<Music>? songs;
+  final String? playlistName;
   final VoidCallback? onBack;
 
-  const PlaylistPage({super.key, this.playlistId, this.songs, this.onBack});
+  const PlaylistPage({
+    super.key,
+    this.playlistId,
+    this.songs,
+    this.playlistName,
+    this.onBack,
+  });
 
   @override
   State<PlaylistPage> createState() => _PlaylistPageState();
 }
 
-class _PlaylistPageState extends State<PlaylistPage>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
+class _PlaylistPageState extends State<PlaylistPage> {
   // 状态
   List<Music> _songs = [];
   bool _isLoading = true;
   bool _isFavorited = false;
   Playlist? _currentPlaylist;
-  List<Playlist> _userPlaylists = [];
-  List<PlaylistTag> _allTags = [];
-  String? _selectedTagId;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _loadData();
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   /// 加载数据
@@ -65,7 +49,10 @@ class _PlaylistPageState extends State<PlaylistPage>
       if (widget.songs != null) {
         _songs = List.from(widget.songs!);
         // 为特殊播放列表创建临时歌单对象用于显示
-        _currentPlaylist = _createTempPlaylist(_songs);
+        _currentPlaylist = _createTempPlaylist(
+          _songs,
+          name: widget.playlistName,
+        );
       } else if (widget.playlistId != null) {
         // 从管理器加载歌单详情
         final detail = await sl.playlistManager.getPlaylistDetail(
@@ -76,10 +63,6 @@ class _PlaylistPageState extends State<PlaylistPage>
           _songs = detail.songs;
         }
       }
-
-      // 获取用户歌单列表
-      _userPlaylists = sl.playlistManager.userPlaylists;
-      _allTags = sl.playlistManager.watchTags().value;
 
       // 检查是否已收藏
       if (_songs.isNotEmpty) {
@@ -93,28 +76,31 @@ class _PlaylistPageState extends State<PlaylistPage>
   }
 
   /// 为特殊播放列表创建临时歌单对象
-  Playlist _createTempPlaylist(List<Music> songs) {
+  Playlist _createTempPlaylist(List<Music> songs, {String? name}) {
     // 尝试根据 songs 内容推断歌单类型
-    String name = '播放列表';
+    String displayName = name ?? '播放列表';
     PlaylistSource source = PlaylistSource.user;
 
     final favorites = sl.playerManager.favorites;
     final history = sl.playerManager.playHistory;
 
-    if (favorites.isNotEmpty && _isSameList(songs, favorites)) {
-      name = '我的收藏';
-      source = PlaylistSource.system;
-    } else if (history.isNotEmpty && _isSameList(songs, history)) {
-      name = '播放历史';
-      source = PlaylistSource.system;
+    if (displayName == '播放列表') {
+      if (favorites.isNotEmpty && _isSameList(songs, favorites)) {
+        displayName = '我的收藏';
+        source = PlaylistSource.system;
+      } else if (history.isNotEmpty && _isSameList(songs, history)) {
+        displayName = '播放历史';
+        source = PlaylistSource.system;
+      }
     }
 
     return Playlist(
       id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
-      name: name,
+      name: displayName,
       source: source,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
+      songs: songs,
     );
   }
 
@@ -184,29 +170,6 @@ class _PlaylistPageState extends State<PlaylistPage>
     await sl.playerManager.play(music);
   }
 
-  /// 处理歌曲长按
-  void _onSongLongPress(Music music) {
-    _showSongOptions(context, music);
-  }
-
-  /// 显示歌曲选项
-  void _showSongOptions(BuildContext context, Music music) {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black54,
-      builder: (context) => LongPressMenu(
-        music: music,
-        playerManager: sl.playerManager,
-        onRemoveFromPlaylist: widget.playlistId != null
-            ? () async {
-                Navigator.pop(context);
-                await _removeSong(music);
-              }
-            : null,
-      ),
-    );
-  }
-
   /// 从歌单移除歌曲
   Future<void> _removeSong(Music music) async {
     if (widget.playlistId == null) return;
@@ -245,96 +208,6 @@ class _PlaylistPageState extends State<PlaylistPage>
     }
   }
 
-  /// 创建新歌单
-  Future<void> _createPlaylist() async {
-    final nameController = TextEditingController();
-
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('创建歌单'),
-        content: TextField(
-          controller: nameController,
-          decoration: const InputDecoration(
-            labelText: '歌单名称',
-            hintText: '请输入歌单名称',
-          ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, nameController.text),
-            child: const Text('创建'),
-          ),
-        ],
-      ),
-    );
-
-    if (result != null && result.isNotEmpty) {
-      await sl.playlistManager.createPlaylist(result);
-      await _loadData();
-    }
-  }
-
-  /// 标签筛选
-  void _filterByTag(String tagId) {
-    setState(() {
-      _selectedTagId = tagId;
-    });
-
-    final filteredPlaylists = sl.playlistManager.filterPlaylistsByTag(tagId);
-    if (filteredPlaylists.isNotEmpty) {
-      _showFilteredPlaylists(filteredPlaylists);
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('该标签下暂无歌单')));
-    }
-  }
-
-  void _showFilteredPlaylists(List<Playlist> playlists) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => ListView.builder(
-        itemCount: playlists.length,
-        itemBuilder: (context, index) {
-          final playlist = playlists[index];
-          return ListTile(
-            leading: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: CachedNetworkImage(
-                imageUrl: playlist.safeCoverUrl,
-                httpHeaders: NetworkConfig.biliHeaders,
-                width: 48,
-                height: 48,
-                fit: BoxFit.cover,
-                placeholder: (context, url) =>
-                    Container(width: 48, height: 48, color: Colors.grey[800]),
-                errorWidget: (context, url, error) => Container(
-                  width: 48,
-                  height: 48,
-                  color: Colors.grey[800],
-                  child: const Icon(Icons.music_note, color: Colors.white54),
-                ),
-                cacheManager: imageCacheManager,
-              ),
-            ),
-            title: Text(playlist.name),
-            subtitle: Text('${playlist.songCount}首'),
-            onTap: () {
-              Navigator.pop(context);
-              // TODO: 导航到对应歌单
-            },
-          );
-        },
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -344,7 +217,7 @@ class _PlaylistPageState extends State<PlaylistPage>
     // 检测是否为横屏模式
     final isLandscape = LandscapeBreakpoints.isLandscapeMode(context);
 
-    // 横屏模式：使用左右分栏布局
+    // 横屏模式：使用横屏布局
     if (isLandscape) {
       return LandscapePlaylistPage(
         playlistId: widget.playlistId,
@@ -353,6 +226,7 @@ class _PlaylistPageState extends State<PlaylistPage>
         isFavorited: _isFavorited,
         onBack: widget.onBack ?? () => ShellPageManager.instance.pop(),
         onSongTap: _playSong,
+        onRemoveSong: _removeSong,
         onPlayAll: _playAll,
         onShufflePlay: _shufflePlay,
         onToggleFavorite: _toggleFavorite,
@@ -364,19 +238,13 @@ class _PlaylistPageState extends State<PlaylistPage>
       playlistId: widget.playlistId,
       songs: _songs,
       currentPlaylist: _currentPlaylist,
-      userPlaylists: _userPlaylists,
-      allTags: _allTags,
-      selectedTagId: _selectedTagId,
       isFavorited: _isFavorited,
       onBack: widget.onBack ?? () => ShellPageManager.instance.pop(),
       onSongTap: _playSong,
-      onSongLongPress: _onSongLongPress,
       onRemoveSong: _removeSong,
       onPlayAll: _playAll,
       onShufflePlay: _shufflePlay,
       onToggleFavorite: _toggleFavorite,
-      onFilterByTag: _filterByTag,
-      onCreatePlaylist: _createPlaylist,
     );
   }
 }

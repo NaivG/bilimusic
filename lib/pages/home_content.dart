@@ -7,7 +7,7 @@ import 'package:bilimusic/managers/recommendation_manager.dart';
 import 'package:bilimusic/components/common/cards/playlist_card.dart';
 import 'package:bilimusic/components/common/cards/music_list_item.dart';
 import 'package:bilimusic/utils/responsive.dart';
-import 'package:bilimusic/utils/color_infra.dart';
+import 'package:bilimusic/theme/lucent_theme.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
 
 class HomeContent extends StatefulWidget {
@@ -25,7 +25,6 @@ class _HomeContentState extends State<HomeContent> {
   List<Music> guessYouLikeList = [];
   late RecommendationManager _recommendationManager;
   bool _isLoading = false;
-  List<Playlist> _userPlaylists = [];
 
   static const double _sectionSpacing = 32.0;
   static const double _cardSpacing = 16.0;
@@ -36,7 +35,6 @@ class _HomeContentState extends State<HomeContent> {
   void initState() {
     super.initState();
     _recommendationManager = sl.recommendationManager;
-    _userPlaylists = sl.playlistManager.userPlaylists;
 
     _loadRecommendations();
   }
@@ -129,6 +127,7 @@ class _HomeContentState extends State<HomeContent> {
   SliverAppBar _buildAppBar(BuildContext context, ScreenSize screenSize) {
     if (screenSize == ScreenSize.desktop) {
       return SliverAppBar(
+        backgroundColor: Colors.transparent,
         floating: true,
         snap: true,
         automaticallyImplyLeading: false,
@@ -159,6 +158,7 @@ class _HomeContentState extends State<HomeContent> {
       );
     } else {
       return SliverAppBar(
+        backgroundColor: Colors.transparent,
         title: Row(
           children: [
             Text(
@@ -203,11 +203,44 @@ class _HomeContentState extends State<HomeContent> {
     }
   }
 
+  Widget _buildSectionHeader(String title, Color accentColor, bool isDesktop) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        isDesktop ? 0.0 : _horizontalPadding,
+        isDesktop ? 0.0 : 16.0,
+        isDesktop ? 0.0 : _horizontalPadding,
+        _titleBottomSpacing,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 18,
+            decoration: BoxDecoration(
+              color: accentColor,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   SliverPadding _buildPlaylistSection(
     BuildContext context,
     ScreenSize screenSize,
   ) {
     final isDesktop = screenSize == ScreenSize.desktop;
+    final brightness = View.of(context).platformDispatcher.platformBrightness;
+    final selectedColor = LucentTokens.selectedItem(brightness);
 
     return SliverPadding(
       padding: EdgeInsets.all(
@@ -217,36 +250,9 @@ class _HomeContentState extends State<HomeContent> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                isDesktop ? 0.0 : _horizontalPadding,
-                isDesktop ? 0.0 : 16.0,
-                isDesktop ? 0.0 : _horizontalPadding,
-                _titleBottomSpacing,
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 4,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      color: selectedItemColor,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '歌单',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            _buildSectionHeader('歌单', selectedColor, isDesktop),
             SizedBox(
-              height: 240,
+              height: 200,
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -255,8 +261,6 @@ class _HomeContentState extends State<HomeContent> {
                     PlaylistCard(
                       playlist: DefaultPlaylists.favorites
                         ..songs = sl.playlistManager.favorites,
-                      width: 140,
-                      height: 180,
                       onTap: () => ShellPageManager.instance.goToPlaylist(
                         playlistId: 'favorites',
                         songs: sl.playlistManager.favorites,
@@ -266,8 +270,6 @@ class _HomeContentState extends State<HomeContent> {
                     PlaylistCard(
                       playlist: DefaultPlaylists.history
                         ..songs = sl.playerManager.playHistory,
-                      width: 140,
-                      height: 180,
                       onTap: () => ShellPageManager.instance.goToPlaylist(
                         playlistId: 'history',
                         songs: sl.playerManager.playHistory,
@@ -276,27 +278,11 @@ class _HomeContentState extends State<HomeContent> {
                     const SizedBox(width: 12),
                     PlaylistCard(
                       playlist: _buildDailyRecommendedPlaylist(),
-                      width: 140,
-                      height: 180,
                       onTap: () => ShellPageManager.instance.goToPlaylist(
                         playlistId: 'recommended',
                         songs: guessYouLikeList.isNotEmpty
                             ? guessYouLikeList
                             : recommendedList,
-                      ),
-                    ),
-                    ..._userPlaylists.map(
-                      (playlist) => Padding(
-                        padding: const EdgeInsets.only(left: 12),
-                        child: PlaylistCard(
-                          playlist: playlist,
-                          width: 140,
-                          height: 180,
-                          onTap: () => ShellPageManager.instance.goToPlaylist(
-                            playlistId: playlist.id,
-                            songs: playlist.songs,
-                          ),
-                        ),
                       ),
                     ),
                   ],
@@ -317,6 +303,8 @@ class _HomeContentState extends State<HomeContent> {
     final displayList = recommendedList.isNotEmpty
         ? recommendedList.take(12).toList()
         : _recommendationManager.guessYouLikeList.take(12).toList();
+    final brightness = View.of(context).platformDispatcher.platformBrightness;
+    final selectedColor = LucentTokens.selectedItem(brightness);
 
     return SliverPadding(
       padding: EdgeInsets.all(
@@ -326,41 +314,7 @@ class _HomeContentState extends State<HomeContent> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                isDesktop ? 0.0 : _horizontalPadding,
-                isDesktop ? 0.0 : 16.0,
-                isDesktop ? 0.0 : _horizontalPadding,
-                _titleBottomSpacing,
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 4,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      color: selectedItemColor,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '官方推荐',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const Spacer(),
-                  if (_isLoading)
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                ],
-              ),
-            ),
+            _buildSectionHeader('官方推荐', selectedColor, isDesktop),
             if (displayList.isEmpty)
               SizedBox(
                 height: 64,
@@ -386,6 +340,7 @@ class _HomeContentState extends State<HomeContent> {
               SizedBox(
                 height: 6 * 64.0,
                 child: ListView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: (displayList.length / 2).ceil(),
                   itemBuilder: (context, rowIndex) {
@@ -415,6 +370,7 @@ class _HomeContentState extends State<HomeContent> {
               SizedBox(
                 height: 6 * 64.0,
                 child: ListView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: displayList.take(6).length,
                   itemBuilder: (context, index) {
@@ -503,6 +459,7 @@ class _HomeContentState extends State<HomeContent> {
               SizedBox(
                 height: 6 * 64.0,
                 child: ListView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: (displayHistory.length / 2).ceil(),
                   itemBuilder: (context, rowIndex) {
@@ -532,6 +489,7 @@ class _HomeContentState extends State<HomeContent> {
               SizedBox(
                 height: 6 * 64.0,
                 child: ListView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: displayHistory.take(6).length,
                   itemBuilder: (context, index) {

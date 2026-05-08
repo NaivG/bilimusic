@@ -26,6 +26,7 @@ class _DataMigrationPageState extends State<DataMigrationPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AutoAppBar.generateAppBar(title: '数据迁移'),
+      backgroundColor: Colors.transparent,
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),

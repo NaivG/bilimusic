@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:bilimusic/utils/color_infra.dart';
+import 'package:bilimusic/theme/lucent_theme.dart';
 
 /// 背景模糊组件 - 从封面图片生成模糊背景效果
 class BackgroundBlurWidget extends StatelessWidget {
@@ -11,6 +11,9 @@ class BackgroundBlurWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = View.of(context).platformDispatcher.platformBrightness;
+    final backgroundColor = LucentTokens.surfaceBase(brightness);
+
     if (coverUrl == null || coverUrl!.isEmpty) {
       return Container(color: backgroundColor);
     }
@@ -25,8 +28,11 @@ class BackgroundBlurWidget extends StatelessWidget {
               Container(color: backgroundColor),
         ),
         BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
-          child: Container(color: backgroundBaseColor.withValues(alpha: 0.5)),
+          filter: ImageFilter.blur(
+            sigmaX: LucentTokens.heavyGlassBlurSigma,
+            sigmaY: LucentTokens.heavyGlassBlurSigma,
+          ),
+          child: Container(color: backgroundColor.withValues(alpha: 0.6)),
         ),
       ],
     );

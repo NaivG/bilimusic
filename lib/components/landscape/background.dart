@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:bilimusic/managers/cache_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:bilimusic/theme/lucent_theme.dart';
 
 /// 横屏详情页动态渐变背景组件
 /// 基于封面颜色提取生成渐变效果
@@ -56,7 +57,10 @@ class LandscapeBackground extends StatelessWidget {
   Widget _buildBlurredCover() {
     return Positioned.fill(
       child: ImageFiltered(
-        imageFilter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
+        imageFilter: ImageFilter.blur(
+          sigmaX: LucentTokens.heavyGlassBlurSigma,
+          sigmaY: LucentTokens.heavyGlassBlurSigma,
+        ),
         child: CachedNetworkImage(
           imageUrl: coverUrl,
           fit: BoxFit.cover,
@@ -184,7 +188,10 @@ class _AnimatedLandscapeBackgroundState
             if (widget.coverUrl.isNotEmpty)
               Positioned.fill(
                 child: ImageFiltered(
-                  imageFilter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
+                  imageFilter: ImageFilter.blur(
+                    sigmaX: LucentTokens.heavyGlassBlurSigma,
+                    sigmaY: LucentTokens.heavyGlassBlurSigma,
+                  ),
                   child: Opacity(
                     opacity: _opacityAnimation.value,
                     child: CachedNetworkImage(

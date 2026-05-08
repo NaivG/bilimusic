@@ -136,6 +136,12 @@ abstract class PlayerManager {
 
   /// 移除crossfade倒计时变化监听器
   void removeCountdownListener(Function(int) listener);
+
+  /// 注册音乐切换监听器
+  void addMusicListener(Function(Music?) listener);
+
+  /// 移除音乐切换监听器
+  void removeMusicListener(Function(Music?) listener);
 }
 
 /// 播放器管理器实现（单例）
@@ -166,6 +172,7 @@ class StreamingPlayerManager extends PlayerManager {
   final List<Function(Duration)> _positionListeners = [];
   final List<Function(PlayMode)> _playModeListeners = [];
   final List<Function(int)> _countdownListeners = [];
+  final List<Function(Music?)> _musicListeners = [];
 
   /// 设置监听器
   void _setupListeners() {
@@ -173,6 +180,7 @@ class StreamingPlayerManager extends PlayerManager {
     _coordinator.position.addListener(_notifyPositionListeners);
     _coordinator.playMode.addListener(_notifyPlayModeListeners);
     _coordinator.crossfadeCountdown.addListener(_notifyCountdownListeners);
+    _coordinator.music.addListener(_notifyMusicListeners);
   }
 
   @override
@@ -364,11 +372,22 @@ class StreamingPlayerManager extends PlayerManager {
   }
 
   @override
+  void addMusicListener(Function(Music?) listener) {
+    _musicListeners.add(listener);
+  }
+
+  @override
+  void removeMusicListener(Function(Music?) listener) {
+    _musicListeners.remove(listener);
+  }
+
+  @override
   Future<void> dispose() async {
     _coordinator.state.removeListener(_notifyStateListeners);
     _coordinator.position.removeListener(_notifyPositionListeners);
     _coordinator.playMode.removeListener(_notifyPlayModeListeners);
     _coordinator.crossfadeCountdown.removeListener(_notifyCountdownListeners);
+    _coordinator.music.removeListener(_notifyMusicListeners);
     await _coordinator.dispose();
   }
 
@@ -416,6 +435,14 @@ class StreamingPlayerManager extends PlayerManager {
     final countdown = _coordinator.crossfadeCountdown.value;
     for (final listener in _countdownListeners) {
       listener(countdown);
+    }
+  }
+
+  /// 通知音乐切换监听器
+  void _notifyMusicListeners() {
+    final music = _coordinator.currentMusic;
+    for (final listener in _musicListeners) {
+      listener(music);
     }
   }
 }

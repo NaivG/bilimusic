@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/managers/audio_handler.dart';
 
-import 'package:bilimusic/routes/app_routes.dart';
 import 'package:bilimusic/utils/network_config.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
@@ -14,6 +13,7 @@ import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:bilimusic/utils/update_checker.dart';
 import 'package:bilimusic/components/dialogs/update_dialog.dart';
 import 'package:bilimusic/shells/app_shell.dart';
+import 'package:bilimusic/theme/lucent_theme.dart';
 
 Future<void> _setupMainWindow() async {
   await windowManager.ensureInitialized();
@@ -148,68 +148,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    // 简约现代风格主题配置
-    const modernBlue = Color(0xFF2563EB); // 现代蓝
-
     return MaterialApp(
       navigatorKey: _navigatorKey,
       title: 'BiliMusic',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: modernBlue,
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-        // 统一圆角风格
-        cardTheme: CardThemeData(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 0,
-        ),
-        // 圆角按钮风格
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        ),
-        // 圆角输入框
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          filled: true,
-        ),
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: modernBlue,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-        // 深色主题统一圆角
-        cardTheme: CardThemeData(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 0,
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          filled: true,
-        ),
-      ),
+      theme: LucentTheme.lightTheme(),
+      darkTheme: LucentTheme.darkTheme(),
       themeMode: _getThemeMode(sl.settingsManager.themeMode),
       home: const AppShell(),
-      onGenerateRoute: AppRoutes.onGenerateRoute,
     );
   }
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/utils/color_infra.dart';
+import 'package:bilimusic/theme/lucent_theme.dart';
 
 /// 横屏模式新侧边栏 - 基于ParticleMusic风格
 class LandscapeSidebar extends StatelessWidget {
@@ -23,15 +23,20 @@ class LandscapeSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final brightness = View.of(context).platformDispatcher.platformBrightness;
+    final selectedItemColor = LucentTokens.selectedItem(brightness);
+
     return Material(
-      // color: landscapeSidebarColor.withValues(alpha: 0.7),
       color: Colors.transparent,
       child: SizedBox(
         width: 221,
         child: DecoratedBox(
           decoration: BoxDecoration(
             border: BoxBorder.fromLTRB(
-              right: BorderSide(color: iconColor.withValues(alpha: 0.1)),
+              right: BorderSide(
+                color: colorScheme.outline.withValues(alpha: 0.1),
+              ),
             ),
           ),
           child: Column(
@@ -48,6 +53,7 @@ class LandscapeSidebar extends StatelessWidget {
                       activeIcon: Icons.home,
                       label: '发现',
                       isSelected: selectedLabel == 'home',
+                      selectedItemColor: selectedItemColor,
                       onTap: () => onNavTap('home'),
                     ),
                     // 搜索
@@ -56,6 +62,7 @@ class LandscapeSidebar extends StatelessWidget {
                       activeIcon: Icons.search,
                       label: '搜索',
                       isSelected: selectedLabel == 'search',
+                      selectedItemColor: selectedItemColor,
                       onTap: () => onNavTap('search'),
                     ),
                     const SizedBox(height: 10),
@@ -73,6 +80,7 @@ class LandscapeSidebar extends StatelessWidget {
                       label: '我喜欢的音乐',
                       iconColor: Colors.red,
                       isSelected: selectedPlaylistId == 'favorites',
+                      selectedItemColor: selectedItemColor,
                       onTap: () => onPlaylistTap?.call('favorites'),
                     ),
                     // 最近播放
@@ -82,6 +90,7 @@ class LandscapeSidebar extends StatelessWidget {
                       label: '最近播放',
                       iconColor: Colors.blue,
                       isSelected: selectedPlaylistId == 'history',
+                      selectedItemColor: selectedItemColor,
                       onTap: () => onPlaylistTap?.call('history'),
                     ),
                     const SizedBox(height: 10),
@@ -93,7 +102,11 @@ class LandscapeSidebar extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     // 创建的歌单
-                    _buildPlaylistSection(),
+                    _buildPlaylistSection(
+                      brightness,
+                      colorScheme,
+                      selectedItemColor,
+                    ),
                   ],
                 ),
               ),
@@ -103,6 +116,7 @@ class LandscapeSidebar extends StatelessWidget {
                 activeIcon: Icons.settings,
                 label: '设置',
                 isSelected: selectedLabel == 'settings',
+                selectedItemColor: selectedItemColor,
                 onTap: () => onNavTap('settings'),
               ),
               const SizedBox(height: 8),
@@ -113,7 +127,14 @@ class LandscapeSidebar extends StatelessWidget {
     );
   }
 
-  Widget _buildPlaylistSection() {
+  Widget _buildPlaylistSection(
+    Brightness brightness,
+    ColorScheme colorScheme,
+    Color selectedItemColor,
+  ) {
+    final textColor = colorScheme.onSurface;
+    final subtitleColor = colorScheme.onSurface.withValues(alpha: 0.45);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -128,18 +149,14 @@ class LandscapeSidebar extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: textColor.withValues(alpha: 0.45),
+                  color: subtitleColor,
                   letterSpacing: 0.5,
                 ),
               ),
               if (onCreatePlaylist != null)
                 GestureDetector(
                   onTap: onCreatePlaylist,
-                  child: Icon(
-                    Icons.add,
-                    size: 16,
-                    color: textColor.withValues(alpha: 0.45),
-                  ),
+                  child: Icon(Icons.add, size: 16, color: subtitleColor),
                 ),
             ],
           ),
@@ -150,6 +167,9 @@ class LandscapeSidebar extends StatelessWidget {
             title: p.name,
             subtitle: '${p.songCount}首',
             isSelected: selectedPlaylistId == p.id,
+            selectedItemColor: selectedItemColor,
+            textColor: textColor,
+            subtitleColor: subtitleColor,
             onTap: () => onPlaylistTap?.call(p.id),
           ),
         ),
@@ -158,10 +178,7 @@ class LandscapeSidebar extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Text(
               '暂无歌单',
-              style: TextStyle(
-                fontSize: 12,
-                color: textColor.withValues(alpha: 0.35),
-              ),
+              style: TextStyle(fontSize: 12, color: subtitleColor),
             ),
           ),
       ],
@@ -177,6 +194,7 @@ class _SidebarItem extends StatelessWidget {
   final Color? iconColor;
   final bool isSelected;
   final VoidCallback onTap;
+  final Color selectedItemColor;
 
   const _SidebarItem({
     required this.icon,
@@ -185,14 +203,16 @@ class _SidebarItem extends StatelessWidget {
     this.iconColor,
     required this.isSelected,
     required this.onTap,
+    required this.selectedItemColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final effectiveIcon = isSelected ? (activeIcon ?? icon) : icon;
     final effectiveColor = isSelected
         ? selectedItemColor
-        : (iconColor ?? iconColor?.withValues(alpha: 0.65));
+        : (iconColor ?? colorScheme.onSurfaceVariant.withValues(alpha: 0.65));
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
@@ -220,8 +240,8 @@ class _SidebarItem extends StatelessWidget {
                             ? FontWeight.w600
                             : FontWeight.w400,
                         color: isSelected
-                            ? highlightTextColor
-                            : textColor.withValues(alpha: 0.8),
+                            ? colorScheme.onSurface
+                            : colorScheme.onSurface.withValues(alpha: 0.8),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -242,16 +262,24 @@ class _PlaylistItem extends StatelessWidget {
   final String? subtitle;
   final bool isSelected;
   final VoidCallback? onTap;
+  final Color selectedItemColor;
+  final Color textColor;
+  final Color subtitleColor;
 
   const _PlaylistItem({
     required this.title,
     this.subtitle,
     required this.isSelected,
     this.onTap,
+    required this.selectedItemColor,
+    required this.textColor,
+    required this.subtitleColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
       child: ClipRRect(
@@ -271,8 +299,8 @@ class _PlaylistItem extends StatelessWidget {
                     Icons.queue_music,
                     size: 22,
                     color: isSelected
-                        ? highlightTextColor
-                        : textColor.withValues(alpha: 0.55),
+                        ? colorScheme.onSurface
+                        : colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -284,8 +312,10 @@ class _PlaylistItem extends StatelessWidget {
                             ? FontWeight.w600
                             : FontWeight.w400,
                         color: isSelected
-                            ? highlightTextColor
-                            : textColor.withValues(alpha: 0.75),
+                            ? colorScheme.onSurface
+                            : colorScheme.onSurfaceVariant.withValues(
+                                alpha: 0.75,
+                              ),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -294,10 +324,7 @@ class _PlaylistItem extends StatelessWidget {
                   if (subtitle != null)
                     Text(
                       subtitle!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: textColor.withValues(alpha: 0.45),
-                      ),
+                      style: TextStyle(fontSize: 12, color: subtitleColor),
                     ),
                 ],
               ),
