@@ -44,11 +44,11 @@ class _LandscapeShellState extends State<LandscapeShell> {
   @override
   void initState() {
     super.initState();
-    sl.playerManager.addStateListener((_) => _onMusicChanged());
+    sl.playerManager.addMusicListener(_onMusicChanged);
     widget.pageManager.addListener(_onPageChanged);
   }
 
-  void _onMusicChanged() {
+  void _onMusicChanged(Music? music) {
     if (mounted) setState(() {});
   }
 
@@ -58,7 +58,7 @@ class _LandscapeShellState extends State<LandscapeShell> {
 
   @override
   void dispose() {
-    sl.playerManager.removeStateListener((_) => _onMusicChanged());
+    sl.playerManager.removeMusicListener(_onMusicChanged);
     widget.pageManager.removeListener(_onPageChanged);
     super.dispose();
   }

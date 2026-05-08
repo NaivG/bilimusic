@@ -46,18 +46,16 @@ class _PortraitShellState extends State<PortraitShell> {
   @override
   void initState() {
     super.initState();
-    sl.playlistService.currentIndex.addListener(_onMusicChanged);
-    sl.playerManager.addStateListener((_) => _onMusicChanged());
+    sl.playerManager.addMusicListener(_onMusicChanged);
   }
 
   @override
   void dispose() {
-    sl.playlistService.currentIndex.removeListener(_onMusicChanged);
-    sl.playerManager.removeStateListener((_) => _onMusicChanged());
+    sl.playerManager.removeMusicListener(_onMusicChanged);
     super.dispose();
   }
 
-  void _onMusicChanged() {
+  void _onMusicChanged(Music? music) {
     if (mounted) setState(() {});
   }
 
