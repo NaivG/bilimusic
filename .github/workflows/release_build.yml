@@ -154,15 +154,32 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '17'
+      
+      - name: Decode Keystore
+        if: matrix.name == 'android' || matrix.name == 'android-aab'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo $KEYSTORE_BASE64 | base64 -di > android/app/keystore.jks
+        shell: bash
+          
 
       # 根据矩阵配置，为不同平台执行构建命令
       - name: Build Android APK
         if: matrix.name == 'android'
         run: flutter build apk --split-per-abi
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: Build Android App Bundle
         if: matrix.name == 'android-aab'
         run: flutter build appbundle
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: Build Web
         if: matrix.name == 'web'
