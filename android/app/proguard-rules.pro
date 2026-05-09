@@ -9,3 +9,6 @@
 # OkHttp platform classes
 -keep class okhttp3.internal.platform.** { *; }
 -keep class okhttp3.internal.http2.** { *; }
+
+# ryanheise audio classes
+-keep class com.ryanheise.** { *; }
