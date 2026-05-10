@@ -1,9 +1,11 @@
 // ignore_for_file: constant_identifier_names
 
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// 设置管理器
-class SettingsManager {
+class SettingsManager extends ChangeNotifier {
   // 设置键名常量
   static const String KEY_NOTIFICATIONS_ENABLED = 'notifications_enabled';
   static const String KEY_DOWNLOAD_QUALITY_HIGH = 'download_quality_high';
@@ -190,15 +192,22 @@ class SettingsManager {
 
   /// 通用设置保存方法
   Future<void> _saveSetting(String key, dynamic value) async {
-    final prefs = await SharedPreferences.getInstance();
+    try {
+      final prefs = await SharedPreferences.getInstance();
 
-    if (value is bool) {
-      await prefs.setBool(key, value);
-    } else if (value is String) {
-      await prefs.setString(key, value);
-    } else if (value is int) {
-      await prefs.setInt(key, value);
+      if (value is bool) {
+        await prefs.setBool(key, value);
+      } else if (value is String) {
+        await prefs.setString(key, value);
+      } else if (value is int) {
+        await prefs.setInt(key, value);
+      }
+      _cache[key] = value;
+    } catch (e) {
+      // 处理保存设置时的错误，例如日志记录
+      debugPrint('Error saving setting $key: $e');
     }
+    notifyListeners(); // 通知监听器设置已更改
   }
 
   // ============ Crossfade相关设置 ============

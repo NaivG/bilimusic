@@ -276,7 +276,7 @@ class _SettingsPageState extends State<SettingsPage> {
             _buildSectionTitle('关于'),
             ListTile(
               leading: Icon(Icons.info, color: _getPrimaryColor(context)),
-              title: Text('关于我们'),
+              title: Text('关于应用'),
               onTap: _showAboutDialog,
             ),
             ListTile(
@@ -359,7 +359,7 @@ class _SettingsPageState extends State<SettingsPage> {
     showAboutDialog(
       context: context,
       applicationName: 'BiliMusic',
-      applicationVersion: '1.6.0',
+      applicationVersion: '1.6.1',
       applicationIcon: Image.asset(
         "assets/ic_launcher.png",
         width: 84,

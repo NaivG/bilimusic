@@ -58,6 +58,9 @@ class DualAudioService {
   final ValueNotifier<Duration> _duration = ValueNotifier(Duration.zero);
   final ValueNotifier<PlayMode> _playMode = ValueNotifier(PlayMode.sequential);
 
+  final double _standbyVolume = 0.3; // 待命播放器的初始音量，避免进入mute状态
+  final int _audioTrackStartupDelay = 100; // 音频轨道启动的额外延迟，确保音量调整生效
+
   // 订阅管理
   final List<StreamSubscription> _subscriptions = [];
 
@@ -80,7 +83,7 @@ class DualAudioService {
     _setupPlayerListeners(_playerA);
     _setupPlayerListeners(_playerB);
 
-    debugPrint('DualAudioService: 双播放器初始化完成');
+    debugPrint('[DualAudioService] 双播放器初始化完成');
   }
 
   /// 获取活跃播放器引用
@@ -135,7 +138,7 @@ class DualAudioService {
     // 检测播放完成
     if (processingState == ProcessingState.completed &&
         playerInfo.role == PlayerRole.active) {
-      debugPrint('DualAudioService: 检测到播放完成');
+      debugPrint('[DualAudioService] 检测到播放完成');
       onPlaybackCompleted?.call();
       return;
     }
@@ -160,7 +163,7 @@ class DualAudioService {
       // 只在状态真正改变时才更新，避免不必要的通知
       if (_state.value != newState) {
         debugPrint(
-          'DualAudioService: 状态变更 ${_state.value} -> $newState (processing=$processingState, playing=$isPlaying)',
+          '[DualAudioService] 状态变更 ${_state.value} -> $newState (processing=$processingState, playing=$isPlaying)',
         );
         _state.value = newState;
         onStateChanged?.call(newState);
@@ -232,7 +235,7 @@ class DualAudioService {
   /// 使用活跃播放器播放URL
   Future<void> playActive(String url) async {
     try {
-      debugPrint('DualAudioService: 开始播放 $url');
+      debugPrint('[DualAudioService] 开始播放 $url');
       _state.value = AudioState.buffering;
       await _activePlayer.player.setUrl(url);
       await _activePlayer.player.seek(Duration.zero);
@@ -242,9 +245,9 @@ class DualAudioService {
       _activePlayer.isReady = true;
       await _activePlayer.player.play();
       // 注意：不立即设置_state为playing，让播放器状态监听器来更新状态
-      debugPrint('DualAudioService: 播放命令已发送');
+      debugPrint('[DualAudioService] 播放命令已发送');
     } catch (e) {
-      debugPrint('DualAudioService: 播放失败 $e');
+      debugPrint('[DualAudioService] 播放失败 $e');
       _state.value = AudioState.stopped;
       rethrow;
     }
@@ -253,7 +256,7 @@ class DualAudioService {
   /// 预加载音频到待命播放器
   Future<void> preloadToStandby(String url) async {
     try {
-      debugPrint('DualAudioService: 开始预加载 $url');
+      debugPrint('[DualAudioService] 开始预加载 $url');
       // 注意：不要修改_state，因为这是standby播放器，不应该影响UI显示的active状态
 
       await _standbyPlayer.player.setUrl(url);
@@ -262,9 +265,9 @@ class DualAudioService {
       // 不在这里设置音量为0.0，避免AudioTrack进入长时间mute状态
       // 音量将在executeCrossfade时设置
 
-      debugPrint('DualAudioService: 预加载完成');
+      debugPrint('[DualAudioService] 预加载完成');
     } catch (e) {
-      debugPrint('DualAudioService: 预加载失败 $e');
+      debugPrint('[DualAudioService] 预加载失败 $e');
       _standbyPlayer.isReady = false;
       rethrow;
     }
@@ -273,18 +276,18 @@ class DualAudioService {
   /// 执行交叉淡入淡出切换
   Future<void> executeCrossfade(int durationMs) async {
     if (_isCrossfading) {
-      debugPrint('DualAudioService: Crossfade已在进行中,跳过');
+      debugPrint('[DualAudioService] Crossfade已在进行中,跳过');
       return;
     }
 
     if (!_standbyPlayer.isReady) {
-      debugPrint('DualAudioService: 待命播放器未就绪,无法执行crossfade');
+      debugPrint('[DualAudioService] 待命播放器未就绪,无法执行crossfade');
       throw Exception('Standby player not ready');
     }
 
     _isCrossfading = true;
     _crossfadeState.value = CrossfadeState.fading;
-    debugPrint('DualAudioService: 开始Crossfade,时长${durationMs}ms');
+    debugPrint('[DualAudioService] 开始Crossfade,时长${durationMs}ms');
 
     final steps = 20; // 分20步完成渐变
     final stepDuration = Duration(milliseconds: durationMs ~/ steps);
@@ -293,8 +296,8 @@ class DualAudioService {
       // Step 1: 启动待命播放器
       // 使用稍高的初始音量避免AudioTrack mute检测
       // 然后在Crossfade循环中立即降到0开始淡入
-      await _standbyPlayer.player.setVolume(0.3); // 提高到0.3避免mute
-      _standbyPlayer.volume = 0.3;
+      await _standbyPlayer.player.setVolume(_standbyVolume);
+      _standbyPlayer.volume = _standbyVolume;
       await _standbyPlayer.player.seek(Duration.zero);
 
       // 我不知道just_audio和media_kit是怎么协调的
@@ -309,14 +312,14 @@ class DualAudioService {
       _swapPlayers();
 
       // 延长延迟确保AudioTrack完全启动
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future.delayed(Duration(milliseconds: _audioTrackStartupDelay));
 
       // 添加超时保护，防止Crossfade卡住
       final maxDuration = Duration(milliseconds: durationMs + 2000); // 额外2秒容错
       Timer? timeoutTimer;
       timeoutTimer = Timer(maxDuration, () {
         if (_isCrossfading) {
-          debugPrint('DualAudioService: Crossfade超时，强制完成');
+          debugPrint('[DualAudioService] Crossfade超时，强制完成');
           _isCrossfading = false; // 这会中断for循环
         }
       });
@@ -340,7 +343,7 @@ class DualAudioService {
 
         // 检查是否被中断
         if (!_isCrossfading) {
-          debugPrint('DualAudioService: Crossfade被中断');
+          debugPrint('[DualAudioService] Crossfade被中断');
           break;
         }
       }
@@ -351,7 +354,7 @@ class DualAudioService {
       // 如果被中断，执行清理
       if (!_isCrossfading &&
           _crossfadeState.value != CrossfadeState.completed) {
-        debugPrint('DualAudioService: 清理中断的Crossfade状态');
+        debugPrint('[DualAudioService] 清理中断的Crossfade状态');
 
         // 直接设置active播放器音量为1.0
         await _activePlayer.player.setVolume(1.0);
@@ -375,7 +378,7 @@ class DualAudioService {
 
       // Step 5: 确保新active播放器正在播放
       if (!_activePlayer.player.playing) {
-        debugPrint('DualAudioService: 新active播放器未播放，重新启动');
+        debugPrint('[DualAudioService] 新active播放器未播放，重新启动');
         await _activePlayer.player.play();
       }
 
@@ -391,7 +394,7 @@ class DualAudioService {
       onStateChanged?.call(AudioState.playing); // 因为提前切换了播放器，UI 会自动更新，理论上不需要广播
 
       _crossfadeState.value = CrossfadeState.completed;
-      debugPrint('DualAudioService: Crossfade完成,角色已交换');
+      debugPrint('[DualAudioService] Crossfade完成,角色已交换');
 
       // 延迟重置状态
       Future.delayed(const Duration(seconds: 1), () {
@@ -400,7 +403,7 @@ class DualAudioService {
         }
       });
     } catch (e) {
-      debugPrint('DualAudioService: Crossfade失败 $e');
+      debugPrint('[DualAudioService] Crossfade失败 $e');
       await _recoverFromCrossfadeError();
       rethrow;
     } finally {
@@ -417,12 +420,12 @@ class DualAudioService {
       _playerB.role = PlayerRole.standby;
       _playerA.role = PlayerRole.active;
     }
-    debugPrint('DualAudioService: 播放器角色已交换');
+    debugPrint('[DualAudioService] 播放器角色已交换');
   }
 
   /// 从Crossfade错误中恢复
   Future<void> _recoverFromCrossfadeError() async {
-    debugPrint('DualAudioService: 从Crossfade错误中恢复');
+    debugPrint('[DualAudioService] 从Crossfade错误中恢复');
 
     // 确保至少有一个播放器在播放
     if (!_activePlayer.player.playing && _standbyPlayer.player.playing) {
@@ -460,7 +463,7 @@ class DualAudioService {
   Future<void> pause() async {
     if (_isCrossfading) {
       _isCrossfading = false;
-      debugPrint('DualAudioService: Crossfade中暂停');
+      debugPrint('[DualAudioService] Crossfade中暂停');
     } else {
       await _activePlayer.player.pause();
     }
@@ -503,12 +506,12 @@ class DualAudioService {
     final currentIndex = _playMode.value.index;
     final nextIndex = (currentIndex + 1) % PlayMode.values.length;
     _playMode.value = PlayMode.values[nextIndex];
-    debugPrint('DualAudioService: 播放模式切换为 ${_playMode.value}');
+    debugPrint('[DualAudioService] 播放模式切换为 ${_playMode.value}');
   }
 
   /// 释放资源
   Future<void> dispose() async {
-    debugPrint('DualAudioService: 开始释放资源');
+    debugPrint('[DualAudioService] 开始释放资源');
 
     // 取消所有订阅
     for (final sub in _subscriptions) {
@@ -527,6 +530,6 @@ class DualAudioService {
     _isCrossfading = false;
     _crossfadeState.value = CrossfadeState.idle;
 
-    debugPrint('DualAudioService: 资源释放完成');
+    debugPrint('[DualAudioService] 资源释放完成');
   }
 }

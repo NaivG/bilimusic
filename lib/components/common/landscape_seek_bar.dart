@@ -1,6 +1,6 @@
+import 'package:bilimusic/index.dart';
 import 'package:flutter/material.dart';
 import 'package:bilimusic/core/service_locator.dart';
-import 'package:bilimusic/managers/player_manager.dart';
 
 /// 横屏模式进度条组件
 /// 基于ParticleMusic的SeekBar适配bilimusic的PlayerManager
@@ -42,7 +42,15 @@ class _LandscapeSeekBarState extends State<LandscapeSeekBar> {
 
   void _setupListeners() {
     sl.playerManager.addPositionListener(_onPositionChanged);
-    sl.playerManager.addStateListener(_onStateChanged);
+    sl.playerManager.addMusicListener(_onMusicChanged);
+  }
+
+  void _onMusicChanged(Music? music) {
+    if (mounted && music != null) {
+      setState(() {
+        _duration = music.duration ?? Duration.zero; // 只获取时长，避免不必要的状态更新
+      });
+    }
   }
 
   void _onPositionChanged(Duration position) {
@@ -53,19 +61,10 @@ class _LandscapeSeekBarState extends State<LandscapeSeekBar> {
     }
   }
 
-  void _onStateChanged(AudioState state) {
-    final music = sl.playerManager.currentMusic;
-    if (music != null && music.duration != null) {
-      setState(() {
-        _duration = music.duration!;
-      });
-    }
-  }
-
   @override
   void dispose() {
     sl.playerManager.removePositionListener(_onPositionChanged);
-    sl.playerManager.removeStateListener(_onStateChanged);
+    sl.playerManager.removeMusicListener(_onMusicChanged);
     super.dispose();
   }
 
