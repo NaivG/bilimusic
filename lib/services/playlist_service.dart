@@ -281,6 +281,17 @@ class PlaylistService {
     }
   }
 
+  /// 更新音乐信息
+  Future<void> updateToPlaylist(Music music) async {
+    final index = _findMusicIndex(_currentPlaylist.value, music);
+    if (index != -1) {
+      final newPlaylist = List<Music>.from(_currentPlaylist.value);
+      newPlaylist[index] = music;
+      _currentPlaylist.value = newPlaylist;
+      await _savePlaylist();
+    }
+  }
+
   /// 批量添加音乐到播放列表
   Future<void> addAllToPlaylist(List<Music> musics) async {
     final newMusics = musics

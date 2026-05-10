@@ -65,7 +65,7 @@ class PlayerCoordinator {
     await _settingsManager.init();
     _audioService.initialize();
     _music.value = _playlistService.currentMusic;
-    debugPrint('PlayerCoordinator: 初始化完成,使用DualAudioService');
+    debugPrint('[PlayerCoordinator] 初始化完成');
   }
 
   /// 播放音乐
@@ -88,14 +88,14 @@ class PlayerCoordinator {
         await _playCurrentTrack();
       }
     } catch (e) {
-      debugPrint('Error playing music: $e');
+      debugPrint('[PlayerCoordinator] Error playing music: $e');
       rethrow;
     }
   }
 
   /// 播放当前曲目
   Future<void> _playCurrentTrack() async {
-    final music = _playlistService.currentMusic;
+    Music? music = _playlistService.currentMusic;
     if (music == null) {
       await _audioService.stop();
       return;
@@ -104,15 +104,17 @@ class PlayerCoordinator {
     try {
       Music detailedMusic;
 
-      // 如果已有有效的cid,尝试获取对应分P的详情
-      if (music.cid.isNotEmpty) {
+      // 如果已有有效的cid或audioUrl为空,尝试获取对应分P的详情
+      if (music.cid.isNotEmpty || music.audioUrl.isEmpty) {
         detailedMusic = await _apiService.getVideoDetails(
           music.id,
-          targetCid: music.cid,
+          targetCid: music.cid.isEmpty ? null : music.cid,
         );
+        // 更新播放列表
+        await _playlistService.updateToPlaylist(detailedMusic);
       } else {
-        // 否则获取第一个分P的详情
-        detailedMusic = await _apiService.getVideoDetails(music.id);
+        // 否则使用原始的Music对象
+        detailedMusic = music;
       }
 
       // 更新通知信息
@@ -136,7 +138,7 @@ class PlayerCoordinator {
       // 更新通知控制按钮
       _updateNotificationControls();
     } catch (e) {
-      debugPrint('Error playing current track: $e');
+      debugPrint('[PlayerCoordinator] Error playing current track: $e');
       await _audioService.stop();
     }
   }
@@ -174,7 +176,7 @@ class PlayerCoordinator {
   Future<void> playNext() async {
     // 如果正在crossfade或倒计时中,取消并立即切换
     if (_isCountdownActive || _audioService.isCrossfading) {
-      debugPrint('PlayerCoordinator: 取消倒计时/crossfade，执行手动下一首');
+      debugPrint('[PlayerCoordinator] 取消倒计时/crossfade，执行手动下一首');
       _stopCountdown();
       // 取消crossfade并播放当前曲目
       await _audioService.cancelAndPlay(null);
@@ -205,7 +207,7 @@ class PlayerCoordinator {
   Future<void> playPrevious() async {
     // 如果正在crossfade或倒计时中,取消并立即切换
     if (_isCountdownActive || _audioService.isCrossfading) {
-      debugPrint('PlayerCoordinator: 取消倒计时/crossfade，执行手动上一首');
+      debugPrint('[PlayerCoordinator] 取消倒计时/crossfade，执行手动上一首');
       _stopCountdown();
       // 取消crossfade并播放当前曲目
       await _audioService.cancelAndPlay(null);
@@ -321,12 +323,12 @@ class PlayerCoordinator {
     if (remaining <= preloadThreshold) {
       // 如果standby未就绪且未在预加载中，先预加载
       if (!_audioService.isStandbyReady && !_audioService.isPreloading) {
-        debugPrint('PlayerCoordinator: 到达阈值但standby未就绪，先触发预加载');
+        debugPrint('[PlayerCoordinator] 到达阈值但standby未就绪，先触发预加载');
         _triggerPreload();
       }
       // 如果standby已就绪，启动crossfade
       else if (_audioService.isStandbyReady && !_isCountdownActive) {
-        debugPrint('PlayerCoordinator: 到达阈值且standby已就绪，启动基于时间的Crossfade');
+        debugPrint('[PlayerCoordinator] 到达阈值且standby已就绪，启动基于时间的Crossfade');
         _startTimeBasedCrossfade();
       }
     }
@@ -335,7 +337,7 @@ class PlayerCoordinator {
         remaining > preloadThreshold &&
         !_audioService.isStandbyReady &&
         !_audioService.isPreloading) {
-      debugPrint('PlayerCoordinator: 提前预加载下一首');
+      debugPrint('[PlayerCoordinator] 提前预加载下一首');
       _triggerPreload();
     }
   }
@@ -344,7 +346,7 @@ class PlayerCoordinator {
   Future<void> _startTimeBasedCrossfade() async {
     if (_isCountdownActive) return;
 
-    debugPrint('PlayerCoordinator: 启动基于时间的Crossfade');
+    debugPrint('[PlayerCoordinator] 启动基于时间的Crossfade');
 
     try {
       // 更新到下一首索引
@@ -379,7 +381,7 @@ class PlayerCoordinator {
       _stopCountdown();
       _notificationService.sendCustomEvent({'type': 'trackChanged'});
     } catch (e) {
-      debugPrint('PlayerCoordinator: 时间触发Crossfade失败 $e');
+      debugPrint('[PlayerCoordinator] 时间触发Crossfade失败 $e');
       _stopCountdown();
     }
   }
@@ -435,7 +437,7 @@ class PlayerCoordinator {
         return;
       }
 
-      debugPrint('PlayerCoordinator: 开始预加载下一首 ${nextMusic.title}');
+      debugPrint('[PlayerCoordinator] 开始预加载下一首 ${nextMusic.title}');
 
       // 获取音频URL
       Music detailedMusic;
@@ -457,9 +459,9 @@ class PlayerCoordinator {
       await _audioService.preloadToStandby(audioUrl);
       _preloadedMusic = detailedMusic;
 
-      debugPrint('PlayerCoordinator: 预加载成功');
+      debugPrint('[PlayerCoordinator] 预加载成功');
     } catch (e) {
-      debugPrint('PlayerCoordinator: 预加载失败 $e');
+      debugPrint('[PlayerCoordinator] 预加载失败 $e');
       _preloadedMusic = null;
     } finally {
       _audioService.setPreloading(false);
@@ -473,7 +475,7 @@ class PlayerCoordinator {
 
     // 如果正在倒计时中，说明已由时间触发处理完成事件，忽略此回调
     if (_isCountdownActive) {
-      debugPrint('PlayerCoordinator: 忽略完成事件（已由时间触发处理）');
+      debugPrint('[PlayerCoordinator] 忽略完成事件（已由时间触发处理）');
       _isHandlingCompletion = false;
       return;
     }
@@ -494,7 +496,7 @@ class PlayerCoordinator {
       } else if (_settingsManager.crossfadeEnabled &&
           _audioService.isStandbyReady) {
         // 启用crossfade且standby就绪:执行无缝切换
-        debugPrint('PlayerCoordinator: 执行Crossfade切换');
+        debugPrint('[PlayerCoordinator] 执行Crossfade切换');
 
         // 更新到下一首索引
         final nextIndex = _playlistService.getNextIndex(
@@ -520,13 +522,13 @@ class PlayerCoordinator {
         }
       } else {
         // 降级:普通切换
-        debugPrint('PlayerCoordinator: 降级为普通切换');
+        debugPrint('[PlayerCoordinator] 降级为普通切换');
         await playNext();
       }
 
       _notificationService.sendCustomEvent({'type': 'trackChanged'});
     } catch (e) {
-      debugPrint('PlayerCoordinator: 处理播放完成失败 $e');
+      debugPrint('[PlayerCoordinator] 处理播放完成失败 $e');
     } finally {
       _isHandlingCompletion = false;
     }
