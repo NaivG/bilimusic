@@ -2,7 +2,6 @@
 // Export all services for convenient imports
 
 export 'api_service.dart';
-export 'audio_service.dart';
 export 'notification_service.dart';
 export 'page_cache.dart';
 export 'page_service.dart';
