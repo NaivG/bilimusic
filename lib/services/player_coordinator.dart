@@ -311,11 +311,13 @@ class PlayerCoordinator {
     if (_isCountdownActive) return; // 防止重复触发
 
     // 检查是否有下一首（优先使用预加载的索引）
-    final hasNext = _preloadedIndex != null || _playlistService.getNextIndex(
-          _audioService.playMode.value,
-          random: _random,
-        ) !=
-        null;
+    final hasNext =
+        _preloadedIndex != null ||
+        _playlistService.getNextIndex(
+              _audioService.playMode.value,
+              random: _random,
+            ) !=
+            null;
     if (!hasNext) return;
 
     final currentDuration = _audioService.currentDuration;
@@ -358,10 +360,12 @@ class PlayerCoordinator {
 
     try {
       // 使用预加载的索引，确保预加载和 crossfade 的歌曲一致
-      final nextIndex = _preloadedIndex ?? _playlistService.getNextIndex(
-        _audioService.playMode.value,
-        random: _random,
-      );
+      final nextIndex =
+          _preloadedIndex ??
+          _playlistService.getNextIndex(
+            _audioService.playMode.value,
+            random: _random,
+          );
       if (nextIndex != null) {
         _playlistService.setCurrentIndex(nextIndex);
       }
@@ -511,10 +515,9 @@ class PlayerCoordinator {
         debugPrint('[PlayerCoordinator] 执行Crossfade切换');
 
         // 使用预加载的索引，确保预加载和 crossfade 的歌曲一致
-        final nextIndex = _preloadedIndex ?? _playlistService.getNextIndex(
-          playMode,
-          random: _random,
-        );
+        final nextIndex =
+            _preloadedIndex ??
+            _playlistService.getNextIndex(playMode, random: _random);
         if (nextIndex != null) {
           _playlistService.setCurrentIndex(nextIndex);
         }
