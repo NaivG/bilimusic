@@ -385,11 +385,11 @@ class _LandscapeBottomControlState extends State<LandscapeBottomControl> {
   IconData _playModeIcon(PlayMode mode) {
     switch (mode) {
       case PlayMode.sequential:
-        return Icons.queue_music;
+        return Icons.repeat_rounded;
       case PlayMode.loop:
-        return Icons.repeat;
+        return Icons.repeat_one_rounded;
       case PlayMode.shuffle:
-        return Icons.shuffle;
+        return Icons.shuffle_rounded;
     }
   }
 
