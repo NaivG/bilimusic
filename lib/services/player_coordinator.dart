@@ -29,6 +29,7 @@ class PlayerCoordinator {
   ); // 倒计时值（秒），-1表示未激活
   final ValueNotifier<Music?> _music = ValueNotifier(null); // 当前音乐
   Music? _preloadedMusic; // 记录已预加载的音乐
+  int? _preloadedIndex; // 记录已预加载的音乐索引
 
   PlayerCoordinator({
     required DualAudioService audioService,
@@ -134,6 +135,7 @@ class PlayerCoordinator {
 
       // 重置预加载状态
       _preloadedMusic = null;
+      _preloadedIndex = null;
 
       // 更新通知控制按钮
       _updateNotificationControls();
@@ -160,6 +162,7 @@ class PlayerCoordinator {
     await _audioService.stop();
     _notificationService.stop();
     _preloadedMusic = null;
+    _preloadedIndex = null;
   }
 
   /// 跳转到指定位置
@@ -197,6 +200,7 @@ class PlayerCoordinator {
         _playlistService.setCurrentIndex(nextIndex);
         // 取消预加载
         _preloadedMusic = null;
+        _preloadedIndex = null;
         await _playCurrentTrack();
         _notificationService.sendCustomEvent({'type': 'next'});
       }
@@ -234,6 +238,7 @@ class PlayerCoordinator {
         _playlistService.setCurrentIndex(previousIndex);
         // 取消预加载
         _preloadedMusic = null;
+        _preloadedIndex = null;
         await _playCurrentTrack();
         _notificationService.sendCustomEvent({'type': 'previous'});
       }
@@ -246,6 +251,7 @@ class PlayerCoordinator {
       _playlistService.setCurrentIndex(index);
       // 取消预加载
       _preloadedMusic = null;
+      _preloadedIndex = null;
       await _playCurrentTrack();
     }
   }
@@ -270,6 +276,7 @@ class PlayerCoordinator {
     await _playlistService.clearPlaylist();
     await _audioService.stop();
     _preloadedMusic = null;
+    _preloadedIndex = null;
   }
 
   /// 在播放列表中移动音乐位置(用于拖拽排序)
@@ -302,14 +309,14 @@ class PlayerCoordinator {
     if (!_settingsManager.crossfadeEnabled) return;
     if (_audioService.isCrossfading) return;
     if (_isCountdownActive) return; // 防止重复触发
-    if (_audioService.playMode.value == PlayMode.loop) return;
 
-    // 检查是否有下一首
-    final nextIndex = _playlistService.getNextIndex(
-      _audioService.playMode.value,
-      random: _random,
-    );
-    if (nextIndex == null) return;
+    // 检查是否有下一首（优先使用预加载的索引）
+    final hasNext = _preloadedIndex != null || _playlistService.getNextIndex(
+          _audioService.playMode.value,
+          random: _random,
+        ) !=
+        null;
+    if (!hasNext) return;
 
     final currentDuration = _audioService.currentDuration;
     final currentPosition = _audioService.currentPosition;
@@ -328,6 +335,7 @@ class PlayerCoordinator {
       }
       // 如果standby已就绪，启动crossfade
       else if (_audioService.isStandbyReady && !_isCountdownActive) {
+        if (!_settingsManager.autoPlayNext) return;
         debugPrint('[PlayerCoordinator] 到达阈值且standby已就绪，启动基于时间的Crossfade');
         _startTimeBasedCrossfade();
       }
@@ -349,8 +357,8 @@ class PlayerCoordinator {
     debugPrint('[PlayerCoordinator] 启动基于时间的Crossfade');
 
     try {
-      // 更新到下一首索引
-      final nextIndex = _playlistService.getNextIndex(
+      // 使用预加载的索引，确保预加载和 crossfade 的歌曲一致
+      final nextIndex = _preloadedIndex ?? _playlistService.getNextIndex(
         _audioService.playMode.value,
         random: _random,
       );
@@ -373,6 +381,7 @@ class PlayerCoordinator {
 
       // crossfade完成后清理
       _preloadedMusic = null;
+      _preloadedIndex = null;
       final currentMusic = _playlistService.currentMusic;
       if (currentMusic != null) {
         _notificationService.updateMediaInfo(currentMusic);
@@ -458,11 +467,13 @@ class PlayerCoordinator {
       // 预加载到待命播放器
       await _audioService.preloadToStandby(audioUrl);
       _preloadedMusic = detailedMusic;
+      _preloadedIndex = nextIndex;
 
       debugPrint('[PlayerCoordinator] 预加载成功');
     } catch (e) {
       debugPrint('[PlayerCoordinator] 预加载失败 $e');
       _preloadedMusic = null;
+      _preloadedIndex = null;
     } finally {
       _audioService.setPreloading(false);
     }
@@ -496,10 +507,11 @@ class PlayerCoordinator {
       } else if (_settingsManager.crossfadeEnabled &&
           _audioService.isStandbyReady) {
         // 启用crossfade且standby就绪:执行无缝切换
+        if (!_settingsManager.autoPlayNext) return;
         debugPrint('[PlayerCoordinator] 执行Crossfade切换');
 
-        // 更新到下一首索引
-        final nextIndex = _playlistService.getNextIndex(
+        // 使用预加载的索引，确保预加载和 crossfade 的歌曲一致
+        final nextIndex = _preloadedIndex ?? _playlistService.getNextIndex(
           playMode,
           random: _random,
         );
@@ -514,6 +526,7 @@ class PlayerCoordinator {
 
         // 更新预加载状态
         _preloadedMusic = null;
+        _preloadedIndex = null;
 
         // 更新媒体信息
         final currentMusic = _playlistService.currentMusic;
@@ -522,6 +535,7 @@ class PlayerCoordinator {
         }
       } else {
         // 降级:普通切换
+        if (!_settingsManager.autoPlayNext) return;
         debugPrint('[PlayerCoordinator] 降级为普通切换');
         await playNext();
       }
