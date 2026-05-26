@@ -52,6 +52,7 @@ dependencies:
   color_thief_dart: ^0.1.0
   just_audio_media_kit: ^2.1.0
   media_kit_libs_windows_audio: ^1.0.9
+  media_kit_libs_linux: ^1.2.1
   audio_session: ^0.2.2
   rxdart: ^0.28.0
   flutter_lyric: ^3.0.2
