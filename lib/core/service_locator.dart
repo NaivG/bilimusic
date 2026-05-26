@@ -70,6 +70,10 @@ class ServiceLocator {
   Future<void> init() async {
     if (_isInitialized) return;
 
+    // 初始化 SettingsManager（最先初始化，其他组件可能依赖它）
+    _settingsManager = SettingsManager();
+    await _settingsManager!.init();
+
     // 创建基础服务
     // Init DualAudioService
     _dualAudioService = DualAudioService();
@@ -78,10 +82,6 @@ class ServiceLocator {
     _playlistService = PlaylistService();
     _notificationService = NotificationService();
     _apiService = ApiService();
-
-    // 初始化 SettingsManager（最先初始化，其他组件可能依赖它）
-    _settingsManager = SettingsManager();
-    await _settingsManager!.init();
 
     // 创建 PlayerCoordinator
     _playerCoordinator = PlayerCoordinator(

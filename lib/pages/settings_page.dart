@@ -198,15 +198,20 @@ class _SettingsPageState extends State<SettingsPage> {
               trailing: DropdownButton<String>(
                 value: sl.settingsManager.audioOutputMode,
                 items: [
-                  DropdownMenuItem(value: 'aaudio', child: Text('AAudio (推荐)')),
+                
                   DropdownMenuItem(
                     value: 'audiotrack',
                     child: Text('AudioTrack'),
                   ),
+                  DropdownMenuItem(value: 'aaudio', child: Text('AAudio (Beta)')),
                 ],
                 onChanged: (value) {
                   if (value != null) {
-                    sl.settingsManager.setAudioOutputMode(value);
+                    if (value == 'aaudio') {
+                      _showAudioModeDialog();
+                    } else {
+                      sl.settingsManager.setAudioOutputMode(value);
+                    }
                     setState(() {});
                   }
                 },
@@ -402,6 +407,48 @@ class _SettingsPageState extends State<SettingsPage> {
           ],
         );
       },
+    );
+  }
+
+  void _showAudioModeDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          icon: Icon(Icons.warning),
+          title: Text('兼容性警告'),
+          content: Text('Android AAudio 目前仍处于测试阶段，可能会导致音频播放失败等问题。\n 确定要切换到 AAudio 模式吗?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('取消'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                sl.settingsManager.setAudioOutputMode("aaudio");
+                setState(() {});
+                showDialog(
+                  context: context,
+                  builder: (context) {
+                    return AlertDialog(
+                      title: Text('提示'),
+                      content: Text('请重新启动应用以应用更改。'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text('确定'),
+                        ),
+                      ],
+                    );
+                  }
+                );
+              },
+              child: Text('确定'),
+            ),
+          ],
+        );
+      }
     );
   }
 

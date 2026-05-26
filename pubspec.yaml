@@ -61,8 +61,8 @@ dependencies:
   flutter_native_splash: ^2.4.7
   super_context_menu: ^0.9.1
   dio: ^5.9.2
-#  just_aaudio:
-#    path: ../just_aaudio
+  just_aaudio:
+    path: ./just_aaudio
 
 dev_dependencies:
   flutter_test:

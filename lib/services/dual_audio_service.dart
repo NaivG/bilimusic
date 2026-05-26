@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'package:bilimusic/core/service_locator.dart';
 import 'package:flutter/foundation.dart';
-import 'package:just_audio/just_audio.dart';
+import 'package:just_audio/just_audio.dart' as just_audio;
+import 'package:just_aaudio/just_aaudio.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:bilimusic/managers/player_manager.dart';
 
@@ -80,10 +82,18 @@ class DualAudioService {
     _playerA = PlayerStateInfo(player: AudioPlayer(), role: PlayerRole.active);
     _playerB = PlayerStateInfo(player: AudioPlayer(), role: PlayerRole.standby);
 
+    // Apply backend selection based on settings
+    final playerType = sl.settingsManager.audioOutputMode == 'aaudio'
+        ? PlayerType.aaudio
+        : PlayerType.justAudio;
+
+    _playerA.player.setPlayerType(playerType);
+    _playerB.player.setPlayerType(playerType);
+
     _setupPlayerListeners(_playerA);
     _setupPlayerListeners(_playerB);
 
-    debugPrint('[DualAudioService] 双播放器初始化完成');
+    debugPrint('[DualAudioService] 双播放器初始化完成, backend: $playerType');
   }
 
   /// 获取活跃播放器引用
@@ -131,12 +141,12 @@ class DualAudioService {
   }
 
   /// 处理播放器状态变化
-  void _handlePlayerStateChange(PlayerStateInfo playerInfo, PlayerState state) {
+  void _handlePlayerStateChange(PlayerStateInfo playerInfo, just_audio.PlayerState state) {
     final processingState = state.processingState;
     final isPlaying = state.playing;
 
     // 检测播放完成
-    if (processingState == ProcessingState.completed &&
+    if (processingState == just_audio.ProcessingState.completed &&
         playerInfo.role == PlayerRole.active) {
       debugPrint('[DualAudioService] 检测到播放完成');
       onPlaybackCompleted?.call();
@@ -146,13 +156,13 @@ class DualAudioService {
     // 更新内部状态(只报告活跃播放器的状态)
     if (playerInfo.role == PlayerRole.active) {
       AudioState newState;
-      if (processingState == ProcessingState.completed) {
+      if (processingState == just_audio.ProcessingState.completed) {
         newState = AudioState.stopped;
-      } else if (processingState == ProcessingState.buffering ||
-          processingState == ProcessingState.loading) {
+      } else if (processingState == just_audio.ProcessingState.buffering ||
+          processingState == just_audio.ProcessingState.loading) {
         newState = AudioState.buffering;
-      } else if (processingState == ProcessingState.ready ||
-          processingState == ProcessingState.idle) {
+      } else if (processingState == just_audio.ProcessingState.ready ||
+          processingState == just_audio.ProcessingState.idle) {
         // ready或idle状态下，根据isPlaying判断
         newState = isPlaying ? AudioState.playing : AudioState.paused;
       } else {
@@ -237,7 +247,7 @@ class DualAudioService {
     try {
       debugPrint('[DualAudioService] 开始播放 $url');
       _state.value = AudioState.buffering;
-      await _activePlayer.player.setUrl(url);
+      await _activePlayer.player.setAudioSource(just_audio.AudioSource.uri(Uri.parse(url)));
       await _activePlayer.player.seek(Duration.zero);
       await _activePlayer.player.setVolume(1.0);
       _activePlayer.volume = 1.0;
@@ -259,7 +269,7 @@ class DualAudioService {
       debugPrint('[DualAudioService] 开始预加载 $url');
       // 注意：不要修改_state，因为这是standby播放器，不应该影响UI显示的active状态
 
-      await _standbyPlayer.player.setUrl(url);
+      await _standbyPlayer.player.setAudioSource(just_audio.AudioSource.uri(Uri.parse(url)));
       _standbyPlayer.currentUrl = url;
       _standbyPlayer.isReady = true;
       // 不在这里设置音量为0.0，避免AudioTrack进入长时间mute状态

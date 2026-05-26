@@ -296,7 +296,7 @@ class SettingsManager extends ChangeNotifier {
   String getAudioOutputModeText(String mode) {
     switch (mode) {
       case 'aaudio':
-        return 'AAudio (推荐)';
+        return 'AAudio 低延迟模式 (Beta)';
       case 'audiotrack':
         return 'AudioTrack';
       default:
