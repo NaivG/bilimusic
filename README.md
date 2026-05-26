@@ -1,10 +1,11 @@
 <!-- ![BiliMusic](assets/ic_launcher.png) -->
+
 <div align="center">
     <div>
         <img src="./assets/ic_launcher.png" alt="logo" style="width: 20%; height: auto;">
     </div>
-<h1>BiliMusic</h1>
 
+<h1>BiliMusic</h1>
 
 另一个基于 Flutter 开发的哔哩哔哩音乐播放器，支持 Windows、Linux 和 Android 平台。
 
@@ -19,7 +20,6 @@
 </div>
 
 > [!important]
-> 
 >本项目仅供学习交流使用，不得用于任何商业用途。BiliMusic 仅提供音频播放功能，不提供任何视听服务。音乐内容的版权归原作者所有。请尊重版权，合理使用音乐内容。
 >
 > **由于不可抗拒力，请勿在其他平台宣传、讨论有关本项目的内容。**
@@ -29,14 +29,14 @@
 ## 📋 目录
 
 - [功能特性](#-功能特性)
-- [技术架构](#-技术架构)
-- [代码结构](#-代码结构)
 - [安装说明](#-安装说明)
 - [使用指南](#-使用指南)
+- [技术架构](#-技术架构)
+- [代码结构](#-代码结构)
 - [贡献](#-贡献)
 - [许可证](#-许可证)
 - [参考项目](#-参考项目)
-- [Star History](#Star-History)
+- [Star History](#star-history)
 
 ---
 
@@ -57,33 +57,117 @@
 
 ---
 
+## 📥 安装说明
+
+### 系统要求
+
+- Windows 10 及以上版本
+- Linux (Ubuntu 20.04+ 或其他主流发行版)
+- Android 8.0 (API 26) 及以上版本
+
+### 下载安装
+
+1. 前往 [Releases](https://github.com/naivg/bilimusic/releases) 页面下载最新版本
+2. 根据您的操作系统选择合适的安装包：
+   - **Windows**: 下载 `bilimusic_win32_x64-*.zip` 文件，解压后运行
+   - **Linux**: 下载 `bilimusic_linux-x64-*.zip` 文件，确保你已经安装了`libmpv` (`sudo apt install libmpv-dev`), 解压后运行
+   - **Android**: 根据您的设备架构选择对应的 APK 文件：
+     - `bilimusic_android-arm64-v8a-*.apk` (适用于大多数现代 Android 设备)
+     - `bilimusic_android-armeabi-v7a-*.apk` (适用于较旧的 32 位 ARM 设备)
+     - `bilimusic_android-x86_64-*.apk` (适用于 x86_64 架构的模拟器或设备)
+   - **Web**: 下载 `bilimusic_web-release-*.zip` 文件，解压后部署到 Web 服务器 (需要配置CORS跨域)
+3. 按照系统提示完成安装或部署
+
+### 从源码构建
+
+```bash
+# 克隆项目
+git clone https://github.com/naivg/bilimusic.git
+cd bilimusic
+
+# 获取依赖
+flutter pub get
+
+# 运行应用
+flutter run
+
+# 构建发布版本
+flutter build windows    # Windows
+flutter build linux      # Linux
+flutter build apk        # Android
+flutter build web        # Web
+flutter build macos      # MacOS (testing)
+```
+
+---
+
+## 📖 使用指南
+
+### 主要界面
+
+1. **首页** - 展示推荐音乐、猜你喜欢和播放历史
+2. **搜索** - 搜索哔哩哔哩上的音乐内容（支持BV/AV/EP号）
+3. **歌单** - 管理个人歌单
+4. **个人中心** - 查看个人信息、收藏和播放历史
+5. **设置** - 配置应用参数和偏好
+
+### 播放器功能
+
+- 🎵 **播放控制**：播放/暂停、上一首/下一首
+- 📃 **分P切换**：支持多P视频快速切换
+- 🔀 **播放模式**：顺序播放、随机播放、单曲循环
+- 🎚️ **进度控制**：拖动进度条跳转
+- 🔊 **音量调节**：调整播放音量
+- ✨ **交叉淡入淡出**：双引擎实现无缝切歌
+- 🎨 **动态主题**：封面色彩自动应用到界面
+
+### 登录与Cookie设置
+
+由于哔哩哔哩的限制，部分功能可能需要登录才能使用。
+
+受限于极验插件[gt3_flutter_plugin](https://pub.dev/packages/gt3_flutter_plugin)，直接登录功能只能在移动端使用。
+
+对于 PC 平台，你可以进行如下的操作：
+
+1. 在手机端根据步骤登录。
+2. 使用**数据迁移**功能，将 Cookie 等配置迁移至 PC 平台。
+3. 重新启动程序。
+
+---
+
 ## 🏗️ 技术架构
 
 ### 核心框架
+
 - 使用 **Flutter** 框架开发，跨平台支持
 
 ### 音频处理
+
 - 集成 [just_audio](https://pub.dev/packages/just_audio) 实现音频播放
 - 使用 [just_aaudio](https://github.com/NaivG/just_aaudio) 实现 Android AAudio 驱动播放
 - 使用 [audio_service](https://pub.dev/packages/audio_service) 管理后台播放
 - **双播放器引擎**：DualAudioService 实现交叉淡入淡出效果
 
 ### 网络通信
+
 - 通过 [http](https://pub.dev/packages/http) 与<s>不可抗拒力</s>通信
 - 集成某某云音乐 API 实现歌词匹配
 
 ### 数据存储
+
 - 采用 [shared_preferences](https://pub.dev/packages/shared_preferences) 进行本地数据存储
 - 利用 [flutter_cache_manager](https://pub.dev/packages/flutter_cache_manager) 管理缓存
 - 歌词本地缓存（30天有效期）
 
 ### UI/UX
+
 - 利用 [cached_network_image](https://pub.dev/packages/cached_network_image) 优化图片加载
 - 使用 [window_manager](https://pub.dev/packages/window_manager) 提供桌面端窗口定制
 - 使用 [color_thief_dart](https://pub.dev/packages/color_thief_dart) 实现动态主题色提取
 - 使用 [flutter_lyric](https://pub.dev/packages/flutter_lyric) 展示歌词
 
 ### 其他依赖
+
 - [gt3_flutter_plugin](https://pub.dev/packages/gt3_flutter_plugin) - 极验验证码
 - [share_plus](https://pub.dev/packages/share_plus) - 分享功能
 - [file_picker](https://pub.dev/packages/file_picker) - 文件选择
@@ -236,6 +320,7 @@ lib/
 ### 模块说明
 
 #### 📦 managers/ - 核心管理器
+
 | 文件 | 职责 |
 |------|------|
 | `player_manager.dart` | 播放器核心管理，控制播放、暂停、切歌等 |
@@ -246,6 +331,7 @@ lib/
 | `settings_manager.dart` | 应用设置管理 |
 
 #### 📦 services/ - 服务层
+
 | 文件 | 职责 |
 |------|------|
 | `api_service.dart` | API封装，视频详情、音频URL获取 |
@@ -257,6 +343,7 @@ lib/
 | `netease_music_api.dart` | 某某云音乐歌词API |
 
 #### 📦 models/ - 数据模型
+
 | 文件 | 描述 |
 |------|------|
 | `music.dart` | 音乐模型，支持多分P视频 |
@@ -266,82 +353,11 @@ lib/
 | `search_result.dart` | 搜索结果模型 |
 
 #### 📦 components/ - UI组件
+
 - **通用组件**：卡片、按钮等基础UI
 - **播放器组件**：控制条、歌词显示、封面展示
 - **布局组件**：横竖屏适配
 - **小窗组件**：pip_overlay
-
----
-
-## 📥 安装说明
-
-### 系统要求
-
-- Windows 10 及以上版本
-- Linux (Ubuntu 20.04+ 或其他主流发行版)
-- Android 8.0 (API 26) 及以上版本
-
-### 下载安装
-
-1. 前往 [Releases](https://github.com/naivg/bilimusic/releases) 页面下载最新版本
-2. 根据您的操作系统选择合适的安装包：
-   - Windows: 下载 `.exe` 安装文件
-   - Linux: 下载 `.AppImage` 或 `.deb` 文件
-   - Android: 下载 `.apk` 文件
-3. 按照系统提示完成安装
-
-### 从源码构建
-
-```bash
-# 克隆项目
-git clone https://github.com/naivg/bilimusic.git
-cd bilimusic
-
-# 获取依赖
-flutter pub get
-
-# 运行应用
-flutter run
-
-# 构建发布版本
-flutter build windows    # Windows
-flutter build linux      # Linux
-flutter build apk        # Android
-```
-
----
-
-## 📖 使用指南
-
-### 主要界面
-
-1. **首页** - 展示推荐音乐、猜你喜欢和播放历史
-2. **搜索** - 搜索哔哩哔哩上的音乐内容（支持BV/AV/EP号）
-3. **歌单** - 管理个人歌单
-4. **个人中心** - 查看个人信息、收藏和播放历史
-5. **设置** - 配置应用参数和偏好
-
-### 播放器功能
-
-- 🎵 **播放控制**：播放/暂停、上一首/下一首
-- 📃 **分P切换**：支持多P视频快速切换
-- 🔀 **播放模式**：顺序播放、随机播放、单曲循环
-- 🎚️ **进度控制**：拖动进度条跳转
-- 🔊 **音量调节**：调整播放音量
-- ✨ **交叉淡入淡出**：双引擎实现无缝切歌
-- 🎨 **动态主题**：封面色彩自动应用到界面
-
-### 登录与Cookie设置
-
-由于哔哩哔哩的限制，部分功能可能需要登录才能使用。
-
-受限于极验插件[gt3_flutter_plugin](https://pub.dev/packages/gt3_flutter_plugin)，直接登录功能只能在移动端使用。
-
-对于 PC 平台，你可以进行如下的操作：
-
-1. 在手机端根据步骤登录。
-2. 使用**数据迁移**功能，将 Cookie 等配置迁移至 PC 平台。
-3. 重新启动程序。
 
 ---
 
@@ -355,7 +371,7 @@ flutter build apk        # Android
 
 本项目采用 GNU AFFERO GENERAL PUBLIC LICENSE v3.0 许可证，详情请参见 [LICENSE](LICENSE) 文件。
 
-```
+```license
 Copyright (C) 2026 NaivG and contributors.
 
 This program is free software: you can redistribute it and/or modify
