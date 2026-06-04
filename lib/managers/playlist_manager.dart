@@ -100,12 +100,14 @@ class PlaylistManager {
     String name, {
     String? description,
     List<String> tagIds = const [],
+    PlaylistSource source = PlaylistSource.user,
   }) async {
     _ensureInitialized();
     return _repository.createPlaylist(
       name: name,
       description: description,
       tagIds: tagIds,
+      source: source,
     );
   }
 

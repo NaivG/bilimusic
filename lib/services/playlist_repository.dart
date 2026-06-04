@@ -232,6 +232,7 @@ class PlaylistRepository {
     required String name,
     String? description,
     List<String> tagIds = const [],
+    PlaylistSource source = PlaylistSource.user,
   }) async {
     final now = DateTime.now();
     final playlist = Playlist(
@@ -239,7 +240,7 @@ class PlaylistRepository {
       name: name,
       description: description,
       tagIds: tagIds,
-      source: PlaylistSource.user,
+      source: source,
       createdAt: now,
       updatedAt: now,
     );

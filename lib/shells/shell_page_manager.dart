@@ -14,6 +14,7 @@ enum ShellPage {
   dataManagement,
   dataMigration,
   login,
+  favImport,
 }
 
 class ShellPageManager extends ChangeNotifier {

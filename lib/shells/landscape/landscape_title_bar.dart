@@ -10,6 +10,7 @@ class LandscapeTitleBar extends StatelessWidget {
   final String? pendingQuery;
   final Function(String query)? onSearchSubmit;
   final VoidCallback? onSettingsTap;
+  final VoidCallback? onProfileTap;
 
   const LandscapeTitleBar({
     super.key,
@@ -17,6 +18,7 @@ class LandscapeTitleBar extends StatelessWidget {
     this.pendingQuery,
     this.onSearchSubmit,
     this.onSettingsTap,
+    this.onProfileTap,
   });
 
   @override
@@ -104,6 +106,14 @@ class LandscapeTitleBar extends StatelessWidget {
                 bottom: 0,
                 child: Row(
                   children: [
+                    // 用户按钮
+                    if (onProfileTap != null)
+                      IconButton(
+                        color: iconColor,
+                        onPressed: onProfileTap,
+                        icon: const Icon(Icons.person_outline, size: 22),
+                      ),
+                    const SizedBox(width: 4),
                     // 设置按钮
                     if (onSettingsTap != null)
                       IconButton(

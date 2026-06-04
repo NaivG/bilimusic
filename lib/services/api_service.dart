@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/bili_item.dart';
+import 'package:bilimusic/models/bili_fav_folder.dart';
 import 'package:bilimusic/managers/cache_manager.dart';
 import 'package:bilimusic/utils/network_config.dart';
 
@@ -211,5 +212,252 @@ class ApiService {
       debugPrint('Error getting popular music: $e');
       return [];
     }
+  }
+
+  // ==================================================================
+  //  收藏夹 API（Bilibili Fav API）
+  // ==================================================================
+
+  /// 获取指定用户创建的所有收藏夹列表
+  ///
+  /// [upMid] - 目标用户 mid（通常为登录用户自己的 mid）
+  /// 对应 API: GET /x/v3/fav/folder/created/list-all
+  Future<List<BiliFavFolder>> fetchUserCreatedFolders(int upMid) async {
+    try {
+      final response = await http.get(
+        Uri.parse(
+          'https://api.bilibili.com/x/v3/fav/folder/created/list-all?up_mid=$upMid',
+        ),
+        headers: NetworkConfig.biliHeaders,
+      );
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        if (json['code'] == 0 && json['data'] != null) {
+          final list = json['data']['list'];
+          if (list is List) {
+            return list
+                .map((e) => BiliFavFolder.fromCreatedList(e))
+                .toList();
+          }
+        } else if (json['code'] == -101) {
+          debugPrint('[FavAPI] 未登录，无法获取收藏夹');
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[FavAPI] fetchUserCreatedFolders error: $e');
+      return [];
+    }
+  }
+
+  /// 获取指定用户收藏的收藏夹列表（分页）
+  ///
+  /// [upMid] - 目标用户 mid
+  /// [page] - 页码（从1开始）
+  /// [pageSize] - 每页数量（默认20，最大>70）
+  /// 对应 API: GET /x/v3/fav/folder/collected/list
+  Future<List<BiliFavFolder>> fetchCollectedFolders(
+    int upMid, {
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse(
+          'https://api.bilibili.com/x/v3/fav/folder/collected/list'
+          '?up_mid=$upMid&ps=$pageSize&pn=$page&platform=web',
+        ),
+        headers: NetworkConfig.biliHeaders,
+      );
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        if (json['code'] == 0 && json['data'] != null) {
+          final list = json['data']['list'];
+          if (list is List) {
+            return list
+                .map((e) => BiliFavFolder.fromCollectedList(e))
+                .toList();
+          }
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[FavAPI] fetchCollectedFolders error: $e');
+      return [];
+    }
+  }
+
+  /// 获取收藏夹资源列表（分页）
+  ///
+  /// [mediaId] - 目标收藏夹完整 id
+  /// [page] - 页码（从1开始）
+  /// [pageSize] - 每页数量（1-20）
+  /// 返回 [FavResourcePage]，包含资源列表和是否有下一页
+  /// 对应 API: GET /x/v3/fav/resource/list
+  Future<FavResourcePage> fetchFolderResources(
+    int mediaId, {
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse(
+          'https://api.bilibili.com/x/v3/fav/resource/list'
+          '?media_id=$mediaId&platform=web&pn=$page&ps=$pageSize',
+        ),
+        headers: NetworkConfig.biliHeaders,
+      );
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        if (json['code'] == 0 && json['data'] != null) {
+          final data = json['data'];
+          final info = data['info'] ?? {};
+          final medias = (data['medias'] as List?) ?? [];
+          final hasMore = data['has_more'] == true;
+
+          final resources = medias.map((e) => FavResource.fromJson(e)).toList();
+
+          return FavResourcePage(
+            resources: resources,
+            hasMore: hasMore,
+            title: info['title'] ?? '',
+            cover: info['cover'] ?? '',
+            mediaCount: info['media_count'] ?? 0,
+          );
+        }
+      }
+      return FavResourcePage.empty();
+    } catch (e) {
+      debugPrint('[FavAPI] fetchFolderResources error: $e');
+      return FavResourcePage.empty();
+    }
+  }
+
+  /// 批量获取指定资源详情
+  ///
+  /// [resources] - 资源引用列表（id + type）
+  /// 一次最多建议 20-30 个
+  /// 对应 API: GET /x/v3/fav/resource/infos
+  Future<List<FavResource>> batchFetchResourceDetails(
+    List<FavResourceRef> resources,
+  ) async {
+    if (resources.isEmpty) return [];
+
+    try {
+      // 构建 resources 参数：id1:type1,id2:type2,...
+      final resourceStr =
+          resources.map((r) => '${r.id}:${r.type}').join(',');
+
+      final response = await http.get(
+        Uri.parse(
+          'https://api.bilibili.com/x/v3/fav/resource/infos'
+          '?resources=$resourceStr&platform=web',
+        ),
+        headers: NetworkConfig.biliHeaders,
+      );
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        if (json['code'] == 0 && json['data'] != null) {
+          final list = json['data'] as List;
+          return list.map((e) => FavResource.fromJson(e)).toList();
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[FavAPI] batchFetchResourceDetails error: $e');
+      return [];
+    }
+  }
+}
+
+// ==================================================================
+//  收藏夹资源相关数据模型
+// ==================================================================
+
+/// 收藏夹资源分页结果
+class FavResourcePage {
+  final List<FavResource> resources;
+  final bool hasMore;
+  final String title;
+  final String cover;
+  final int mediaCount;
+
+  const FavResourcePage({
+    required this.resources,
+    required this.hasMore,
+    this.title = '',
+    this.cover = '',
+    this.mediaCount = 0,
+  });
+
+  const FavResourcePage.empty()
+      : resources = const [],
+        hasMore = false,
+        title = '',
+        cover = '',
+        mediaCount = 0;
+}
+
+/// 收藏夹资源引用（批量查询用）
+class FavResourceRef {
+  final int id;
+  final int type;
+
+  const FavResourceRef({required this.id, required this.type});
+}
+
+/// 收藏夹资源（对应 API medias[] 中的条目）
+///
+/// 类型对照：
+///   2  = 视频稿件（可用 bvid 播放）
+///   12 = 音频稿件（部分有 bvid，可用 bvid 播放）
+///   21 = 视频合集（跳过）
+class FavResource {
+  final int id;
+  final int type;
+  final String title;
+  final String cover;
+  final String intro;
+  final int page;
+  final int duration;
+  final String bvid;
+  final String upperName;
+  final int attr; // 0=正常, 1/9=失效
+
+  const FavResource({
+    required this.id,
+    required this.type,
+    required this.title,
+    this.cover = '',
+    this.intro = '',
+    this.page = 1,
+    this.duration = 0,
+    this.bvid = '',
+    this.upperName = '',
+    this.attr = 0,
+  });
+
+  /// 是否可用于播放（视频稿件或音频稿件，且未失效）
+  bool get isPlayable =>
+      (type == 2 || type == 12) && (attr == 0) && bvid.isNotEmpty;
+
+  factory FavResource.fromJson(Map<String, dynamic> json) {
+    final upper = json['upper'] ?? {};
+    return FavResource(
+      id: json['id'] ?? 0,
+      type: json['type'] ?? 0,
+      title: json['title'] ?? '',
+      cover: json['cover'] ?? '',
+      intro: json['intro'] ?? '',
+      page: json['page'] ?? 1,
+      duration: json['duration'] ?? 0,
+      bvid: json['bvid'] ?? json['bv_id'] ?? '',
+      upperName: upper['name'] ?? '',
+      attr: json['attr'] ?? 0,
+    );
   }
 }

@@ -2,11 +2,13 @@ import 'package:bilimusic/managers/player_manager.dart';
 import 'package:bilimusic/managers/playlist_manager.dart';
 import 'package:bilimusic/managers/settings_manager.dart';
 import 'package:bilimusic/managers/recommendation_manager.dart';
+import 'package:bilimusic/managers/fav_sync_manager.dart';
 import 'package:bilimusic/services/player_coordinator.dart';
 import 'package:bilimusic/services/dual_audio_service.dart';
 import 'package:bilimusic/services/playlist_service.dart';
 import 'package:bilimusic/services/notification_service.dart';
 import 'package:bilimusic/services/api_service.dart';
+import 'package:bilimusic/managers/user_manager.dart';
 
 /// 统一服务定位器
 /// 集中管理所有核心管理器和服务的初始化与访问
@@ -22,6 +24,8 @@ class ServiceLocator {
   PlaylistManager? _playlistManager;
   SettingsManager? _settingsManager;
   RecommendationManager? _recommendationManager;
+  UserManager? _userManager;
+  FavSyncManager? _favSyncManager;
 
   // 核心服务
   DualAudioService? _dualAudioService;
@@ -44,6 +48,12 @@ class ServiceLocator {
   /// 推荐管理器（延迟初始化）
   RecommendationManager get recommendationManager =>
       _recommendationManager ??= RecommendationManager();
+
+  /// 用户管理器
+  UserManager get userManager => _userManager!;
+
+  /// 收藏夹同步管理器
+  FavSyncManager get favSyncManager => _favSyncManager!;
 
   /// 双音频服务
   DualAudioService get dualAudioService => _dualAudioService!;
@@ -83,6 +93,10 @@ class ServiceLocator {
     _settingsManager = SettingsManager();
     await _settingsManager!.init();
 
+    // 初始化 UserManager（从持久化缓存恢复）
+    _userManager = UserManager();
+    await _userManager!.restoreFromPrefs();
+
     // 创建 PlayerCoordinator
     _playerCoordinator = PlayerCoordinator(
       audioService: _dualAudioService!,
@@ -100,6 +114,13 @@ class ServiceLocator {
     _playlistManager = PlaylistManager();
     await _playlistManager!.initialize();
 
+    // 初始化 FavSyncManager
+    _favSyncManager = FavSyncManager(
+      api: _apiService!,
+      playlistManager: _playlistManager!,
+    );
+    await _favSyncManager!.initialize();
+
     _isInitialized = true;
   }
 
@@ -109,6 +130,8 @@ class ServiceLocator {
     _playlistManager = null;
     _settingsManager = null;
     _recommendationManager = null;
+    _userManager = null;
+    _favSyncManager = null;
     _dualAudioService = null;
     _playlistService = null;
     _notificationService = null;

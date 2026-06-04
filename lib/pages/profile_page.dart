@@ -1,12 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:bilimusic/core/service_locator.dart';
-import 'package:bilimusic/pages/playlist_page.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/utils/network_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
 import 'package:bilimusic/shells/shell_page_manager.dart';
 import 'package:bilimusic/utils/platform_helper.dart';
 
@@ -21,25 +19,43 @@ class _ProfilePageState extends State<ProfilePage> {
   int _playHistoryCount = 0;
   int _favoritesCount = 0;
   int _playlistsCount = 0;
-  bool _isLoggedIn = false;
-  String _userName = '点击登录';
-  String _userAvatar = '';
 
   @override
   void initState() {
     super.initState();
     _loadData();
-    _checkLoginStatus();
+    // 监听用户管理器变化
+    sl.userManager.addListener(_onUserChanged);
+    // 监听页面切换，回到此页面时刷新数据
+    ShellPageManager.instance.addListener(_onPageChanged);
+    // 如果缓存已有用户信息且登录态一致，无需额外操作；
+    // 否则触发一次检查
+    if (!sl.userManager.isFresh) {
+      sl.userManager.getUserInfo();
+    }
+  }
+
+  @override
+  void dispose() {
+    sl.userManager.removeListener(_onUserChanged);
+    ShellPageManager.instance.removeListener(_onPageChanged);
+    super.dispose();
+  }
+
+  void _onUserChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onPageChanged() {
+    if (mounted &&
+        ShellPageManager.instance.currentPage == ShellPage.profile) {
+      _loadData();
+    }
   }
 
   Future<void> _loadData() async {
-    // 获取播放历史数量
     final playHistory = sl.playerManager.playHistory;
-
-    // 获取收藏数量
     final favorites = sl.playerManager.favorites;
-
-    // 获取用户自定义播放列表数量
     final playlists = sl.playlistManager.getAllPlaylists();
 
     setState(() {
@@ -49,48 +65,6 @@ class _ProfilePageState extends State<ProfilePage> {
     });
   }
 
-  Future<void> _checkLoginStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    final cookies = prefs.getString('cookies');
-    if (cookies != null && cookies.isNotEmpty) {
-      // 检查是否是有效的登录cookie（包含SESSDATA）
-      if (cookies.contains('SESSDATA')) {
-        try {
-          // 获取用户信息
-          await _loadUserInfo();
-          setState(() {
-            _isLoggedIn = true;
-          });
-        } catch (e) {
-          // 获取用户信息失败
-          debugPrint('获取用户信息失败: $e');
-        }
-      }
-    }
-  }
-
-  Future<void> _loadUserInfo() async {
-    try {
-      final response = await http.get(
-        Uri.parse('https://api.bilibili.com/x/web-interface/nav'),
-        headers: NetworkConfig.biliHeaders,
-      );
-      debugPrint(NetworkConfig.biliHeaders.toString());
-      debugPrint(response.body);
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['code'] == 0 && data['data']['isLogin']) {
-          setState(() {
-            _userName = data['data']['uname'];
-            _userAvatar = data['data']['face'];
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint('获取用户信息失败: $e');
-    }
-  }
-
   // 退出登录
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
@@ -98,7 +72,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
     if (cookiesJson != null && cookiesJson.isNotEmpty) {
       try {
-        // 解析现有的 cookies
         final cookiesMap = json.decode(cookiesJson) as Map;
         final cookies = Map<String, String>.from(
           cookiesMap.map(
@@ -119,15 +92,11 @@ class _ProfilePageState extends State<ProfilePage> {
         // 保存更新后的 cookies
         await prefs.setString('cookies', json.encode(cookies));
 
-        // 更新NetworkConfig中的cookies
+        // 更新 NetworkConfig 中的 cookies
         NetworkConfig.setCookies(cookies);
 
-        // 更新UI状态
-        setState(() {
-          _isLoggedIn = false;
-          _userName = '点击登录';
-          _userAvatar = '';
-        });
+        // 清除用户缓存
+        await sl.userManager.clear();
 
         if (mounted) {
           ScaffoldMessenger.of(
@@ -174,13 +143,13 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   @override
-  void dispose() {
-    // sl.playlistManager不需要dispose
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final userManager = sl.userManager;
+    final isLoggedIn = userManager.isLoggedIn;
+    final userInfo = userManager.userInfo;
+    final userName = userInfo?.userName ?? '点击登录';
+    final userAvatar = userInfo?.avatar ?? '';
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: CustomScrollView(
@@ -208,10 +177,9 @@ class _ProfilePageState extends State<ProfilePage> {
                     children: [
                       GestureDetector(
                         onTap: () {
-                          if (_isLoggedIn) {
+                          if (isLoggedIn) {
                             _showLogoutDialog();
                           } else {
-                            // 跳转到登录页面
                             if (PlatformHelper.isDesktop) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
@@ -226,10 +194,10 @@ class _ProfilePageState extends State<ProfilePage> {
                         child: CircleAvatar(
                           radius: 40,
                           backgroundColor: Colors.white,
-                          backgroundImage: _userAvatar.isNotEmpty
-                              ? CachedNetworkImageProvider(_userAvatar)
+                          backgroundImage: userAvatar.isNotEmpty
+                              ? CachedNetworkImageProvider(userAvatar)
                               : null,
-                          child: _userAvatar.isEmpty
+                          child: userAvatar.isEmpty
                               ? Icon(
                                   Icons.person,
                                   size: 40,
@@ -238,18 +206,18 @@ class _ProfilePageState extends State<ProfilePage> {
                               : null,
                         ),
                       ),
-                      SizedBox(height: 10),
+                      const SizedBox(height: 10),
                       Text(
-                        _userName,
-                        style: TextStyle(
+                        userName,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
-                        _isLoggedIn ? '已登录' : '登录后可同步数据',
-                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                        isLoggedIn ? '已登录' : '登录后可同步数据',
+                        style: const TextStyle(color: Colors.white70, fontSize: 14),
                       ),
                     ],
                   ),
@@ -295,7 +263,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
 
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
                   // 功能列表
                   _buildFunctionList(),
@@ -310,7 +278,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // 获取适合当前主题的主色调
   Color _getPrimaryColor(BuildContext context) {
-    // 在深色主题中使用白色，在浅色主题中使用primaryColor
     return Theme.of(context).brightness == Brightness.dark
         ? Colors.white
         : Theme.of(context).primaryColor;
@@ -320,10 +287,10 @@ class _ProfilePageState extends State<ProfilePage> {
     return Column(
       children: [
         Icon(icon, size: 30, color: _getPrimaryColor(context)),
-        SizedBox(height: 5),
+        const SizedBox(height: 5),
         Text(
           count,
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
       ],
@@ -336,15 +303,15 @@ class _ProfilePageState extends State<ProfilePage> {
         // 播放历史
         ListTile(
           leading: Container(
-            padding: EdgeInsets.all(8),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.blue.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(Icons.history, color: Colors.blue),
+            child: const Icon(Icons.history, color: Colors.blue),
           ),
-          title: Text('播放历史'),
-          trailing: Icon(Icons.arrow_forward_ios),
+          title: const Text('播放历史'),
+          trailing: const Icon(Icons.arrow_forward_ios),
           onTap: () {
             ShellPageManager.instance.goToPlaylist(
               playlistId: 'playHistory',
@@ -353,20 +320,20 @@ class _ProfilePageState extends State<ProfilePage> {
           },
         ),
 
-        Divider(height: 1),
+        const Divider(height: 1),
 
         // 我的收藏
         ListTile(
           leading: Container(
-            padding: EdgeInsets.all(8),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.red.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(Icons.favorite, color: Colors.red),
+            child: const Icon(Icons.favorite, color: Colors.red),
           ),
-          title: Text('我的收藏'),
-          trailing: Icon(Icons.arrow_forward_ios),
+          title: const Text('我的收藏'),
+          trailing: const Icon(Icons.arrow_forward_ios),
           onTap: () {
             ShellPageManager.instance.goToPlaylist(
               playlistId: 'favorites',
@@ -375,24 +342,45 @@ class _ProfilePageState extends State<ProfilePage> {
           },
         ),
 
-        Divider(height: 1),
+        const Divider(height: 1),
 
         // 我的歌单
         ListTile(
           leading: Container(
-            padding: EdgeInsets.all(8),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.green.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(Icons.playlist_play, color: Colors.green),
+            child: const Icon(Icons.playlist_play, color: Colors.green),
           ),
-          title: Text('我的歌单'),
-          trailing: Icon(Icons.arrow_forward_ios),
+          title: const Text('我的歌单'),
+          trailing: const Icon(Icons.arrow_forward_ios),
           onTap: () {
             _showPlaylists();
           },
         ),
+
+        // Bilibili 收藏夹同步（仅登录后显示）
+        if (sl.userManager.isLoggedIn) ...[
+          const Divider(height: 1),
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.cyan.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.cloud_download, color: Colors.cyan),
+            ),
+            title: const Text('Bilibili 收藏夹同步'),
+            subtitle: const Text('直接从Bilibili收藏夹导入歌单'),
+            trailing: const Icon(Icons.arrow_forward_ios),
+            onTap: () {
+              ShellPageManager.instance.push(ShellPage.favImport);
+            },
+          ),
+        ],
       ],
     );
   }
@@ -412,7 +400,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
+                    const Text(
                       '我的歌单',
                       style: TextStyle(
                         fontSize: 20,
@@ -420,7 +408,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                     IconButton(
-                      icon: Icon(Icons.add),
+                      icon: const Icon(Icons.add),
                       onPressed: () {
                         Navigator.pop(context);
                         _createNewPlaylist();
@@ -435,26 +423,26 @@ class _ProfilePageState extends State<ProfilePage> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.playlist_add,
                               size: 50,
                               color: Colors.grey,
                             ),
-                            SizedBox(height: 10),
-                            Text(
+                            const SizedBox(height: 10),
+                            const Text(
                               '暂无歌单',
                               style: TextStyle(
                                 fontSize: 16,
                                 color: Colors.grey,
                               ),
                             ),
-                            SizedBox(height: 20),
+                            const SizedBox(height: 20),
                             ElevatedButton(
                               onPressed: () {
                                 Navigator.pop(context);
                                 _createNewPlaylist();
                               },
-                              child: Text('创建歌单'),
+                              child: const Text('创建歌单'),
                             ),
                           ],
                         ),
@@ -470,19 +458,14 @@ class _ProfilePageState extends State<ProfilePage> {
                             builder: (context, snapshot) {
                               final songCount = snapshot.data?.length ?? 0;
                               return ListTile(
-                                leading: Icon(Icons.queue_music),
+                                leading: const Icon(Icons.queue_music),
                                 title: Text(playlist.name),
                                 subtitle: Text('$songCount 首歌曲'),
                                 onTap: () async {
                                   Navigator.pop(context);
                                   if (mounted) {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => PlaylistPage(
-                                          playlistId: playlist.id,
-                                        ),
-                                      ),
+                                    ShellPageManager.instance.goToPlaylist(
+                                      playlistId: playlist.id,
                                     );
                                   }
                                 },
@@ -500,16 +483,16 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _createNewPlaylist() {
-    final TextEditingController _controller = TextEditingController();
+    final TextEditingController controller = TextEditingController();
 
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('创建歌单'),
+          title: const Text('创建歌单'),
           content: TextField(
-            controller: _controller,
-            decoration: InputDecoration(
+            controller: controller,
+            decoration: const InputDecoration(
               hintText: '请输入歌单名称',
               border: OutlineInputBorder(),
             ),
@@ -519,22 +502,24 @@ class _ProfilePageState extends State<ProfilePage> {
               onPressed: () {
                 Navigator.pop(context);
               },
-              child: Text('取消'),
+              child: const Text('取消'),
             ),
             ElevatedButton(
               onPressed: () async {
-                if (_controller.text.trim().isNotEmpty) {
+                if (controller.text.trim().isNotEmpty) {
                   await sl.playlistManager.createPlaylist(
-                    _controller.text.trim(),
+                    controller.text.trim(),
                   );
                   Navigator.pop(context);
-                  _loadData(); // 刷新数据
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('歌单创建成功')));
+                  _loadData();
+                  if (mounted) {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(const SnackBar(content: Text('歌单创建成功')));
+                  }
                 }
               },
-              child: Text('创建'),
+              child: const Text('创建'),
             ),
           ],
         );
