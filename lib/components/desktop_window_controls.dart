@@ -45,7 +45,7 @@ class DesktopWindowControls extends StatelessWidget {
               onPanStart: (_) => windowManager.startDragging(),
               child: Row(
                 children: [
-                  if (leading != null) leading!,
+                  ?leading,
                   if (title != null)
                     Expanded(child: title!)
                   else

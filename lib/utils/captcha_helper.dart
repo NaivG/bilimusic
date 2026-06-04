@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:gt3_flutter_plugin/gt3_flutter_plugin.dart';
 import 'package:bilimusic/utils/network_config.dart';
@@ -46,7 +47,7 @@ class CaptchaHelper {
         },
       );
     } catch (e) {
-      print("Captcha event handler exception: $e");
+      debugPrint("Captcha event handler exception: $e");
     }
   }
 
@@ -71,7 +72,7 @@ class CaptchaHelper {
         }
       }
     } catch (e) {
-      print("获取验证码数据失败: $e");
+      debugPrint("获取验证码数据失败: $e");
     }
 
     return null;

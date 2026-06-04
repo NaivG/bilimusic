@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:bilimusic/utils/animations.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/components/landscape/apple_slider.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
 
 /// 横屏底部播放控制条组件
 /// 包含进度条和播放控制按钮
