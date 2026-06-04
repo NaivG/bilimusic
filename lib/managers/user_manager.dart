@@ -40,7 +40,8 @@ class UserManager extends ChangeNotifier {
   /// 从当前 cookie 判断是否有登录态（仅检查 SESSDATA，不发请求）
   bool checkCookieLogin() {
     final cookies = NetworkConfig.cookies;
-    final hasSession = cookies.containsKey('SESSDATA') &&
+    final hasSession =
+        cookies.containsKey('SESSDATA') &&
         (cookies['SESSDATA'] ?? '').isNotEmpty;
     if (_isLoggedIn != hasSession) {
       _isLoggedIn = hasSession;

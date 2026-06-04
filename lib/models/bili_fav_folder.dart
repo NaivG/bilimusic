@@ -81,17 +81,17 @@ class BiliFavFolder {
   }
 
   Map<String, dynamic> toJson() => {
-        'mediaId': mediaId,
-        'fid': fid,
-        'mid': mid,
-        'title': title,
-        'cover': cover,
-        'upperName': upperName,
-        'mediaCount': mediaCount,
-        'intro': intro,
-        'attr': attr,
-        'folderType': folderType.name,
-      };
+    'mediaId': mediaId,
+    'fid': fid,
+    'mid': mid,
+    'title': title,
+    'cover': cover,
+    'upperName': upperName,
+    'mediaCount': mediaCount,
+    'intro': intro,
+    'attr': attr,
+    'folderType': folderType.name,
+  };
 
   factory BiliFavFolder.fromJson(Map<String, dynamic> json) {
     return BiliFavFolder(

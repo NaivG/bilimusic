@@ -115,9 +115,9 @@ class _FavImportPageState extends State<FavImportPage> {
     ];
 
     if (folders.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先选择要导入的收藏夹')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请先选择要导入的收藏夹')));
       return;
     }
 
@@ -249,7 +249,9 @@ class _FavImportPageState extends State<FavImportPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         border: Border(
           bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
         ),
@@ -259,9 +261,7 @@ class _FavImportPageState extends State<FavImportPage> {
           TextButton.icon(
             onPressed: _selectedMediaIds.isNotEmpty ? _deselectAll : _selectAll,
             icon: Icon(
-              _selectedMediaIds.isNotEmpty
-                  ? Icons.deselect
-                  : Icons.select_all,
+              _selectedMediaIds.isNotEmpty ? Icons.deselect : Icons.select_all,
               size: 18,
             ),
             label: Text(_selectedMediaIds.isNotEmpty ? '取消全选' : '全选'),
@@ -345,10 +345,7 @@ class _FavImportPageState extends State<FavImportPage> {
         children: [
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
           ),
           const SizedBox(width: 8),
           Container(
@@ -439,9 +436,7 @@ class _FavImportPageState extends State<FavImportPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    record.status == ImportStatus.synced
-                        ? '已导入'
-                        : '有更新',
+                    record.status == ImportStatus.synced ? '已导入' : '有更新',
                     style: TextStyle(
                       fontSize: 11,
                       color: record.status == ImportStatus.synced
@@ -453,10 +448,7 @@ class _FavImportPageState extends State<FavImportPage> {
 
               // 导入按钮
               IconButton(
-                icon: Icon(
-                  isImported ? Icons.sync : Icons.download,
-                  size: 20,
-                ),
+                icon: Icon(isImported ? Icons.sync : Icons.download, size: 20),
                 tooltip: isImported ? '重新同步' : '导入',
                 onPressed: () => _importSingle(folder),
               ),

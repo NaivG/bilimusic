@@ -236,9 +236,7 @@ class ApiService {
         if (json['code'] == 0 && json['data'] != null) {
           final list = json['data']['list'];
           if (list is List) {
-            return list
-                .map((e) => BiliFavFolder.fromCreatedList(e))
-                .toList();
+            return list.map((e) => BiliFavFolder.fromCreatedList(e)).toList();
           }
         } else if (json['code'] == -101) {
           debugPrint('[FavAPI] 未登录，无法获取收藏夹');
@@ -276,9 +274,7 @@ class ApiService {
         if (json['code'] == 0 && json['data'] != null) {
           final list = json['data']['list'];
           if (list is List) {
-            return list
-                .map((e) => BiliFavFolder.fromCollectedList(e))
-                .toList();
+            return list.map((e) => BiliFavFolder.fromCollectedList(e)).toList();
           }
         }
       }
@@ -348,8 +344,7 @@ class ApiService {
 
     try {
       // 构建 resources 参数：id1:type1,id2:type2,...
-      final resourceStr =
-          resources.map((r) => '${r.id}:${r.type}').join(',');
+      final resourceStr = resources.map((r) => '${r.id}:${r.type}').join(',');
 
       final response = await http.get(
         Uri.parse(
@@ -395,11 +390,11 @@ class FavResourcePage {
   });
 
   const FavResourcePage.empty()
-      : resources = const [],
-        hasMore = false,
-        title = '',
-        cover = '',
-        mediaCount = 0;
+    : resources = const [],
+      hasMore = false,
+      title = '',
+      cover = '',
+      mediaCount = 0;
 }
 
 /// 收藏夹资源引用（批量查询用）

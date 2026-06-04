@@ -57,13 +57,13 @@ class UserInfo {
   }
 
   Map<String, dynamic> toJson() => {
-        'uid': uid,
-        'userName': userName,
-        'avatar': avatar,
-        'level': level,
-        'isVip': isVip,
-        'cachedAt': cachedAt,
-      };
+    'uid': uid,
+    'userName': userName,
+    'avatar': avatar,
+    'level': level,
+    'isVip': isVip,
+    'cachedAt': cachedAt,
+  };
 
   /// 是否为空（未登录 / 无数据）
   bool get isEmpty => uid.isEmpty || userName.isEmpty;

@@ -47,8 +47,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _onPageChanged() {
-    if (mounted &&
-        ShellPageManager.instance.currentPage == ShellPage.profile) {
+    if (mounted && ShellPageManager.instance.currentPage == ShellPage.profile) {
       _loadData();
     }
   }
@@ -217,7 +216,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                       Text(
                         isLoggedIn ? '已登录' : '登录后可同步数据',
-                        style: const TextStyle(color: Colors.white70, fontSize: 14),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
                       ),
                     ],
                   ),

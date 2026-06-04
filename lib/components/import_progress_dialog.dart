@@ -5,9 +5,8 @@ import 'package:bilimusic/managers/fav_sync_manager.dart';
 /// 展示导入 Bilibili 收藏夹时的实时进度
 class ImportProgressDialog extends StatefulWidget {
   final String folderName;
-  final Future<ImportResult> Function(
-    void Function(int, int, int) onProgress,
-  ) importTask;
+  final Future<ImportResult> Function(void Function(int, int, int) onProgress)
+  importTask;
 
   const ImportProgressDialog({
     super.key,
@@ -67,10 +66,9 @@ class _ImportProgressDialogState extends State<ImportProgressDialog> {
   void _dismiss() {
     // Build the result to return — prefer the captured ImportResult from the
     // import task, otherwise reconstruct from progress counters.
-    final result = _importResult ?? ImportResult(
-      successCount: _processed - _failed,
-      failedCount: _failed,
-    );
+    final result =
+        _importResult ??
+        ImportResult(successCount: _processed - _failed, failedCount: _failed);
     // Defer the pop to the next frame to avoid triggering
     // '!_debugLocked' assertion when the navigator is still
     // animating the dialog route.
@@ -97,9 +95,7 @@ class _ImportProgressDialogState extends State<ImportProgressDialog> {
             ),
             const SizedBox(height: 8),
             Text(
-              _errorMessage != null
-                  ? '出错了'
-                  : widget.folderName,
+              _errorMessage != null ? '出错了' : widget.folderName,
               style: TextStyle(color: Colors.grey[600], fontSize: 14),
               textAlign: TextAlign.center,
               maxLines: 2,

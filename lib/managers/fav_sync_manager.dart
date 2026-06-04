@@ -26,8 +26,8 @@ class FavSyncManager extends ChangeNotifier {
   FavSyncManager({
     required ApiService api,
     required PlaylistManager playlistManager,
-  })  : _api = api,
-        _playlistManager = playlistManager;
+  }) : _api = api,
+       _playlistManager = playlistManager;
 
   /// 当前导入记录
   List<FavImportRecord> get records => List.unmodifiable(_records);
@@ -58,9 +58,7 @@ class FavSyncManager extends ChangeNotifier {
     if (raw != null && raw.isNotEmpty) {
       try {
         final decoded = jsonDecode(raw) as List;
-        _records = decoded
-            .map((e) => FavImportRecord.fromJson(e))
-            .toList();
+        _records = decoded.map((e) => FavImportRecord.fromJson(e)).toList();
       } catch (e) {
         debugPrint('[FavSync] 导入记录解析失败: $e');
         _records = [];
@@ -88,10 +86,7 @@ class FavSyncManager extends ChangeNotifier {
         _api.fetchCollectedFolders(upMid),
       ]);
 
-      return {
-        'created': results[0],
-        'collected': results[1],
-      };
+      return {'created': results[0], 'collected': results[1]};
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -114,7 +109,8 @@ class FavSyncManager extends ChangeNotifier {
     final playlist = await _playlistManager.createPlaylist(
       playlistName,
       source: PlaylistSource.imported,
-      description: '从 Bilibili 收藏夹导入 · ${folder.folderType == BiliFavFolderType.created ? "创建的" : "收藏的"}',
+      description:
+          '从 Bilibili 收藏夹导入 · ${folder.folderType == BiliFavFolderType.created ? "创建的" : "收藏的"}',
     );
 
     // 2. 拉取收藏夹所有资源并导入
@@ -181,7 +177,7 @@ class FavSyncManager extends ChangeNotifier {
   /// 同步所有已导入的收藏夹
   Future<SyncSummary> syncAllFolders({
     void Function(String folderTitle, int processed, int total)?
-        onFolderProgress,
+    onFolderProgress,
   }) async {
     int totalSuccess = 0;
     int totalFailed = 0;
@@ -278,10 +274,7 @@ class FavSyncManager extends ChangeNotifier {
       page++;
     }
 
-    return ImportResult(
-      successCount: successCount,
-      failedCount: failedCount,
-    );
+    return ImportResult(successCount: successCount, failedCount: failedCount);
   }
 
   /// 将 FavResource 转换为 Music
@@ -313,15 +306,17 @@ class FavSyncManager extends ChangeNotifier {
         status: ImportStatus.synced,
       );
     } else {
-      _records.add(FavImportRecord(
-        folderMediaId: folderMediaId,
-        folderTitle: folderTitle,
-        playlistId: playlistId,
-        lastImportedAt: DateTime.now(),
-        importedCount: result.successCount,
-        failedCount: result.failedCount,
-        status: ImportStatus.synced,
-      ));
+      _records.add(
+        FavImportRecord(
+          folderMediaId: folderMediaId,
+          folderTitle: folderTitle,
+          playlistId: playlistId,
+          lastImportedAt: DateTime.now(),
+          importedCount: result.successCount,
+          failedCount: result.failedCount,
+          status: ImportStatus.synced,
+        ),
+      );
     }
     _persistRecords();
     notifyListeners();
@@ -333,10 +328,7 @@ class ImportResult {
   final int successCount;
   final int failedCount;
 
-  const ImportResult({
-    required this.successCount,
-    required this.failedCount,
-  });
+  const ImportResult({required this.successCount, required this.failedCount});
 }
 
 /// 全量同步汇总

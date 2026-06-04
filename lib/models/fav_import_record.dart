@@ -53,14 +53,14 @@ class FavImportRecord {
   }
 
   Map<String, dynamic> toJson() => {
-        'folderMediaId': folderMediaId,
-        'folderTitle': folderTitle,
-        'playlistId': playlistId,
-        'lastImportedAt': lastImportedAt.millisecondsSinceEpoch,
-        'importedCount': importedCount,
-        'failedCount': failedCount,
-        'status': status.name,
-      };
+    'folderMediaId': folderMediaId,
+    'folderTitle': folderTitle,
+    'playlistId': playlistId,
+    'lastImportedAt': lastImportedAt.millisecondsSinceEpoch,
+    'importedCount': importedCount,
+    'failedCount': failedCount,
+    'status': status.name,
+  };
 
   factory FavImportRecord.fromJson(Map<String, dynamic> json) {
     return FavImportRecord(
