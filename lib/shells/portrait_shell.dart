@@ -18,6 +18,7 @@ import 'package:bilimusic/pages/cookie_page.dart';
 import 'package:bilimusic/pages/data_management_page.dart';
 import 'package:bilimusic/pages/data_migration_page.dart';
 import 'package:bilimusic/pages/login_page.dart';
+import 'package:bilimusic/pages/fav_import_page.dart';
 import 'package:bilimusic/utils/platform_helper.dart';
 
 /// 竖屏模式外壳 - 包含平板模式和手机模式布局
@@ -102,6 +103,8 @@ class _PortraitShellState extends State<PortraitShell> {
         return const DataManagementPage();
       case ShellPage.dataMigration:
         return const DataMigrationPage();
+      case ShellPage.favImport:
+        return const FavImportPage();
       case ShellPage.login:
         if (PlatformHelper.isDesktop) {
           return const _DesktopLoginPlaceholder();
