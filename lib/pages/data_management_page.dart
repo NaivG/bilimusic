@@ -419,7 +419,7 @@ class _DataManagementPageState extends State<DataManagementPage> {
         await musicCacheManager.emptyCache();
         await imageCacheManager.emptyCache();
 
-        await Restart.restartApp();
+        await Restart.restartApp(mode: RestartMode.process);
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(

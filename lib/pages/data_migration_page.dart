@@ -554,7 +554,7 @@ class _DataMigrationPageState extends State<DataMigrationPage> {
 
           if (shouldRestart == true) {
             // 重启应用
-            await Restart.restartApp();
+            await Restart.restartApp(mode: RestartMode.process);
           }
         }
       } else {

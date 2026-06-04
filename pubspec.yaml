@@ -58,7 +58,7 @@ dependencies:
   flutter_lyric: ^3.0.2
   file_picker: ^10.3.3
   window_manager: ^0.4.3
-  restart_app: ^1.7.3
+  restart_app: ^1.8.3
   flutter_native_splash: ^2.4.7
   super_context_menu: ^0.9.1
   dio: ^5.9.2
