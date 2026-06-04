@@ -62,6 +62,7 @@ class _DataMigrationPageState extends State<DataMigrationPage> {
                       SizedBox(height: 8),
                       BulletPoint(text: '用户设置（主题、通知等）'),
                       BulletPoint(text: '播放历史记录'),
+                      BulletPoint(text: '收藏列表（我喜欢的音乐）'),
                       BulletPoint(text: '用户创建的播放列表'),
                       BulletPoint(text: '登录Cookie信息'),
                       SizedBox(height: 16),
@@ -239,6 +240,9 @@ class _DataMigrationPageState extends State<DataMigrationPage> {
 
       // 导出播放历史
       exportData['play_history'] = prefs.getString('play_history');
+
+      // 导出收藏列表（我喜欢的音乐）
+      exportData['favorites'] = prefs.getString('favorites');
 
       // 导出播放列表索引
       exportData['user_playlists'] = prefs.getString('user_playlists');
@@ -501,6 +505,11 @@ class _DataMigrationPageState extends State<DataMigrationPage> {
         // 导入播放历史
         if (importData['play_history'] != null) {
           await prefs.setString('play_history', importData['play_history']);
+        }
+
+        // 导入收藏列表（我喜欢的音乐）
+        if (importData['favorites'] != null) {
+          await prefs.setString('favorites', importData['favorites']);
         }
 
         // 导入播放列表索引
