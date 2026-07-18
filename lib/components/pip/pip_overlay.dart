@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:bilimusic/core/app_providers.dart';
 import 'package:bilimusic/managers/cache_manager.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/player_state.dart';
@@ -18,11 +18,12 @@ import 'package:window_manager/window_manager.dart';
 class PipOverlay extends ConsumerWidget {
   const PipOverlay({super.key});
 
-  void _togglePlay(PlayerState state) {
+  void _togglePlay(PlayerState state, WidgetRef ref) {
+    final commands = ref.read(playbackCommandsProvider.notifier);
     if (state is PlayerPlaying) {
-      sl.playerCoordinator.pause();
+      commands.pause();
     } else if (state is PlayerPaused || state is PlayerCompleted) {
-      sl.playerCoordinator.resume();
+      commands.resume();
     }
   }
 
@@ -53,7 +54,7 @@ class PipOverlay extends ConsumerWidget {
                 children: [
                   _buildTopRow(context, brightness, currentMusic, playerState),
                   const SizedBox(height: 8),
-                  _buildTransportRow(brightness, playerState),
+                  _buildTransportRow(brightness, playerState, ref),
                   const SizedBox(height: 6),
                   _buildProgressBar(brightness, position, currentMusic),
                 ],
@@ -178,13 +179,14 @@ class PipOverlay extends ConsumerWidget {
     );
   }
 
-  Widget _buildTransportRow(Brightness brightness, PlayerState playerState) {
+  Widget _buildTransportRow(Brightness brightness, PlayerState playerState, WidgetRef ref) {
     final accentColor = LucentTokens.accentPrimary;
     final textSecondary = brightness == Brightness.dark
         ? LucentTokens.darkTextSecondary
         : LucentTokens.lightTextSecondary;
     final isPlaying = playerState is PlayerPlaying;
-    final hasMusic = sl.playerCoordinator.currentMusic != null;
+    final hasMusic = ref.read(playerCoordinatorProvider).currentMusic != null;
+    final commands = ref.read(playbackCommandsProvider.notifier);
 
     return SizedBox(
       height: 44,
@@ -194,20 +196,20 @@ class PipOverlay extends ConsumerWidget {
           _TransportButton(
             icon: Icons.skip_previous_rounded,
             color: textSecondary,
-            onTap: hasMusic ? () => sl.playerCoordinator.playPrevious() : null,
+            onTap: hasMusic ? () => commands.playPrevious() : null,
           ),
           const SizedBox(width: 24),
           _TransportButton(
             icon: isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
             color: accentColor,
             size: 32,
-            onTap: hasMusic ? () => _togglePlay(playerState) : null,
+            onTap: hasMusic ? () => _togglePlay(playerState, ref) : null,
           ),
           const SizedBox(width: 24),
           _TransportButton(
             icon: Icons.skip_next_rounded,
             color: textSecondary,
-            onTap: hasMusic ? () => sl.playerCoordinator.playNext() : null,
+            onTap: hasMusic ? () => commands.playNext() : null,
           ),
         ],
       ),

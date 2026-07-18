@@ -10,7 +10,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 
 import 'package:bilimusic/core/database.dart';
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:bilimusic/core/app_providers.dart';
 import 'package:bilimusic/managers/audio_handler.dart';
 
 import 'package:bilimusic/utils/network_config.dart';
@@ -64,12 +64,23 @@ void main() async {
     JustAudioMediaKit.ensureInitialized();
   }
 
-  // 通过 ServiceLocator 初始化所有管理器和服务
-  await sl.init();
+  // 构造 Riverpod 容器，让依赖关系通过 ref.watch 编译期声明
+  final container = ProviderContainer();
+
+  // 读取 playerCoordinator（首次读取会触发依赖图所有服务初始化）
+  final coordinator = container.read(playerCoordinatorProvider);
+
+  // 等待播放列表服务与管理器初始化完成，
+  // 否则 UI 在 build 阶段同步读取 .favorites / .userPlaylists 等会抛 StateError
+  final playlistService = container.read(playlistServiceProvider);
+  await playlistService.initialize();
+  await container
+      .read(playlistManagerProvider)
+      .initialize(service: playlistService);
 
   // 初始化音频服务并保存实例
   final audioHandler = await AudioService.init(
-    builder: () => AudioHandlerConnector(sl.playerCoordinator),
+    builder: () => AudioHandlerConnector(coordinator),
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'github.naivg.bilimusic.channel.audio',
       androidNotificationChannelName: 'BiliMusic Playback',
@@ -84,14 +95,17 @@ void main() async {
   );
 
   // 初始化通知服务(音频处理器)
-  sl.notificationService.initialize(audioHandler);
+  container.read(notificationServiceProvider).initialize(audioHandler);
 
   // 初始化桌面窗口
   if (PlatformHelper.isDesktop) {
     await _setupMainWindow();
   }
 
-  runApp(ProviderScope(child: MyApp(audioHandler: audioHandler)));
+  runApp(UncontrolledProviderScope(
+    container: container,
+    child: MyApp(audioHandler: audioHandler),
+  ));
 }
 
 /// 根Widget，负责管理播放器管理器实例
@@ -142,8 +156,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    // 在应用关闭时释放播放器资源
-    sl.playerCoordinator.dispose();
+    // 播放器资源由 ProviderContainer.onDispose 释放，无需手动 dispose
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

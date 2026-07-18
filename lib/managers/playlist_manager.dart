@@ -19,9 +19,14 @@ class PlaylistManager {
 
   late PlaylistService _service;
   bool _initialized = false;
+  Future<void>? _initFuture;
 
   /// 由 `ServiceLocator` 在启动时调用一次。
-  Future<void> initialize({PlaylistService? service}) async {
+  Future<void> initialize({PlaylistService? service}) {
+    return _initFuture ??= _doInitialize(service: service);
+  }
+
+  Future<void> _doInitialize({PlaylistService? service}) async {
     if (_initialized) return;
     _service = service ?? PlaylistService();
     await _service.initialize();

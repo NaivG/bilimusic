@@ -11,30 +11,40 @@ class BackgroundBlurWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = View.of(context).platformDispatcher.platformBrightness;
+    final brightness = Theme.of(context).brightness;
     final backgroundColor = LucentTokens.surfaceBase(brightness);
 
     if (coverUrl == null || coverUrl!.isEmpty) {
-      return Container(color: backgroundColor);
+      return TweenAnimationBuilder<Color?>(
+        duration: const Duration(milliseconds: 250),
+        tween: ColorTween(end: backgroundColor),
+        builder: (context, color, child) => Container(color: color),
+      );
     }
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Image.network(
-          coverUrl!,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) =>
-              Container(color: backgroundColor),
-        ),
-        BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: LucentTokens.heavyGlassBlurSigma,
-            sigmaY: LucentTokens.heavyGlassBlurSigma,
-          ),
-          child: Container(color: backgroundColor.withValues(alpha: 0.6)),
-        ),
-      ],
+    return TweenAnimationBuilder<Color?>(
+      duration: const Duration(milliseconds: 250),
+      tween: ColorTween(end: backgroundColor),
+      builder: (context, color, child) {
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.network(
+              coverUrl!,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) =>
+                  Container(color: color),
+            ),
+            BackdropFilter(
+              filter: ImageFilter.blur(
+                sigmaX: LucentTokens.heavyGlassBlurSigma,
+                sigmaY: LucentTokens.heavyGlassBlurSigma,
+              ),
+              child: Container(color: color?.withValues(alpha: 0.6)),
+            ),
+          ],
+        );
+      },
     );
   }
 }

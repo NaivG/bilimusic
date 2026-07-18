@@ -1,42 +1,47 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bilimusic/core/app_providers.dart';
+import 'package:bilimusic/managers/user_manager.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/utils/network_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
+import 'package:bilimusic/providers/playlist_providers.dart';
 
-class ProfilePage extends StatefulWidget {
+class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
 
   @override
-  State<ProfilePage> createState() => _ProfilePageState();
+  ConsumerState<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
+class _ProfilePageState extends ConsumerState<ProfilePage> {
   int _playHistoryCount = 0;
   int _favoritesCount = 0;
   int _playlistsCount = 0;
+  late final UserManager _userManager;
 
   @override
   void initState() {
     super.initState();
+    _userManager = ref.read(userManagerProvider);
     _loadData();
     // 监听用户管理器变化
-    sl.userManager.addListener(_onUserChanged);
+    _userManager.addListener(_onUserChanged);
     // 监听页面切换，回到此页面时刷新数据
     ShellPageManager.instance.addListener(_onPageChanged);
     // 如果缓存已有用户信息且登录态一致，无需额外操作；
     // 否则触发一次检查
-    if (!sl.userManager.isFresh) {
-      sl.userManager.getUserInfo();
+    if (!_userManager.isFresh) {
+      _userManager.getUserInfo();
     }
   }
 
   @override
   void dispose() {
-    sl.userManager.removeListener(_onUserChanged);
+    _userManager.removeListener(_onUserChanged);
     ShellPageManager.instance.removeListener(_onPageChanged);
     super.dispose();
   }
@@ -52,9 +57,9 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _loadData() async {
-    final playHistory = sl.playerCoordinator.playHistory.value;
-    final favorites = sl.playerCoordinator.favorites.value;
-    final playlists = sl.playlistManager.getAllPlaylists();
+    final playHistory = ref.read(playHistoryProvider);
+    final favorites = ref.read(favoritesProvider);
+    final playlists = ref.read(playlistManagerProvider).getAllPlaylists();
 
     setState(() {
       _playHistoryCount = playHistory.length;
@@ -94,7 +99,7 @@ class _ProfilePageState extends State<ProfilePage> {
         NetworkConfig.setCookies(cookies);
 
         // 清除用户缓存
-        await sl.userManager.clear();
+        await ref.read(userManagerProvider).clear();
 
         if (mounted) {
           ScaffoldMessenger.of(
@@ -142,7 +147,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final userManager = sl.userManager;
+    final userManager = ref.read(userManagerProvider);
     final isLoggedIn = userManager.isLoggedIn;
     final userInfo = userManager.userInfo;
     final userName = userInfo?.userName ?? '点击登录';
@@ -308,7 +313,7 @@ class _ProfilePageState extends State<ProfilePage> {
           onTap: () {
             ShellPageManager.instance.goToPlaylist(
               playlistId: 'playHistory',
-              songs: sl.playerCoordinator.playHistory.value,
+              songs: ref.read(playHistoryProvider),
             );
           },
         ),
@@ -330,7 +335,7 @@ class _ProfilePageState extends State<ProfilePage> {
           onTap: () {
             ShellPageManager.instance.goToPlaylist(
               playlistId: 'favorites',
-              songs: sl.playerCoordinator.favorites.value,
+              songs: ref.read(favoritesProvider),
             );
           },
         ),
@@ -355,7 +360,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
 
         // Bilibili 收藏夹同步（仅登录后显示）
-        if (sl.userManager.isLoggedIn) ...[
+        if (ref.read(userManagerProvider).isLoggedIn) ...[
           const Divider(height: 1),
           ListTile(
             leading: Container(
@@ -379,7 +384,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _showPlaylists() {
-    final playlists = sl.playlistManager.getAllPlaylists();
+    final playlists = ref.read(playlistManagerProvider).getAllPlaylists();
 
     showModalBottomSheet(
       context: context,
@@ -445,9 +450,9 @@ class _ProfilePageState extends State<ProfilePage> {
                         itemBuilder: (context, index) {
                           final playlist = playlists[index];
                           return FutureBuilder<List<Music>>(
-                            future: sl.playlistManager.getPlaylistSongs(
-                              playlist.id,
-                            ),
+                            future: ref
+                                .read(playlistManagerProvider)
+                                .getPlaylistSongs(playlist.id),
                             builder: (context, snapshot) {
                               final songCount = snapshot.data?.length ?? 0;
                               return ListTile(
@@ -500,9 +505,9 @@ class _ProfilePageState extends State<ProfilePage> {
             ElevatedButton(
               onPressed: () async {
                 if (controller.text.trim().isNotEmpty) {
-                  await sl.playlistManager.createPlaylist(
-                    controller.text.trim(),
-                  );
+                  await ref
+                      .read(playlistManagerProvider)
+                      .createPlaylist(controller.text.trim());
                   Navigator.pop(context);
                   _loadData();
                   if (mounted) {

@@ -2,12 +2,12 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/models/play_mode.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/player_state.dart';
 import 'package:bilimusic/providers/playback_providers.dart';
 import 'package:bilimusic/providers/playlist_providers.dart';
+import 'package:bilimusic/providers/settings_provider.dart';
 import 'package:bilimusic/theme/lucent_theme.dart';
 import 'package:bilimusic/utils/animations.dart';
 import 'package:bilimusic/utils/responsive.dart';
@@ -34,7 +34,7 @@ class LandscapeBottomControl extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final brightness = View.of(context).platformDispatcher.platformBrightness;
     final isDark = brightness == Brightness.dark;
-    final blurEnabled = sl.settingsManager.blurEffect;
+    final blurEnabled = ref.watch(settingsProvider).blurEffect;
 
     // Lucent design tokens
     final glassColor = isDark
@@ -88,6 +88,7 @@ class LandscapeBottomControl extends ConsumerWidget {
                       flex: 4,
                       child: _buildCenterControls(
                         context,
+                        ref,
                         iconColor,
                         accentColor,
                         seekBarColor,
@@ -204,6 +205,7 @@ class LandscapeBottomControl extends ConsumerWidget {
 
   Widget _buildCenterControls(
     BuildContext context,
+    WidgetRef ref,
     Color iconColor,
     Color accentColor,
     Color seekBarColor,
@@ -219,6 +221,7 @@ class LandscapeBottomControl extends ConsumerWidget {
       children: [
         _buildPlayButtonRow(
           context,
+          ref,
           iconColor,
           accentColor,
           mainButtonSize,
@@ -243,6 +246,7 @@ class LandscapeBottomControl extends ConsumerWidget {
 
   Widget _buildPlayButtonRow(
     BuildContext context,
+    WidgetRef ref,
     Color iconColor,
     Color accentColor,
     double mainButtonSize,
@@ -261,7 +265,7 @@ class LandscapeBottomControl extends ConsumerWidget {
           size: smallSize,
           iconSize: smallSize * 0.55,
           color: iconColor.withValues(alpha: 0.7),
-          onTap: () => sl.playerCoordinator.togglePlayMode(),
+          onTap: () => ref.read(playbackCommandsProvider.notifier).togglePlayMode(),
         ),
         const SizedBox(width: 16),
         _buildSmallButton(
@@ -269,7 +273,7 @@ class LandscapeBottomControl extends ConsumerWidget {
           size: smallSize,
           iconSize: smallSize * 0.6,
           color: iconColor.withValues(alpha: 0.85),
-          onTap: () => sl.playerCoordinator.playPrevious(),
+          onTap: () => ref.read(playbackCommandsProvider.notifier).playPrevious(),
         ),
         const SizedBox(width: 16),
         ScaleOnHover(
@@ -291,9 +295,9 @@ class LandscapeBottomControl extends ConsumerWidget {
             child: IconButton(
               onPressed: () {
                 if (isPlaying) {
-                  sl.playerCoordinator.pause();
+                  ref.read(playbackCommandsProvider.notifier).pause();
                 } else {
-                  sl.playerCoordinator.resume();
+                  ref.read(playbackCommandsProvider.notifier).resume();
                 }
               },
               icon: AnimatedSwitcher(
@@ -322,7 +326,7 @@ class LandscapeBottomControl extends ConsumerWidget {
           size: smallSize,
           iconSize: smallSize * 0.6,
           color: iconColor.withValues(alpha: 0.85),
-          onTap: () => sl.playerCoordinator.playNext(),
+          onTap: () => ref.read(playbackCommandsProvider.notifier).playNext(),
         ),
         const SizedBox(width: 16),
         if (onPlayList != null)

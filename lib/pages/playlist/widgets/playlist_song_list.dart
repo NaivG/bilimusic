@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:bilimusic/core/app_providers.dart';
 import 'package:bilimusic/theme/lucent_theme.dart';
 import 'package:bilimusic/components/long_press_menu.dart';
 import 'package:super_context_menu/super_context_menu.dart';
@@ -8,7 +9,7 @@ import 'package:super_context_menu/super_context_menu.dart';
 /// Enhanced song list for playlist page.
 /// Supports search bar, table headers (landscape), track rows with
 /// index/title/duration/heart, editable reorder, and long-press menu.
-class PlaylistSongList extends StatelessWidget {
+class PlaylistSongList extends ConsumerWidget {
   final List<Music> songs;
   final Music? currentPlayingMusic;
   final Function(Music) onSongTap;
@@ -29,7 +30,7 @@ class PlaylistSongList extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (songs.isEmpty) {
       return SliverFillRemaining(child: _buildEmptyState(context));
     }
@@ -225,7 +226,7 @@ class PlaylistSongList extends StatelessWidget {
 
 /// Track row widget for playlist song list.
 /// Shows index, title (with artist subtitle), duration, and heart icon.
-class PlaylistTrackRow extends StatefulWidget {
+class PlaylistTrackRow extends ConsumerStatefulWidget {
   final Music music;
   final int index;
   final bool isPlaying;
@@ -244,10 +245,10 @@ class PlaylistTrackRow extends StatefulWidget {
   });
 
   @override
-  State<PlaylistTrackRow> createState() => _PlaylistTrackRowState();
+  ConsumerState<PlaylistTrackRow> createState() => _PlaylistTrackRowState();
 }
 
-class _PlaylistTrackRowState extends State<PlaylistTrackRow> {
+class _PlaylistTrackRowState extends ConsumerState<PlaylistTrackRow> {
   bool _isHovered = false;
 
   String _formatDuration(Music music) {
@@ -269,7 +270,7 @@ class _PlaylistTrackRowState extends State<PlaylistTrackRow> {
       menuProvider: (_) => buildMusicContextMenu(
         context: context,
         music: widget.music,
-        playerCoordinator: sl.playerCoordinator,
+        playerCoordinator: ref.read(playerCoordinatorProvider),
         onRemoveFromPlaylist: widget.onRemoveFromPlaylist,
       ),
       child: MouseRegion(

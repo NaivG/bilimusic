@@ -1,16 +1,19 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:bilimusic/core/app_providers.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/pages/playlist/portrait_playlist_page.dart';
 import 'package:bilimusic/pages/playlist/landscape_playlist_page.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
+import 'package:bilimusic/providers/playback_providers.dart';
+import 'package:bilimusic/providers/playlist_providers.dart';
 
 /// 播放列表页面
 /// 根据屏幕方向路由到竖屏或横屏布局
-class PlaylistPage extends StatefulWidget {
+class PlaylistPage extends ConsumerStatefulWidget {
   final String? playlistId;
   final List<Music>? songs;
   final String? playlistName;
@@ -25,10 +28,10 @@ class PlaylistPage extends StatefulWidget {
   });
 
   @override
-  State<PlaylistPage> createState() => _PlaylistPageState();
+  ConsumerState<PlaylistPage> createState() => _PlaylistPageState();
 }
 
-class _PlaylistPageState extends State<PlaylistPage> {
+class _PlaylistPageState extends ConsumerState<PlaylistPage> {
   // 状态
   List<Music> _songs = [];
   bool _isLoading = true;
@@ -55,9 +58,9 @@ class _PlaylistPageState extends State<PlaylistPage> {
         );
       } else if (widget.playlistId != null) {
         // 从管理器加载歌单详情
-        final detail = await sl.playlistManager.getPlaylistDetail(
-          widget.playlistId!,
-        );
+        final detail = await ref
+            .read(playlistManagerProvider)
+            .getPlaylistDetail(widget.playlistId!);
         if (detail != null) {
           _currentPlaylist = detail;
           _songs = detail.songs;
@@ -66,7 +69,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
 
       // 检查是否已收藏
       if (_songs.isNotEmpty) {
-        _isFavorited = sl.playlistManager.isFavorite(_songs.first);
+        _isFavorited = ref.read(playlistManagerProvider).isFavorite(_songs.first);
       }
     } catch (e) {
       debugPrint('Failed to load playlist data: $e');
@@ -81,8 +84,8 @@ class _PlaylistPageState extends State<PlaylistPage> {
     String displayName = name ?? '播放列表';
     PlaylistSource source = PlaylistSource.user;
 
-    final favorites = sl.playerCoordinator.favorites.value;
-    final history = sl.playerCoordinator.playHistory.value;
+    final favorites = ref.read(favoritesProvider);
+    final history = ref.read(playHistoryProvider);
 
     if (displayName == '播放列表') {
       if (favorites.isNotEmpty && _isSameList(songs, favorites)) {
@@ -120,11 +123,12 @@ class _PlaylistPageState extends State<PlaylistPage> {
   Future<void> _playAll() async {
     if (_songs.isEmpty) return;
 
-    await sl.playerCoordinator.clearPlaylist();
-    await sl.playerCoordinator.addAllToPlaylist(_songs);
+    final commands = ref.read(playbackCommandsProvider.notifier);
+    await commands.clearPlaylist();
+    await commands.addAllToPlaylist(_songs);
 
     if (_songs.isNotEmpty) {
-      await sl.playerCoordinator.playMusic(_songs.first);
+      await commands.playMusic(_songs.first);
     }
   }
 
@@ -133,12 +137,13 @@ class _PlaylistPageState extends State<PlaylistPage> {
     if (_songs.isEmpty) return;
 
     final shuffledSongs = List<Music>.from(_songs)..shuffle(Random());
+    final commands = ref.read(playbackCommandsProvider.notifier);
 
-    await sl.playerCoordinator.clearPlaylist();
-    await sl.playerCoordinator.addAllToPlaylist(shuffledSongs);
+    await commands.clearPlaylist();
+    await commands.addAllToPlaylist(shuffledSongs);
 
     if (shuffledSongs.isNotEmpty) {
-      await sl.playerCoordinator.playMusic(shuffledSongs.first);
+      await commands.playMusic(shuffledSongs.first);
     }
   }
 
@@ -147,7 +152,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
     if (_songs.isEmpty) return;
 
     final music = _songs.first;
-    final newState = await sl.playlistManager.toggleFavorite(music);
+    final newState = await ref.read(playlistManagerProvider).toggleFavorite(music);
 
     setState(() {
       _isFavorited = newState;
@@ -165,9 +170,9 @@ class _PlaylistPageState extends State<PlaylistPage> {
 
   /// 播放歌曲
   Future<void> _playSong(Music music) async {
-    // 添加到播放列表
-    await sl.playerCoordinator.addToPlaylist(music);
-    await sl.playerCoordinator.playMusic(music);
+    final commands = ref.read(playbackCommandsProvider.notifier);
+    await commands.addToPlaylist(music);
+    await commands.playMusic(music);
   }
 
   /// 从歌单移除歌曲
@@ -193,9 +198,10 @@ class _PlaylistPageState extends State<PlaylistPage> {
     );
 
     if (confirm == true) {
-      await sl.playlistManager.removeSongsFromPlaylist(widget.playlistId!, [
-        music,
-      ]);
+      await ref.read(playlistManagerProvider).removeSongsFromPlaylist(
+        widget.playlistId!,
+        [music],
+      );
       setState(() {
         _songs.remove(music);
       });

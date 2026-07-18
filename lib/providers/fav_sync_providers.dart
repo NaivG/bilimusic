@@ -1,9 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/core/service_locator.dart';
+
+import 'package:bilimusic/core/app_providers.dart';
+import 'package:bilimusic/managers/fav_sync_manager.dart' show ImportResult;
 import 'package:bilimusic/models/bili_fav_folder.dart';
 import 'package:bilimusic/models/fav_import_record.dart';
-import 'package:bilimusic/managers/fav_sync_manager.dart';
+
+final _favSyncManagerProvider = favSyncManagerProvider;
 
 @immutable
 class FavSyncState {
@@ -23,14 +26,14 @@ class FavSyncState {
 class FavSyncStateNotifier extends Notifier<FavSyncState> {
   @override
   FavSyncState build() {
-    final fm = sl.favSyncManager;
+    final fm = ref.read(_favSyncManagerProvider);
     fm.addListener(_onFavSyncChanged);
     ref.onDispose(() => fm.removeListener(_onFavSyncChanged));
     return _readFromManager();
   }
 
   FavSyncState _readFromManager() {
-    final fm = sl.favSyncManager;
+    final fm = ref.read(_favSyncManagerProvider);
     return FavSyncState(records: fm.records, isLoading: fm.isLoading);
   }
 
@@ -39,14 +42,14 @@ class FavSyncStateNotifier extends Notifier<FavSyncState> {
   }
 
   Future<Map<String, List<BiliFavFolder>>> fetchAllFolders(int upMid) async {
-    return sl.favSyncManager.fetchAllFolders(upMid);
+    return ref.read(_favSyncManagerProvider).fetchAllFolders(upMid);
   }
 
   Future<ImportResult> importFolderAsNewPlaylist(
     BiliFavFolder folder, {
     void Function(int processed, int total, int failed)? onProgress,
   }) async {
-    return sl.favSyncManager.importFolderAsNewPlaylist(
+    return ref.read(_favSyncManagerProvider).importFolderAsNewPlaylist(
       folder,
       onProgress: onProgress,
     );
@@ -57,7 +60,7 @@ class FavSyncStateNotifier extends Notifier<FavSyncState> {
     String playlistId, {
     void Function(int processed, int total, int failed)? onProgress,
   }) async {
-    return sl.favSyncManager.appendFolderToPlaylist(
+    return ref.read(_favSyncManagerProvider).appendFolderToPlaylist(
       folder,
       playlistId,
       onProgress: onProgress,
@@ -65,7 +68,7 @@ class FavSyncStateNotifier extends Notifier<FavSyncState> {
   }
 
   Future<void> removeImportRecord(int folderMediaId) async {
-    await sl.favSyncManager.removeImportRecord(folderMediaId);
+    await ref.read(_favSyncManagerProvider).removeImportRecord(folderMediaId);
   }
 }
 

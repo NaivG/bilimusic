@@ -23,17 +23,11 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _setupSearchStateListener();
+      _checkInitialQuery();
     });
   }
 
-  void _setupSearchStateListener() {
-    ref.listen(searchStateProvider, (prev, next) {
-      // 初次跳过
-      if (prev == null) return;
-      _onSearchStateChanged(next);
-    });
-    // 检查初始是否有待搜索词
+  void _checkInitialQuery() {
     final searchState = ref.read(searchStateProvider);
     if (searchState.shouldSearch && searchState.query.isNotEmpty) {
       _searchController.text = searchState.query;
@@ -74,6 +68,12 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<SearchState>(searchStateProvider, (prev, next) {
+      // 初次跳过
+      if (prev == null) return;
+      _onSearchStateChanged(next);
+    });
+
     final screenSize = ResponsiveHelper.getScreenSize(context);
     final isDesktop = screenSize == ScreenSize.desktop;
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:bilimusic/core/app_providers.dart';
 import 'package:bilimusic/models/play_mode.dart';
 import 'package:bilimusic/models/music.dart' as model;
 import 'package:bilimusic/models/player_state.dart';
@@ -52,8 +52,9 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
     super.initState();
 
     // 初始化音乐信息
+    final coordinator = _readCoordinator();
     final currentMusic =
-        sl.playerCoordinator.currentMusic ??
+        coordinator.currentMusic ??
         model.Music(
           id: '',
           title: '未知标题',
@@ -66,7 +67,7 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
         );
     _music = currentMusic;
     _duration = currentMusic.duration;
-    _isFavorite = sl.playerCoordinator.isFavorite(_music);
+    _isFavorite = coordinator.isFavorite(_music);
 
     // 提取背景颜色
     _extractBackgroundColor(_music.coverUrl);
@@ -155,13 +156,14 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
   }
 
   void _toggleFavorite() async {
-    if (sl.playerCoordinator.isFavorite(_music)) {
-      await sl.playerCoordinator.removeFromFavorites(_music);
+    final commands = ref.read(playbackCommandsProvider.notifier);
+    if (commands.isFavorite(_music)) {
+      await commands.removeFromFavorites(_music);
     } else {
-      await sl.playerCoordinator.addToFavorites(_music);
+      await commands.addToFavorites(_music);
     }
     setState(() {
-      _isFavorite = sl.playerCoordinator.isFavorite(_music);
+      _isFavorite = commands.isFavorite(_music);
     });
   }
 
@@ -182,11 +184,12 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
   }
 
   void _togglePlay() {
-    final ps = sl.playerCoordinator.playerState.value;
+    final commands = ref.read(playbackCommandsProvider.notifier);
+    final ps = ref.read(playerStateProvider);
     if (ps is PlayerPlaying) {
-      sl.playerCoordinator.pause();
+      commands.pause();
     } else if (ps is PlayerPaused || ps is PlayerCompleted) {
-      sl.playerCoordinator.resume();
+      commands.resume();
     }
   }
 
@@ -198,7 +201,7 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
       isScrollControlled: true,
       builder: (context) => PlaylistSheet(
         onTrackSelect: (index) {
-          sl.playerCoordinator.playAtIndex(index);
+          ref.read(playbackCommandsProvider.notifier).playAtIndex(index);
           Navigator.pop(context);
         },
       ),
@@ -214,7 +217,7 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
     final ps = ref.watch(playerStateProvider);
     final mode = ref.watch(playModeProvider);
 
-    final liveMusic = sl.playerCoordinator.currentMusic;
+    final liveMusic = _readCoordinator().currentMusic;
     if (liveMusic != null && liveMusic.id != _previousMusicId) {
       final musicChanged = _previousMusicId != liveMusic.id;
       if (musicChanged) {
@@ -227,7 +230,7 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
         });
         _music = liveMusic;
         _duration = liveMusic.duration;
-        _isFavorite = sl.playerCoordinator.isFavorite(_music);
+        _isFavorite = ref.read(playbackCommandsProvider.notifier).isFavorite(_music);
       }
     }
 
@@ -294,7 +297,7 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
                         isLoadingLyrics: _isLoadingLyrics,
                         onLyricSourceChanged: _loadLyric,
                         onLyricTap: (duration) {
-                          sl.playerCoordinator.seek(duration);
+                          ref.read(playbackCommandsProvider.notifier).seek(duration);
                         },
                       ),
                     ),
@@ -307,11 +310,11 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
                 isPlaying: isPlaying,
                 playModeIcon: icon,
                 onPlayPause: _togglePlay,
-                onPrevious: () => sl.playerCoordinator.playPrevious(),
-                onNext: () => sl.playerCoordinator.playNext(),
-                onPlayModeToggle: () => sl.playerCoordinator.togglePlayMode(),
+                onPrevious: () => ref.read(playbackCommandsProvider.notifier).playPrevious(),
+                onNext: () => ref.read(playbackCommandsProvider.notifier).playNext(),
+                onPlayModeToggle: () => ref.read(playbackCommandsProvider.notifier).togglePlayMode(),
                 onPlaylist: _showPlaylist,
-                onSeek: (duration) => sl.playerCoordinator.seek(duration),
+                onSeek: (duration) => ref.read(playbackCommandsProvider.notifier).seek(duration),
                 isTransitioning: fading,
               ),
             ],
@@ -490,4 +493,6 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
     final seconds = twoDigits(duration.inSeconds.remainder(60));
     return '$minutes:$seconds';
   }
+
+  dynamic _readCoordinator() => ref.read(playerCoordinatorProvider);
 }

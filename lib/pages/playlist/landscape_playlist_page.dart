@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:bilimusic/providers/playlist_providers.dart';
 import 'package:bilimusic/theme/lucent_theme.dart';
 import 'package:bilimusic/pages/playlist/widgets/playlist_hero.dart';
 import 'package:bilimusic/pages/playlist/widgets/playlist_song_list.dart';
 
 /// Landscape playlist page with hero Row + track list in a single scroll.
-class LandscapePlaylistPage extends StatelessWidget {
+class LandscapePlaylistPage extends ConsumerWidget {
   final String? playlistId;
   final List<Music> songs;
   final Playlist? currentPlaylist;
@@ -34,7 +35,7 @@ class LandscapePlaylistPage extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final brightness = Theme.of(context).brightness;
 
     return Scaffold(
@@ -80,7 +81,7 @@ class LandscapePlaylistPage extends StatelessWidget {
                   // Track list
                   PlaylistSongList(
                     songs: songs,
-                    currentPlayingMusic: sl.playerCoordinator.currentMusic,
+                    currentPlayingMusic: ref.watch(currentMusicProvider),
                     onSongTap: onSongTap,
                     isEditable: playlistId != null,
                     onRemove: playlistId != null ? onRemoveSong : null,

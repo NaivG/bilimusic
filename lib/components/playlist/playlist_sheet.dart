@@ -1,9 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/providers/playlist_providers.dart';
+import 'package:bilimusic/providers/playback_providers.dart';
 import 'package:bilimusic/components/playlist/playlist_item.dart';
 import 'package:bilimusic/theme/lucent_theme.dart';
 
@@ -58,7 +58,7 @@ class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
     if (newIndex > oldIndex) {
       newIndex -= 1;
     }
-    await sl.playerCoordinator.moveInPlaylist(oldIndex, newIndex);
+    await ref.read(playbackCommandsProvider.notifier).moveInPlaylist(oldIndex, newIndex);
     // moveInPlaylist 会触发通知，无需手动 setState
   }
 
@@ -76,7 +76,7 @@ class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              sl.playerCoordinator.removeFromPlaylist(music);
+              ref.read(playbackCommandsProvider.notifier).removeFromPlaylist(music);
             },
             child: const Text('删除', style: TextStyle(color: Colors.red)),
           ),
@@ -90,7 +90,7 @@ class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
     ref.watch(currentIndexProvider);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final currentIndex = sl.playerCoordinator.currentIndex ?? -1;
+    final currentIndex = ref.watch(currentIndexProvider) ?? -1;
 
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -163,7 +163,7 @@ class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
   }
 
   Widget _buildHeader(BuildContext context, bool isDark) {
-    final playlistLength = sl.playerCoordinator.playlistLength;
+    final playlistLength = ref.watch(currentPlaylistProvider).length;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -200,7 +200,7 @@ class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
                       TextButton(
                         onPressed: () {
                           Navigator.pop(context);
-                          sl.playerCoordinator.clearPlaylist();
+                          ref.read(playbackCommandsProvider.notifier).clearPlaylist();
                         },
                         child: const Text(
                           '清空',
@@ -228,7 +228,7 @@ class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
     int currentIndex,
     bool isDark,
   ) {
-    final playlist = sl.playerCoordinator.playlist.value;
+    final playlist = ref.watch(currentPlaylistProvider);
 
     if (playlist.isEmpty) {
       return Center(
@@ -296,15 +296,16 @@ class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
           music: music,
           index: index,
           isPlaying: isPlaying,
-          isFavorite: sl.playerCoordinator.isFavorite(music),
+          isFavorite: ref.read(playbackCommandsProvider.notifier).isFavorite(music),
           onTap: () {
             widget.onTrackSelect(index);
           },
           onFavoriteToggle: () async {
-            if (sl.playerCoordinator.isFavorite(music)) {
-              await sl.playerCoordinator.removeFromFavorites(music);
+            final commands = ref.read(playbackCommandsProvider.notifier);
+            if (commands.isFavorite(music)) {
+              await commands.removeFromFavorites(music);
             } else {
-              await sl.playerCoordinator.addToFavorites(music);
+              await commands.addToFavorites(music);
             }
             setState(() {});
           },

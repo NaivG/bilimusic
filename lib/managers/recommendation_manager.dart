@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/utils/network_config.dart';
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:bilimusic/services/playlist_service.dart';
 
 class RecommendationManager {
   static final RecommendationManager _instance =
@@ -42,7 +42,10 @@ class RecommendationManager {
   }
 
   /// 更新猜你喜欢列表（基于播放历史）
-  Future<void> updateGuessYouLike(List<Music> playHistory) async {
+  Future<void> updateGuessYouLike(
+    List<Music> playHistory, {
+    PlaylistService? playlistService,
+  }) async {
     // 检查是否需要更新（每天最多更新一次）
     if (_lastGuessUpdated != null &&
         DateTime.now().difference(_lastGuessUpdated!).inHours < 24) {
@@ -117,10 +120,12 @@ class RecommendationManager {
     await _saveGuessToCache();
 
     // 写入系统歌单
-    await sl.playlistManager.addSongsToPlaylist(
-      'recommended',
-      _guessYouLikeList,
-    );
+    if (playlistService != null) {
+      await playlistService.addSongsToPlaylist(
+        'recommended',
+        _guessYouLikeList,
+      );
+    }
   }
 
   /// 判断是否为音乐分类

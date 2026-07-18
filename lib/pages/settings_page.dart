@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:bilimusic/core/app_providers.dart';
 import 'package:bilimusic/providers/settings_provider.dart';
 import 'package:bilimusic/utils/platform_helper.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
@@ -134,7 +134,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               leading: Icon(Icons.tablet, color: _getPrimaryColor(context)),
               title: Text('平板模式'),
               subtitle: Text(
-                sl.settingsManager.getTabletModeText(settings.tabletMode),
+                ref.read(settingsManagerProvider).getTabletModeText(settings.tabletMode),
               ),
               trailing: DropdownButton<String>(
                 value: settings.tabletMode,
@@ -153,7 +153,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               leading: Icon(Icons.volume_up, color: _getPrimaryColor(context)),
               title: Text('音频输出模式'),
               subtitle: Text(
-                sl.settingsManager.getAudioOutputModeText(
+                ref.read(settingsManagerProvider).getAudioOutputModeText(
                   settings.audioOutputMode,
                 ),
               ),
@@ -180,7 +180,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
               title: Text('主题模式'),
               subtitle: Text(
-                sl.settingsManager.getThemeModeText(settings.themeMode),
+                ref.read(settingsManagerProvider).getThemeModeText(settings.themeMode),
               ),
               trailing: DropdownButton<String>(
                 value: settings.themeMode,

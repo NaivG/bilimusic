@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:bilimusic/core/app_providers.dart';
 import 'package:bilimusic/providers/playback_providers.dart';
 
 /// 横屏模式进度条组件
@@ -31,7 +31,7 @@ class _LandscapeSeekBarState extends ConsumerState<LandscapeSeekBar> {
   @override
   Widget build(BuildContext context) {
     final position = ref.watch(positionProvider);
-    final music = sl.playerCoordinator.currentMusic;
+    final music = ref.read(playerCoordinatorProvider).currentMusic;
     final duration = music?.duration ?? Duration.zero;
     final durationMs = duration.inMilliseconds.toDouble();
 
@@ -110,13 +110,13 @@ class _LandscapeSeekBarState extends ConsumerState<LandscapeSeekBar> {
                 setState(() => isDragging = false);
               },
               onTapDown: (_) {
-                if (sl.playerCoordinator.currentMusic == null) {
+                if (ref.read(playerCoordinatorProvider).currentMusic == null) {
                   return;
                 }
                 setState(() => isDragging = true);
               },
               onHorizontalDragUpdate: (details) {
-                if (sl.playerCoordinator.currentMusic == null) {
+                if (ref.read(playerCoordinatorProvider).currentMusic == null) {
                   return;
                 }
                 _seekByTouch(details.localPosition.dx, context, durationMs);
@@ -125,11 +125,11 @@ class _LandscapeSeekBarState extends ConsumerState<LandscapeSeekBar> {
                 });
               },
               onHorizontalDragEnd: (_) async {
-                if (sl.playerCoordinator.currentMusic == null) {
+                if (ref.read(playerCoordinatorProvider).currentMusic == null) {
                   return;
                 }
                 if (dragValue != null) {
-                  await sl.playerCoordinator.seek(
+                  await ref.read(playbackCommandsProvider.notifier).seek(
                     Duration(milliseconds: dragValue!.toInt()),
                   );
                 }
@@ -139,11 +139,11 @@ class _LandscapeSeekBarState extends ConsumerState<LandscapeSeekBar> {
                 });
               },
               onTapUp: (details) async {
-                if (sl.playerCoordinator.currentMusic == null) {
+                if (ref.read(playerCoordinatorProvider).currentMusic == null) {
                   return;
                 }
                 _seekByTouch(details.localPosition.dx, context, durationMs);
-                await sl.playerCoordinator.seek(
+                await ref.read(playbackCommandsProvider.notifier).seek(
                   Duration(milliseconds: dragValue!.toInt()),
                 );
                 setState(() {

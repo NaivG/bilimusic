@@ -1,25 +1,26 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pretty_qr_code/pretty_qr_code.dart';
 
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:bilimusic/core/app_providers.dart';
 import 'package:bilimusic/services/qr_login_service.dart';
 import 'package:bilimusic/utils/network_config.dart';
 
 /// 扫码登录面板
 /// 展示二维码并轮询扫码状态；登录成功时写 cookie、刷新 UserManager 并回调 [onSuccess]。
-class QrLoginWidget extends StatefulWidget {
+class QrLoginWidget extends ConsumerStatefulWidget {
   /// 登录成功后的回调（由父组件决定如何退出登录页）
   final VoidCallback onSuccess;
 
   const QrLoginWidget({super.key, required this.onSuccess});
 
   @override
-  State<QrLoginWidget> createState() => _QrLoginWidgetState();
+  ConsumerState<QrLoginWidget> createState() => _QrLoginWidgetState();
 }
 
-class _QrLoginWidgetState extends State<QrLoginWidget> {
+class _QrLoginWidgetState extends ConsumerState<QrLoginWidget> {
   static const Duration _qrTtl = Duration(seconds: 180);
   static const Duration _pollInterval = Duration(seconds: 1);
 
@@ -107,8 +108,8 @@ class _QrLoginWidgetState extends State<QrLoginWidget> {
         _stopTimers();
         setState(() => _status = QrPollStatus.success);
         // 通知 UserManager 刷新用户信息
-        sl.userManager.clear();
-        sl.userManager.getUserInfo(forceRefresh: true);
+        ref.read(userManagerProvider).clear();
+        ref.read(userManagerProvider).getUserInfo(forceRefresh: true);
         widget.onSuccess();
       } else {
         setState(() => _status = result.status);

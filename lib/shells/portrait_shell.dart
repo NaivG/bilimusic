@@ -2,8 +2,9 @@ import 'package:bilimusic/theme/lucent_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/providers/playlist_providers.dart';
+import 'package:bilimusic/providers/playback_providers.dart';
+import 'package:bilimusic/providers/settings_provider.dart';
 import 'package:bilimusic/components/mini_player_bar.dart';
 import 'package:bilimusic/components/desktop_window_controls.dart';
 import 'package:bilimusic/components/common/background_blur_widget.dart';
@@ -45,9 +46,9 @@ class PortraitShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(currentIndexProvider);
     if (isTabletMode) {
-      return _buildTabletLayout(context);
+      return _buildTabletLayout(context, ref);
     } else {
-      return _buildMobileLayout(context);
+      return _buildMobileLayout(context, ref);
     }
   }
 
@@ -100,7 +101,7 @@ class PortraitShell extends ConsumerWidget {
   }
 
   /// 平板模式布局
-  Widget _buildTabletLayout(BuildContext context) {
+  Widget _buildTabletLayout(BuildContext context, WidgetRef ref) {
     final selectedIndex = pageManager.selectedTabIndex;
 
     return Scaffold(
@@ -110,14 +111,14 @@ class PortraitShell extends ConsumerWidget {
               child: DesktopNavBar(
                 selectedIndex: selectedIndex,
                 onNavTap: (index) => pageManager.goToTab(index),
-                onClose: () => sl.playerCoordinator.stop(),
+                onClose: () => ref.read(playbackCommandsProvider.notifier).stop(),
               ),
             )
           : null,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          _buildBackground(context),
+          _buildBackground(context, ref),
           Row(
             children: [
               Expanded(
@@ -174,7 +175,7 @@ class PortraitShell extends ConsumerWidget {
   }
 
   /// 手机模式布局
-  Widget _buildMobileLayout(BuildContext context) {
+  Widget _buildMobileLayout(BuildContext context, WidgetRef ref) {
     final selectedIndex = pageManager.selectedTabIndex;
 
     return Scaffold(
@@ -184,14 +185,14 @@ class PortraitShell extends ConsumerWidget {
               child: DesktopNavBar(
                 selectedIndex: selectedIndex,
                 onNavTap: (index) => pageManager.goToTab(index),
-                onClose: () => sl.playerCoordinator.stop(),
+                onClose: () => ref.read(playbackCommandsProvider.notifier).stop(),
               ),
             )
           : null,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          _buildBackground(context),
+          _buildBackground(context, ref),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
             switchInCurve: Curves.easeOut,
@@ -279,8 +280,8 @@ class PortraitShell extends ConsumerWidget {
   }
 
   /// 背景模糊效果
-  Widget _buildBackground(BuildContext context) {
-    if (sl.settingsManager.fluidBackground == false) {
+  Widget _buildBackground(BuildContext context, WidgetRef ref) {
+    if (ref.watch(settingsProvider).fluidBackground == false) {
       final isDark = Theme.of(context).brightness;
       return Container(
         color: isDark == Brightness.dark
@@ -288,7 +289,7 @@ class PortraitShell extends ConsumerWidget {
             : LucentTokens.lightSurfaceBase,
       );
     }
-    final currentMusic = sl.playerCoordinator.currentMusic;
+    final currentMusic = ref.watch(currentMusicProvider);
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 400),
       child: BackgroundBlurWidget(

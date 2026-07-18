@@ -1,7 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/core/service_locator.dart';
+
+import 'package:bilimusic/core/app_providers.dart';
 import 'package:bilimusic/models/user_info.dart';
+
+final _userManagerProvider = userManagerProvider;
 
 @immutable
 class UserState {
@@ -27,14 +30,14 @@ class UserState {
 class UserStateNotifier extends Notifier<UserState> {
   @override
   UserState build() {
-    final um = sl.userManager;
+    final um = ref.read(_userManagerProvider);
     um.addListener(_onUserManagerChanged);
     ref.onDispose(() => um.removeListener(_onUserManagerChanged));
     return _readFromManager();
   }
 
   UserState _readFromManager() {
-    final um = sl.userManager;
+    final um = ref.read(_userManagerProvider);
     return UserState(
       userInfo: um.userInfo,
       isLoggedIn: um.isLoggedIn,
@@ -47,19 +50,21 @@ class UserStateNotifier extends Notifier<UserState> {
   }
 
   bool checkCookieLogin() {
-    final result = sl.userManager.checkCookieLogin();
+    final result = ref.read(_userManagerProvider).checkCookieLogin();
     state = _readFromManager();
     return result;
   }
 
   Future<UserInfo?> getUserInfo({bool forceRefresh = false}) async {
-    final result = await sl.userManager.getUserInfo(forceRefresh: forceRefresh);
+    final result = await ref
+        .read(_userManagerProvider)
+        .getUserInfo(forceRefresh: forceRefresh);
     state = _readFromManager();
     return result;
   }
 
   Future<void> clear() async {
-    await sl.userManager.clear();
+    await ref.read(_userManagerProvider).clear();
     state = _readFromManager();
   }
 }

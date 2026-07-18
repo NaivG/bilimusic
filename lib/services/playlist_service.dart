@@ -37,6 +37,7 @@ class PlaylistService {
 
   Database? _db;
   List<PlaylistTag> _defaultTagsCache = const [];
+  Future<void>? _initFuture;
 
   PlaylistService();
 
@@ -48,7 +49,11 @@ class PlaylistService {
     return db;
   }
 
-  Future<void> initialize() async {
+  Future<void> initialize() {
+    return _initFuture ??= _doInitialize();
+  }
+
+  Future<void> _doInitialize() async {
     _db = await AppDatabase.instance.database;
     _defaultTagsCache = DefaultPlaylistTags.allTags;
     await _loadAll();

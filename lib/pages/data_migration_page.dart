@@ -1,23 +1,24 @@
 import 'dart:convert';
 import 'package:bilimusic/components/auto_appbar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, Uint8List;
 import 'dart:io' show File;
 import 'package:restart_app/restart_app.dart';
-import '../core/service_locator.dart';
+import '../core/app_providers.dart';
 import '../managers/settings_manager.dart';
 import '../utils/platform_helper.dart';
 
-class DataMigrationPage extends StatefulWidget {
+class DataMigrationPage extends ConsumerStatefulWidget {
   const DataMigrationPage({super.key});
 
   @override
-  State<DataMigrationPage> createState() => _DataMigrationPageState();
+  ConsumerState<DataMigrationPage> createState() => _DataMigrationPageState();
 }
 
-class _DataMigrationPageState extends State<DataMigrationPage> {
+class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
   bool _isExporting = false;
   bool _isImporting = false;
   String _statusMessage = '';
@@ -234,7 +235,7 @@ class _DataMigrationPageState extends State<DataMigrationPage> {
       final prefs = await SharedPreferences.getInstance();
 
       // 列表/歌单/收藏/历史数据由 PlaylistService 从 sqflite 给出
-      final listExport = await sl.playlistManager.exportForBackup();
+      final listExport = await ref.read(playlistManagerProvider).exportForBackup();
 
       final Map<String, dynamic> exportData = {
         'settings': _exportSettings(prefs),
@@ -470,7 +471,7 @@ class _DataMigrationPageState extends State<DataMigrationPage> {
         }
 
         // 列表数据统一交给 PlaylistService 处理
-        await sl.playlistManager.importFromBackup(importData);
+        await ref.read(playlistManagerProvider).importFromBackup(importData);
 
         // 导入Cookie信息
         if (importData['cookies'] != null) {

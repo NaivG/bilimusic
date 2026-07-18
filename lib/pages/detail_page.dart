@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:bilimusic/core/app_providers.dart';
 import 'package:bilimusic/models/music.dart' as model;
 import 'package:bilimusic/models/player_state.dart';
 import 'package:bilimusic/models/play_mode.dart';
@@ -52,7 +52,7 @@ class _DetailPageState extends ConsumerState<DetailPage>
 
     // 初始化音乐信息
     final currentMusic =
-        sl.playerCoordinator.currentMusic ??
+        ref.read(playerCoordinatorProvider).currentMusic ??
         model.Music(
           id: '',
           title: '未知标题',
@@ -170,14 +170,15 @@ class _DetailPageState extends ConsumerState<DetailPage>
   }
 
   void _toggleFavorite() async {
-    if (sl.playerCoordinator.isFavorite(_music)) {
-      await sl.playerCoordinator.removeFromFavorites(_music);
+    final commands = ref.read(playbackCommandsProvider.notifier);
+    if (commands.isFavorite(_music)) {
+      await commands.removeFromFavorites(_music);
     } else {
-      await sl.playerCoordinator.addToFavorites(_music);
+      await commands.addToFavorites(_music);
     }
     setState(() {
       _music = _music.copyWith(
-        isFavorite: !sl.playerCoordinator.isFavorite(_music),
+        isFavorite: !commands.isFavorite(_music),
       );
     });
   }
@@ -199,11 +200,12 @@ class _DetailPageState extends ConsumerState<DetailPage>
   }
 
   void _togglePlay() {
-    final ps = sl.playerCoordinator.playerState.value;
+    final commands = ref.read(playbackCommandsProvider.notifier);
+    final ps = ref.read(playerStateProvider);
     if (ps is PlayerPlaying) {
-      sl.playerCoordinator.pause();
+      commands.pause();
     } else if (ps is PlayerPaused || ps is PlayerCompleted) {
-      sl.playerCoordinator.resume();
+      commands.resume();
     }
   }
 
@@ -212,7 +214,7 @@ class _DetailPageState extends ConsumerState<DetailPage>
   }
 
   void _seek(Duration duration) {
-    sl.playerCoordinator.seek(duration);
+    ref.read(playbackCommandsProvider.notifier).seek(duration);
   }
 
   @override
@@ -233,7 +235,7 @@ class _DetailPageState extends ConsumerState<DetailPage>
     final ps = ref.watch(playerStateProvider);
     final mode = ref.watch(playModeProvider);
 
-    final liveMusic = sl.playerCoordinator.currentMusic;
+    final liveMusic = ref.read(playerCoordinatorProvider).currentMusic;
     if (liveMusic != null && liveMusic.id != _music.id) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -275,7 +277,7 @@ class _DetailPageState extends ConsumerState<DetailPage>
       onToggleShowLyrics: _toggleShowLyrics,
       onLoadLyric: _loadLyric,
       onSeek: _seek,
-      onTogglePlayMode: () => sl.playerCoordinator.togglePlayMode(),
+      onTogglePlayMode: () => ref.read(playbackCommandsProvider.notifier).togglePlayMode(),
     );
   }
 }

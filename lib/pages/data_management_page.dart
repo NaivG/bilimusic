@@ -1,20 +1,21 @@
 import 'dart:math';
 import 'package:bilimusic/components/auto_appbar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:bilimusic/core/app_providers.dart';
 import 'package:bilimusic/managers/cache_manager.dart';
 import 'package:restart_app/restart_app.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
 
-class DataManagementPage extends StatefulWidget {
+class DataManagementPage extends ConsumerStatefulWidget {
   const DataManagementPage({super.key});
 
   @override
-  State<DataManagementPage> createState() => _DataManagementPageState();
+  ConsumerState<DataManagementPage> createState() => _DataManagementPageState();
 }
 
-class _DataManagementPageState extends State<DataManagementPage> {
+class _DataManagementPageState extends ConsumerState<DataManagementPage> {
   bool _loading = true;
 
   // 数据概览
@@ -43,9 +44,9 @@ class _DataManagementPageState extends State<DataManagementPage> {
   Future<void> _loadAppData() async {
     final prefs = await SharedPreferences.getInstance();
 
-    final historyCount = sl.playlistManager.historyCount;
-    final favCount = sl.playlistManager.favoritesCount;
-    final playlistCount = sl.playlistManager.userPlaylistsCount;
+    final historyCount = ref.read(playlistManagerProvider).historyCount;
+    final favCount = ref.read(playlistManagerProvider).favoritesCount;
+    final playlistCount = ref.read(playlistManagerProvider).userPlaylistsCount;
 
     // 登录状态
     final cookies = prefs.getString('cookies');
@@ -368,7 +369,7 @@ class _DataManagementPageState extends State<DataManagementPage> {
 
     if (confirm == true) {
       try {
-        await sl.playlistManager.clearAllUserData();
+        await ref.read(playlistManagerProvider).clearAllUserData();
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.remove('cookies');

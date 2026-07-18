@@ -1,7 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:bilimusic/core/service_locator.dart';
+
+import 'package:bilimusic/core/app_providers.dart';
+
+final _settingsManagerProvider = settingsManagerProvider;
 
 @immutable
 class SettingsState {
@@ -71,7 +74,7 @@ class SettingsState {
 class SettingsNotifier extends Notifier<SettingsState> {
   @override
   SettingsState build() {
-    final s = sl.settingsManager;
+    final s = ref.read(_settingsManagerProvider);
     s.addListener(_onManagerChanged);
     ref.onDispose(() => s.removeListener(_onManagerChanged));
     return SettingsState(
@@ -92,7 +95,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
   }
 
   void _onManagerChanged() {
-    final s = sl.settingsManager;
+    final s = ref.read(_settingsManagerProvider);
     state = SettingsState(
       notificationsEnabled: s.notificationsEnabled,
       downloadQualityHigh: s.downloadQualityHigh,

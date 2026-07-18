@@ -3,10 +3,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:bilimusic/core/app_providers.dart';
 import 'package:bilimusic/models/player_state.dart';
 import 'package:bilimusic/providers/playback_providers.dart';
 import 'package:bilimusic/providers/playlist_providers.dart';
+import 'package:bilimusic/providers/settings_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/managers/cache_manager.dart';
 import 'package:bilimusic/theme/lucent_theme.dart';
@@ -71,10 +72,11 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
   }
 
   void _applyPendingDirection() {
+    final commands = ref.read(playbackCommandsProvider.notifier);
     if (_pendingDirection == -1) {
-      sl.playerCoordinator.playPrevious();
+      commands.playPrevious();
     } else if (_pendingDirection == 1) {
-      sl.playerCoordinator.playNext();
+      commands.playNext();
     }
   }
 
@@ -86,11 +88,12 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
 
   void _togglePlay() async {
     if (_isTransitioning) return;
-    final ps = sl.playerCoordinator.playerState.value;
+    final commands = ref.read(playbackCommandsProvider.notifier);
+    final ps = ref.read(playerStateProvider);
     if (ps is PlayerPlaying) {
-      await sl.playerCoordinator.pause();
+      await commands.pause();
     } else if (ps is PlayerPaused || ps is PlayerCompleted) {
-      await sl.playerCoordinator.resume();
+      await commands.resume();
     }
   }
 
@@ -103,7 +106,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
     _isVerticalSwipe = false;
 
     // 无音乐时不启动水平拖动
-    if (sl.playerCoordinator.currentMusic == null) {
+    if (ref.read(playerCoordinatorProvider).currentMusic == null) {
       _isVerticalSwipe = true;
     }
   }
@@ -230,7 +233,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
         ? LucentTokens.darkTextSecondary
         : LucentTokens.lightTextSecondary;
 
-    final blurEffect = sl.settingsManager.blurEffect;
+    final blurEffect = ref.read(settingsProvider).blurEffect;
 
     // Compute scale/opacity based on drag distance
     final absDragX = _dragX.abs();
@@ -307,7 +310,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
                       ),
                     ),
                     // 滑动方向图标层
-                    if (sl.playerCoordinator.currentMusic != null) ...[
+                    if (ref.read(playerCoordinatorProvider).currentMusic != null) ...[
                       if (_dragX > 20)
                         Positioned(
                           left: -44 - (_dragX * 0.2).clamp(0.0, 20.0),
@@ -408,7 +411,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
   }
 
   Widget _buildCover(BuildContext context) {
-    final music = sl.playerCoordinator.currentMusic;
+    final music = ref.read(playerCoordinatorProvider).currentMusic;
     if (music == null) return _buildCoverPlaceholder();
     return CachedNetworkImage(
       imageUrl: music.safeCoverUrl,
@@ -427,7 +430,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
     Color textSecondary,
     PlayerState playerState,
   ) {
-    final music = sl.playerCoordinator.currentMusic;
+    final music = ref.read(playerCoordinatorProvider).currentMusic;
     final fading =
         playerState is PlayerPlaying && playerState.fadeCountdown != null;
     return Column(
@@ -468,7 +471,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
     Color progressColor,
     Duration position,
   ) {
-    final music = sl.playerCoordinator.currentMusic;
+    final music = ref.read(playerCoordinatorProvider).currentMusic;
     final duration = music?.duration ?? Duration.zero;
     final p = duration.inMilliseconds == 0
         ? 0.0

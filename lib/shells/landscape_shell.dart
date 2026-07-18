@@ -10,10 +10,10 @@ import 'package:bilimusic/shells/landscape/landscape_bottom_control.dart';
 import 'package:bilimusic/shells/landscape/landscape_title_bar.dart';
 import 'package:bilimusic/pages/home_content.dart';
 import 'package:bilimusic/theme/lucent_theme.dart';
-import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
 import 'package:bilimusic/providers/playlist_providers.dart';
 import 'package:bilimusic/providers/search_providers.dart';
+import 'package:bilimusic/providers/settings_provider.dart';
 import 'package:bilimusic/pages/profile_page.dart';
 import 'package:bilimusic/pages/settings_page.dart';
 import 'package:bilimusic/pages/detail_page.dart';
@@ -181,7 +181,7 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
 
   /// 背景模糊效果
   Widget _buildBackground(BuildContext context) {
-    if (sl.settingsManager.fluidBackground == false) {
+    if (ref.watch(settingsProvider).fluidBackground == false) {
       final isDark = Theme.of(context).brightness;
       return Container(
         color: isDark == Brightness.dark
@@ -189,7 +189,7 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
             : LucentTokens.lightSurfaceBase,
       );
     }
-    final currentMusic = sl.playerCoordinator.currentMusic;
+    final currentMusic = ref.watch(currentMusicProvider);
     return AnimatedSwitcher(
       switchInCurve: Curves.linearToEaseOut,
       switchOutCurve: Curves.easeInToLinear,
@@ -223,7 +223,7 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
     final selectedLabel = _getSelectedLabel();
     return LandscapeSidebar(
       selectedLabel: selectedLabel,
-      playlists: sl.playlistManager.userPlaylists,
+      playlists: ref.watch(userPlaylistsProvider),
       selectedPlaylistId: widget.pageManager.getArgs<String>(
         'selectedPlaylistId',
       ),
