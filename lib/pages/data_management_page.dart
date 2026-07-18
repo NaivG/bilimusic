@@ -1,8 +1,8 @@
-import 'dart:convert';
 import 'dart:math';
 import 'package:bilimusic/components/auto_appbar.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/managers/cache_manager.dart';
 import 'package:restart_app/restart_app.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
@@ -43,37 +43,9 @@ class _DataManagementPageState extends State<DataManagementPage> {
   Future<void> _loadAppData() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // 播放历史
-    final historyJson = prefs.getString('play_history');
-    int historyCount = 0;
-    if (historyJson != null && historyJson.isNotEmpty) {
-      try {
-        final list = jsonDecode(historyJson) as List;
-        historyCount = list.length;
-      } catch (_) {}
-    }
-
-    // 收藏列表
-    final favJson = prefs.getString('favorites');
-    int favCount = 0;
-    if (favJson != null && favJson.isNotEmpty) {
-      try {
-        final list = jsonDecode(favJson) as List;
-        favCount = list.length;
-      } catch (_) {}
-    }
-
-    // 用户歌单
-    final playlistJson =
-        prefs.getString('user_playlists_enhanced') ??
-        prefs.getString('user_playlists');
-    int playlistCount = 0;
-    if (playlistJson != null && playlistJson.isNotEmpty) {
-      try {
-        final list = jsonDecode(playlistJson) as List;
-        playlistCount = list.length;
-      } catch (_) {}
-    }
+    final historyCount = sl.playlistManager.historyCount;
+    final favCount = sl.playlistManager.favoritesCount;
+    final playlistCount = sl.playlistManager.userPlaylistsCount;
 
     // 登录状态
     final cookies = prefs.getString('cookies');
@@ -396,21 +368,9 @@ class _DataManagementPageState extends State<DataManagementPage> {
 
     if (confirm == true) {
       try {
+        await sl.playlistManager.clearAllUserData();
+
         final prefs = await SharedPreferences.getInstance();
-        final keys = prefs.getKeys().toList();
-
-        for (final key in keys) {
-          if (key.startsWith('playlist_songs_') ||
-              key.startsWith('playlist_info_')) {
-            await prefs.remove(key);
-          }
-        }
-
-        await prefs.remove('play_history');
-        await prefs.remove('favorites');
-        await prefs.remove('user_playlists');
-        await prefs.remove('user_playlists_enhanced');
-        await prefs.remove('custom_tags');
         await prefs.remove('cookies');
         await prefs.remove('login_time');
         await prefs.remove('recommendations_cache');

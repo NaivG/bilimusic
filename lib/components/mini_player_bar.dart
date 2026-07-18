@@ -2,9 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
-import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/core/service_locator.dart';
-import 'package:bilimusic/managers/player_manager.dart';
+import 'package:bilimusic/models/player_state.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/managers/cache_manager.dart';
 import 'package:bilimusic/theme/lucent_theme.dart';
@@ -27,11 +26,6 @@ class MiniPlayerBar extends StatefulWidget {
 
 class _MiniPlayerBarState extends State<MiniPlayerBar>
     with TickerProviderStateMixin {
-  AudioState? _audioState;
-  Music? _currentMusic;
-  Duration _position = Duration.zero;
-  int _crossfadeCountdown = -1;
-
   // Gesture state
   double _dragX = 0;
   double _dragY = 0;
@@ -50,15 +44,6 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
   @override
   void initState() {
     super.initState();
-    _audioState = sl.playerManager.currentState;
-    _currentMusic = sl.playerManager.currentMusic;
-    _crossfadeCountdown = sl.playerManager.crossfadeCountdown.value;
-
-    sl.playerManager.addStateListener(_updateAudioState);
-    sl.playerManager.addPositionListener(_updatePosition);
-    sl.playerManager.addMusicListener(_updateMusic);
-    sl.playerManager.addCountdownListener(_updateCountdown);
-
     _slideController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 250),
@@ -90,62 +75,20 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
     }
   }
 
-  void _updateAudioState(AudioState state) {
-    if (mounted) {
-      setState(() {
-        _audioState = state;
-      });
-      debugPrint('_updateAudioState: $state');
-    }
-  }
-
-  void _updatePosition(Duration position) {
-    if (mounted) {
-      setState(() {
-        _position = position;
-      });
-    }
-  }
-
-  void _updateMusic(Music? music) {
-    if (mounted && music != null) {
-      setState(() {
-        _currentMusic = music;
-      });
-    }
-  }
-
-  void _updateCountdown(int countdown) {
-    if (mounted) {
-      setState(() {
-        _crossfadeCountdown = countdown;
-      });
-    }
-  }
-
   @override
   void dispose() {
-    sl.playerManager.removeStateListener(_updateAudioState);
-    sl.playerManager.removePositionListener(_updatePosition);
-    sl.playerManager.removeMusicListener(_updateMusic);
-    sl.playerManager.removeCountdownListener(_updateCountdown);
     _slideController.dispose();
     super.dispose();
   }
 
   void _togglePlay() async {
     if (_isTransitioning) return;
-    if (_audioState == AudioState.playing) {
+    final ps = sl.playerManager.playerState.value;
+    if (ps is PlayerPlaying) {
       await sl.playerManager.pause();
-    } else {
+    } else if (ps is PlayerPaused || ps is PlayerCompleted) {
       await sl.playerManager.resume();
     }
-  }
-
-  double get _progress {
-    final duration = _currentMusic?.duration;
-    if (duration == null || duration.inMilliseconds == 0) return 0.0;
-    return (_position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
   }
 
   // Gesture handlers
@@ -157,7 +100,7 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
     _isVerticalSwipe = false;
 
     // 无音乐时不启动水平拖动
-    if (_currentMusic == null) {
+    if (sl.playerManager.currentMusic == null) {
       _isVerticalSwipe = true;
     }
   }
@@ -341,27 +284,34 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
                         ),
                       ),
                     ),
-                    // 背景进度条层
+                    // 背景进度条层（订阅 position）
                     Positioned.fill(
                       child: ClipRRect(
-                        // 圆角遮罩
                         borderRadius: BorderRadius.circular(
                           LucentTokens.radiusLg,
                         ),
                         child: Align(
                           alignment: Alignment.centerLeft,
-                          child: TweenAnimationBuilder<double>(
-                            // 进度条动画
-                            tween: Tween(
-                              begin: 0,
-                              end: _progress.clamp(0.0, 1.0),
-                            ),
-                            duration: LucentTokens.standardDuration,
-                            curve: LucentTokens.standardEasing,
-                            builder: (context, value, child) {
-                              return Container(
-                                width: constraints.maxWidth * value,
-                                color: progressColor,
+                          child: ValueListenableBuilder<Duration>(
+                            valueListenable: sl.playerManager.position,
+                            builder: (context, position, _) {
+                              final music = sl.playerManager.currentMusic;
+                              final duration = music?.duration ?? Duration.zero;
+                              final p = duration.inMilliseconds == 0
+                                  ? 0.0
+                                  : (position.inMilliseconds /
+                                          duration.inMilliseconds)
+                                      .clamp(0.0, 1.0);
+                              return TweenAnimationBuilder<double>(
+                                tween: Tween(begin: 0, end: p),
+                                duration: LucentTokens.standardDuration,
+                                curve: LucentTokens.standardEasing,
+                                builder: (context, value, child) {
+                                  return Container(
+                                    width: constraints.maxWidth * value,
+                                    color: progressColor,
+                                  );
+                                },
                               );
                             },
                           ),
@@ -369,8 +319,7 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
                       ),
                     ),
                     // 滑动方向图标层
-                    if (_currentMusic != null) ...[
-                      // 上一首图标（向右滑时显示在左侧）
+                    if (sl.playerManager.currentMusic != null) ...[
                       if (_dragX > 20)
                         Positioned(
                           left: -44 - (_dragX * 0.2).clamp(0.0, 20.0),
@@ -390,7 +339,6 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
                             ),
                           ),
                         ),
-                      // 下一首图标（向左滑时显示在右侧）
                       if (_dragX < -20)
                         Positioned(
                           right: -44 - (_dragX.abs() * 0.2).clamp(0.0, 20.0),
@@ -426,81 +374,37 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
                               borderRadius: BorderRadius.circular(
                                 LucentTokens.radiusMd,
                               ),
-                              child: _currentMusic != null
-                                  ? CachedNetworkImage(
-                                      imageUrl: _currentMusic!.safeCoverUrl,
-                                      width: 44,
-                                      height: 44,
-                                      fit: BoxFit.cover,
-                                      placeholder: (context, url) =>
-                                          _buildCoverPlaceholder(),
-                                      errorWidget: (context, url, error) =>
-                                          _buildCoverPlaceholder(),
-                                      cacheManager: imageCacheManager,
-                                      cacheKey: _currentMusic!.id,
-                                    )
-                                  : _buildCoverPlaceholder(),
+                              child: _buildCover(context),
                             ),
                           ),
                           const SizedBox(width: 12),
                           // 歌曲信息
-                          Expanded(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _currentMusic?.title ?? 'Not Playing',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: textPrimary,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                if (_currentMusic != null) ...[
-                                  const SizedBox(height: 2),
-                                  AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 300),
-                                    child: _crossfadeCountdown > 0
-                                        ? _buildTransitionText()
-                                        : Text(
-                                            _currentMusic!.artist,
-                                            key: const ValueKey('artist'),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              color: textSecondary,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
+                          Expanded(child: _buildSongInfo(textPrimary, textSecondary)),
                           // 控制按钮
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              // 播放/暂停按钮
-                              GestureDetector(
-                                onTap: _togglePlay,
-                                child: Container(
-                                  width: 44,
-                                  height: 44,
-                                  alignment: Alignment.center,
-                                  child: Icon(
-                                    _audioState == AudioState.playing
-                                        ? Icons.pause_rounded
-                                        : Icons.play_arrow_rounded,
-                                    color: LucentTokens.accentPrimary,
-                                    size: 28,
-                                  ),
-                                ),
+                              ValueListenableBuilder<PlayerState>(
+                                valueListenable: sl.playerManager.playerState,
+                                builder: (context, state, _) {
+                                  final isPlaying = state is PlayerPlaying;
+                                  return GestureDetector(
+                                    onTap: _togglePlay,
+                                    child: Container(
+                                      width: 44,
+                                      height: 44,
+                                      alignment: Alignment.center,
+                                      child: Icon(
+                                        isPlaying
+                                            ? Icons.pause_rounded
+                                            : Icons.play_arrow_rounded,
+                                        color: LucentTokens.accentPrimary,
+                                        size: 28,
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
-                              // 播放列表按钮
                               GestureDetector(
                                 onTap: widget.onPlayList,
                                 child: Container(
@@ -526,6 +430,65 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildCover(BuildContext context) {
+    final music = sl.playerManager.currentMusic;
+    if (music == null) return _buildCoverPlaceholder();
+    return CachedNetworkImage(
+      imageUrl: music.safeCoverUrl,
+      width: 44,
+      height: 44,
+      fit: BoxFit.cover,
+      placeholder: (context, url) => _buildCoverPlaceholder(),
+      errorWidget: (context, url, error) => _buildCoverPlaceholder(),
+      cacheManager: imageCacheManager,
+      cacheKey: music.id,
+    );
+  }
+
+  Widget _buildSongInfo(Color textPrimary, Color textSecondary) {
+    final music = sl.playerManager.currentMusic;
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          music?.title ?? 'Not Playing',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: textPrimary,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        if (music != null) ...[
+          const SizedBox(height: 2),
+          ValueListenableBuilder<PlayerState>(
+            valueListenable: sl.playerManager.playerState,
+            builder: (context, state, _) {
+              final fading = state is PlayerPlaying && state.fadeCountdown != null;
+              return AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: fading
+                    ? _buildTransitionText()
+                    : Text(
+                        music.artist,
+                        key: const ValueKey('artist'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+              );
+            },
+          ),
+        ],
+      ],
     );
   }
 

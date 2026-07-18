@@ -3,6 +3,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/managers/player_manager.dart';
 import 'package:bilimusic/models/music.dart' as model;
+import 'package:bilimusic/models/player_state.dart';
 import 'package:bilimusic/utils/color_extractor.dart';
 import 'package:bilimusic/utils/lyric_parser.dart';
 import 'package:bilimusic/utils/netease_music_api.dart';
@@ -30,9 +31,7 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
   String? _previousMusicId;
   Duration _position = Duration.zero;
   Duration? _duration;
-  bool _isPlaying = true;
   bool _isFavorite = false;
-  int _crossfadeCountdown = -1;
 
   // 背景颜色
   Color? _dominantColor;
@@ -43,16 +42,6 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
   String? _selectedLyricId;
   LyricParser? _lyricParser;
   bool _isLoadingLyrics = false;
-
-  // 播放模式
-  IconData _playModeIcon = Icons.repeat;
-
-  // 监听器
-  late Function(model.Music?) _musicChangedListener;
-  late Function(AudioState) _stateListener;
-  late Function(Duration) _positionListener;
-  late Function(PlayMode) _playModeListener;
-  late Function(int) _countdownListener;
 
   @override
   void initState() {
@@ -80,78 +69,6 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
 
     // 初始化歌词选项
     _initLyricOptions();
-
-    // 设置监听器
-    _setupListeners();
-  }
-
-  void _setupListeners() {
-    _musicChangedListener = (music) {
-      if (!mounted) return;
-      if (music == null) return;
-
-      final musicChanged = _previousMusicId != music.id;
-
-      if (musicChanged) {
-        _previousMusicId = music.id;
-        _previousDominantColor = _dominantColor;
-        _updateBackgroundColor(music.coverUrl);
-
-        // 重新加载歌词
-        _initLyricOptions();
-
-        setState(() {
-          _music = music;
-          _duration = music.duration;
-          _isFavorite = sl.playerManager.isFavorite(_music);
-        });
-      }
-    };
-
-    _stateListener = (state) {
-      if (!mounted) return;
-
-      setState(() {
-        _isPlaying = state == AudioState.playing;
-      });
-    };
-
-    _positionListener = (position) {
-      if (mounted) {
-        setState(() {
-          _position = position;
-        });
-      }
-    };
-
-    _playModeListener = (playMode) {
-      if (mounted) {
-        setState(() {
-          switch (playMode) {
-            case PlayMode.sequential:
-              _playModeIcon = Icons.repeat;
-            case PlayMode.loop:
-              _playModeIcon = Icons.repeat_one;
-            case PlayMode.shuffle:
-              _playModeIcon = Icons.shuffle;
-          }
-        });
-      }
-    };
-
-    _countdownListener = (countdown) {
-      if (mounted) {
-        setState(() {
-          _crossfadeCountdown = countdown;
-        });
-      }
-    };
-
-    sl.playerManager.addMusicListener(_musicChangedListener);
-    sl.playerManager.addStateListener(_stateListener);
-    sl.playerManager.addPositionListener(_positionListener);
-    sl.playerManager.addPlayModeListener(_playModeListener);
-    sl.playerManager.addCountdownListener(_countdownListener);
   }
 
   Future<void> _initLyricOptions() async {
@@ -261,9 +178,10 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
   }
 
   void _togglePlay() {
-    if (_isPlaying) {
+    final ps = sl.playerManager.playerState.value;
+    if (ps is PlayerPlaying) {
       sl.playerManager.pause();
-    } else {
+    } else if (ps is PlayerPaused || ps is PlayerCompleted) {
       sl.playerManager.resume();
     }
   }
@@ -284,41 +202,87 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
   }
 
   @override
-  void dispose() {
-    sl.playerManager.removeMusicListener(_musicChangedListener);
-    sl.playerManager.removeStateListener(_stateListener);
-    sl.playerManager.removePositionListener(_positionListener);
-    sl.playerManager.removePlayModeListener(_playModeListener);
-    sl.playerManager.removeCountdownListener(_countdownListener);
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final leftRatio = LandscapeBreakpoints.getLeftSectionRatio(context);
 
+    return ValueListenableBuilder<int?>(
+      valueListenable: sl.playerManager.currentIndexNotifier,
+      builder: (context, _, _) {
+        final liveMusic = sl.playerManager.currentMusic;
+        if (liveMusic != null && liveMusic.id != _previousMusicId) {
+          final musicChanged = _previousMusicId != liveMusic.id;
+          if (musicChanged) {
+            _previousMusicId = liveMusic.id;
+            _previousDominantColor = _dominantColor;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              _updateBackgroundColor(liveMusic.coverUrl);
+              _initLyricOptions();
+            });
+            _music = liveMusic;
+            _duration = liveMusic.duration;
+            _isFavorite = sl.playerManager.isFavorite(_music);
+          }
+        }
+
+        return ValueListenableBuilder<Duration>(
+          valueListenable: sl.playerManager.position,
+          builder: (context, position, _) {
+            _position = position;
+            return ValueListenableBuilder<PlayerState>(
+              valueListenable: sl.playerManager.playerState,
+              builder: (context, ps, _) {
+                final isPlaying = ps is PlayerPlaying;
+                final fading = ps is PlayerPlaying && ps.fadeCountdown != null;
+                return ValueListenableBuilder<PlayMode>(
+                  valueListenable: sl.playerManager.playModeValue,
+                  builder: (context, mode, _) {
+                    final icon = switch (mode) {
+                      PlayMode.sequential => Icons.repeat,
+                      PlayMode.loop => Icons.repeat_one,
+                      PlayMode.shuffle => Icons.shuffle,
+                    };
+                    return _buildScaffold(
+                      context,
+                      leftRatio,
+                      isPlaying,
+                      fading,
+                      icon,
+                    );
+                  },
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildScaffold(
+    BuildContext context,
+    double leftRatio,
+    bool isPlaying,
+    bool fading,
+    IconData icon,
+  ) {
     return Scaffold(
       backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          // 动态背景
           AnimatedLandscapeBackground(
             coverUrl: _music.coverUrl,
             previousColor: _previousDominantColor,
             newColor: _dominantColor,
             child: const SizedBox.expand(),
           ),
-          // 主内容
           Column(
             children: [
-              // 顶部导航栏
               _buildAppBar(context),
-              // 主内容区
               Expanded(
                 child: Row(
                   children: [
-                    // 左侧封面区域
                     SizedBox(
                       width: MediaQuery.of(context).size.width * leftRatio,
                       child: AnimatedLandscapeAlbumSection(
@@ -333,7 +297,6 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
                         onSharePressed: _shareMusic,
                       ),
                     ),
-                    // 右侧歌词区域
                     Expanded(
                       child: LyricSection(
                         title: _music.title,
@@ -353,19 +316,18 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
                   ],
                 ),
               ),
-              // 底部控制条
               LandscapeControlsBar(
                 position: _position,
                 duration: _duration,
-                isPlaying: _isPlaying,
-                playModeIcon: _playModeIcon,
+                isPlaying: isPlaying,
+                playModeIcon: icon,
                 onPlayPause: _togglePlay,
                 onPrevious: () => sl.playerManager.playPrevious(),
                 onNext: () => sl.playerManager.playNext(),
                 onPlayModeToggle: () => sl.playerManager.togglePlayMode(),
                 onPlaylist: _showPlaylist,
                 onSeek: (duration) => sl.playerManager.seek(duration),
-                isTransitioning: _crossfadeCountdown > 0,
+                isTransitioning: fading,
               ),
             ],
           ),

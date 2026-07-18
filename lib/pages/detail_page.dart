@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:bilimusic/core/service_locator.dart';
-import 'package:bilimusic/managers/player_manager.dart';
 import 'package:bilimusic/models/music.dart' as model;
+import 'package:bilimusic/models/player_state.dart';
+import 'package:bilimusic/managers/player_manager.dart';
 import 'package:bilimusic/utils/color_extractor.dart';
 import 'package:bilimusic/utils/lyric_parser.dart';
 import 'package:bilimusic/utils/netease_music_api.dart';
@@ -23,7 +24,6 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
   late model.Music _music;
   Duration _position = Duration.zero;
   Duration? _duration;
-  bool _isPlaying = true;
 
   // 歌词相关变量
   List<LyricInfo> _lyricOptions = [];
@@ -36,15 +36,6 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
   Color? _dominantColor;
   Color? _vibrantColor;
   late AnimationController _colorAnimationController;
-
-  // 播放模式
-  IconData _playModeIcon = Icons.repeat;
-  int _crossfadeCountdown = -1;
-  late Function(model.Music?) _musicChangedListener;
-  late Function(AudioState) _stateListener;
-  late Function(Duration) _positionListener;
-  late Function(PlayMode) _playModeListener;
-  late Function(int) _countdownListener;
 
   @override
   void initState() {
@@ -73,69 +64,6 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
 
     // 提取初始背景颜色
     _extractBackgroundColor(_music.coverUrl);
-
-    _musicChangedListener = (music) {
-      if (mounted && music != null) {
-        if (music.id != _music.id) {
-          _updateBackgroundColor(music.coverUrl);
-        }
-        setState(() {
-          _music = music;
-          _duration = music.duration;
-        });
-      }
-    };
-
-    _stateListener = (state) {
-      if (mounted) {
-        setState(() {
-          _isPlaying = state == AudioState.playing;
-        });
-      }
-    };
-
-    _positionListener = (position) {
-      if (mounted) {
-        final updatedMusic = sl.playerManager.currentMusic ?? _music;
-        setState(() {
-          _position = position;
-          _music = updatedMusic;
-          _duration = updatedMusic.duration;
-        });
-        if (_showLyrics) {
-          _scrollToCurrentLyric();
-        }
-      }
-    };
-
-    _playModeListener = (playMode) {
-      if (mounted) {
-        setState(() {
-          switch (playMode) {
-            case PlayMode.sequential:
-              _playModeIcon = Icons.repeat;
-            case PlayMode.loop:
-              _playModeIcon = Icons.repeat_one;
-            case PlayMode.shuffle:
-              _playModeIcon = Icons.shuffle;
-          }
-        });
-      }
-    };
-
-    _countdownListener = (countdown) {
-      if (mounted) {
-        setState(() {
-          _crossfadeCountdown = countdown;
-        });
-      }
-    };
-
-    sl.playerManager.addMusicListener(_musicChangedListener);
-    sl.playerManager.addStateListener(_stateListener);
-    sl.playerManager.addPositionListener(_positionListener);
-    sl.playerManager.addPlayModeListener(_playModeListener);
-    sl.playerManager.addCountdownListener(_countdownListener);
 
     _initLyricOptions();
   }
@@ -267,9 +195,10 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
   }
 
   void _togglePlay() {
-    if (_isPlaying) {
+    final ps = sl.playerManager.playerState.value;
+    if (ps is PlayerPlaying) {
       sl.playerManager.pause();
-    } else {
+    } else if (ps is PlayerPaused || ps is PlayerCompleted) {
       sl.playerManager.resume();
     }
   }
@@ -285,11 +214,6 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
   @override
   void dispose() {
     _colorAnimationController.dispose();
-    sl.playerManager.removeMusicListener(_musicChangedListener);
-    sl.playerManager.removeStateListener(_stateListener);
-    sl.playerManager.removePositionListener(_positionListener);
-    sl.playerManager.removePlayModeListener(_playModeListener);
-    sl.playerManager.removeCountdownListener(_countdownListener);
     super.dispose();
   }
 
@@ -303,28 +227,67 @@ class _DetailPageState extends State<DetailPage> with TickerProviderStateMixin {
       return const LandscapeDetailPage();
     }
 
-    // 竖屏模式使用竖屏布局
-    return PortraitDetailPage(
-      music: _music,
-      position: _position,
-      duration: _duration,
-      isPlaying: _isPlaying,
-      showLyrics: _showLyrics,
-      lyricOptions: _lyricOptions,
-      selectedLyricId: _selectedLyricId,
-      lyricParser: _lyricParser,
-      isLoadingLyrics: _isLoadingLyrics,
-      dominantColor: _dominantColor,
-      vibrantColor: _vibrantColor,
-      playModeIcon: _playModeIcon,
-      isTransitioning: _crossfadeCountdown > 0,
-      onToggleFavorite: _toggleFavorite,
-      onShare: _shareMusic,
-      onTogglePlay: _togglePlay,
-      onToggleShowLyrics: _toggleShowLyrics,
-      onLoadLyric: _loadLyric,
-      onSeek: _seek,
-      onTogglePlayMode: () => sl.playerManager.togglePlayMode(),
+    return ValueListenableBuilder<int?>(
+      valueListenable: sl.playerManager.currentIndexNotifier,
+      builder: (context, _, _) {
+        // 当前 music / 索引变化时同步本地 _music（用于颜色提取等副作用）
+        final liveMusic = sl.playerManager.currentMusic;
+        if (liveMusic != null && liveMusic.id != _music.id) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _updateBackgroundColor(liveMusic.coverUrl);
+            _initLyricOptions();
+          });
+          _music = liveMusic;
+          _duration = liveMusic.duration;
+        }
+        return ValueListenableBuilder<Duration>(
+          valueListenable: sl.playerManager.position,
+          builder: (context, position, _) {
+            _position = position;
+            if (_showLyrics) _scrollToCurrentLyric();
+            return ValueListenableBuilder<PlayerState>(
+              valueListenable: sl.playerManager.playerState,
+              builder: (context, ps, _) {
+                final isPlaying = ps is PlayerPlaying;
+                final fading = ps is PlayerPlaying && ps.fadeCountdown != null;
+                return ValueListenableBuilder<PlayMode>(
+                  valueListenable: sl.playerManager.playModeValue,
+                  builder: (context, mode, _) {
+                    final icon = switch (mode) {
+                      PlayMode.sequential => Icons.repeat,
+                      PlayMode.loop => Icons.repeat_one,
+                      PlayMode.shuffle => Icons.shuffle,
+                    };
+                    return PortraitDetailPage(
+                      music: _music,
+                      position: _position,
+                      duration: _duration,
+                      isPlaying: isPlaying,
+                      showLyrics: _showLyrics,
+                      lyricOptions: _lyricOptions,
+                      selectedLyricId: _selectedLyricId,
+                      lyricParser: _lyricParser,
+                      isLoadingLyrics: _isLoadingLyrics,
+                      dominantColor: _dominantColor,
+                      vibrantColor: _vibrantColor,
+                      playModeIcon: icon,
+                      isTransitioning: fading,
+                      onToggleFavorite: _toggleFavorite,
+                      onShare: _shareMusic,
+                      onTogglePlay: _togglePlay,
+                      onToggleShowLyrics: _toggleShowLyrics,
+                      onLoadLyric: _loadLyric,
+                      onSeek: _seek,
+                      onTogglePlayMode: () => sl.playerManager.togglePlayMode(),
+                    );
+                  },
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -1,36 +1,33 @@
 import 'package:flutter/foundation.dart';
+
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/playlist.dart';
 import 'package:bilimusic/models/playlist_tag.dart';
-import 'package:bilimusic/services/playlist_repository.dart';
-import 'package:bilimusic/services/playlist_cache.dart';
+import 'package:bilimusic/services/playlist_service.dart';
 
-/// 歌单管理器（单例/门面）
-/// 职责：
-/// - 作为统一入口暴露给UI层
-/// - 管理内存缓存
-/// - 协调仓库层和缓存层
-/// - 提供便捷的业务方法
+/// 歌单管理器的 UI 门面。
+///
+/// 在 sqflite 统一存储之前，这里曾经包装 `PlaylistRepository` + `MusicCache`，但 `MusicCache`
+/// 现在不需要（sqflite 直查足够快），`PlaylistRepository` 已被并入 `PlaylistService`，两者
+/// 共享同一份 sqflite 真理。
+///
+/// 这个类现在是一层薄转发，把公开方法调用直接派发到 service 实例，避免改 UI 端每个 import。
 class PlaylistManager {
   static final PlaylistManager _instance = PlaylistManager._internal();
   factory PlaylistManager() => _instance;
   PlaylistManager._internal();
 
-  late PlaylistRepository _repository;
-  late MusicCache _cache;
+  late PlaylistService _service;
   bool _initialized = false;
 
-  /// 初始化（由main.dart调用一次）
-  Future<void> initialize() async {
+  /// 由 `ServiceLocator` 在启动时调用一次。
+  Future<void> initialize({PlaylistService? service}) async {
     if (_initialized) return;
-
-    _repository = PlaylistRepository();
-    _cache = MusicCache();
-    await _repository.initialize();
+    _service = service ?? PlaylistService();
+    await _service.initialize();
     _initialized = true;
   }
 
-  /// 确保已初始化
   void _ensureInitialized() {
     if (!_initialized) {
       throw StateError(
@@ -42,60 +39,31 @@ class PlaylistManager {
 
   // ==================== 歌单基础操作 ====================
 
-  /// 获取所有歌单（用户歌单，不含歌曲）
   ValueListenable<List<Playlist>> watchUserPlaylists() {
     _ensureInitialized();
-    return _repository.watchUserPlaylists();
+    return _service.watchUserPlaylists();
   }
 
-  /// 获取所有歌单列表
   List<Playlist> get userPlaylists {
     _ensureInitialized();
-    return _repository.userPlaylists;
+    return _service.userPlaylistsSnapshot;
   }
 
-  /// 获取歌单元数据
   Playlist? getPlaylistInfo(String playlistId) {
     _ensureInitialized();
-    return _repository.getPlaylistInfo(playlistId);
+    return _service.getPlaylistInfo(playlistId);
   }
 
-  /// 获取歌单详情（包含歌曲列表）
-  /// 内部处理：先获取歌单元数据，再从缓存/仓库加载歌曲
   Future<Playlist?> getPlaylistDetail(String playlistId) async {
     _ensureInitialized();
-
-    // 检查是否为系统歌单
-    if (_repository.isSystemPlaylist(playlistId)) {
-      return _repository.getSystemPlaylistDetail(playlistId);
-    }
-
-    // 获取歌单元数据
-    final info = _repository.getPlaylistInfo(playlistId);
-    if (info == null) return null;
-
-    // 从缓存获取歌曲（懒加载）
-    var songs = _cache.getSongs(playlistId);
-    if (songs == null) {
-      songs = await _repository.loadPlaylistSongs(playlistId);
-      _cache.setSongs(playlistId, songs);
-    }
-
-    // 如果歌单没有封面且有歌曲，使用第一首歌的封面
-    if ((info.coverUrl == null || info.coverUrl!.isEmpty) && songs.isNotEmpty) {
-      await _repository.updatePlaylistCover(playlistId, songs);
-      // 重新获取更新后的歌单信息
-      final updatedInfo = _repository.getPlaylistInfo(playlistId);
-      if (updatedInfo != null) {
-        return updatedInfo.copyWith(songs: songs);
-      }
-    }
-
-    // 合并返回
-    return info.copyWith(songs: songs);
+    return _service.getPlaylistDetail(playlistId);
   }
 
-  /// 创建歌单
+  Future<Playlist?> getSystemPlaylistDetail(String playlistId) async {
+    _ensureInitialized();
+    return _service.getSystemPlaylistDetail(playlistId);
+  }
+
   Future<Playlist> createPlaylist(
     String name, {
     String? description,
@@ -103,7 +71,7 @@ class PlaylistManager {
     PlaylistSource source = PlaylistSource.user,
   }) async {
     _ensureInitialized();
-    return _repository.createPlaylist(
+    return _service.createPlaylist(
       name: name,
       description: description,
       tagIds: tagIds,
@@ -111,266 +79,203 @@ class PlaylistManager {
     );
   }
 
-  /// 删除歌单（同时清理缓存）
   Future<void> deletePlaylist(String playlistId) async {
     _ensureInitialized();
-    _cache.invalidate(playlistId);
-    return _repository.deletePlaylist(playlistId);
+    return _service.deletePlaylist(playlistId);
   }
 
-  /// 重命名歌单
   Future<void> renamePlaylist(String playlistId, String newName) async {
     _ensureInitialized();
-    return _repository.updatePlaylistName(playlistId, newName);
+    return _service.renamePlaylist(playlistId, newName);
   }
 
-  /// 更新歌单描述
   Future<void> updatePlaylistDescription(
     String playlistId,
     String? description,
   ) async {
     _ensureInitialized();
-    return _repository.updatePlaylistDescription(playlistId, description);
+    return _service.updatePlaylistDescription(playlistId, description);
   }
 
-  /// 添加标签到歌单
   Future<void> addTagToPlaylist(String playlistId, String tagId) async {
     _ensureInitialized();
-    return _repository.addTagToPlaylist(playlistId, tagId);
+    return _service.addTagToPlaylist(playlistId, tagId);
   }
 
-  /// 从歌单移除标签
   Future<void> removeTagFromPlaylist(String playlistId, String tagId) async {
     _ensureInitialized();
-    return _repository.removeTagFromPlaylist(playlistId, tagId);
+    return _service.removeTagFromPlaylist(playlistId, tagId);
   }
 
-  /// 根据标签筛选歌单
   List<Playlist> filterPlaylistsByTag(String tagId) {
     _ensureInitialized();
-    return _repository.filterPlaylistsByTag(tagId);
+    return _service.filterPlaylistsByTag(tagId);
+  }
+
+  bool isSystemPlaylist(String playlistId) {
+    _ensureInitialized();
+    return _service.isSystemPlaylist(playlistId);
+  }
+
+  List<Playlist> get systemPlaylists {
+    _ensureInitialized();
+    return _service.systemPlaylists;
   }
 
   // ==================== 歌曲操作 ====================
 
-  /// 添加歌曲到歌单
   Future<bool> addSongsToPlaylist(String playlistId, List<Music> songs) async {
     _ensureInitialized();
-    final result = await _repository.addSongsToPlaylist(playlistId, songs);
-    if (result) {
-      // 清除缓存，下次获取时会重新加载
-      _cache.invalidate(playlistId);
-    }
-    return result;
+    return _service.addSongsToPlaylist(playlistId, songs);
   }
 
-  /// 从歌单移除歌曲
+  Future<bool> addSongToPlaylist(String playlistId, Music music) async {
+    _ensureInitialized();
+    return _service.addSongToUserPlaylist(playlistId, music);
+  }
+
   Future<void> removeSongsFromPlaylist(
     String playlistId,
     List<Music> songs,
   ) async {
     _ensureInitialized();
-    await _repository.removeSongsFromPlaylist(playlistId, songs);
-    // 清除缓存
-    _cache.invalidate(playlistId);
+    return _service.removeSongsFromPlaylist(playlistId, songs);
   }
 
-  /// 加载歌单歌曲（从仓库，不使用缓存）
   Future<List<Music>> loadPlaylistSongs(String playlistId) async {
     _ensureInitialized();
-    return _repository.loadPlaylistSongs(playlistId);
+    return _service.loadPlaylistSongs(playlistId);
+  }
+
+  Future<void> updatePlaylistCover(String playlistId, List<Music> songs) async {
+    _ensureInitialized();
+    return _service.updatePlaylistCover(playlistId, songs);
   }
 
   // ==================== 收藏操作 ====================
 
-  /// 监听收藏列表
   ValueListenable<List<Music>> watchFavorites() {
     _ensureInitialized();
-    return _repository.watchFavorites();
+    return _service.watchFavorites();
   }
 
-  /// 获取收藏列表
   List<Music> get favorites {
     _ensureInitialized();
-    return _repository.favorites;
+    return _service.favoritesSnapshot;
   }
 
-  /// 切换收藏状态
   Future<bool> toggleFavorite(Music music) async {
     _ensureInitialized();
-    if (_repository.isFavorite(music)) {
-      await _repository.removeFromFavorites(music);
-      // 清除收藏歌单缓存
-      _cache.invalidate('favorites');
-      return false;
-    } else {
-      await _repository.addToFavorites(music);
-      // 清除收藏歌单缓存
-      _cache.invalidate('favorites');
-      return true;
-    }
+    return _service.toggleFavorite(music);
   }
 
-  /// 添加到收藏
   Future<void> addToFavorites(Music music) async {
     _ensureInitialized();
-    await _repository.addToFavorites(music);
-    _cache.invalidate('favorites');
+    return _service.addToFavorites(music);
   }
 
-  /// 从收藏移除
   Future<void> removeFromFavorites(Music music) async {
     _ensureInitialized();
-    await _repository.removeFromFavorites(music);
-    _cache.invalidate('favorites');
+    return _service.removeFromFavorites(music);
   }
 
-  /// 检查是否已收藏
   bool isFavorite(Music music) {
     _ensureInitialized();
-    return _repository.isFavorite(music);
+    return _service.isFavorite(music);
   }
 
   // ==================== 播放历史操作 ====================
 
-  /// 监听播放历史
   ValueListenable<List<Music>> watchPlayHistory() {
     _ensureInitialized();
-    return _repository.watchPlayHistory();
+    return _service.watchPlayHistory();
   }
 
-  /// 获取播放历史
   List<Music> get playHistory {
     _ensureInitialized();
-    return _repository.playHistory;
+    return _service.playHistorySnapshot;
   }
 
-  /// 添加到播放历史
   Future<void> addToHistory(Music music) async {
     _ensureInitialized();
-    await _repository.addToHistory(music);
-    // 清除历史歌单缓存
-    _cache.invalidate('history');
+    return _service.addToPlayHistory(music);
   }
 
-  /// 清空播放历史
   Future<void> clearHistory() async {
     _ensureInitialized();
-    await _repository.clearHistory();
-    _cache.invalidate('history');
+    return _service.clearPlayHistory();
   }
 
   // ==================== 标签操作 ====================
 
-  /// 监听所有标签
   ValueListenable<List<PlaylistTag>> watchTags() {
     _ensureInitialized();
-    return _repository.watchTags();
+    return _service.watchTags();
   }
 
-  /// 获取所有标签（按分类分组）
   Map<TagCategory, List<PlaylistTag>> getTagsByCategory() {
     _ensureInitialized();
-    return _repository.getTagsByCategory();
+    return _service.getTagsByCategory();
   }
 
-  /// 创建自定义标签
   Future<PlaylistTag> createCustomTag({
     required String name,
     required String nameCn,
     int colorValue = 0xFF636E72,
   }) async {
     _ensureInitialized();
-    return _repository.createCustomTag(
+    return _service.createCustomTag(
       name: name,
       nameCn: nameCn,
       colorValue: colorValue,
     );
   }
 
-  // ==================== 缓存管理 ====================
+  // ==================== 数据运维 ====================
 
-  /// 预加载歌单歌曲
-  Future<void> preloadPlaylistSongs(String playlistId) async {
+  Future<Map<String, String?>> exportForBackup() async {
     _ensureInitialized();
-    if (!_cache.hasCache(playlistId)) {
-      final songs = await _repository.loadPlaylistSongs(playlistId);
-      _cache.setSongs(playlistId, songs);
-    }
+    return _service.exportForBackup();
   }
 
-  /// 清除指定歌单缓存
-  void invalidateCache(String playlistId) {
+  Future<void> importFromBackup(Map<String, dynamic> data) async {
     _ensureInitialized();
-    _cache.invalidate(playlistId);
+    return _service.importFromBackup(data);
   }
 
-  /// 清除所有缓存
-  void clearAllCache() {
+  Future<void> clearAllUserData() async {
     _ensureInitialized();
-    _cache.clear();
+    return _service.clearAllUserData();
   }
 
-  /// 检查歌单是否已缓存
-  bool hasCache(String playlistId) {
+  int get historyCount {
     _ensureInitialized();
-    return _cache.hasCache(playlistId);
+    return _service.historyCount;
   }
 
-  // ==================== 向后兼容方法 ====================
-  // 以下方法为兼容旧代码保留
+  int get favoritesCount {
+    _ensureInitialized();
+    return _service.favoritesCount;
+  }
 
-  /// 初始化方法（兼容旧代码，建议使用 initialize()）
+  int get userPlaylistsCount {
+    _ensureInitialized();
+    return _service.userPlaylistsCount;
+  }
+
+  // ==================== 向后兼容 ====================
+
   Future<void> init() async {
     await initialize();
   }
 
-  /// 获取所有用户歌单（兼容旧代码）
-  /// 返回简单的 Playlist 列表（不含 songs）
   List<Playlist> getAllPlaylists() {
     _ensureInitialized();
-    return _repository.userPlaylists;
+    return _service.userPlaylistsSnapshot;
   }
 
-  /// 获取歌单中的歌曲列表（兼容旧代码）
-  /// 内部处理缓存
   Future<List<Music>> getPlaylistSongs(String playlistId) async {
     _ensureInitialized();
-
-    // 先检查缓存
-    var songs = _cache.getSongs(playlistId);
-    if (songs != null) return songs;
-
-    // 检查是否为系统歌单
-    if (_repository.isSystemPlaylist(playlistId)) {
-      final detail = await _repository.getSystemPlaylistDetail(playlistId);
-      if (detail != null) {
-        songs = detail.songs;
-        _cache.setSongs(playlistId, songs);
-        return songs;
-      }
-      return [];
-    }
-
-    // 从仓库加载
-    songs = await _repository.loadPlaylistSongs(playlistId);
-    _cache.setSongs(playlistId, songs);
-    return songs;
+    return _service.getPlaylistDetail(playlistId).then((d) => d?.songs ?? <Music>[]);
   }
-
-  /// 添加歌曲到歌单（兼容单首歌方法）
-  Future<bool> addSongToPlaylist(String playlistId, Music music) async {
-    return addSongsToPlaylist(playlistId, [music]);
-  }
-
-  // ==================== 系统歌单 ====================
-
-  /// 检查是否为系统歌单
-  bool isSystemPlaylist(String playlistId) {
-    _ensureInitialized();
-    return _repository.isSystemPlaylist(playlistId);
-  }
-
-  /// 获取所有系统歌单
-  List<Playlist> get systemPlaylists => DefaultPlaylists.all;
 }

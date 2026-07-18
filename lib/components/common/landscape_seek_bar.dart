@@ -1,4 +1,3 @@
-import 'package:bilimusic/index.dart';
 import 'package:flutter/material.dart';
 import 'package:bilimusic/core/service_locator.dart';
 
@@ -27,86 +26,53 @@ class _LandscapeSeekBarState extends State<LandscapeSeekBar> {
   bool isDragging = false;
   double horizontalPadding = 45;
 
-  Duration _position = Duration.zero;
-  Duration _duration = Duration.zero;
-
-  @override
-  void initState() {
-    super.initState();
-    // Initialize with current values before listening
-    _position = sl.playerManager.currentPosition;
-    final music = sl.playerManager.currentMusic;
-    _duration = music?.duration ?? Duration.zero;
-    _setupListeners();
-  }
-
-  void _setupListeners() {
-    sl.playerManager.addPositionListener(_onPositionChanged);
-    sl.playerManager.addMusicListener(_onMusicChanged);
-  }
-
-  void _onMusicChanged(Music? music) {
-    if (mounted && music != null) {
-      setState(() {
-        _duration = music.duration ?? Duration.zero; // 只获取时长，避免不必要的状态更新
-      });
-    }
-  }
-
-  void _onPositionChanged(Duration position) {
-    if (!isDragging) {
-      setState(() {
-        _position = position;
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    sl.playerManager.removePositionListener(_onPositionChanged);
-    sl.playerManager.removeMusicListener(_onMusicChanged);
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final durationMs = _duration.inMilliseconds.toDouble();
-    final effectiveValue = dragValue ?? _position.inMilliseconds.toDouble();
-    final sliderValue = _duration.inMilliseconds == 0
-        ? 0.0
-        : effectiveValue.clamp(0.0, durationMs);
+    final music = sl.playerManager.currentMusic;
+    final duration = music?.duration ?? Duration.zero;
+    final durationMs = duration.inMilliseconds.toDouble();
 
     return SizedBox(
       height: widget.widgetHeight,
       child: Stack(
         alignment: Alignment.centerLeft,
         children: [
-          // Duration labels
           if (widget.showDurationLabels)
             Positioned(
               left: 0,
               right: 0,
               bottom: 2,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _formatDuration(
-                      Duration(milliseconds: sliderValue.toInt()),
-                    ),
-                    style: TextStyle(
-                      color: widget.color ?? Colors.grey,
-                      fontSize: 12.5,
-                    ),
-                  ),
-                  Text(
-                    _formatDuration(_duration),
-                    style: TextStyle(
-                      color: widget.color ?? Colors.grey,
-                      fontSize: 12.5,
-                    ),
-                  ),
-                ],
+              child: ValueListenableBuilder<Duration>(
+                valueListenable: sl.playerManager.position,
+                builder: (context, position, _) {
+                  if (isDragging) return const SizedBox.shrink();
+                  final effectiveValue =
+                      dragValue ?? position.inMilliseconds.toDouble();
+                  final sliderValue = durationMs == 0
+                      ? 0.0
+                      : effectiveValue.clamp(0.0, durationMs);
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _formatDuration(
+                          Duration(milliseconds: sliderValue.toInt()),
+                        ),
+                        style: TextStyle(
+                          color: widget.color ?? Colors.grey,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                      Text(
+                        _formatDuration(duration),
+                        style: TextStyle(
+                          color: widget.color ?? Colors.grey,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
 
@@ -125,17 +91,27 @@ class _LandscapeSeekBarState extends State<LandscapeSeekBar> {
               ),
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                child: Slider(
-                  min: 0.0,
-                  max: durationMs == 0 ? 1.0 : durationMs,
-                  value: sliderValue,
-                  onChanged: (value) {},
+                child: ValueListenableBuilder<Duration>(
+                  valueListenable: sl.playerManager.position,
+                  builder: (context, position, _) {
+                    final effectiveValue =
+                        dragValue ?? position.inMilliseconds.toDouble();
+                    final sliderValue = durationMs == 0
+                        ? 0.0
+                        : effectiveValue.clamp(0.0, durationMs);
+                    return Slider(
+                      min: 0.0,
+                      max: durationMs == 0 ? 1.0 : durationMs,
+                      value: sliderValue,
+                      onChanged: (value) {},
+                    );
+                  },
                 ),
               ),
             ),
           ),
 
-          // Full-track GestureDetector to capture touches anywhere on the track
+          // Full-track GestureDetector
           Positioned.fill(
             top: (widget.widgetHeight - widget.seekBarHeight) / 2,
             bottom: (widget.widgetHeight - widget.seekBarHeight) / 2,

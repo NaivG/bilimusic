@@ -1,8 +1,15 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 import 'package:bilimusic/utils/platform_helper.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:bilimusic/utils/window_listener.dart';
 import 'package:flutter/material.dart';
 
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
+
+import 'package:bilimusic/core/database.dart';
 import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/managers/audio_handler.dart';
 
@@ -34,9 +41,21 @@ Future<void> _setupMainWindow() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (kIsWeb) {
+    // Web 端 sqflite FFI 初始化
+    databaseFactory = databaseFactoryFfiWeb;
+    debugPrint('Web 端 sqflite 为实验性功能，可能存在兼容性问题');
+  } else if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+    // 桌面端 sqflite FFI 初始化
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
 
   // 初始化网络配置
   await NetworkConfig.init();
+
+  // 一次性把旧 SharedPreferences 列表数据迁入 playlist.db
+  await AppDatabase.instance.migrateFromPrefsOnce();
 
   // 初始化just_audio_media_kit（仅在非Web和非Android/iOS平台上需要）
   if (PlatformHelper.isDesktop) {

@@ -2,9 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:bilimusic/core/service_locator.dart';
-import 'package:bilimusic/managers/player_manager.dart';
 import 'package:bilimusic/managers/cache_manager.dart';
-import 'package:bilimusic/models/music.dart';
+import 'package:bilimusic/models/player_state.dart';
 import 'package:bilimusic/services/pip_service.dart';
 import 'package:bilimusic/theme/lucent_theme.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -12,68 +11,15 @@ import 'package:window_manager/window_manager.dart';
 
 /// 桌面端画中画覆盖层
 /// 在 PiP 模式下渲染的紧凑播放器控件
-class PipOverlay extends StatefulWidget {
+class PipOverlay extends StatelessWidget {
   const PipOverlay({super.key});
 
-  @override
-  State<PipOverlay> createState() => _PipOverlayState();
-}
-
-class _PipOverlayState extends State<PipOverlay> {
-  AudioState? _audioState;
-  Music? _currentMusic;
-  Duration _position = Duration.zero;
-  int _crossfadeCountdown = -1;
-
-  @override
-  void initState() {
-    super.initState();
-    _audioState = sl.playerManager.currentState;
-    _currentMusic = sl.playerManager.currentMusic;
-
-    sl.playerManager.addStateListener(_updateAudioState);
-    sl.playerManager.addPositionListener(_updatePosition);
-    sl.playerManager.addMusicListener(_updateMusic);
-    sl.playerManager.addCountdownListener(_updateCountdown);
-  }
-
-  @override
-  void dispose() {
-    sl.playerManager.removeStateListener(_updateAudioState);
-    sl.playerManager.removePositionListener(_updatePosition);
-    sl.playerManager.removeMusicListener(_updateMusic);
-    sl.playerManager.removeCountdownListener(_updateCountdown);
-    super.dispose();
-  }
-
-  void _updateAudioState(AudioState state) {
-    if (mounted) setState(() => _audioState = state);
-  }
-
-  void _updatePosition(Duration position) {
-    if (mounted) setState(() => _position = position);
-  }
-
-  void _updateMusic(Music? music) {
-    if (mounted) setState(() => _currentMusic = music);
-  }
-
-  void _updateCountdown(int countdown) {
-    if (mounted) setState(() => _crossfadeCountdown = countdown);
-  }
-
-  void _togglePlay() {
-    if (_audioState == AudioState.playing) {
+  void _togglePlay(PlayerState state) {
+    if (state is PlayerPlaying) {
       sl.playerManager.pause();
-    } else {
+    } else if (state is PlayerPaused || state is PlayerCompleted) {
       sl.playerManager.resume();
     }
-  }
-
-  double get _progress {
-    final duration = _currentMusic?.duration;
-    if (duration == null || duration.inMilliseconds == 0) return 0.0;
-    return (_position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
   }
 
   @override
@@ -101,13 +47,10 @@ class _PipOverlayState extends State<PipOverlay> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  // 上栏：专辑封面 + 文字 + 关闭按钮
-                  _buildTopRow(brightness),
+                  _buildTopRow(context, brightness),
                   const SizedBox(height: 8),
-                  // 传输控件行
                   _buildTransportRow(brightness),
                   const SizedBox(height: 6),
-                  // 进度条
                   _buildProgressBar(brightness),
                 ],
               ),
@@ -132,7 +75,7 @@ class _PipOverlayState extends State<PipOverlay> {
     );
   }
 
-  Widget _buildTopRow(Brightness brightness) {
+  Widget _buildTopRow(BuildContext context, Brightness brightness) {
     final textPrimary = brightness == Brightness.dark
         ? LucentTokens.darkTextPrimary
         : LucentTokens.lightTextPrimary;
@@ -147,58 +90,11 @@ class _PipOverlayState extends State<PipOverlay> {
           // 专辑封面
           ClipRRect(
             borderRadius: BorderRadius.circular(LucentTokens.radiusMd),
-            child: _currentMusic != null
-                ? CachedNetworkImage(
-                    imageUrl: _currentMusic!.safeCoverUrl,
-                    width: 52,
-                    height: 52,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => _buildCoverPlaceholder(),
-                    errorWidget: (context, url, error) =>
-                        _buildCoverPlaceholder(),
-                    cacheManager: imageCacheManager,
-                    cacheKey: _currentMusic!.id,
-                  )
-                : _buildCoverPlaceholder(),
+            child: _buildCover(context),
           ),
           const SizedBox(width: 12),
           // 歌曲信息
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _currentMusic?.title ?? 'Not Playing',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (_currentMusic != null) ...[
-                  const SizedBox(height: 2),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    child: _crossfadeCountdown > 0
-                        ? _buildTransitionText()
-                        : Text(
-                            _currentMusic!.artist,
-                            key: const ValueKey('artist'),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: textSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                  ),
-                ],
-              ],
-            ),
-          ),
+          Expanded(child: _buildSongInfo(textPrimary, textSecondary)),
           // 关闭按钮
           GestureDetector(
             onTap: () => PipService().exitPipMode(),
@@ -214,6 +110,65 @@ class _PipOverlayState extends State<PipOverlay> {
     );
   }
 
+  Widget _buildCover(BuildContext context) {
+    final music = sl.playerManager.currentMusic;
+    if (music == null) return _buildCoverPlaceholder(context);
+    return CachedNetworkImage(
+      imageUrl: music.safeCoverUrl,
+      width: 52,
+      height: 52,
+      fit: BoxFit.cover,
+      placeholder: (context, url) => _buildCoverPlaceholder(context),
+      errorWidget: (context, url, error) => _buildCoverPlaceholder(context),
+      cacheManager: imageCacheManager,
+      cacheKey: music.id,
+    );
+  }
+
+  Widget _buildSongInfo(Color textPrimary, Color textSecondary) {
+    final music = sl.playerManager.currentMusic;
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          music?.title ?? 'Not Playing',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: textPrimary,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (music != null) ...[
+          const SizedBox(height: 2),
+          ValueListenableBuilder<PlayerState>(
+            valueListenable: sl.playerManager.playerState,
+            builder: (context, state, _) {
+              final fading = state is PlayerPlaying && state.fadeCountdown != null;
+              return AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: fading
+                    ? _buildTransitionText()
+                    : Text(
+                        music.artist,
+                        key: const ValueKey('artist'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+              );
+            },
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _buildTransportRow(Brightness brightness) {
     final accentColor = LucentTokens.accentPrimary;
     final textSecondary = brightness == Brightness.dark
@@ -222,37 +177,37 @@ class _PipOverlayState extends State<PipOverlay> {
 
     return SizedBox(
       height: 44,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // 上一首
-          _TransportButton(
-            icon: Icons.skip_previous_rounded,
-            color: textSecondary,
-            onTap: _currentMusic != null
-                ? () => sl.playerManager.playPrevious()
-                : null,
-          ),
-          const SizedBox(width: 24),
-          // 播放/暂停
-          _TransportButton(
-            icon: _audioState == AudioState.playing
-                ? Icons.pause_rounded
-                : Icons.play_arrow_rounded,
-            color: accentColor,
-            size: 32,
-            onTap: _currentMusic != null ? _togglePlay : null,
-          ),
-          const SizedBox(width: 24),
-          // 下一首
-          _TransportButton(
-            icon: Icons.skip_next_rounded,
-            color: textSecondary,
-            onTap: _currentMusic != null
-                ? () => sl.playerManager.playNext()
-                : null,
-          ),
-        ],
+      child: ValueListenableBuilder<PlayerState>(
+        valueListenable: sl.playerManager.playerState,
+        builder: (context, state, _) {
+          final isPlaying = state is PlayerPlaying;
+          final hasMusic = sl.playerManager.currentMusic != null;
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _TransportButton(
+                icon: Icons.skip_previous_rounded,
+                color: textSecondary,
+                onTap: hasMusic ? () => sl.playerManager.playPrevious() : null,
+              ),
+              const SizedBox(width: 24),
+              _TransportButton(
+                icon: isPlaying
+                    ? Icons.pause_rounded
+                    : Icons.play_arrow_rounded,
+                color: accentColor,
+                size: 32,
+                onTap: hasMusic ? () => _togglePlay(state) : null,
+              ),
+              const SizedBox(width: 24),
+              _TransportButton(
+                icon: Icons.skip_next_rounded,
+                color: textSecondary,
+                onTap: hasMusic ? () => sl.playerManager.playNext() : null,
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -267,25 +222,37 @@ class _PipOverlayState extends State<PipOverlay> {
       height: 4,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(2),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Stack(
-              children: [
-                // 背景轨道
-                Container(width: constraints.maxWidth, color: progressColor),
-                // 进度填充
-                TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0, end: _progress),
-                  duration: LucentTokens.standardDuration,
-                  curve: LucentTokens.standardEasing,
-                  builder: (context, value, child) {
-                    return Container(
-                      width: constraints.maxWidth * value,
-                      color: accentColor,
-                    );
-                  },
-                ),
-              ],
+        child: ValueListenableBuilder<Duration>(
+          valueListenable: sl.playerManager.position,
+          builder: (context, position, _) {
+            final music = sl.playerManager.currentMusic;
+            final duration = music?.duration ?? Duration.zero;
+            final p = duration.inMilliseconds == 0
+                ? 0.0
+                : (position.inMilliseconds / duration.inMilliseconds)
+                    .clamp(0.0, 1.0);
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                return Stack(
+                  children: [
+                    Container(
+                      width: constraints.maxWidth,
+                      color: progressColor,
+                    ),
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: p),
+                      duration: LucentTokens.standardDuration,
+                      curve: LucentTokens.standardEasing,
+                      builder: (context, value, child) {
+                        return Container(
+                          width: constraints.maxWidth * value,
+                          color: accentColor,
+                        );
+                      },
+                    ),
+                  ],
+                );
+              },
             );
           },
         ),
@@ -293,7 +260,7 @@ class _PipOverlayState extends State<PipOverlay> {
     );
   }
 
-  Widget _buildCoverPlaceholder() {
+  Widget _buildCoverPlaceholder(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textTertiary = isDark
         ? LucentTokens.darkTextTertiary

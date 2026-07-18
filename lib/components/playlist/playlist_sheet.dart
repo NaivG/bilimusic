@@ -43,25 +43,12 @@ class _PlaylistSheetState extends State<PlaylistSheet>
         );
 
     _animationController.forward();
-
-    // 添加状态监听器
-    sl.playerManager.addStateListener(_onPlayerStateChanged);
-    sl.playerManager.addPlayModeListener(_onPlayerStateChanged);
   }
 
   @override
   void dispose() {
-    sl.playerManager.removeStateListener(_onPlayerStateChanged);
-    sl.playerManager.removePlayModeListener(_onPlayerStateChanged);
     _animationController.dispose();
     super.dispose();
-  }
-
-  void _onPlayerStateChanged(dynamic state) {
-    // 状态变化时刷新 UI
-    if (mounted) {
-      setState(() {});
-    }
   }
 
   Future<void> _handleReorder(int oldIndex, int newIndex) async {
@@ -100,19 +87,22 @@ class _PlaylistSheetState extends State<PlaylistSheet>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final currentIndex = sl.playerManager.getCurrentIndex();
 
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: Material(
-        color: Colors.transparent,
-        child: DraggableScrollableSheet(
-          initialChildSize: 0.5,
-          minChildSize: 0.25,
-          maxChildSize: 0.9,
-          snap: true,
-          snapSizes: const [0.25, 0.5, 0.75, 0.9],
-          builder: (context, scrollController) {
+    return ValueListenableBuilder<int?>(
+      valueListenable: sl.playerManager.currentIndexNotifier,
+      builder: (context, _, _) {
+        final currentIndex = sl.playerManager.getCurrentIndex();
+        return FadeTransition(
+          opacity: _fadeAnimation,
+          child: Material(
+            color: Colors.transparent,
+            child: DraggableScrollableSheet(
+              initialChildSize: 0.5,
+              minChildSize: 0.25,
+              maxChildSize: 0.9,
+              snap: true,
+              snapSizes: const [0.25, 0.5, 0.75, 0.9],
+              builder: (context, scrollController) {
             final sheetTheme = Theme.of(context);
             final sheetBrightness = sheetTheme.brightness;
             return ClipRRect(
@@ -133,11 +123,8 @@ class _PlaylistSheetState extends State<PlaylistSheet>
                   ),
                   child: Column(
                     children: [
-                      // 拖拽手柄
                       _buildDragHandle(isDark),
-                      // 头部
                       _buildHeader(context, isDark),
-                      // 播放列表
                       Expanded(
                         child: SlideTransition(
                           position: _slideAnimation,
@@ -157,6 +144,8 @@ class _PlaylistSheetState extends State<PlaylistSheet>
           },
         ),
       ),
+    );
+      },
     );
   }
 

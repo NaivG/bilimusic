@@ -29,7 +29,6 @@ class ServiceLocator {
 
   // 核心服务
   DualAudioService? _dualAudioService;
-  PlaylistService? _playlistService;
   NotificationService? _notificationService;
   ApiService? _apiService;
   PlayerCoordinator? _playerCoordinator;
@@ -58,9 +57,6 @@ class ServiceLocator {
   /// 双音频服务
   DualAudioService get dualAudioService => _dualAudioService!;
 
-  /// 播放列表服务
-  PlaylistService get playlistService => _playlistService!;
-
   /// 通知服务
   NotificationService get notificationService => _notificationService!;
 
@@ -85,7 +81,6 @@ class ServiceLocator {
     _dualAudioService = DualAudioService();
     _dualAudioService!.initialize();
 
-    _playlistService = PlaylistService();
     _notificationService = NotificationService();
     _apiService = ApiService();
 
@@ -97,11 +92,15 @@ class ServiceLocator {
     _userManager = UserManager();
     await _userManager!.restoreFromPrefs();
 
+    // 共享同一个 PlaylistService 给 PlayerCoordinator 与 PlaylistManager
+    final playlistService = PlaylistService();
+    await playlistService.initialize();
+
     // 创建 PlayerCoordinator
     _playerCoordinator = PlayerCoordinator(
       audioService: _dualAudioService!,
       settingsManager: _settingsManager!,
-      playlistService: _playlistService!,
+      playlistService: playlistService,
       notificationService: _notificationService!,
       apiService: _apiService!,
     );
@@ -110,9 +109,9 @@ class ServiceLocator {
     // 初始化 PlayerManager
     _playerManager = StreamingPlayerManager.initialize(_playerCoordinator!);
 
-    // 初始化 PlaylistManager
+    // 初始化 PlaylistManager 复用同一 service 实例
     _playlistManager = PlaylistManager();
-    await _playlistManager!.initialize();
+    await _playlistManager!.initialize(service: playlistService);
 
     // 初始化 FavSyncManager
     _favSyncManager = FavSyncManager(
@@ -133,7 +132,6 @@ class ServiceLocator {
     _userManager = null;
     _favSyncManager = null;
     _dualAudioService = null;
-    _playlistService = null;
     _notificationService = null;
     _apiService = null;
     _playerCoordinator = null;

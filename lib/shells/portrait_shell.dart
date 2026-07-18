@@ -46,22 +46,6 @@ class PortraitShell extends StatefulWidget {
 
 class _PortraitShellState extends State<PortraitShell> {
   @override
-  void initState() {
-    super.initState();
-    sl.playerManager.addMusicListener(_onMusicChanged);
-  }
-
-  @override
-  void dispose() {
-    sl.playerManager.removeMusicListener(_onMusicChanged);
-    super.dispose();
-  }
-
-  void _onMusicChanged(Music? music) {
-    if (mounted) setState(() {});
-  }
-
-  @override
   Widget build(BuildContext context) {
     if (widget.isTabletMode) {
       return _buildTabletLayout(context);
@@ -139,7 +123,10 @@ class _PortraitShellState extends State<PortraitShell> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          _buildBackground(),
+          ValueListenableBuilder<int?>(
+            valueListenable: sl.playerManager.currentIndexNotifier,
+            builder: (context, _, _) => _buildBackground(),
+          ),
           Row(
             children: [
               // 主内容区域
@@ -215,7 +202,10 @@ class _PortraitShellState extends State<PortraitShell> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          _buildBackground(),
+          ValueListenableBuilder<int?>(
+            valueListenable: sl.playerManager.currentIndexNotifier,
+            builder: (context, _, _) => _buildBackground(),
+          ),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
             switchInCurve: Curves.easeOut,

@@ -45,12 +45,7 @@ class _LandscapeShellState extends State<LandscapeShell> {
   @override
   void initState() {
     super.initState();
-    sl.playerManager.addMusicListener(_onMusicChanged);
     widget.pageManager.addListener(_onPageChanged);
-  }
-
-  void _onMusicChanged(Music? music) {
-    if (mounted) setState(() {});
   }
 
   void _onPageChanged() {
@@ -59,7 +54,6 @@ class _LandscapeShellState extends State<LandscapeShell> {
 
   @override
   void dispose() {
-    sl.playerManager.removeMusicListener(_onMusicChanged);
     widget.pageManager.removeListener(_onPageChanged);
     super.dispose();
   }
@@ -127,8 +121,11 @@ class _LandscapeShellState extends State<LandscapeShell> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // 背景模糊层
-          _buildBackground(),
+          // 背景模糊层（依赖当前播放曲目）
+          ValueListenableBuilder<int?>(
+            valueListenable: sl.playerManager.currentIndexNotifier,
+            builder: (context, _, _) => _buildBackground(),
+          ),
           // 主内容
           Column(
             children: [

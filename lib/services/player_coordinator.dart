@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:bilimusic/managers/player_manager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:bilimusic/models/music.dart';
+import 'package:bilimusic/models/player_state.dart';
 import 'package:bilimusic/services/dual_audio_service.dart';
 import 'package:bilimusic/services/playlist_service.dart';
 import 'package:bilimusic/services/notification_service.dart';
@@ -24,10 +25,7 @@ class PlayerCoordinator {
   Timer? _countdownTimer; // 倒计时定时器
   DateTime? _crossfadeStartTime; // crossfade开始时间戳
   bool _isCountdownActive = false; // 防止重复触发
-  final ValueNotifier<int> _crossfadeCountdown = ValueNotifier(
-    -1,
-  ); // 倒计时值（秒），-1表示未激活
-  final ValueNotifier<Music?> _music = ValueNotifier(null); // 当前音乐
+  bool _isPreloading = false; // 预加载中（coordinator 侧）
   Music? _preloadedMusic; // 记录已预加载的音乐
   int? _preloadedIndex; // 记录已预加载的音乐索引
 
@@ -65,7 +63,6 @@ class PlayerCoordinator {
     await _playlistService.initialize();
     await _settingsManager.init();
     _audioService.initialize();
-    _music.value = _playlistService.currentMusic;
     debugPrint('[PlayerCoordinator] 初始化完成');
   }
 
@@ -178,7 +175,7 @@ class PlayerCoordinator {
   /// 播放下一首(手动触发,不使用crossfade)
   Future<void> playNext() async {
     // 如果正在crossfade或倒计时中,取消并立即切换
-    if (_isCountdownActive || _audioService.isCrossfading) {
+    if (_isCountdownActive || _audioService.isFading) {
       debugPrint('[PlayerCoordinator] 取消倒计时/crossfade，执行手动下一首');
       _stopCountdown();
       // 取消crossfade并播放当前曲目
@@ -210,7 +207,7 @@ class PlayerCoordinator {
   /// 播放上一首(手动触发,不使用crossfade)
   Future<void> playPrevious() async {
     // 如果正在crossfade或倒计时中,取消并立即切换
-    if (_isCountdownActive || _audioService.isCrossfading) {
+    if (_isCountdownActive || _audioService.isFading) {
       debugPrint('[PlayerCoordinator] 取消倒计时/crossfade，执行手动上一首');
       _stopCountdown();
       // 取消crossfade并播放当前曲目
@@ -307,7 +304,7 @@ class PlayerCoordinator {
   void _checkPreloadTrigger() {
     // 基础检查
     if (!_settingsManager.crossfadeEnabled) return;
-    if (_audioService.isCrossfading) return;
+    if (_audioService.isFading) return;
     if (_isCountdownActive) return; // 防止重复触发
 
     // 检查是否有下一首（优先使用预加载的索引）
@@ -331,7 +328,7 @@ class PlayerCoordinator {
     // 如果剩余时间 <= 预加载阈值
     if (remaining <= preloadThreshold) {
       // 如果standby未就绪且未在预加载中，先预加载
-      if (!_audioService.isStandbyReady && !_audioService.isPreloading) {
+      if (!_audioService.isStandbyReady && !_isPreloading) {
         debugPrint('[PlayerCoordinator] 到达阈值但standby未就绪，先触发预加载');
         _triggerPreload();
       }
@@ -346,7 +343,7 @@ class PlayerCoordinator {
     else if (remaining <= preloadThreshold + const Duration(seconds: 5) &&
         remaining > preloadThreshold &&
         !_audioService.isStandbyReady &&
-        !_audioService.isPreloading) {
+        !_isPreloading) {
       debugPrint('[PlayerCoordinator] 提前预加载下一首');
       _triggerPreload();
     }
@@ -407,11 +404,8 @@ class PlayerCoordinator {
     final duration = Duration(milliseconds: _settingsManager.crossfadeDuration);
     final remaining = duration - elapsed;
 
-    if (remaining.inSeconds <= 0) {
-      _crossfadeCountdown.value = 0;
-    } else {
-      _crossfadeCountdown.value = remaining.inSeconds;
-    }
+    final secs = remaining.inSeconds <= 0 ? 0 : remaining.inSeconds;
+    _audioService.setPlayerState(PlayerPlaying(fadeCountdown: secs));
   }
 
   /// 停止倒计时
@@ -420,12 +414,15 @@ class PlayerCoordinator {
     _countdownTimer = null;
     _crossfadeStartTime = null;
     _isCountdownActive = false;
-    _crossfadeCountdown.value = -1;
+    // 清掉 fade 子态
+    if (_audioService.playerState.value is PlayerPlaying) {
+      _audioService.setPlayerState(PlayerPlaying());
+    }
   }
 
   /// 触发预加载下一首
   Future<void> _triggerPreload() async {
-    _audioService.setPreloading(true);
+    _isPreloading = true;
 
     try {
       // 获取下一首音乐
@@ -435,7 +432,6 @@ class PlayerCoordinator {
       );
 
       if (nextIndex == null) {
-        _audioService.setPreloading(false);
         return;
       }
 
@@ -446,7 +442,6 @@ class PlayerCoordinator {
       if (_preloadedMusic != null &&
           _preloadedMusic!.id == nextMusic.id &&
           _preloadedMusic!.cid == nextMusic.cid) {
-        _audioService.setPreloading(false);
         return;
       }
 
@@ -479,7 +474,7 @@ class PlayerCoordinator {
       _preloadedMusic = null;
       _preloadedIndex = null;
     } finally {
-      _audioService.setPreloading(false);
+      _isPreloading = false;
     }
   }
 
@@ -579,7 +574,6 @@ class PlayerCoordinator {
   /// 当前索引变化处理
   void _onCurrentIndexChanged() {
     _updateNotificationControls();
-    _music.value = _playlistService.currentMusic;
   }
 
   /// 更新通知控制按钮
@@ -606,8 +600,8 @@ class PlayerCoordinator {
 
   // ============ Getters ============
 
-  /// 获取当前播放状态
-  ValueListenable<AudioState> get state => _audioService.state;
+  /// 获取当前播放状态（PlayerState sealed class）
+  ValueListenable<PlayerState> get playerState => _audioService.playerState;
 
   /// 获取当前播放位置
   ValueListenable<Duration> get position => _audioService.position;
@@ -623,6 +617,9 @@ class PlayerCoordinator {
 
   /// 获取播放列表
   ValueListenable<List<Music>> get playlist => _playlistService.currentPlaylist;
+
+  /// 当前播放索引（ValueListenable，用于监听切歌）
+  ValueListenable<int?> get currentIndexNotifier => _playlistService.currentIndex;
 
   /// 获取播放历史
   ValueListenable<List<Music>> get playHistory => _playlistService.playHistory;
@@ -642,19 +639,6 @@ class PlayerCoordinator {
   /// 获取播放进度百分比
   double get progressPercentage => _audioService.progressPercentage;
 
-  /// 获取crossfade状态
-  ValueListenable<CrossfadeState> get crossfadeState =>
-      _audioService.crossfadeState;
-
-  /// 获取是否正在crossfade
-  bool get isCrossfading => _audioService.isCrossfading;
-
-  /// 获取crossfade倒计时（秒），-1表示未激活
-  ValueListenable<int> get crossfadeCountdown => _crossfadeCountdown;
-
-  /// 获取当前音乐
-  ValueListenable<Music?> get music => _music;
-
   /// 释放资源
   Future<void> dispose() async {
     _audioService.onPlaybackCompleted = null;
@@ -667,8 +651,6 @@ class PlayerCoordinator {
 
     _debounceTimer?.cancel();
     _countdownTimer?.cancel();
-    _crossfadeCountdown.dispose();
-    _music.dispose();
     await _audioService.dispose();
     await _playlistService.dispose();
   }
