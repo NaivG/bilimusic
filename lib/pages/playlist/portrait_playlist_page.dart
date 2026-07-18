@@ -76,7 +76,7 @@ class PortraitPlaylistPage extends StatelessWidget {
           // Track list
           PlaylistSongList(
             songs: songs,
-            currentPlayingMusic: sl.playerManager.currentMusic,
+            currentPlayingMusic: sl.playerCoordinator.currentMusic,
             onSongTap: onSongTap,
             isEditable: playlistId != null,
             onRemove: playlistId != null ? onRemoveSong : null,

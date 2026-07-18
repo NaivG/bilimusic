@@ -1,7 +1,9 @@
 import 'package:bilimusic/theme/lucent_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/core/service_locator.dart';
+import 'package:bilimusic/providers/playlist_providers.dart';
 import 'package:bilimusic/components/mini_player_bar.dart';
 import 'package:bilimusic/components/desktop_window_controls.dart';
 import 'package:bilimusic/components/common/background_blur_widget.dart';
@@ -23,7 +25,7 @@ import 'package:bilimusic/pages/fav_import_page.dart';
 /// 竖屏模式外壳 - 包含平板模式和手机模式布局
 /// 平板：NavigationRail + 主内容 + 迷你播放器
 /// 手机：主内容 + 迷你播放器 + 底部导航栏
-class PortraitShell extends StatefulWidget {
+class PortraitShell extends ConsumerWidget {
   final ShellPage currentPage;
   final ShellPageManager pageManager;
   final bool isTabletMode;
@@ -40,13 +42,9 @@ class PortraitShell extends StatefulWidget {
   });
 
   @override
-  State<PortraitShell> createState() => _PortraitShellState();
-}
-
-class _PortraitShellState extends State<PortraitShell> {
-  @override
-  Widget build(BuildContext context) {
-    if (widget.isTabletMode) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(currentIndexProvider);
+    if (isTabletMode) {
       return _buildTabletLayout(context);
     } else {
       return _buildMobileLayout(context);
@@ -61,7 +59,7 @@ class _PortraitShellState extends State<PortraitShell> {
       case ShellPage.search:
         return const SearchOverlay();
       case ShellPage.searchResults:
-        final query = widget.pageManager.getArgs<String>('query') ?? '';
+        final query = pageManager.getArgs<String>('query') ?? '';
         return SearchResultsOverlay(query: query);
       case ShellPage.profile:
         return const ProfilePage();
@@ -70,9 +68,9 @@ class _PortraitShellState extends State<PortraitShell> {
       case ShellPage.detail:
         return const DetailPage();
       case ShellPage.playlist:
-        final playlistId = widget.pageManager.getArgs<String>('playlistId');
-        final songs = widget.pageManager.getArgs<List<Music>>('songs');
-        final playlistName = widget.pageManager.getArgs<String>('playlistName');
+        final playlistId = pageManager.getArgs<String>('playlistId');
+        final songs = pageManager.getArgs<List<Music>>('songs');
+        final playlistName = pageManager.getArgs<String>('playlistName');
         return PlaylistPage(
           playlistId: playlistId,
           songs: songs,
@@ -95,37 +93,33 @@ class _PortraitShellState extends State<PortraitShell> {
 
   /// 是否显示底部导航栏
   bool get _showBottomBar {
-    return widget.currentPage == ShellPage.home ||
-        widget.currentPage == ShellPage.search ||
-        widget.currentPage == ShellPage.profile ||
-        widget.currentPage == ShellPage.settings;
+    return currentPage == ShellPage.home ||
+        currentPage == ShellPage.search ||
+        currentPage == ShellPage.profile ||
+        currentPage == ShellPage.settings;
   }
 
   /// 平板模式布局
   Widget _buildTabletLayout(BuildContext context) {
-    final selectedIndex = widget.pageManager.selectedTabIndex;
+    final selectedIndex = pageManager.selectedTabIndex;
 
     return Scaffold(
-      appBar: widget.isPcPlatform
+      appBar: isPcPlatform
           ? PreferredSize(
               preferredSize: const Size.fromHeight(40),
               child: DesktopNavBar(
                 selectedIndex: selectedIndex,
-                onNavTap: (index) => widget.pageManager.goToTab(index),
-                onClose: () => sl.playerManager.stop(),
+                onNavTap: (index) => pageManager.goToTab(index),
+                onClose: () => sl.playerCoordinator.stop(),
               ),
             )
           : null,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          ValueListenableBuilder<int?>(
-            valueListenable: sl.playerManager.currentIndexNotifier,
-            builder: (context, _, _) => _buildBackground(),
-          ),
+          _buildBackground(context),
           Row(
             children: [
-              // 主内容区域
               Expanded(
                 child: Stack(
                   children: [
@@ -151,9 +145,8 @@ class _PortraitShellState extends State<PortraitShell> {
                           ),
                         );
                       },
-                      child: _buildPageContent(widget.currentPage),
+                      child: _buildPageContent(currentPage),
                     ),
-                    // 平板模式下的悬浮迷你播放器
                     if (_showBottomBar)
                       Positioned(
                         left: 0,
@@ -164,8 +157,8 @@ class _PortraitShellState extends State<PortraitShell> {
                             width: MediaQuery.of(context).size.width * 0.8,
                             child: MiniPlayerBar(
                               onExpand: () =>
-                                  widget.pageManager.push(ShellPage.detail),
-                              onPlayList: widget.onPlayList,
+                                  pageManager.push(ShellPage.detail),
+                              onPlayList: onPlayList,
                             ),
                           ),
                         ),
@@ -182,26 +175,23 @@ class _PortraitShellState extends State<PortraitShell> {
 
   /// 手机模式布局
   Widget _buildMobileLayout(BuildContext context) {
-    final selectedIndex = widget.pageManager.selectedTabIndex;
+    final selectedIndex = pageManager.selectedTabIndex;
 
     return Scaffold(
-      appBar: widget.isPcPlatform
+      appBar: isPcPlatform
           ? PreferredSize(
               preferredSize: const Size.fromHeight(40),
               child: DesktopNavBar(
                 selectedIndex: selectedIndex,
-                onNavTap: (index) => widget.pageManager.goToTab(index),
-                onClose: () => sl.playerManager.stop(),
+                onNavTap: (index) => pageManager.goToTab(index),
+                onClose: () => sl.playerCoordinator.stop(),
               ),
             )
           : null,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          ValueListenableBuilder<int?>(
-            valueListenable: sl.playerManager.currentIndexNotifier,
-            builder: (context, _, _) => _buildBackground(),
-          ),
+          _buildBackground(context),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
             switchInCurve: Curves.easeOut,
@@ -224,7 +214,7 @@ class _PortraitShellState extends State<PortraitShell> {
                 ),
               );
             },
-            child: _buildPageContent(widget.currentPage),
+            child: _buildPageContent(currentPage),
           ),
           // 悬浮迷你播放器
           if (_showBottomBar)
@@ -236,8 +226,8 @@ class _PortraitShellState extends State<PortraitShell> {
                 child: SizedBox(
                   width: MediaQuery.of(context).size.width * 0.95,
                   child: MiniPlayerBar(
-                    onExpand: () => widget.pageManager.push(ShellPage.detail),
-                    onPlayList: widget.onPlayList,
+                    onExpand: () => pageManager.push(ShellPage.detail),
+                    onPlayList: onPlayList,
                   ),
                 ),
               ),
@@ -281,7 +271,7 @@ class _PortraitShellState extends State<PortraitShell> {
                   ),
                 ],
                 currentIndex: selectedIndex,
-                onTap: (index) => widget.pageManager.goToTab(index),
+                onTap: (index) => pageManager.goToTab(index),
               ),
             )
           : null,
@@ -289,7 +279,7 @@ class _PortraitShellState extends State<PortraitShell> {
   }
 
   /// 背景模糊效果
-  Widget _buildBackground() {
+  Widget _buildBackground(BuildContext context) {
     if (sl.settingsManager.fluidBackground == false) {
       final isDark = Theme.of(context).brightness;
       return Container(
@@ -298,7 +288,7 @@ class _PortraitShellState extends State<PortraitShell> {
             : LucentTokens.lightSurfaceBase,
       );
     }
-    final currentMusic = sl.playerManager.currentMusic;
+    final currentMusic = sl.playerCoordinator.currentMusic;
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 400),
       child: BackgroundBlurWidget(

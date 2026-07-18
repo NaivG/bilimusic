@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/models/search_result.dart';
-import 'package:bilimusic/managers/player_manager.dart';
+import 'package:bilimusic/services/player_coordinator.dart';
 import 'package:bilimusic/managers/playlist_manager.dart';
 import 'package:bilimusic/components/long_press_menu.dart';
 import 'package:bilimusic/utils/responsive.dart';
@@ -12,7 +12,7 @@ import 'package:bilimusic/utils/network_config.dart';
 /// 搜索结果卡片组件 - 用于展示非Music类型的搜索结果
 class SearchResultCard extends StatefulWidget {
   final SearchResult result;
-  final PlayerManager playerManager;
+  final PlayerCoordinator playerCoordinator;
   final PlaylistManager? playlistManager;
   final VoidCallback? onTap;
   final double? width;
@@ -20,7 +20,7 @@ class SearchResultCard extends StatefulWidget {
   const SearchResultCard({
     super.key,
     required this.result,
-    required this.playerManager,
+    required this.playerCoordinator,
     this.playlistManager,
     this.onTap,
     this.width,
@@ -86,7 +86,7 @@ class _SearchResultCardState extends State<SearchResultCard>
             return buildMusicContextMenu(
               context: context,
               music: music,
-              playerManager: widget.playerManager,
+              playerCoordinator: widget.playerCoordinator,
               playlistManager: widget.playlistManager,
             );
           },
@@ -354,7 +354,7 @@ class _SearchResultCardState extends State<SearchResultCard>
 /// 搜索结果网格组件
 class SearchResultsGrid extends StatelessWidget {
   final List<SearchResult> results;
-  final PlayerManager playerManager;
+  final PlayerCoordinator playerCoordinator;
   final PlaylistManager? playlistManager;
   final Function(SearchResult) onResultTap;
   final double? itemWidth;
@@ -362,7 +362,7 @@ class SearchResultsGrid extends StatelessWidget {
   const SearchResultsGrid({
     super.key,
     required this.results,
-    required this.playerManager,
+    required this.playerCoordinator,
     this.playlistManager,
     required this.onResultTap,
     this.itemWidth,
@@ -387,7 +387,7 @@ class SearchResultsGrid extends StatelessWidget {
         final result = results[index];
         return SearchResultCard(
           result: result,
-          playerManager: playerManager,
+          playerCoordinator: playerCoordinator,
           playlistManager: playlistManager,
           onTap: () => onResultTap(result),
           width: itemWidth,

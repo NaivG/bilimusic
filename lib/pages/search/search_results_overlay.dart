@@ -150,7 +150,7 @@ class _SearchResultsOverlayState extends State<SearchResultsOverlay> {
     if (result.type == SearchResultType.video) {
       final music = result.toMusic();
       final detailedMusic = await music.getVideoDetails();
-      sl.playerManager.play(detailedMusic);
+      sl.playerCoordinator.playMusic(detailedMusic);
     }
   }
 
@@ -395,7 +395,7 @@ class _SearchResultsOverlayState extends State<SearchResultsOverlay> {
         padding: const EdgeInsets.only(bottom: _cardSpacing),
         child: _SearchResultCard(
           result: result,
-          playerManager: sl.playerManager,
+          playerCoordinator: sl.playerCoordinator,
           playlistManager: sl.playlistManager,
           onTap: () => _playResult(result),
         ),
@@ -417,7 +417,7 @@ class _SearchResultsOverlayState extends State<SearchResultsOverlay> {
 
     return MusicListItem(
       music: music,
-      playerManager: sl.playerManager,
+      playerCoordinator: sl.playerCoordinator,
       playlistManager: sl.playlistManager,
       onTap: () => _navigateToPlaylist(result, pages),
       showCover: true,
@@ -429,7 +429,7 @@ class _SearchResultsOverlayState extends State<SearchResultsOverlay> {
   Widget _buildListItem(BuildContext context, SearchResult result) {
     return MusicListItem(
       music: result.toMusic(),
-      playerManager: sl.playerManager,
+      playerCoordinator: sl.playerCoordinator,
       playlistManager: sl.playlistManager,
       onTap: () => _playResult(result),
     );
@@ -479,13 +479,13 @@ class _SearchResultsOverlayState extends State<SearchResultsOverlay> {
 /// 简化版搜索结果卡片（用于搜索结果页）
 class _SearchResultCard extends StatelessWidget {
   final SearchResult result;
-  final dynamic playerManager;
+  final dynamic playerCoordinator;
   final dynamic playlistManager;
   final VoidCallback? onTap;
 
   const _SearchResultCard({
     required this.result,
-    required this.playerManager,
+    required this.playerCoordinator,
     required this.playlistManager,
     this.onTap,
   });

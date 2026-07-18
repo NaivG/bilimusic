@@ -314,10 +314,10 @@ class _PortraitDetailPageState extends State<PortraitDetailPage> {
               // 收藏
               IconButton(
                 icon: Icon(
-                  sl.playerManager.isFavorite(widget.music)
+                  sl.playerCoordinator.isFavorite(widget.music)
                       ? Icons.favorite
                       : Icons.favorite_border,
-                  color: sl.playerManager.isFavorite(widget.music)
+                  color: sl.playerCoordinator.isFavorite(widget.music)
                       ? Colors.red[400]
                       : Colors.white,
                 ),
@@ -380,7 +380,7 @@ class _PortraitDetailPageState extends State<PortraitDetailPage> {
                   color: Colors.white.withValues(alpha: 0.7),
                 ),
                 iconSize: 32,
-                onPressed: () => sl.playerManager.playPrevious(),
+                onPressed: () => sl.playerCoordinator.playPrevious(),
               ),
               IconButton(
                 icon: Icon(
@@ -388,7 +388,7 @@ class _PortraitDetailPageState extends State<PortraitDetailPage> {
                   color: Colors.white.withValues(alpha: 0.7),
                 ),
                 iconSize: 32,
-                onPressed: () => sl.playerManager.playNext(),
+                onPressed: () => sl.playerCoordinator.playNext(),
               ),
               IconButton(
                 icon: Icon(
@@ -514,15 +514,15 @@ class _PortraitDetailPageState extends State<PortraitDetailPage> {
             const SizedBox(height: 20),
             ListTile(
               leading: Icon(
-                sl.playerManager.isFavorite(widget.music)
+                sl.playerCoordinator.isFavorite(widget.music)
                     ? Icons.favorite
                     : Icons.favorite_border,
-                color: sl.playerManager.isFavorite(widget.music)
+                color: sl.playerCoordinator.isFavorite(widget.music)
                     ? Colors.red
                     : Colors.white,
               ),
               title: Text(
-                sl.playerManager.isFavorite(widget.music) ? '取消收藏' : '收藏',
+                sl.playerCoordinator.isFavorite(widget.music) ? '取消收藏' : '收藏',
                 style: const TextStyle(color: Colors.white),
               ),
               onTap: () {

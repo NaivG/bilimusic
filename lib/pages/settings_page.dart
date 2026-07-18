@@ -1,25 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/core/service_locator.dart';
+import 'package:bilimusic/providers/settings_provider.dart';
 import 'package:bilimusic/utils/platform_helper.dart';
-import 'package:flutter/foundation.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class SettingsPage extends StatefulWidget {
+class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
   @override
-  State<SettingsPage> createState() => _SettingsPageState();
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
-  @override
-  void initState() {
-    super.initState();
-  }
-
+class _SettingsPageState extends ConsumerState<SettingsPage> {
   @override
   Widget build(BuildContext context) {
+    final settings = ref.watch(settingsProvider);
+    final notifier = ref.read(settingsProvider.notifier);
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
@@ -37,11 +35,8 @@ class _SettingsPageState extends State<SettingsPage> {
             _buildSwitchListTile(
               icon: Icons.notifications,
               title: '推送媒体通知',
-              value: sl.settingsManager.notificationsEnabled,
-              onChanged: (value) {
-                sl.settingsManager.setNotificationsEnabled(value);
-                setState(() {}); // 刷新UI
-              },
+              value: settings.notificationsEnabled,
+              onChanged: notifier.setNotificationsEnabled,
             ),
 
             // 播放设置
@@ -49,11 +44,8 @@ class _SettingsPageState extends State<SettingsPage> {
             _buildSwitchListTile(
               icon: Icons.play_arrow,
               title: '自动播放下一首',
-              value: sl.settingsManager.autoPlayNext,
-              onChanged: (value) {
-                sl.settingsManager.setAutoPlayNext(value);
-                setState(() {}); // 刷新UI
-              },
+              value: settings.autoPlayNext,
+              onChanged: notifier.setAutoPlayNext,
             ),
 
             // Crossfade设置
@@ -61,15 +53,12 @@ class _SettingsPageState extends State<SettingsPage> {
               icon: Icons.graphic_eq,
               title: '交叉淡入淡出',
               subtitle: '歌曲自动切换时平滑过渡(仅自动切歌生效)',
-              value: sl.settingsManager.crossfadeEnabled,
-              onChanged: (value) {
-                sl.settingsManager.setCrossfadeEnabled(value);
-                setState(() {}); // 刷新UI
-              },
+              value: settings.crossfadeEnabled,
+              onChanged: notifier.setCrossfadeEnabled,
             ),
 
             // 仅在启用crossfade时显示详细设置
-            if (sl.settingsManager.crossfadeEnabled) ...[
+            if (settings.crossfadeEnabled) ...[
               // Crossfade时长滑块
               ListTile(
                 leading: Icon(Icons.timer, color: _getPrimaryColor(context)),
@@ -78,19 +67,16 @@ class _SettingsPageState extends State<SettingsPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '当前: ${sl.settingsManager.crossfadeDuration ~/ 1000}秒',
+                      '当前: ${settings.crossfadeDuration ~/ 1000}秒',
                     ),
                     Slider(
-                      value: sl.settingsManager.crossfadeDuration.toDouble(),
+                      value: settings.crossfadeDuration.toDouble(),
                       min: 1000,
                       max: 10000,
                       divisions: 9,
-                      label: '${sl.settingsManager.crossfadeDuration ~/ 1000}秒',
-                      onChanged: (value) async {
-                        await sl.settingsManager.setCrossfadeDuration(
-                          value.toInt(),
-                        );
-                        setState(() {});
+                      label: '${settings.crossfadeDuration ~/ 1000}秒',
+                      onChanged: (value) {
+                        notifier.setCrossfadeDuration(value.toInt());
                       },
                     ),
                   ],
@@ -105,19 +91,16 @@ class _SettingsPageState extends State<SettingsPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '当前: 当开始过渡前${sl.settingsManager.preloadSeconds}秒开始加载下一首',
+                      '当前: 当开始过渡前${settings.preloadSeconds}秒开始加载下一首',
                     ),
                     Slider(
-                      value: sl.settingsManager.preloadSeconds.toDouble(),
+                      value: settings.preloadSeconds.toDouble(),
                       min: 5,
                       max: 30,
                       divisions: 25,
-                      label: '${sl.settingsManager.preloadSeconds}秒',
-                      onChanged: (value) async {
-                        await sl.settingsManager.setPreloadSeconds(
-                          value.toInt(),
-                        );
-                        setState(() {});
+                      label: '${settings.preloadSeconds}秒',
+                      onChanged: (value) {
+                        notifier.setPreloadSeconds(value.toInt());
                       },
                     ),
                   ],
@@ -131,11 +114,8 @@ class _SettingsPageState extends State<SettingsPage> {
               icon: Icons.high_quality,
               title: '高品质音乐',
               subtitle: '开启后将获取更高品质的音乐',
-              value: sl.settingsManager.downloadQualityHigh,
-              onChanged: (value) {
-                sl.settingsManager.setDownloadQualityHigh(value);
-                setState(() {}); // 刷新UI
-              },
+              value: settings.downloadQualityHigh,
+              onChanged: notifier.setDownloadQualityHigh,
             ),
 
             // 界面设置
@@ -144,43 +124,30 @@ class _SettingsPageState extends State<SettingsPage> {
               icon: Icons.auto_awesome,
               title: '流体背景效果',
               subtitle: '为页面启用模糊背景',
-              value: sl.settingsManager.fluidBackground,
-              onChanged: (value) {
-                sl.settingsManager.setFluidBackground(value);
-                setState(() {}); // 刷新UI
-              },
+              value: settings.fluidBackground,
+              onChanged: notifier.setFluidBackground,
             ),
             _buildSwitchListTile(
               icon: Icons.blur_on,
               title: '毛玻璃效果',
               subtitle: '为迷你播放器栏启用毛玻璃效果',
-              value: sl.settingsManager.blurEffect,
-              onChanged: (value) {
-                sl.settingsManager.setBlurEffect(value);
-                setState(() {}); // 刷新UI
-              },
+              value: settings.blurEffect,
+              onChanged: notifier.setBlurEffect,
             ),
             ListTile(
               leading: Icon(Icons.tablet, color: _getPrimaryColor(context)),
               title: Text('平板模式'),
               subtitle: Text(
-                sl.settingsManager.getTabletModeText(
-                  sl.settingsManager.tabletMode,
-                ),
+                sl.settingsManager.getTabletModeText(settings.tabletMode),
               ),
               trailing: DropdownButton<String>(
-                value: sl.settingsManager.tabletMode,
+                value: settings.tabletMode,
                 items: [
                   DropdownMenuItem(value: 'auto', child: Text('自动')),
                   DropdownMenuItem(value: 'on', child: Text('强制打开')),
                   DropdownMenuItem(value: 'off', child: Text('强制关闭')),
                 ],
-                onChanged: (value) {
-                  if (value != null) {
-                    sl.settingsManager.setTabletMode(value);
-                    setState(() {});
-                  }
-                },
+                onChanged: notifier.setTabletMode,
               ),
             ),
 
@@ -191,12 +158,12 @@ class _SettingsPageState extends State<SettingsPage> {
               title: Text('音频输出模式'),
               subtitle: Text(
                 sl.settingsManager.getAudioOutputModeText(
-                  sl.settingsManager.audioOutputMode,
+                  settings.audioOutputMode,
                 ),
               ),
               enabled: PlatformHelper.isAndroid, // 仅在安卓平台启用
               trailing: DropdownButton<String>(
-                value: sl.settingsManager.audioOutputMode,
+                value: settings.audioOutputMode,
                 items: [
                   DropdownMenuItem(value: 'aaudio', child: Text('AAudio (推荐)')),
                   DropdownMenuItem(
@@ -204,17 +171,12 @@ class _SettingsPageState extends State<SettingsPage> {
                     child: Text('AudioTrack'),
                   ),
                 ],
-                onChanged: (value) {
-                  if (value != null) {
-                    sl.settingsManager.setAudioOutputMode(value);
-                    setState(() {});
-                  }
-                },
+                onChanged: notifier.setAudioOutputMode,
               ),
             ),
 
             // 主题设置
-            _buildSectionTitle('主题 (需要重启生效)'),
+            _buildSectionTitle('主题'),
             ListTile(
               leading: Icon(
                 Icons.settings_brightness,
@@ -222,25 +184,16 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               title: Text('主题模式'),
               subtitle: Text(
-                sl.settingsManager.getThemeModeText(
-                  sl.settingsManager.themeMode,
-                ),
+                sl.settingsManager.getThemeModeText(settings.themeMode),
               ),
               trailing: DropdownButton<String>(
-                value: sl.settingsManager.themeMode,
+                value: settings.themeMode,
                 items: [
                   DropdownMenuItem(value: 'system', child: Text('跟随系统')),
                   DropdownMenuItem(value: 'light', child: Text('浅色')),
                   DropdownMenuItem(value: 'dark', child: Text('深色')),
                 ],
-                onChanged: (value) {
-                  if (value != null) {
-                    sl.settingsManager.setThemeMode(value);
-                    setState(() {}); // 刷新UI
-                    // 通知整个应用重建以应用主题更改
-                    defaultTargetPlatform; // 这里只是触发重建的一种方式
-                  }
-                },
+                onChanged: notifier.setThemeMode,
               ),
             ),
             ListTile(
@@ -248,15 +201,11 @@ class _SettingsPageState extends State<SettingsPage> {
               title: Text('主题配色'),
               subtitle: Text('设置全局配色方案'),
               trailing: DropdownButton<String>(
-                value: sl.settingsManager.themeColor,
+                value: settings.themeColor,
                 items: [
                   DropdownMenuItem(value: 'lucent', child: Text('Lucent (推荐)')),
                 ],
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {});
-                  }
-                },
+                onChanged: notifier.setThemeColor,
               ),
             ),
 

@@ -2,15 +2,18 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/models/player_state.dart';
+import 'package:bilimusic/providers/playback_providers.dart';
+import 'package:bilimusic/providers/playlist_providers.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/managers/cache_manager.dart';
 import 'package:bilimusic/theme/lucent_theme.dart';
 
 /// Mini Player Bar
 /// 应用Lucent主题下的迷你播放器
-class MiniPlayerBar extends StatefulWidget {
+class MiniPlayerBar extends ConsumerStatefulWidget {
   final VoidCallback onExpand;
   final VoidCallback onPlayList;
 
@@ -21,10 +24,10 @@ class MiniPlayerBar extends StatefulWidget {
   });
 
   @override
-  State<MiniPlayerBar> createState() => _MiniPlayerBarState();
+  ConsumerState<MiniPlayerBar> createState() => _MiniPlayerBarState();
 }
 
-class _MiniPlayerBarState extends State<MiniPlayerBar>
+class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
     with TickerProviderStateMixin {
   // Gesture state
   double _dragX = 0;
@@ -69,9 +72,9 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
 
   void _applyPendingDirection() {
     if (_pendingDirection == -1) {
-      sl.playerManager.playPrevious();
+      sl.playerCoordinator.playPrevious();
     } else if (_pendingDirection == 1) {
-      sl.playerManager.playNext();
+      sl.playerCoordinator.playNext();
     }
   }
 
@@ -83,11 +86,11 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
 
   void _togglePlay() async {
     if (_isTransitioning) return;
-    final ps = sl.playerManager.playerState.value;
+    final ps = sl.playerCoordinator.playerState.value;
     if (ps is PlayerPlaying) {
-      await sl.playerManager.pause();
+      await sl.playerCoordinator.pause();
     } else if (ps is PlayerPaused || ps is PlayerCompleted) {
-      await sl.playerManager.resume();
+      await sl.playerCoordinator.resume();
     }
   }
 
@@ -100,7 +103,7 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
     _isVerticalSwipe = false;
 
     // 无音乐时不启动水平拖动
-    if (sl.playerManager.currentMusic == null) {
+    if (sl.playerCoordinator.currentMusic == null) {
       _isVerticalSwipe = true;
     }
   }
@@ -209,6 +212,9 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
 
   @override
   Widget build(BuildContext context) {
+    final currentPosition = ref.watch(positionProvider);
+    final currentPlayerState = ref.watch(playerStateProvider);
+    ref.watch(currentMusicProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final baseColor = isDark
@@ -292,34 +298,12 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
                         ),
                         child: Align(
                           alignment: Alignment.centerLeft,
-                          child: ValueListenableBuilder<Duration>(
-                            valueListenable: sl.playerManager.position,
-                            builder: (context, position, _) {
-                              final music = sl.playerManager.currentMusic;
-                              final duration = music?.duration ?? Duration.zero;
-                              final p = duration.inMilliseconds == 0
-                                  ? 0.0
-                                  : (position.inMilliseconds /
-                                          duration.inMilliseconds)
-                                      .clamp(0.0, 1.0);
-                              return TweenAnimationBuilder<double>(
-                                tween: Tween(begin: 0, end: p),
-                                duration: LucentTokens.standardDuration,
-                                curve: LucentTokens.standardEasing,
-                                builder: (context, value, child) {
-                                  return Container(
-                                    width: constraints.maxWidth * value,
-                                    color: progressColor,
-                                  );
-                                },
-                              );
-                            },
-                          ),
+                          child: _buildProgressBar(constraints, progressColor, currentPosition),
                         ),
                       ),
                     ),
                     // 滑动方向图标层
-                    if (sl.playerManager.currentMusic != null) ...[
+                    if (sl.playerCoordinator.currentMusic != null) ...[
                       if (_dragX > 20)
                         Positioned(
                           left: -44 - (_dragX * 0.2).clamp(0.0, 20.0),
@@ -379,32 +363,12 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
                           ),
                           const SizedBox(width: 12),
                           // 歌曲信息
-                          Expanded(child: _buildSongInfo(textPrimary, textSecondary)),
+                          Expanded(child: _buildSongInfo(textPrimary, textSecondary, currentPlayerState)),
                           // 控制按钮
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              ValueListenableBuilder<PlayerState>(
-                                valueListenable: sl.playerManager.playerState,
-                                builder: (context, state, _) {
-                                  final isPlaying = state is PlayerPlaying;
-                                  return GestureDetector(
-                                    onTap: _togglePlay,
-                                    child: Container(
-                                      width: 44,
-                                      height: 44,
-                                      alignment: Alignment.center,
-                                      child: Icon(
-                                        isPlaying
-                                            ? Icons.pause_rounded
-                                            : Icons.play_arrow_rounded,
-                                        color: LucentTokens.accentPrimary,
-                                        size: 28,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
+                              _buildPlayButton(currentPlayerState),
                               GestureDetector(
                                 onTap: widget.onPlayList,
                                 child: Container(
@@ -434,7 +398,7 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
   }
 
   Widget _buildCover(BuildContext context) {
-    final music = sl.playerManager.currentMusic;
+    final music = sl.playerCoordinator.currentMusic;
     if (music == null) return _buildCoverPlaceholder();
     return CachedNetworkImage(
       imageUrl: music.safeCoverUrl,
@@ -448,8 +412,9 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
     );
   }
 
-  Widget _buildSongInfo(Color textPrimary, Color textSecondary) {
-    final music = sl.playerManager.currentMusic;
+  Widget _buildSongInfo(Color textPrimary, Color textSecondary, PlayerState playerState) {
+    final music = sl.playerCoordinator.currentMusic;
+    final fading = playerState is PlayerPlaying && playerState.fadeCountdown != null;
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -466,29 +431,61 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
         ),
         if (music != null) ...[
           const SizedBox(height: 2),
-          ValueListenableBuilder<PlayerState>(
-            valueListenable: sl.playerManager.playerState,
-            builder: (context, state, _) {
-              final fading = state is PlayerPlaying && state.fadeCountdown != null;
-              return AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                child: fading
-                    ? _buildTransitionText()
-                    : Text(
-                        music.artist,
-                        key: const ValueKey('artist'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-              );
-            },
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: fading
+                ? _buildTransitionText()
+                : Text(
+                    music.artist,
+                    key: const ValueKey('artist'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildProgressBar(BoxConstraints constraints, Color progressColor, Duration position) {
+    final music = sl.playerCoordinator.currentMusic;
+    final duration = music?.duration ?? Duration.zero;
+    final p = duration.inMilliseconds == 0
+        ? 0.0
+        : (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: p),
+      duration: LucentTokens.standardDuration,
+      curve: LucentTokens.standardEasing,
+      builder: (context, value, child) {
+        return Container(
+          width: constraints.maxWidth * value,
+          color: progressColor,
+        );
+      },
+    );
+  }
+
+  Widget _buildPlayButton(PlayerState state) {
+    final isPlaying = state is PlayerPlaying;
+    return GestureDetector(
+      onTap: _togglePlay,
+      child: Container(
+        width: 44,
+        height: 44,
+        alignment: Alignment.center,
+        child: Icon(
+          isPlaying
+              ? Icons.pause_rounded
+              : Icons.play_arrow_rounded,
+          color: LucentTokens.accentPrimary,
+          size: 28,
+        ),
+      ),
     );
   }
 

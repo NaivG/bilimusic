@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/pages/search/widgets/search_bar_widget.dart';
 import 'package:bilimusic/pages/search/widgets/search_empty_state.dart';
-import 'package:bilimusic/providers/search_state_provider.dart';
+import 'package:bilimusic/providers/search_providers.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
 
 /// 搜索Overlay - 只负责渲染搜索栏
 /// 用户输入关键词提交后，推送 SearchResultsOverlay 展示结果
-class SearchOverlay extends StatefulWidget {
+class SearchOverlay extends ConsumerStatefulWidget {
   const SearchOverlay({super.key});
 
   @override
-  State<SearchOverlay> createState() => _SearchOverlayState();
+  ConsumerState<SearchOverlay> createState() => _SearchOverlayState();
 }
 
-class _SearchOverlayState extends State<SearchOverlay> {
+class _SearchOverlayState extends ConsumerState<SearchOverlay> {
   final TextEditingController _searchController = TextEditingController();
   bool _hasInitialQuery = false;
 
@@ -27,35 +28,37 @@ class _SearchOverlayState extends State<SearchOverlay> {
   }
 
   void _setupSearchStateListener() {
-    SearchStateNotifier.instance.addListener(_onSearchStateChanged);
+    ref.listen(searchStateProvider, (prev, next) {
+      // 初次跳过
+      if (prev == null) return;
+      _onSearchStateChanged(next);
+    });
     // 检查初始是否有待搜索词
-    final searchState = SearchStateNotifier.instance;
+    final searchState = ref.read(searchStateProvider);
     if (searchState.shouldSearch && searchState.query.isNotEmpty) {
       _searchController.text = searchState.query;
       _hasInitialQuery = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _submitSearch(searchState.query);
-        searchState.markSearched();
+        ref.read(searchStateProvider.notifier).markSearched();
       });
     }
   }
 
-  void _onSearchStateChanged() {
-    final searchState = SearchStateNotifier.instance;
+  void _onSearchStateChanged(SearchState searchState) {
     if (searchState.shouldSearch && searchState.query.isNotEmpty) {
       if (_searchController.text != searchState.query) {
         _searchController.text = searchState.query;
       }
       _hasInitialQuery = true;
       _submitSearch(searchState.query).then((_) {
-        searchState.markSearched();
+        ref.read(searchStateProvider.notifier).markSearched();
       });
     }
   }
 
   @override
   void dispose() {
-    SearchStateNotifier.instance.removeListener(_onSearchStateChanged);
     _searchController.dispose();
     super.dispose();
   }

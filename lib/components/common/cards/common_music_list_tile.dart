@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/managers/player_manager.dart';
+import 'package:bilimusic/services/player_coordinator.dart';
 import 'package:bilimusic/managers/playlist_manager.dart';
 import 'package:bilimusic/components/long_press_menu.dart';
 import 'package:super_context_menu/super_context_menu.dart';
@@ -13,7 +13,7 @@ import 'package:bilimusic/theme/lucent_theme.dart';
 /// 悬停/选中时背景和圆角边框从透明渐变至半透明(alpha: 0 -> 0.2)
 class CommonMusicListTile extends StatefulWidget {
   final Music music;
-  final PlayerManager playerManager;
+  final PlayerCoordinator playerCoordinator;
   final PlaylistManager? playlistManager;
   final int? index;
   final bool isPlaying;
@@ -29,7 +29,7 @@ class CommonMusicListTile extends StatefulWidget {
   const CommonMusicListTile({
     super.key,
     required this.music,
-    required this.playerManager,
+    required this.playerCoordinator,
     this.playlistManager,
     this.index,
     this.isPlaying = false,
@@ -72,7 +72,7 @@ class _CommonMusicListTileState extends State<CommonMusicListTile> {
           menuProvider: (_) => buildMusicContextMenu(
             context: context,
             music: widget.music,
-            playerManager: widget.playerManager,
+            playerCoordinator: widget.playerCoordinator,
             playlistManager: widget.playlistManager,
           ),
           child: Material(
@@ -209,6 +209,6 @@ class _CommonMusicListTileState extends State<CommonMusicListTile> {
 
   Future<void> _playMusic(BuildContext context) async {
     final detailedMusic = await widget.music.getVideoDetails();
-    widget.playerManager.play(detailedMusic);
+    widget.playerCoordinator.playMusic(detailedMusic);
   }
 }

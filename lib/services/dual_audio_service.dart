@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart' as ja;
 import 'package:rxdart/rxdart.dart';
-import 'package:bilimusic/managers/player_manager.dart';
+import 'package:bilimusic/models/play_mode.dart';
 import 'package:bilimusic/models/player_state.dart';
 
 /// 播放器角色枚举

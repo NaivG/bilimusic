@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:bilimusic/managers/player_manager.dart';
+import 'package:bilimusic/services/player_coordinator.dart';
 import 'package:bilimusic/managers/playlist_manager.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/playlist.dart';
@@ -12,11 +12,11 @@ import 'package:super_context_menu/super_context_menu.dart';
 FutureOr<Menu?> buildMusicContextMenu({
   required BuildContext context,
   required Music music,
-  required PlayerManager playerManager,
+  required PlayerCoordinator playerCoordinator,
   PlaylistManager? playlistManager,
   VoidCallback? onRemoveFromPlaylist,
 }) {
-  final isFav = playerManager.isFavorite(music);
+  final isFav = playerCoordinator.isFavorite(music);
 
   return Menu(
     children: [
@@ -26,7 +26,7 @@ FutureOr<Menu?> buildMusicContextMenu({
         callback: () async {
           try {
             final detailedMusic = await music.getVideoDetails();
-            await playerManager.play(detailedMusic);
+            await playerCoordinator.playMusic(detailedMusic);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('开始播放"${detailedMusic.title}"')),
@@ -47,7 +47,7 @@ FutureOr<Menu?> buildMusicContextMenu({
         callback: () async {
           try {
             final detailedMusic = await music.getVideoDetails();
-            await playerManager.playNextFromIndex(detailedMusic);
+            await playerCoordinator.playNextFromIndex(detailedMusic);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('已添加到下一首播放"${detailedMusic.title}"')),
@@ -68,14 +68,14 @@ FutureOr<Menu?> buildMusicContextMenu({
         callback: () async {
           try {
             if (isFav) {
-              await playerManager.removeFromFavorites(music);
+              await playerCoordinator.removeFromFavorites(music);
               if (context.mounted) {
                 ScaffoldMessenger.of(
                   context,
                 ).showSnackBar(const SnackBar(content: Text('已取消收藏')));
               }
             } else {
-              await playerManager.addToFavorites(music);
+              await playerCoordinator.addToFavorites(music);
               if (context.mounted) {
                 ScaffoldMessenger.of(
                   context,

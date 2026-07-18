@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import 'package:bilimusic/core/database.dart';
-import 'package:bilimusic/managers/player_manager.dart';
+import 'package:bilimusic/models/play_mode.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/playlist.dart';
 import 'package:bilimusic/models/playlist_tag.dart';

@@ -1,9 +1,13 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/core/service_locator.dart';
-import 'package:bilimusic/managers/player_manager.dart';
+import 'package:bilimusic/models/play_mode.dart';
+import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/player_state.dart';
+import 'package:bilimusic/providers/playback_providers.dart';
+import 'package:bilimusic/providers/playlist_providers.dart';
 import 'package:bilimusic/theme/lucent_theme.dart';
 import 'package:bilimusic/utils/animations.dart';
 import 'package:bilimusic/utils/responsive.dart';
@@ -13,7 +17,7 @@ import 'package:bilimusic/components/common/landscape_seek_bar.dart';
 import 'package:bilimusic/components/common/landscape_volume_bar.dart';
 
 /// 横屏模式底部播放器控制栏 - Lucent设计语言
-class LandscapeBottomControl extends StatelessWidget {
+class LandscapeBottomControl extends ConsumerWidget {
   final VoidCallback? onExpand;
   final VoidCallback? onPlayList;
 
@@ -27,7 +31,7 @@ class LandscapeBottomControl extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final brightness = View.of(context).platformDispatcher.platformBrightness;
     final isDark = brightness == Brightness.dark;
     final blurEnabled = sl.settingsManager.blurEffect;
@@ -44,6 +48,9 @@ class LandscapeBottomControl extends StatelessWidget {
     final seekBarColor = LucentTokens.seekBarActive(brightness);
     final volumeBarColor = LucentTokens.volumeBarActive(brightness);
 
+    final currentMusic = ref.watch(currentMusicProvider);
+    final playMode = ref.watch(playModeProvider);
+    final playerState = ref.watch(playerStateProvider);
     final barHeight = _barHeight(context);
     final hPadding = LandscapeBreakpoints.getHorizontalPadding(context);
 
@@ -69,7 +76,7 @@ class LandscapeBottomControl extends StatelessWidget {
                     // Left: current song tile
                     Expanded(
                       flex: 3,
-                      child: _buildSongTile(textPrimary, textSecondary),
+                      child: _buildSongTile(textPrimary, textSecondary, currentMusic, playerState),
                     ),
                     // Center: play controls + seek bar
                     Expanded(
@@ -79,6 +86,8 @@ class LandscapeBottomControl extends StatelessWidget {
                         iconColor,
                         accentColor,
                         seekBarColor,
+                        playMode,
+                        playerState,
                       ),
                     ),
                     // Right: lyrics + volume (desktop only)
@@ -99,8 +108,8 @@ class LandscapeBottomControl extends StatelessWidget {
 
   // ==================== Left Section ====================
 
-  Widget _buildSongTile(Color textPrimary, Color textSecondary) {
-    final music = sl.playerManager.currentMusic;
+  Widget _buildSongTile(Color textPrimary, Color textSecondary, Music? music, PlayerState playerState) {
+    final fading = playerState is PlayerPlaying && playerState.fadeCountdown != null;
     return GestureDetector(
       onTap: onExpand,
       child: Row(
@@ -129,27 +138,20 @@ class LandscapeBottomControl extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 music?.artist != null
-                    ? ValueListenableBuilder<PlayerState>(
-                        valueListenable: sl.playerManager.playerState,
-                        builder: (context, state, _) {
-                          final fading = state is PlayerPlaying &&
-                              state.fadeCountdown != null;
-                          return AnimatedSwitcher(
-                            duration: LucentTokens.standardDuration,
-                            child: fading
-                                ? _buildCrossfadeIndicator()
-                                : Text(
-                                    music?.artist ?? 'Unknown Artist',
-                                    key: const ValueKey('artist'),
-                                    style: TextStyle(
-                                      color: textSecondary,
-                                      fontSize: 12,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                          );
-                        },
+                    ? AnimatedSwitcher(
+                        duration: LucentTokens.standardDuration,
+                        child: fading
+                            ? _buildCrossfadeIndicator()
+                            : Text(
+                                music?.artist ?? 'Unknown Artist',
+                                key: const ValueKey('artist'),
+                                style: TextStyle(
+                                  color: textSecondary,
+                                  fontSize: 12,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                       )
                     : const SizedBox.shrink(),
               ],
@@ -194,6 +196,8 @@ class LandscapeBottomControl extends StatelessWidget {
     Color iconColor,
     Color accentColor,
     Color seekBarColor,
+    PlayMode playMode,
+    PlayerState playerState,
   ) {
     final width = MediaQuery.of(context).size.width;
     final showSeekBar = width >= LandscapeBreakpoints.largeTabletMin;
@@ -202,7 +206,7 @@ class LandscapeBottomControl extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _buildPlayButtonRow(context, iconColor, accentColor, mainButtonSize),
+        _buildPlayButtonRow(context, iconColor, accentColor, mainButtonSize, playMode, playerState),
         if (showSeekBar) ...[
           const SizedBox(height: 6),
           SizedBox(
@@ -224,22 +228,22 @@ class LandscapeBottomControl extends StatelessWidget {
     Color iconColor,
     Color accentColor,
     double mainButtonSize,
+    PlayMode playMode,
+    PlayerState playerState,
   ) {
     final smallSize = 32.0;
+    final isPlaying = playerState is PlayerPlaying;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        ValueListenableBuilder<PlayMode>(
-          valueListenable: sl.playerManager.playModeValue,
-          builder: (context, mode, _) => _buildSmallButton(
-            icon: _playModeIcon(mode),
-            size: smallSize,
-            iconSize: smallSize * 0.55,
-            color: iconColor.withValues(alpha: 0.7),
-            onTap: () => sl.playerManager.togglePlayMode(),
-          ),
+        _buildSmallButton(
+          icon: _playModeIcon(playMode),
+          size: smallSize,
+          iconSize: smallSize * 0.55,
+          color: iconColor.withValues(alpha: 0.7),
+          onTap: () => sl.playerCoordinator.togglePlayMode(),
         ),
         const SizedBox(width: 16),
         _buildSmallButton(
@@ -247,58 +251,52 @@ class LandscapeBottomControl extends StatelessWidget {
           size: smallSize,
           iconSize: smallSize * 0.6,
           color: iconColor.withValues(alpha: 0.85),
-          onTap: () => sl.playerManager.playPrevious(),
+          onTap: () => sl.playerCoordinator.playPrevious(),
         ),
         const SizedBox(width: 16),
-        ValueListenableBuilder<PlayerState>(
-          valueListenable: sl.playerManager.playerState,
-          builder: (context, state, _) {
-            final isPlaying = state is PlayerPlaying;
-            return ScaleOnHover(
-              hoverScale: 1.05,
-              child: Container(
-                width: mainButtonSize,
-                height: mainButtonSize,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: accentColor,
-                  boxShadow: [
-                    BoxShadow(
-                      color: accentColor.withValues(alpha: 0.3),
-                      blurRadius: 12,
-                      spreadRadius: 1,
-                    ),
-                  ],
+        ScaleOnHover(
+          hoverScale: 1.05,
+          child: Container(
+            width: mainButtonSize,
+            height: mainButtonSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: accentColor,
+              boxShadow: [
+                BoxShadow(
+                  color: accentColor.withValues(alpha: 0.3),
+                  blurRadius: 12,
+                  spreadRadius: 1,
                 ),
-                child: IconButton(
-                  onPressed: () {
-                    if (isPlaying) {
-                      sl.playerManager.pause();
-                    } else {
-                      sl.playerManager.resume();
-                    }
-                  },
-                  icon: AnimatedSwitcher(
-                    duration: LucentTokens.standardDuration,
-                    switchInCurve: LucentTokens.standardEasing,
-                    switchOutCurve: LucentTokens.standardEasing,
-                    child: Icon(
-                      isPlaying ? Icons.pause : Icons.play_arrow,
-                      key: ValueKey(isPlaying),
-                      size: mainButtonSize * 0.5,
-                      color: Colors.white,
-                    ),
-                  ),
-                  splashRadius: mainButtonSize * 0.5,
-                  padding: EdgeInsets.zero,
-                  constraints: BoxConstraints(
-                    minWidth: mainButtonSize,
-                    minHeight: mainButtonSize,
-                  ),
+              ],
+            ),
+            child: IconButton(
+              onPressed: () {
+                if (isPlaying) {
+                  sl.playerCoordinator.pause();
+                } else {
+                  sl.playerCoordinator.resume();
+                }
+              },
+              icon: AnimatedSwitcher(
+                duration: LucentTokens.standardDuration,
+                switchInCurve: LucentTokens.standardEasing,
+                switchOutCurve: LucentTokens.standardEasing,
+                child: Icon(
+                  isPlaying ? Icons.pause : Icons.play_arrow,
+                  key: ValueKey(isPlaying),
+                  size: mainButtonSize * 0.5,
+                  color: Colors.white,
                 ),
               ),
-            );
-          },
+              splashRadius: mainButtonSize * 0.5,
+              padding: EdgeInsets.zero,
+              constraints: BoxConstraints(
+                minWidth: mainButtonSize,
+                minHeight: mainButtonSize,
+              ),
+            ),
+          ),
         ),
         const SizedBox(width: 16),
         _buildSmallButton(
@@ -306,7 +304,7 @@ class LandscapeBottomControl extends StatelessWidget {
           size: smallSize,
           iconSize: smallSize * 0.6,
           color: iconColor.withValues(alpha: 0.85),
-          onTap: () => sl.playerManager.playNext(),
+          onTap: () => sl.playerCoordinator.playNext(),
         ),
         const SizedBox(width: 16),
         if (onPlayList != null)

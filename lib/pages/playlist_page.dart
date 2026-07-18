@@ -81,8 +81,8 @@ class _PlaylistPageState extends State<PlaylistPage> {
     String displayName = name ?? '播放列表';
     PlaylistSource source = PlaylistSource.user;
 
-    final favorites = sl.playerManager.favorites;
-    final history = sl.playerManager.playHistory;
+    final favorites = sl.playerCoordinator.favorites.value;
+    final history = sl.playerCoordinator.playHistory.value;
 
     if (displayName == '播放列表') {
       if (favorites.isNotEmpty && _isSameList(songs, favorites)) {
@@ -120,11 +120,11 @@ class _PlaylistPageState extends State<PlaylistPage> {
   Future<void> _playAll() async {
     if (_songs.isEmpty) return;
 
-    await sl.playerManager.clearPlayList();
-    await sl.playerManager.addAllToPlayList(_songs);
+    await sl.playerCoordinator.clearPlaylist();
+    await sl.playerCoordinator.addAllToPlaylist(_songs);
 
     if (_songs.isNotEmpty) {
-      await sl.playerManager.play(_songs.first);
+      await sl.playerCoordinator.playMusic(_songs.first);
     }
   }
 
@@ -134,11 +134,11 @@ class _PlaylistPageState extends State<PlaylistPage> {
 
     final shuffledSongs = List<Music>.from(_songs)..shuffle(Random());
 
-    await sl.playerManager.clearPlayList();
-    await sl.playerManager.addAllToPlayList(shuffledSongs);
+    await sl.playerCoordinator.clearPlaylist();
+    await sl.playerCoordinator.addAllToPlaylist(shuffledSongs);
 
     if (shuffledSongs.isNotEmpty) {
-      await sl.playerManager.play(shuffledSongs.first);
+      await sl.playerCoordinator.playMusic(shuffledSongs.first);
     }
   }
 
@@ -166,8 +166,8 @@ class _PlaylistPageState extends State<PlaylistPage> {
   /// 播放歌曲
   Future<void> _playSong(Music music) async {
     // 添加到播放列表
-    await sl.playerManager.addToPlayList(music);
-    await sl.playerManager.play(music);
+    await sl.playerCoordinator.addToPlaylist(music);
+    await sl.playerCoordinator.playMusic(music);
   }
 
   /// 从歌单移除歌曲

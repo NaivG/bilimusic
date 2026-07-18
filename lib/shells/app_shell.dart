@@ -63,7 +63,7 @@ class _AppShellState extends State<AppShell> {
       backgroundColor: Colors.transparent,
       builder: (context) => PlaylistSheet(
         onTrackSelect: (index) {
-          sl.playerManager.playAtIndex(index);
+          sl.playerCoordinator.playAtIndex(index);
           Navigator.pop(context);
         },
       ),

@@ -1,4 +1,3 @@
-import 'package:bilimusic/managers/player_manager.dart';
 import 'package:bilimusic/managers/playlist_manager.dart';
 import 'package:bilimusic/managers/settings_manager.dart';
 import 'package:bilimusic/managers/recommendation_manager.dart';
@@ -20,7 +19,6 @@ class ServiceLocator {
   bool _isInitialized = false;
 
   // 核心管理器（延迟初始化）
-  PlayerManager? _playerManager;
   PlaylistManager? _playlistManager;
   SettingsManager? _settingsManager;
   RecommendationManager? _recommendationManager;
@@ -29,14 +27,12 @@ class ServiceLocator {
 
   // 核心服务
   DualAudioService? _dualAudioService;
+  PlaylistService? _playlistService;
   NotificationService? _notificationService;
   ApiService? _apiService;
   PlayerCoordinator? _playerCoordinator;
 
   // ==================== 便捷访问 ====================
-
-  /// 播放器管理器
-  PlayerManager get playerManager => _playerManager!;
 
   /// 播放列表管理器
   PlaylistManager get playlistManager => _playlistManager!;
@@ -56,6 +52,9 @@ class ServiceLocator {
 
   /// 双音频服务
   DualAudioService get dualAudioService => _dualAudioService!;
+
+  /// 播放列表服务
+  PlaylistService get playlistService => _playlistService!;
 
   /// 通知服务
   NotificationService get notificationService => _notificationService!;
@@ -93,25 +92,22 @@ class ServiceLocator {
     await _userManager!.restoreFromPrefs();
 
     // 共享同一个 PlaylistService 给 PlayerCoordinator 与 PlaylistManager
-    final playlistService = PlaylistService();
-    await playlistService.initialize();
+    _playlistService = PlaylistService();
+    await _playlistService!.initialize();
 
     // 创建 PlayerCoordinator
     _playerCoordinator = PlayerCoordinator(
       audioService: _dualAudioService!,
       settingsManager: _settingsManager!,
-      playlistService: playlistService,
+      playlistService: _playlistService!,
       notificationService: _notificationService!,
       apiService: _apiService!,
     );
     await _playerCoordinator!.initialize();
 
-    // 初始化 PlayerManager
-    _playerManager = StreamingPlayerManager.initialize(_playerCoordinator!);
-
     // 初始化 PlaylistManager 复用同一 service 实例
     _playlistManager = PlaylistManager();
-    await _playlistManager!.initialize(service: playlistService);
+    await _playlistManager!.initialize(service: _playlistService!);
 
     // 初始化 FavSyncManager
     _favSyncManager = FavSyncManager(
@@ -125,13 +121,13 @@ class ServiceLocator {
 
   /// 重置所有实例（主要用于测试）
   void reset() {
-    _playerManager = null;
     _playlistManager = null;
     _settingsManager = null;
     _recommendationManager = null;
     _userManager = null;
     _favSyncManager = null;
     _dualAudioService = null;
+    _playlistService = null;
     _notificationService = null;
     _apiService = null;
     _playerCoordinator = null;

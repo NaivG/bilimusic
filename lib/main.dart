@@ -14,6 +14,7 @@ import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/managers/audio_handler.dart';
 
 import 'package:bilimusic/utils/network_config.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 
@@ -21,6 +22,7 @@ import 'package:bilimusic/utils/update_checker.dart';
 import 'package:bilimusic/components/dialogs/update_dialog.dart';
 import 'package:bilimusic/shells/app_shell.dart';
 import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/providers/settings_provider.dart';
 
 Future<void> _setupMainWindow() async {
   await windowManager.ensureInitialized();
@@ -67,7 +69,7 @@ void main() async {
 
   // 初始化音频服务并保存实例
   final audioHandler = await AudioService.init(
-    builder: () => AudioHandlerConnector(sl.playerManager),
+    builder: () => AudioHandlerConnector(sl.playerCoordinator),
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'github.naivg.bilimusic.channel.audio',
       androidNotificationChannelName: 'BiliMusic Playback',
@@ -89,20 +91,20 @@ void main() async {
     await _setupMainWindow();
   }
 
-  runApp(MyApp(audioHandler: audioHandler));
+  runApp(ProviderScope(child: MyApp(audioHandler: audioHandler)));
 }
 
 /// 根Widget，负责管理播放器管理器实例
-class MyApp extends StatefulWidget {
+class MyApp extends ConsumerStatefulWidget {
   final BaseAudioHandler audioHandler;
 
   const MyApp({super.key, required this.audioHandler});
 
   @override
-  State<MyApp> createState() => _MyAppState();
+  ConsumerState<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   // 添加全局key用于获取MaterialApp的context
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
@@ -141,7 +143,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     // 在应用关闭时释放播放器资源
-    sl.playerManager.dispose();
+    sl.playerCoordinator.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -173,7 +175,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       debugShowCheckedModeBanner: false,
       theme: LucentTheme.lightTheme(),
       darkTheme: LucentTheme.darkTheme(),
-      themeMode: _getThemeMode(sl.settingsManager.themeMode),
+      themeMode: _getThemeMode(ref.watch(settingsProvider).themeMode),
       home: const AppShell(),
     );
   }

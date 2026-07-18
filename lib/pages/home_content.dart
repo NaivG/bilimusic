@@ -63,7 +63,7 @@ class _HomeContentState extends State<HomeContent> {
 
   Future<void> _updateGuessYouLike() async {
     await _recommendationManager.updateGuessYouLike(
-      sl.playerManager.playHistory,
+      sl.playerCoordinator.playHistory.value,
     );
     setState(() {
       guessYouLikeList = _recommendationManager.guessYouLikeList;
@@ -94,13 +94,13 @@ class _HomeContentState extends State<HomeContent> {
 
   Future<void> _playMusic(Music music) async {
     final detailedMusic = await music.getVideoDetails();
-    sl.playerManager.play(detailedMusic);
+    sl.playerCoordinator.playMusic(detailedMusic);
   }
 
   Widget _buildMusicListItem(Music music, {bool showCover = false}) {
     return MusicListItem(
       music: music,
-      playerManager: sl.playerManager,
+      playerCoordinator: sl.playerCoordinator,
       playlistManager: sl.playlistManager,
       onTap: () => _playMusic(music),
       showCover: showCover,
@@ -269,10 +269,10 @@ class _HomeContentState extends State<HomeContent> {
                     const SizedBox(width: 12),
                     PlaylistCard(
                       playlist: DefaultPlaylists.history
-                        ..songs = sl.playerManager.playHistory,
+                        ..songs = sl.playerCoordinator.playHistory.value,
                       onTap: () => ShellPageManager.instance.goToPlaylist(
                         playlistId: 'history',
-                        songs: sl.playerManager.playHistory,
+                        songs: sl.playerCoordinator.playHistory.value,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -395,7 +395,7 @@ class _HomeContentState extends State<HomeContent> {
     ScreenSize screenSize,
   ) {
     final isDesktop = screenSize == ScreenSize.desktop;
-    final playHistory = sl.playerManager.playHistory;
+    final playHistory = sl.playerCoordinator.playHistory.value;
     final displayHistory = playHistory.take(12).toList();
 
     return SliverPadding(

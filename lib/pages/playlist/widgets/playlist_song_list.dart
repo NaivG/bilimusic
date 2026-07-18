@@ -269,7 +269,7 @@ class _PlaylistTrackRowState extends State<PlaylistTrackRow> {
       menuProvider: (_) => buildMusicContextMenu(
         context: context,
         music: widget.music,
-        playerManager: sl.playerManager,
+        playerCoordinator: sl.playerCoordinator,
         onRemoveFromPlaylist: widget.onRemoveFromPlaylist,
       ),
       child: MouseRegion(

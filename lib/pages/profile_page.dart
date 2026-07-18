@@ -52,8 +52,8 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _loadData() async {
-    final playHistory = sl.playerManager.playHistory;
-    final favorites = sl.playerManager.favorites;
+    final playHistory = sl.playerCoordinator.playHistory.value;
+    final favorites = sl.playerCoordinator.favorites.value;
     final playlists = sl.playlistManager.getAllPlaylists();
 
     setState(() {
@@ -308,7 +308,7 @@ class _ProfilePageState extends State<ProfilePage> {
           onTap: () {
             ShellPageManager.instance.goToPlaylist(
               playlistId: 'playHistory',
-              songs: sl.playerManager.playHistory,
+              songs: sl.playerCoordinator.playHistory.value,
             );
           },
         ),
@@ -330,7 +330,7 @@ class _ProfilePageState extends State<ProfilePage> {
           onTap: () {
             ShellPageManager.instance.goToPlaylist(
               playlistId: 'favorites',
-              songs: sl.playerManager.favorites,
+              songs: sl.playerCoordinator.favorites.value,
             );
           },
         ),

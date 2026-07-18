@@ -1,22 +1,24 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/models/music.dart';
+import 'package:bilimusic/providers/playlist_providers.dart';
 import 'package:bilimusic/components/playlist/playlist_item.dart';
 import 'package:bilimusic/theme/lucent_theme.dart';
 
 /// 播放列表弹出组件
 /// 支持可调整高度的底部弹窗、拖拽排序和流畅动画
-class PlaylistSheet extends StatefulWidget {
+class PlaylistSheet extends ConsumerStatefulWidget {
   final Function(int) onTrackSelect;
 
   const PlaylistSheet({super.key, required this.onTrackSelect});
 
   @override
-  State<PlaylistSheet> createState() => _PlaylistSheetState();
+  ConsumerState<PlaylistSheet> createState() => _PlaylistSheetState();
 }
 
-class _PlaylistSheetState extends State<PlaylistSheet>
+class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -56,7 +58,7 @@ class _PlaylistSheetState extends State<PlaylistSheet>
     if (newIndex > oldIndex) {
       newIndex -= 1;
     }
-    await sl.playerManager.moveInPlaylist(oldIndex, newIndex);
+    await sl.playerCoordinator.moveInPlaylist(oldIndex, newIndex);
     // moveInPlaylist 会触发通知，无需手动 setState
   }
 
@@ -74,7 +76,7 @@ class _PlaylistSheetState extends State<PlaylistSheet>
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              sl.playerManager.removeFromPlayList(music);
+              sl.playerCoordinator.removeFromPlaylist(music);
             },
             child: const Text('删除', style: TextStyle(color: Colors.red)),
           ),
@@ -85,14 +87,12 @@ class _PlaylistSheetState extends State<PlaylistSheet>
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(currentIndexProvider);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final currentIndex = sl.playerCoordinator.currentIndex ?? -1;
 
-    return ValueListenableBuilder<int?>(
-      valueListenable: sl.playerManager.currentIndexNotifier,
-      builder: (context, _, _) {
-        final currentIndex = sl.playerManager.getCurrentIndex();
-        return FadeTransition(
+    return FadeTransition(
           opacity: _fadeAnimation,
           child: Material(
             color: Colors.transparent,
@@ -145,8 +145,6 @@ class _PlaylistSheetState extends State<PlaylistSheet>
         ),
       ),
     );
-      },
-    );
   }
 
   Widget _buildDragHandle(bool isDark) {
@@ -165,7 +163,7 @@ class _PlaylistSheetState extends State<PlaylistSheet>
   }
 
   Widget _buildHeader(BuildContext context, bool isDark) {
-    final playlistLength = sl.playerManager.playList.length;
+    final playlistLength = sl.playerCoordinator.playlistLength;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -202,7 +200,7 @@ class _PlaylistSheetState extends State<PlaylistSheet>
                       TextButton(
                         onPressed: () {
                           Navigator.pop(context);
-                          sl.playerManager.clearPlayList();
+                          sl.playerCoordinator.clearPlaylist();
                         },
                         child: const Text(
                           '清空',
@@ -230,7 +228,7 @@ class _PlaylistSheetState extends State<PlaylistSheet>
     int currentIndex,
     bool isDark,
   ) {
-    final playlist = sl.playerManager.playList;
+    final playlist = sl.playerCoordinator.playlist.value;
 
     if (playlist.isEmpty) {
       return Center(
@@ -298,15 +296,15 @@ class _PlaylistSheetState extends State<PlaylistSheet>
           music: music,
           index: index,
           isPlaying: isPlaying,
-          isFavorite: sl.playerManager.isFavorite(music),
+          isFavorite: sl.playerCoordinator.isFavorite(music),
           onTap: () {
             widget.onTrackSelect(index);
           },
           onFavoriteToggle: () async {
-            if (sl.playerManager.isFavorite(music)) {
-              await sl.playerManager.removeFromFavorites(music);
+            if (sl.playerCoordinator.isFavorite(music)) {
+              await sl.playerCoordinator.removeFromFavorites(music);
             } else {
-              await sl.playerManager.addToFavorites(music);
+              await sl.playerCoordinator.addToFavorites(music);
             }
             setState(() {});
           },

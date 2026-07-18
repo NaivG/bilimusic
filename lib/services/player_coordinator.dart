@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:math';
-import 'package:bilimusic/managers/player_manager.dart';
+import 'package:bilimusic/models/play_mode.dart';
 import 'package:flutter/foundation.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/player_state.dart';
@@ -250,6 +250,32 @@ class PlayerCoordinator {
       _preloadedMusic = null;
       _preloadedIndex = null;
       await _playCurrentTrack();
+    }
+  }
+
+  /// 将音乐添加到播放列表并设为下一首
+  Future<void> playNextFromIndex(Music music) async {
+    await _playlistService.addToPlaylist(music);
+    final currentIndex = _playlistService.currentIndexSync;
+    if (currentIndex != null) {
+      final playlist = _playlistService.currentPlaylist.value;
+      final newIndex = playlist.indexWhere(
+        (m) =>
+            m.id == music.id &&
+            (m.pages.isEmpty && music.pages.isEmpty ||
+                m.pages.isNotEmpty &&
+                    music.pages.isNotEmpty &&
+                    m.pages[0].cid == music.pages[0].cid),
+      );
+      if (newIndex != -1) {
+        final newPlaylist = List<Music>.from(playlist);
+        final musicToMove = newPlaylist.removeAt(newIndex);
+        final insertIndex = currentIndex + 1;
+        newPlaylist.insert(insertIndex, musicToMove);
+        await _playlistService.clearPlaylist();
+        await _playlistService.addAllToPlaylist(newPlaylist);
+        playAtIndex(insertIndex);
+      }
     }
   }
 

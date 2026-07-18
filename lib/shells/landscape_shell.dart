@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/pages/playlist_page.dart';
 import 'package:bilimusic/pages/search/search_overlay.dart';
@@ -11,7 +12,8 @@ import 'package:bilimusic/pages/home_content.dart';
 import 'package:bilimusic/theme/lucent_theme.dart';
 import 'package:bilimusic/core/service_locator.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
-import 'package:bilimusic/providers/search_state_provider.dart';
+import 'package:bilimusic/providers/playlist_providers.dart';
+import 'package:bilimusic/providers/search_providers.dart';
 import 'package:bilimusic/pages/profile_page.dart';
 import 'package:bilimusic/pages/settings_page.dart';
 import 'package:bilimusic/pages/detail_page.dart';
@@ -24,7 +26,7 @@ import 'package:bilimusic/pages/fav_import_page.dart';
 
 /// 横屏模式外壳 - 基于ParticleMusic风格
 /// 布局：标题栏 + 侧边栏 + 主内容区 + 底部播放器栏
-class LandscapeShell extends StatefulWidget {
+class LandscapeShell extends ConsumerStatefulWidget {
   final ShellPage currentPage;
   final ShellPageManager pageManager;
   final VoidCallback onPlayList;
@@ -37,10 +39,10 @@ class LandscapeShell extends StatefulWidget {
   });
 
   @override
-  State<LandscapeShell> createState() => _LandscapeShellState();
+  ConsumerState<LandscapeShell> createState() => _LandscapeShellState();
 }
 
-class _LandscapeShellState extends State<LandscapeShell> {
+class _LandscapeShellState extends ConsumerState<LandscapeShell> {
   @override
   void initState() {
     super.initState();
@@ -111,6 +113,7 @@ class _LandscapeShellState extends State<LandscapeShell> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(currentIndexProvider);
     final brightness = Theme.of(context).brightness;
     final sidebarSurface = LucentTokens.sidebarSurface(brightness);
     return Scaffold(
@@ -118,10 +121,7 @@ class _LandscapeShellState extends State<LandscapeShell> {
         fit: StackFit.expand,
         children: [
           // 背景模糊层（依赖当前播放曲目）
-          ValueListenableBuilder<int?>(
-            valueListenable: sl.playerManager.currentIndexNotifier,
-            builder: (context, _, _) => _buildBackground(),
-          ),
+          _buildBackground(context),
           // 主内容
           Column(
             children: [
@@ -180,7 +180,7 @@ class _LandscapeShellState extends State<LandscapeShell> {
   }
 
   /// 背景模糊效果
-  Widget _buildBackground() {
+  Widget _buildBackground(BuildContext context) {
     if (sl.settingsManager.fluidBackground == false) {
       final isDark = Theme.of(context).brightness;
       return Container(
@@ -189,7 +189,7 @@ class _LandscapeShellState extends State<LandscapeShell> {
             : LucentTokens.lightSurfaceBase,
       );
     }
-    final currentMusic = sl.playerManager.currentMusic;
+    final currentMusic = sl.playerCoordinator.currentMusic;
     return AnimatedSwitcher(
       switchInCurve: Curves.linearToEaseOut,
       switchOutCurve: Curves.easeInToLinear,
@@ -206,7 +206,7 @@ class _LandscapeShellState extends State<LandscapeShell> {
     return LandscapeTitleBar(
       onBack: () => widget.pageManager.pop(),
       onSearchSubmit: (query) {
-        SearchStateNotifier.instance.setQuery(query);
+        ref.read(searchStateProvider.notifier).setQuery(query);
         widget.pageManager.goToTab(1);
       },
       onSettingsTap: () {
