@@ -4,10 +4,7 @@ class SearchState {
   final String query;
   final bool shouldSearch;
 
-  const SearchState({
-    this.query = '',
-    this.shouldSearch = false,
-  });
+  const SearchState({this.query = '', this.shouldSearch = false});
 
   SearchState copyWith({String? query, bool? shouldSearch}) {
     return SearchState(
@@ -40,7 +37,6 @@ class SearchStateNotifier extends Notifier<SearchState> {
   }
 }
 
-final searchStateProvider =
-    NotifierProvider<SearchStateNotifier, SearchState>(
+final searchStateProvider = NotifierProvider<SearchStateNotifier, SearchState>(
   SearchStateNotifier.new,
 );

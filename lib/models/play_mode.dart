@@ -1,12 +1,3 @@
-enum PlayMode {
-  sequential,
-  loop,
-  shuffle,
-}
+enum PlayMode { sequential, loop, shuffle }
 
-enum AudioState {
-  playing,
-  paused,
-  stopped,
-  buffering,
-}
+enum AudioState { playing, paused, stopped, buffering }

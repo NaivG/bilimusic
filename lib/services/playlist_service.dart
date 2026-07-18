@@ -117,18 +117,14 @@ class PlaylistService {
         ),
         playCount: (row['play_count'] as int?) ?? 0,
         createdAt: DateTime.fromMillisecondsSinceEpoch(
-          (row['created_at'] as int?) ??
-              DateTime.now().millisecondsSinceEpoch,
+          (row['created_at'] as int?) ?? DateTime.now().millisecondsSinceEpoch,
         ),
         updatedAt: DateTime.fromMillisecondsSinceEpoch(
-          (row['updated_at'] as int?) ??
-              DateTime.now().millisecondsSinceEpoch,
+          (row['updated_at'] as int?) ?? DateTime.now().millisecondsSinceEpoch,
         ),
         lastPlayedAt: row['last_played_at'] == null
             ? null
-            : DateTime.fromMillisecondsSinceEpoch(
-                row['last_played_at'] as int,
-              ),
+            : DateTime.fromMillisecondsSinceEpoch(row['last_played_at'] as int),
         isDefault: ((row['is_default'] as int?) ?? 0) != 0,
         createdBy: row['created_by'] as String?,
       );
@@ -157,10 +153,7 @@ class PlaylistService {
   // ==================== loaders ====================
 
   Future<void> _loadCurrentPlaylist() async {
-    final rows = await _dbChecked.query(
-      'current_track',
-      orderBy: 'seq ASC',
-    );
+    final rows = await _dbChecked.query('current_track', orderBy: 'seq ASC');
     _currentPlaylist.value = rows
         .map((r) => _decodeMusic(r['payload'] as String))
         .whereType<Music>()
@@ -499,16 +492,12 @@ class PlaylistService {
 
   Future<void> addToFavorites(Music music) async {
     final favorited = music.copyWith(isFavorite: true);
-    await _dbChecked.insert(
-      'favorite',
-      {
-        'music_id': music.id,
-        'cid': music.cid,
-        'payload': jsonEncode(favorited.toJson()),
-        'added_at': DateTime.now().millisecondsSinceEpoch,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _dbChecked.insert('favorite', {
+      'music_id': music.id,
+      'cid': music.cid,
+      'payload': jsonEncode(favorited.toJson()),
+      'added_at': DateTime.now().millisecondsSinceEpoch,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
     _favorites.value = [..._favorites.value, favorited];
     await _propagateFavoriteFlag(favorited, true);
   }
@@ -704,9 +693,7 @@ class PlaylistService {
   }
 
   List<Playlist> filterPlaylistsByTag(String tagId) {
-    return _userPlaylists.value
-        .where((p) => p.tagIds.contains(tagId))
-        .toList();
+    return _userPlaylists.value.where((p) => p.tagIds.contains(tagId)).toList();
   }
 
   void setCurrentPlaylistDetail(Playlist? playlist) {
@@ -861,18 +848,14 @@ class PlaylistService {
 
   /// 用传入歌曲列表的首项封面做歌单封面（仅当现有封面为空时使用）。
   /// 兼容旧 `updatePlaylistCover` 行为。
-  Future<void> updatePlaylistCover(
-    String playlistId,
-    List<Music> songs,
-  ) async {
+  Future<void> updatePlaylistCover(String playlistId, List<Music> songs) async {
     if (isSystemPlaylist(playlistId)) return;
     if (songs.isEmpty) return;
     final coverUrl = songs.first.safeCoverUrl;
     if (coverUrl.isEmpty) return;
     final info = getPlaylistInfo(playlistId);
     if (info == null) return;
-    if ((info.coverUrl ?? '').isNotEmpty &&
-        info.coverUrl == coverUrl) {
+    if ((info.coverUrl ?? '').isNotEmpty && info.coverUrl == coverUrl) {
       return;
     }
     await _updateUserPlaylist(playlistId, {
@@ -885,7 +868,10 @@ class PlaylistService {
 
   Map<TagCategory, List<PlaylistTag>> getTagsByCategory() {
     final tags = _allTags.value;
-    return {for (final c in TagCategory.values) c: tags.where((t) => t.category == c).toList()};
+    return {
+      for (final c in TagCategory.values)
+        c: tags.where((t) => t.category == c).toList(),
+    };
   }
 
   PlaylistTag? getTagById(String tagId) {
@@ -910,11 +896,10 @@ class PlaylistService {
       colorValue: colorValue,
       isSystem: false,
     );
-    await _dbChecked.insert(
-      'custom_tag',
-      {'id': tag.id, 'payload': jsonEncode(tag.toJson())},
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
+    await _dbChecked.insert('custom_tag', {
+      'id': tag.id,
+      'payload': jsonEncode(tag.toJson()),
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     _allTags.value = [..._allTags.value, tag];
     return tag;
   }
@@ -1000,7 +985,11 @@ class PlaylistService {
         } catch (_) {}
       }
 
-      await insertMusicList(data['play_history'], 'play_history', withPlayedAt: true);
+      await insertMusicList(
+        data['play_history'],
+        'play_history',
+        withPlayedAt: true,
+      );
       await insertMusicList(data['favorites'], 'favorite', withPlayedAt: false);
 
       final playlistEntries = <Map<String, dynamic>>[];
@@ -1047,18 +1036,14 @@ class PlaylistService {
           for (final entry in list) {
             try {
               final m = Music.fromJson(entry as Map<String, dynamic>);
-              await txn.insert(
-                'playlist_song',
-                {
-                  'playlist_id': id,
-                  'music_id': m.id,
-                  'cid': m.cid,
-                  'position': pos++,
-                  'payload': jsonEncode(m.toJson()),
-                  'added_at': DateTime.now().millisecondsSinceEpoch,
-                },
-                conflictAlgorithm: ConflictAlgorithm.ignore,
-              );
+              await txn.insert('playlist_song', {
+                'playlist_id': id,
+                'music_id': m.id,
+                'cid': m.cid,
+                'position': pos++,
+                'payload': jsonEncode(m.toJson()),
+                'added_at': DateTime.now().millisecondsSinceEpoch,
+              }, conflictAlgorithm: ConflictAlgorithm.ignore);
             } catch (_) {}
           }
         } catch (_) {}

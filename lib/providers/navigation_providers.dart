@@ -27,8 +27,9 @@ class ShellNavigationState {
     return ShellNavigationState(
       contentType: contentType ?? this.contentType,
       playlistId: clearPlaylist ? null : (playlistId ?? this.playlistId),
-      playlistSongs:
-          clearPlaylist ? null : (playlistSongs ?? this.playlistSongs),
+      playlistSongs: clearPlaylist
+          ? null
+          : (playlistSongs ?? this.playlistSongs),
       selectedTabIndex: selectedTabIndex ?? this.selectedTabIndex,
     );
   }
@@ -76,5 +77,5 @@ class ShellNavigationNotifier extends Notifier<ShellNavigationState> {
 
 final shellNavigationProvider =
     NotifierProvider<ShellNavigationNotifier, ShellNavigationState>(
-  ShellNavigationNotifier.new,
-);
+      ShellNavigationNotifier.new,
+    );

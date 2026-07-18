@@ -10,15 +10,9 @@ class FavSyncState {
   final List<FavImportRecord> records;
   final bool isLoading;
 
-  const FavSyncState({
-    this.records = const [],
-    this.isLoading = false,
-  });
+  const FavSyncState({this.records = const [], this.isLoading = false});
 
-  FavSyncState copyWith({
-    List<FavImportRecord>? records,
-    bool? isLoading,
-  }) {
+  FavSyncState copyWith({List<FavImportRecord>? records, bool? isLoading}) {
     return FavSyncState(
       records: records ?? this.records,
       isLoading: isLoading ?? this.isLoading,
@@ -37,10 +31,7 @@ class FavSyncStateNotifier extends Notifier<FavSyncState> {
 
   FavSyncState _readFromManager() {
     final fm = sl.favSyncManager;
-    return FavSyncState(
-      records: fm.records,
-      isLoading: fm.isLoading,
-    );
+    return FavSyncState(records: fm.records, isLoading: fm.isLoading);
   }
 
   void _onFavSyncChanged() {
@@ -80,5 +71,5 @@ class FavSyncStateNotifier extends Notifier<FavSyncState> {
 
 final favSyncStateProvider =
     NotifierProvider<FavSyncStateNotifier, FavSyncState>(
-  FavSyncStateNotifier.new,
-);
+      FavSyncStateNotifier.new,
+    );

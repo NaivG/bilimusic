@@ -51,8 +51,7 @@ class SettingsState {
     int? preloadSeconds,
   }) {
     return SettingsState(
-      notificationsEnabled:
-          notificationsEnabled ?? this.notificationsEnabled,
+      notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       downloadQualityHigh: downloadQualityHigh ?? this.downloadQualityHigh,
       themeMode: themeMode ?? this.themeMode,
       themeColor: themeColor ?? this.themeColor,
@@ -205,7 +204,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
   }
 }
 
-final settingsProvider =
-    NotifierProvider<SettingsNotifier, SettingsState>(
+final settingsProvider = NotifierProvider<SettingsNotifier, SettingsState>(
   SettingsNotifier.new,
 );

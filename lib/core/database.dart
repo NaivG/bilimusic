@@ -148,8 +148,7 @@ class AppDatabase {
         prefs.getString('custom_tags') != null ||
         prefs.getKeys().any(
           (k) =>
-              k.startsWith('playlist_songs_') ||
-              k.startsWith('playlist_info_'),
+              k.startsWith('playlist_songs_') || k.startsWith('playlist_info_'),
         );
 
     if (hasLegacy) {
@@ -282,18 +281,14 @@ class AppDatabase {
         for (final r in list) {
           try {
             final m = Music.fromJson(r as Map<String, dynamic>);
-            await txn.insert(
-              'playlist_song',
-              {
-                'playlist_id': playlistId,
-                'music_id': m.id,
-                'cid': m.cid,
-                'position': pos++,
-                'payload': jsonEncode(m.toJson()),
-                'added_at': DateTime.now().millisecondsSinceEpoch,
-              },
-              conflictAlgorithm: ConflictAlgorithm.ignore,
-            );
+            await txn.insert('playlist_song', {
+              'playlist_id': playlistId,
+              'music_id': m.id,
+              'cid': m.cid,
+              'position': pos++,
+              'payload': jsonEncode(m.toJson()),
+              'added_at': DateTime.now().millisecondsSinceEpoch,
+            }, conflictAlgorithm: ConflictAlgorithm.ignore);
           } catch (_) {}
         }
       } catch (_) {}
@@ -311,11 +306,10 @@ class AppDatabase {
       for (final r in list) {
         try {
           final t = PlaylistTag.fromJson(r as Map<String, dynamic>);
-          await txn.insert(
-            'custom_tag',
-            {'id': t.id, 'payload': jsonEncode(t.toJson())},
-            conflictAlgorithm: ConflictAlgorithm.ignore,
-          );
+          await txn.insert('custom_tag', {
+            'id': t.id,
+            'payload': jsonEncode(t.toJson()),
+          }, conflictAlgorithm: ConflictAlgorithm.ignore);
         } catch (_) {}
       }
     } catch (_) {}

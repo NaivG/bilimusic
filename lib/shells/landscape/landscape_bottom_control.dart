@@ -76,7 +76,12 @@ class LandscapeBottomControl extends ConsumerWidget {
                     // Left: current song tile
                     Expanded(
                       flex: 3,
-                      child: _buildSongTile(textPrimary, textSecondary, currentMusic, playerState),
+                      child: _buildSongTile(
+                        textPrimary,
+                        textSecondary,
+                        currentMusic,
+                        playerState,
+                      ),
                     ),
                     // Center: play controls + seek bar
                     Expanded(
@@ -108,8 +113,14 @@ class LandscapeBottomControl extends ConsumerWidget {
 
   // ==================== Left Section ====================
 
-  Widget _buildSongTile(Color textPrimary, Color textSecondary, Music? music, PlayerState playerState) {
-    final fading = playerState is PlayerPlaying && playerState.fadeCountdown != null;
+  Widget _buildSongTile(
+    Color textPrimary,
+    Color textSecondary,
+    Music? music,
+    PlayerState playerState,
+  ) {
+    final fading =
+        playerState is PlayerPlaying && playerState.fadeCountdown != null;
     return GestureDetector(
       onTap: onExpand,
       child: Row(
@@ -206,7 +217,14 @@ class LandscapeBottomControl extends ConsumerWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _buildPlayButtonRow(context, iconColor, accentColor, mainButtonSize, playMode, playerState),
+        _buildPlayButtonRow(
+          context,
+          iconColor,
+          accentColor,
+          mainButtonSize,
+          playMode,
+          playerState,
+        ),
         if (showSeekBar) ...[
           const SizedBox(height: 6),
           SizedBox(

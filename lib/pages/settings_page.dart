@@ -66,9 +66,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '当前: ${settings.crossfadeDuration ~/ 1000}秒',
-                    ),
+                    Text('当前: ${settings.crossfadeDuration ~/ 1000}秒'),
                     Slider(
                       value: settings.crossfadeDuration.toDouble(),
                       min: 1000,
@@ -90,9 +88,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '当前: 当开始过渡前${settings.preloadSeconds}秒开始加载下一首',
-                    ),
+                    Text('当前: 当开始过渡前${settings.preloadSeconds}秒开始加载下一首'),
                     Slider(
                       value: settings.preloadSeconds.toDouble(),
                       min: 5,

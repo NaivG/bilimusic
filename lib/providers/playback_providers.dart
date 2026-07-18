@@ -13,12 +13,11 @@ class _PlayerStateWatcher extends Notifier<PlayerState> {
     return vn.value;
   }
 
-  void _onChanged() =>
-      state = (sl.dualAudioService.playerState as ValueNotifier<PlayerState>).value;
+  void _onChanged() => state =
+      (sl.dualAudioService.playerState as ValueNotifier<PlayerState>).value;
 }
 
-final playerStateProvider =
-    NotifierProvider<_PlayerStateWatcher, PlayerState>(
+final playerStateProvider = NotifierProvider<_PlayerStateWatcher, PlayerState>(
   _PlayerStateWatcher.new,
 );
 
@@ -34,8 +33,7 @@ class _PositionWatcher extends Notifier<Duration> {
   void _onChanged() => state = sl.dualAudioService.position.value;
 }
 
-final positionProvider =
-    NotifierProvider<_PositionWatcher, Duration>(
+final positionProvider = NotifierProvider<_PositionWatcher, Duration>(
   _PositionWatcher.new,
 );
 
@@ -51,8 +49,7 @@ class _DurationWatcher extends Notifier<Duration> {
   void _onChanged() => state = sl.dualAudioService.duration.value;
 }
 
-final durationProvider =
-    NotifierProvider<_DurationWatcher, Duration>(
+final durationProvider = NotifierProvider<_DurationWatcher, Duration>(
   _DurationWatcher.new,
 );
 
@@ -68,7 +65,6 @@ class _PlayModeWatcher extends Notifier<PlayMode> {
   void _onChanged() => state = sl.dualAudioService.playMode.value;
 }
 
-final playModeProvider =
-    NotifierProvider<_PlayModeWatcher, PlayMode>(
+final playModeProvider = NotifierProvider<_PlayModeWatcher, PlayMode>(
   _PlayModeWatcher.new,
 );

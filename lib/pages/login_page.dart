@@ -588,9 +588,7 @@ class _LoginPageState extends State<LoginPage> {
                       : _passwordLogin),
             child: _isLoading
                 ? CircularProgressIndicator()
-                : Text(
-                    isSms ? (_isCaptchaSent ? '登录' : '获取验证码') : '登录',
-                  ),
+                : Text(isSms ? (_isCaptchaSent ? '登录' : '获取验证码') : '登录'),
             style: ElevatedButton.styleFrom(
               padding: EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(

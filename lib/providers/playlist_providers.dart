@@ -13,14 +13,13 @@ class _CurrentPlaylistWatcher extends Notifier<List<Music>> {
     return ps.currentPlaylist.value;
   }
 
-  void _onChanged() =>
-      state = sl.playlistService.currentPlaylist.value;
+  void _onChanged() => state = sl.playlistService.currentPlaylist.value;
 }
 
 final currentPlaylistProvider =
     NotifierProvider<_CurrentPlaylistWatcher, List<Music>>(
-  _CurrentPlaylistWatcher.new,
-);
+      _CurrentPlaylistWatcher.new,
+    );
 
 class _CurrentIndexWatcher extends Notifier<int?> {
   @override
@@ -31,12 +30,10 @@ class _CurrentIndexWatcher extends Notifier<int?> {
     return ps.currentIndex.value;
   }
 
-  void _onChanged() =>
-      state = sl.playlistService.currentIndex.value;
+  void _onChanged() => state = sl.playlistService.currentIndex.value;
 }
 
-final currentIndexProvider =
-    NotifierProvider<_CurrentIndexWatcher, int?>(
+final currentIndexProvider = NotifierProvider<_CurrentIndexWatcher, int?>(
   _CurrentIndexWatcher.new,
 );
 
@@ -56,12 +53,10 @@ class _PlayHistoryWatcher extends Notifier<List<Music>> {
     return ps.playHistory.value;
   }
 
-  void _onChanged() =>
-      state = sl.playlistService.playHistory.value;
+  void _onChanged() => state = sl.playlistService.playHistory.value;
 }
 
-final playHistoryProvider =
-    NotifierProvider<_PlayHistoryWatcher, List<Music>>(
+final playHistoryProvider = NotifierProvider<_PlayHistoryWatcher, List<Music>>(
   _PlayHistoryWatcher.new,
 );
 
@@ -74,12 +69,10 @@ class _FavoritesWatcher extends Notifier<List<Music>> {
     return ps.favorites.value;
   }
 
-  void _onChanged() =>
-      state = sl.playlistService.favorites.value;
+  void _onChanged() => state = sl.playlistService.favorites.value;
 }
 
-final favoritesProvider =
-    NotifierProvider<_FavoritesWatcher, List<Music>>(
+final favoritesProvider = NotifierProvider<_FavoritesWatcher, List<Music>>(
   _FavoritesWatcher.new,
 );
 
@@ -92,14 +85,13 @@ class _UserPlaylistsWatcher extends Notifier<List<Playlist>> {
     return ps.userPlaylists.value;
   }
 
-  void _onChanged() =>
-      state = sl.playlistService.userPlaylists.value;
+  void _onChanged() => state = sl.playlistService.userPlaylists.value;
 }
 
 final userPlaylistsProvider =
     NotifierProvider<_UserPlaylistsWatcher, List<Playlist>>(
-  _UserPlaylistsWatcher.new,
-);
+      _UserPlaylistsWatcher.new,
+    );
 
 class _AllTagsWatcher extends Notifier<List<PlaylistTag>> {
   @override
@@ -110,12 +102,10 @@ class _AllTagsWatcher extends Notifier<List<PlaylistTag>> {
     return ps.allTags.value;
   }
 
-  void _onChanged() =>
-      state = sl.playlistService.allTags.value;
+  void _onChanged() => state = sl.playlistService.allTags.value;
 }
 
-final allTagsProvider =
-    NotifierProvider<_AllTagsWatcher, List<PlaylistTag>>(
+final allTagsProvider = NotifierProvider<_AllTagsWatcher, List<PlaylistTag>>(
   _AllTagsWatcher.new,
 );
 
@@ -128,14 +118,13 @@ class _CurrentPlaylistDetailWatcher extends Notifier<Playlist?> {
     return ps.currentPlaylistDetail.value;
   }
 
-  void _onChanged() =>
-      state = sl.playlistService.currentPlaylistDetail.value;
+  void _onChanged() => state = sl.playlistService.currentPlaylistDetail.value;
 }
 
 final currentPlaylistDetailProvider =
     NotifierProvider<_CurrentPlaylistDetailWatcher, Playlist?>(
-  _CurrentPlaylistDetailWatcher.new,
-);
+      _CurrentPlaylistDetailWatcher.new,
+    );
 
 final isFavoriteProvider = Provider.family<bool, Music>((ref, music) {
   final favorites = ref.watch(favoritesProvider);

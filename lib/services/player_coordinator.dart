@@ -645,7 +645,8 @@ class PlayerCoordinator {
   ValueListenable<List<Music>> get playlist => _playlistService.currentPlaylist;
 
   /// 当前播放索引（ValueListenable，用于监听切歌）
-  ValueListenable<int?> get currentIndexNotifier => _playlistService.currentIndex;
+  ValueListenable<int?> get currentIndexNotifier =>
+      _playlistService.currentIndex;
 
   /// 获取播放历史
   ValueListenable<List<Music>> get playHistory => _playlistService.playHistory;

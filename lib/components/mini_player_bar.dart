@@ -298,7 +298,11 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
                         ),
                         child: Align(
                           alignment: Alignment.centerLeft,
-                          child: _buildProgressBar(constraints, progressColor, currentPosition),
+                          child: _buildProgressBar(
+                            constraints,
+                            progressColor,
+                            currentPosition,
+                          ),
                         ),
                       ),
                     ),
@@ -363,7 +367,13 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
                           ),
                           const SizedBox(width: 12),
                           // 歌曲信息
-                          Expanded(child: _buildSongInfo(textPrimary, textSecondary, currentPlayerState)),
+                          Expanded(
+                            child: _buildSongInfo(
+                              textPrimary,
+                              textSecondary,
+                              currentPlayerState,
+                            ),
+                          ),
                           // 控制按钮
                           Row(
                             mainAxisSize: MainAxisSize.min,
@@ -412,9 +422,14 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
     );
   }
 
-  Widget _buildSongInfo(Color textPrimary, Color textSecondary, PlayerState playerState) {
+  Widget _buildSongInfo(
+    Color textPrimary,
+    Color textSecondary,
+    PlayerState playerState,
+  ) {
     final music = sl.playerCoordinator.currentMusic;
-    final fading = playerState is PlayerPlaying && playerState.fadeCountdown != null;
+    final fading =
+        playerState is PlayerPlaying && playerState.fadeCountdown != null;
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -440,10 +455,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
                     key: const ValueKey('artist'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: textSecondary,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: textSecondary, fontSize: 12),
                   ),
           ),
         ],
@@ -451,7 +463,11 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
     );
   }
 
-  Widget _buildProgressBar(BoxConstraints constraints, Color progressColor, Duration position) {
+  Widget _buildProgressBar(
+    BoxConstraints constraints,
+    Color progressColor,
+    Duration position,
+  ) {
     final music = sl.playerCoordinator.currentMusic;
     final duration = music?.duration ?? Duration.zero;
     final p = duration.inMilliseconds == 0
@@ -479,9 +495,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
         height: 44,
         alignment: Alignment.center,
         child: Icon(
-          isPlaying
-              ? Icons.pause_rounded
-              : Icons.play_arrow_rounded,
+          isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
           color: LucentTokens.accentPrimary,
           size: 28,
         ),

@@ -171,8 +171,8 @@ class _QrLoginWidgetState extends State<QrLoginWidget> {
             color: _status == QrPollStatus.success
                 ? Colors.green
                 : _status == QrPollStatus.expired
-                    ? theme.colorScheme.error
-                    : theme.colorScheme.onSurface,
+                ? theme.colorScheme.error
+                : theme.colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: 24),
@@ -230,9 +230,7 @@ class _QrLoginWidgetState extends State<QrLoginWidget> {
         OutlinedButton.icon(
           onPressed: _isGenerating ? null : _generate,
           icon: const Icon(Icons.refresh),
-          label: Text(
-            _status == QrPollStatus.expired ? '刷新二维码' : '刷新',
-          ),
+          label: Text(_status == QrPollStatus.expired ? '刷新二维码' : '刷新'),
         ),
         const SizedBox(height: 8),
         Text(

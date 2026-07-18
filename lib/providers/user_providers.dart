@@ -15,11 +15,7 @@ class UserState {
     this.isLoading = false,
   });
 
-  UserState copyWith({
-    UserInfo? userInfo,
-    bool? isLoggedIn,
-    bool? isLoading,
-  }) {
+  UserState copyWith({UserInfo? userInfo, bool? isLoggedIn, bool? isLoading}) {
     return UserState(
       userInfo: userInfo ?? this.userInfo,
       isLoggedIn: isLoggedIn ?? this.isLoggedIn,
@@ -68,7 +64,6 @@ class UserStateNotifier extends Notifier<UserState> {
   }
 }
 
-final userStateProvider =
-    NotifierProvider<UserStateNotifier, UserState>(
+final userStateProvider = NotifierProvider<UserStateNotifier, UserState>(
   UserStateNotifier.new,
 );

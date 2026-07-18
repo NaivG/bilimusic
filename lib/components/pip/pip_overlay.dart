@@ -79,7 +79,12 @@ class PipOverlay extends ConsumerWidget {
     );
   }
 
-  Widget _buildTopRow(BuildContext context, Brightness brightness, Music? currentMusic, PlayerState playerState) {
+  Widget _buildTopRow(
+    BuildContext context,
+    Brightness brightness,
+    Music? currentMusic,
+    PlayerState playerState,
+  ) {
     final textPrimary = brightness == Brightness.dark
         ? LucentTokens.darkTextPrimary
         : LucentTokens.lightTextPrimary;
@@ -96,7 +101,14 @@ class PipOverlay extends ConsumerWidget {
             child: _buildCover(context, currentMusic),
           ),
           const SizedBox(width: 12),
-          Expanded(child: _buildSongInfo(textPrimary, textSecondary, currentMusic, playerState)),
+          Expanded(
+            child: _buildSongInfo(
+              textPrimary,
+              textSecondary,
+              currentMusic,
+              playerState,
+            ),
+          ),
           GestureDetector(
             onTap: () => PipService().exitPipMode(),
             child: Container(
@@ -125,8 +137,14 @@ class PipOverlay extends ConsumerWidget {
     );
   }
 
-  Widget _buildSongInfo(Color textPrimary, Color textSecondary, Music? music, PlayerState playerState) {
-    final fading = playerState is PlayerPlaying && playerState.fadeCountdown != null;
+  Widget _buildSongInfo(
+    Color textPrimary,
+    Color textSecondary,
+    Music? music,
+    PlayerState playerState,
+  ) {
+    final fading =
+        playerState is PlayerPlaying && playerState.fadeCountdown != null;
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -152,10 +170,7 @@ class PipOverlay extends ConsumerWidget {
                     key: const ValueKey('artist'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: textSecondary,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: textSecondary, fontSize: 12),
                   ),
           ),
         ],
@@ -183,9 +198,7 @@ class PipOverlay extends ConsumerWidget {
           ),
           const SizedBox(width: 24),
           _TransportButton(
-            icon: isPlaying
-                ? Icons.pause_rounded
-                : Icons.play_arrow_rounded,
+            icon: isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
             color: accentColor,
             size: 32,
             onTap: hasMusic ? () => _togglePlay(playerState) : null,
@@ -201,7 +214,11 @@ class PipOverlay extends ConsumerWidget {
     );
   }
 
-  Widget _buildProgressBar(Brightness brightness, Duration position, Music? music) {
+  Widget _buildProgressBar(
+    Brightness brightness,
+    Duration position,
+    Music? music,
+  ) {
     final progressColor = brightness == Brightness.dark
         ? LucentTokens.darkSurfaceHover
         : LucentTokens.lightSurfaceHover;
@@ -209,8 +226,7 @@ class PipOverlay extends ConsumerWidget {
     final duration = music?.duration ?? Duration.zero;
     final p = duration.inMilliseconds == 0
         ? 0.0
-        : (position.inMilliseconds / duration.inMilliseconds)
-            .clamp(0.0, 1.0);
+        : (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
 
     return SizedBox(
       height: 4,
@@ -220,10 +236,7 @@ class PipOverlay extends ConsumerWidget {
           builder: (context, constraints) {
             return Stack(
               children: [
-                Container(
-                  width: constraints.maxWidth,
-                  color: progressColor,
-                ),
+                Container(width: constraints.maxWidth, color: progressColor),
                 TweenAnimationBuilder<double>(
                   tween: Tween(begin: 0, end: p),
                   duration: LucentTokens.standardDuration,

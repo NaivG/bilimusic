@@ -54,8 +54,7 @@ class ShellPageManagerNotifier extends Notifier<ShellPageState> {
 
   void pop() {
     if (state.pageStack.length > 1) {
-      final newStack = List<ShellPage>.from(state.pageStack)
-        ..removeLast();
+      final newStack = List<ShellPage>.from(state.pageStack)..removeLast();
       state = ShellPageState(pageStack: newStack, pageArgs: state.pageArgs);
     }
   }
@@ -116,5 +115,5 @@ class ShellPageManagerNotifier extends Notifier<ShellPageState> {
 
 final shellPageProvider =
     NotifierProvider<ShellPageManagerNotifier, ShellPageState>(
-  ShellPageManagerNotifier.new,
-);
+      ShellPageManagerNotifier.new,
+    );

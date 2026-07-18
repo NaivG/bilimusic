@@ -25,7 +25,8 @@ class LandscapeDetailPage extends ConsumerStatefulWidget {
   const LandscapeDetailPage({super.key});
 
   @override
-  ConsumerState<LandscapeDetailPage> createState() => _LandscapeDetailPageState();
+  ConsumerState<LandscapeDetailPage> createState() =>
+      _LandscapeDetailPageState();
 }
 
 class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
@@ -240,13 +241,7 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
       PlayMode.shuffle => Icons.shuffle,
     };
 
-    return _buildScaffold(
-      context,
-      leftRatio,
-      isPlaying,
-      fading,
-      icon,
-    );
+    return _buildScaffold(context, leftRatio, isPlaying, fading, icon);
   }
 
   Widget _buildScaffold(

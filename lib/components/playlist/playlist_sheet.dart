@@ -93,16 +93,16 @@ class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
     final currentIndex = sl.playerCoordinator.currentIndex ?? -1;
 
     return FadeTransition(
-          opacity: _fadeAnimation,
-          child: Material(
-            color: Colors.transparent,
-            child: DraggableScrollableSheet(
-              initialChildSize: 0.5,
-              minChildSize: 0.25,
-              maxChildSize: 0.9,
-              snap: true,
-              snapSizes: const [0.25, 0.5, 0.75, 0.9],
-              builder: (context, scrollController) {
+      opacity: _fadeAnimation,
+      child: Material(
+        color: Colors.transparent,
+        child: DraggableScrollableSheet(
+          initialChildSize: 0.5,
+          minChildSize: 0.25,
+          maxChildSize: 0.9,
+          snap: true,
+          snapSizes: const [0.25, 0.5, 0.75, 0.9],
+          builder: (context, scrollController) {
             final sheetTheme = Theme.of(context);
             final sheetBrightness = sheetTheme.brightness;
             return ClipRRect(

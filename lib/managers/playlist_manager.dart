@@ -276,6 +276,8 @@ class PlaylistManager {
 
   Future<List<Music>> getPlaylistSongs(String playlistId) async {
     _ensureInitialized();
-    return _service.getPlaylistDetail(playlistId).then((d) => d?.songs ?? <Music>[]);
+    return _service
+        .getPlaylistDetail(playlistId)
+        .then((d) => d?.songs ?? <Music>[]);
   }
 }

@@ -63,8 +63,14 @@ class DualAudioService {
 
   /// 初始化两个播放器实例
   void initialize() {
-    _playerA = PlayerStateInfo(player: ja.AudioPlayer(), role: PlayerRole.active);
-    _playerB = PlayerStateInfo(player: ja.AudioPlayer(), role: PlayerRole.standby);
+    _playerA = PlayerStateInfo(
+      player: ja.AudioPlayer(),
+      role: PlayerRole.active,
+    );
+    _playerB = PlayerStateInfo(
+      player: ja.AudioPlayer(),
+      role: PlayerRole.standby,
+    );
 
     _setupPlayerListeners(_playerA);
     _setupPlayerListeners(_playerB);
@@ -117,7 +123,10 @@ class DualAudioService {
   }
 
   /// 处理播放器状态变化
-  void _handlePlayerStateChange(PlayerStateInfo playerInfo, ja.PlayerState state) {
+  void _handlePlayerStateChange(
+    PlayerStateInfo playerInfo,
+    ja.PlayerState state,
+  ) {
     final processingState = state.processingState;
     final isPlaying = state.playing;
 
@@ -161,7 +170,9 @@ class DualAudioService {
   /// 从 just_audio 的 AudioState 推导 PlayerState，保留 fadeCountdown
   void _syncPlayerStateFromAudio(AudioState audioState) {
     final current = _playerState.value;
-    final fadeCountdown = current is PlayerPlaying ? current.fadeCountdown : null;
+    final fadeCountdown = current is PlayerPlaying
+        ? current.fadeCountdown
+        : null;
 
     switch (audioState) {
       case AudioState.playing:
@@ -233,7 +244,8 @@ class DualAudioService {
   }
 
   /// 是否处于淡入淡出中（替代旧 isCrossfading + crossfadeState）
-  bool get isFading => _playerState.value is PlayerPlaying &&
+  bool get isFading =>
+      _playerState.value is PlayerPlaying &&
       (_playerState.value as PlayerPlaying).fadeCountdown != null;
 
   /// 检查待命播放器是否就绪
@@ -344,7 +356,9 @@ class DualAudioService {
     final stepDuration = Duration(milliseconds: durationMs ~/ steps);
 
     // 标记进入 fading 子态（Coordinator 会持续更新 fadeCountdown）
-    _playerState.value = PlayerPlaying(fadeCountdown: (durationMs / 1000).ceil());
+    _playerState.value = PlayerPlaying(
+      fadeCountdown: (durationMs / 1000).ceil(),
+    );
 
     // 超时保护
     final timeoutTimer = Timer(

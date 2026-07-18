@@ -23,7 +23,8 @@ class DetailPage extends ConsumerStatefulWidget {
   ConsumerState<DetailPage> createState() => _DetailPageState();
 }
 
-class _DetailPageState extends ConsumerState<DetailPage> with TickerProviderStateMixin {
+class _DetailPageState extends ConsumerState<DetailPage>
+    with TickerProviderStateMixin {
   late model.Music _music;
   Duration _position = Duration.zero;
   Duration? _duration;

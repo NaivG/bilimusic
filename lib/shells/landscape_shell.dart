@@ -265,4 +265,3 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
     }
   }
 }
-
