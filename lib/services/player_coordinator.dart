@@ -412,6 +412,7 @@ class PlayerCoordinator {
       final currentMusic = _playlistService.currentMusic;
       if (currentMusic != null) {
         _notificationService.updateMediaInfo(currentMusic);
+        await _playlistService.addToPlayHistory(currentMusic);
       }
 
       _stopCountdown();
@@ -556,6 +557,7 @@ class PlayerCoordinator {
         final currentMusic = _playlistService.currentMusic;
         if (currentMusic != null) {
           _notificationService.updateMediaInfo(currentMusic);
+          await _playlistService.addToPlayHistory(currentMusic);
         }
       } else {
         // 降级:普通切换
