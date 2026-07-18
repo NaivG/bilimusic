@@ -13,6 +13,7 @@ import 'package:bilimusic/utils/netease_music_api.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/pages/detail/portrait_detail_page.dart';
 import 'package:bilimusic/pages/detail/landscape_detail_page.dart';
+import 'package:bilimusic/pages/detail/square_detail_page.dart';
 
 /// 详情页面
 /// 根据屏幕方向路由到竖屏或横屏布局
@@ -255,6 +256,35 @@ class _DetailPageState extends ConsumerState<DetailPage>
       PlayMode.shuffle => Icons.shuffle,
     };
 
+    final isSquare = SquareBreakpoints.shouldUseSquareLayout(context);
+    void togglePlayMode() =>
+        ref.read(playbackCommandsProvider.notifier).togglePlayMode();
+
+    if (isSquare) {
+      return SquareDetailPage(
+        music: _music,
+        position: _position,
+        duration: _duration,
+        isPlaying: isPlaying,
+        showLyrics: _showLyrics,
+        lyricOptions: _lyricOptions,
+        selectedLyricId: _selectedLyricId,
+        lyricParser: _lyricParser,
+        isLoadingLyrics: _isLoadingLyrics,
+        dominantColor: _dominantColor,
+        vibrantColor: _vibrantColor,
+        playModeIcon: icon,
+        isTransitioning: fading,
+        onToggleFavorite: _toggleFavorite,
+        onShare: _shareMusic,
+        onTogglePlay: _togglePlay,
+        onToggleShowLyrics: _toggleShowLyrics,
+        onLoadLyric: _loadLyric,
+        onSeek: _seek,
+        onTogglePlayMode: togglePlayMode,
+      );
+    }
+
     return PortraitDetailPage(
       music: _music,
       position: _position,
@@ -275,8 +305,7 @@ class _DetailPageState extends ConsumerState<DetailPage>
       onToggleShowLyrics: _toggleShowLyrics,
       onLoadLyric: _loadLyric,
       onSeek: _seek,
-      onTogglePlayMode: () =>
-          ref.read(playbackCommandsProvider.notifier).togglePlayMode(),
+      onTogglePlayMode: togglePlayMode,
     );
   }
 }

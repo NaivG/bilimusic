@@ -283,3 +283,61 @@ class LandscapeBreakpoints {
     return 24;
   }
 }
+
+/// 异形小屏（手表/折叠外屏/近正方形 PiP）断点
+class SquareBreakpoints {
+  /// 最短边下界
+  static const double squareMin = 200;
+
+  /// 最短边上界（超过则视为正常手机/平板，不强制方屏布局）
+  static const double squareMax = 500;
+
+  /// 宽高比下界
+  static const double ratioMin = 0.8;
+
+  /// 宽高比上界
+  static const double ratioMax = 1.25;
+
+  /// 是否应使用方屏布局：
+  /// 最短边在 [squareMin, squareMax] 区间，且宽高比在 [ratioMin, ratioMax] 区间
+  static bool shouldUseSquareLayout(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    if (size.shortestSide < squareMin || size.shortestSide > squareMax) {
+      return false;
+    }
+    final ratio = size.width / size.height;
+    return ratio >= ratioMin && ratio <= ratioMax;
+  }
+
+  /// 方屏主播放按钮尺寸
+  static double getMainPlayButtonSize(BuildContext context) {
+    final shortestSide = MediaQuery.of(context).size.shortestSide;
+    if (shortestSide >= 360) return 80;
+    if (shortestSide >= 280) return 68;
+    return 56;
+  }
+
+  /// 方屏副按钮尺寸（上一曲/下一曲）
+  static double getSideButtonSize(BuildContext context) {
+    final shortestSide = MediaQuery.of(context).size.shortestSide;
+    if (shortestSide >= 360) return 60;
+    if (shortestSide >= 280) return 52;
+    return 44;
+  }
+
+  /// 方屏封面尺寸
+  static double getCoverSize(BuildContext context) {
+    final shortestSide = MediaQuery.of(context).size.shortestSide;
+    if (shortestSide >= 360) return 100;
+    if (shortestSide >= 280) return 84;
+    return 68;
+  }
+
+  /// 方屏四边外边距
+  static double getOuterPadding(BuildContext context) {
+    final shortestSide = MediaQuery.of(context).size.shortestSide;
+    if (shortestSide >= 360) return 24;
+    if (shortestSide >= 280) return 18;
+    return 14;
+  }
+}
