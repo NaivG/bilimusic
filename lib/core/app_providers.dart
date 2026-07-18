@@ -5,7 +5,6 @@ import 'package:bilimusic/services/dual_audio_service.dart';
 import 'package:bilimusic/services/notification_service.dart';
 import 'package:bilimusic/services/player_coordinator.dart';
 import 'package:bilimusic/services/playlist_service.dart';
-import 'package:bilimusic/services/search_service.dart';
 import 'package:bilimusic/services/pip_service.dart';
 import 'package:bilimusic/managers/recommendation_manager.dart';
 import 'package:bilimusic/managers/settings_manager.dart';
@@ -23,10 +22,6 @@ import 'package:bilimusic/managers/playlist_manager.dart';
 
 final apiServiceProvider = Provider<ApiService>((ref) {
   return ApiService();
-});
-
-final searchServiceProvider = Provider<SearchService>((ref) {
-  return SearchService();
 });
 
 final notificationServiceProvider = Provider<NotificationService>((ref) {

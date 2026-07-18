@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/models/search_result.dart';
 import 'package:bilimusic/models/music.dart' as music_model;
 import 'package:bilimusic/core/app_providers.dart';
-import 'package:bilimusic/services/search_service.dart';
 import 'package:bilimusic/pages/search/widgets/search_type_tabs.dart';
 import 'package:bilimusic/pages/search/widgets/search_empty_state.dart';
 import 'package:bilimusic/components/common/cards/music_list_item.dart';
@@ -24,8 +23,6 @@ class SearchResultsOverlay extends ConsumerStatefulWidget {
 }
 
 class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
-  final SearchService _searchService = SearchService();
-
   // 搜索状态
   List<SearchResult> _allResults = [];
   List<SearchResult> _filteredResults = [];
@@ -79,7 +76,7 @@ class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
       _errorMessage = null;
     });
 
-    final response = await _searchService.search(query);
+    final response = await ref.read(apiServiceProvider).search(query);
 
     setState(() {
       _isLoading = false;
@@ -90,7 +87,7 @@ class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
         _availableTypes = [];
       } else {
         _allResults = response.results;
-        _availableTypes = _searchService.getAvailableTypes(response.results);
+        _availableTypes = SearchResult.getAvailableTypes(response.results);
         _filterResults();
       }
     });
@@ -134,7 +131,7 @@ class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
 
   void _filterResults() {
     setState(() {
-      _filteredResults = _searchService.filterByType(
+      _filteredResults = SearchResult.filterByType(
         _allResults,
         _selectedType,
       );
