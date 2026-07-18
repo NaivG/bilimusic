@@ -65,6 +65,7 @@ dependencies:
   flutter_native_splash: ^2.4.7
   super_context_menu: ^0.9.1
   dio: ^5.9.2
+  pretty_qr_code: ^3.6.0
 #  just_aaudio:
 #    path: ../just_aaudio
 

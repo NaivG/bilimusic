@@ -6,7 +6,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/utils/network_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
-import 'package:bilimusic/utils/platform_helper.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -179,15 +178,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           if (isLoggedIn) {
                             _showLogoutDialog();
                           } else {
-                            if (PlatformHelper.isDesktop) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('桌面端暂不支持登录，请使用移动端App'),
-                                ),
-                              );
-                            } else {
-                              ShellPageManager.instance.push(ShellPage.login);
-                            }
+                            ShellPageManager.instance.push(ShellPage.login);
                           }
                         },
                         child: CircleAvatar(
