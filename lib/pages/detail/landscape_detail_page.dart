@@ -230,7 +230,9 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
         });
         _music = liveMusic;
         _duration = liveMusic.duration;
-        _isFavorite = ref.read(playbackCommandsProvider.notifier).isFavorite(_music);
+        _isFavorite = ref
+            .read(playbackCommandsProvider.notifier)
+            .isFavorite(_music);
       }
     }
 
@@ -297,7 +299,9 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
                         isLoadingLyrics: _isLoadingLyrics,
                         onLyricSourceChanged: _loadLyric,
                         onLyricTap: (duration) {
-                          ref.read(playbackCommandsProvider.notifier).seek(duration);
+                          ref
+                              .read(playbackCommandsProvider.notifier)
+                              .seek(duration);
                         },
                       ),
                     ),
@@ -310,11 +314,16 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
                 isPlaying: isPlaying,
                 playModeIcon: icon,
                 onPlayPause: _togglePlay,
-                onPrevious: () => ref.read(playbackCommandsProvider.notifier).playPrevious(),
-                onNext: () => ref.read(playbackCommandsProvider.notifier).playNext(),
-                onPlayModeToggle: () => ref.read(playbackCommandsProvider.notifier).togglePlayMode(),
+                onPrevious: () =>
+                    ref.read(playbackCommandsProvider.notifier).playPrevious(),
+                onNext: () =>
+                    ref.read(playbackCommandsProvider.notifier).playNext(),
+                onPlayModeToggle: () => ref
+                    .read(playbackCommandsProvider.notifier)
+                    .togglePlayMode(),
                 onPlaylist: _showPlaylist,
-                onSeek: (duration) => ref.read(playbackCommandsProvider.notifier).seek(duration),
+                onSeek: (duration) =>
+                    ref.read(playbackCommandsProvider.notifier).seek(duration),
                 isTransitioning: fading,
               ),
             ],

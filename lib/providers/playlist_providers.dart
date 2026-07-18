@@ -36,7 +36,8 @@ class _CurrentIndexWatcher extends Notifier<int?> {
     return ps.currentIndex.value;
   }
 
-  void _onChanged() => state = ref.read(_playlistServiceProvider).currentIndex.value;
+  void _onChanged() =>
+      state = ref.read(_playlistServiceProvider).currentIndex.value;
 }
 
 final currentIndexProvider = NotifierProvider<_CurrentIndexWatcher, int?>(
@@ -59,7 +60,8 @@ class _PlayHistoryWatcher extends Notifier<List<Music>> {
     return ps.playHistory.value;
   }
 
-  void _onChanged() => state = ref.read(_playlistServiceProvider).playHistory.value;
+  void _onChanged() =>
+      state = ref.read(_playlistServiceProvider).playHistory.value;
 }
 
 final playHistoryProvider = NotifierProvider<_PlayHistoryWatcher, List<Music>>(
@@ -75,7 +77,8 @@ class _FavoritesWatcher extends Notifier<List<Music>> {
     return ps.favorites.value;
   }
 
-  void _onChanged() => state = ref.read(_playlistServiceProvider).favorites.value;
+  void _onChanged() =>
+      state = ref.read(_playlistServiceProvider).favorites.value;
 }
 
 final favoritesProvider = NotifierProvider<_FavoritesWatcher, List<Music>>(
@@ -151,13 +154,11 @@ class PlaylistCommands extends Notifier<void> {
   Future<void> addAllToPlaylist(List<Music> musics) =>
       _ps.addAllToPlaylist(musics);
 
-  Future<void> removeFromPlaylist(Music music) =>
-      _ps.removeFromPlaylist(music);
+  Future<void> removeFromPlaylist(Music music) => _ps.removeFromPlaylist(music);
 
   Future<void> clearPlaylist() => _ps.clearPlaylist();
 
-  Future<void> moveInPlaylist(int from, int to) =>
-      _ps.moveInPlaylist(from, to);
+  Future<void> moveInPlaylist(int from, int to) => _ps.moveInPlaylist(from, to);
 
   Future<void> addToFavorites(Music music) => _ps.addToFavorites(music);
 
@@ -171,5 +172,6 @@ class PlaylistCommands extends Notifier<void> {
   Future<void> addToPlayHistory(Music music) => _ps.addToPlayHistory(music);
 }
 
-final playlistCommandsProvider =
-    NotifierProvider<PlaylistCommands, void>(PlaylistCommands.new);
+final playlistCommandsProvider = NotifierProvider<PlaylistCommands, void>(
+  PlaylistCommands.new,
+);

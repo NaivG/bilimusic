@@ -49,10 +49,9 @@ class FavSyncStateNotifier extends Notifier<FavSyncState> {
     BiliFavFolder folder, {
     void Function(int processed, int total, int failed)? onProgress,
   }) async {
-    return ref.read(_favSyncManagerProvider).importFolderAsNewPlaylist(
-      folder,
-      onProgress: onProgress,
-    );
+    return ref
+        .read(_favSyncManagerProvider)
+        .importFolderAsNewPlaylist(folder, onProgress: onProgress);
   }
 
   Future<ImportResult> appendFolderToPlaylist(
@@ -60,11 +59,9 @@ class FavSyncStateNotifier extends Notifier<FavSyncState> {
     String playlistId, {
     void Function(int processed, int total, int failed)? onProgress,
   }) async {
-    return ref.read(_favSyncManagerProvider).appendFolderToPlaylist(
-      folder,
-      playlistId,
-      onProgress: onProgress,
-    );
+    return ref
+        .read(_favSyncManagerProvider)
+        .appendFolderToPlaylist(folder, playlistId, onProgress: onProgress);
   }
 
   Future<void> removeImportRecord(int folderMediaId) async {

@@ -83,9 +83,7 @@ class BiliClient {
 
     final http.Response response;
     try {
-      response = await _httpClient
-          .get(uri, headers: headers)
-          .timeout(timeout);
+      response = await _httpClient.get(uri, headers: headers).timeout(timeout);
     } on TimeoutException catch (e) {
       throw BiliNetworkException(null, 'timeout: $e');
     } catch (e) {

@@ -173,9 +173,7 @@ class SearchResult {
   }
 
   /// 从结果集中提取所有出现过的类型（保持首次出现顺序）。
-  static List<SearchResultType> getAvailableTypes(
-    List<SearchResult> results,
-  ) {
+  static List<SearchResultType> getAvailableTypes(List<SearchResult> results) {
     final seen = <SearchResultType>{};
     final out = <SearchResultType>[];
     for (final r in results) {

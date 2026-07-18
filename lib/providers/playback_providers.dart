@@ -19,19 +19,18 @@ final _playerCoordinatorProvider = playerCoordinatorProvider;
 class _PlayerStateWatcher extends Notifier<PlayerState> {
   @override
   PlayerState build() {
-    final vn = ref
-        .read(_dualAudioServiceProvider)
-        .playerState as ValueNotifier<PlayerState>;
+    final vn =
+        ref.read(_dualAudioServiceProvider).playerState
+            as ValueNotifier<PlayerState>;
     vn.addListener(_onChanged);
     ref.onDispose(() => vn.removeListener(_onChanged));
     return vn.value;
   }
 
-  void _onChanged() =>
-      state =
-          (ref.read(_dualAudioServiceProvider).playerState
-                  as ValueNotifier<PlayerState>)
-              .value;
+  void _onChanged() => state =
+      (ref.read(_dualAudioServiceProvider).playerState
+              as ValueNotifier<PlayerState>)
+          .value;
 }
 
 final playerStateProvider = NotifierProvider<_PlayerStateWatcher, PlayerState>(
@@ -125,11 +124,9 @@ class PlaybackCommands extends Notifier<void> {
   Future<void> addToPlaylist(Music music) => _pc.addToPlaylist(music);
   Future<void> addAllToPlaylist(List<Music> musics) =>
       _pc.addAllToPlaylist(musics);
-  Future<void> removeFromPlaylist(Music music) =>
-      _pc.removeFromPlaylist(music);
+  Future<void> removeFromPlaylist(Music music) => _pc.removeFromPlaylist(music);
   Future<void> clearPlaylist() => _pc.clearPlaylist();
-  Future<void> moveInPlaylist(int from, int to) =>
-      _pc.moveInPlaylist(from, to);
+  Future<void> moveInPlaylist(int from, int to) => _pc.moveInPlaylist(from, to);
   Future<void> playNextFromIndex(Music music) => _pc.playNextFromIndex(music);
 
   Future<void> addToFavorites(Music music) => _pc.addToFavorites(music);
@@ -144,5 +141,6 @@ class PlaybackCommands extends Notifier<void> {
   double get progressPercentage => _dual.progressPercentage;
 }
 
-final playbackCommandsProvider =
-    NotifierProvider<PlaybackCommands, void>(PlaybackCommands.new);
+final playbackCommandsProvider = NotifierProvider<PlaybackCommands, void>(
+  PlaybackCommands.new,
+);

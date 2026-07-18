@@ -265,7 +265,8 @@ class LandscapeBottomControl extends ConsumerWidget {
           size: smallSize,
           iconSize: smallSize * 0.55,
           color: iconColor.withValues(alpha: 0.7),
-          onTap: () => ref.read(playbackCommandsProvider.notifier).togglePlayMode(),
+          onTap: () =>
+              ref.read(playbackCommandsProvider.notifier).togglePlayMode(),
         ),
         const SizedBox(width: 16),
         _buildSmallButton(
@@ -273,7 +274,8 @@ class LandscapeBottomControl extends ConsumerWidget {
           size: smallSize,
           iconSize: smallSize * 0.6,
           color: iconColor.withValues(alpha: 0.85),
-          onTap: () => ref.read(playbackCommandsProvider.notifier).playPrevious(),
+          onTap: () =>
+              ref.read(playbackCommandsProvider.notifier).playPrevious(),
         ),
         const SizedBox(width: 16),
         ScaleOnHover(

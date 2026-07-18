@@ -129,9 +129,9 @@ class _LandscapeSeekBarState extends ConsumerState<LandscapeSeekBar> {
                   return;
                 }
                 if (dragValue != null) {
-                  await ref.read(playbackCommandsProvider.notifier).seek(
-                    Duration(milliseconds: dragValue!.toInt()),
-                  );
+                  await ref
+                      .read(playbackCommandsProvider.notifier)
+                      .seek(Duration(milliseconds: dragValue!.toInt()));
                 }
                 setState(() {
                   dragValue = null;
@@ -143,9 +143,9 @@ class _LandscapeSeekBarState extends ConsumerState<LandscapeSeekBar> {
                   return;
                 }
                 _seekByTouch(details.localPosition.dx, context, durationMs);
-                await ref.read(playbackCommandsProvider.notifier).seek(
-                  Duration(milliseconds: dragValue!.toInt()),
-                );
+                await ref
+                    .read(playbackCommandsProvider.notifier)
+                    .seek(Duration(milliseconds: dragValue!.toInt()));
                 setState(() {
                   dragValue = null;
                   isDragging = false;

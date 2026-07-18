@@ -58,7 +58,9 @@ class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
     if (newIndex > oldIndex) {
       newIndex -= 1;
     }
-    await ref.read(playbackCommandsProvider.notifier).moveInPlaylist(oldIndex, newIndex);
+    await ref
+        .read(playbackCommandsProvider.notifier)
+        .moveInPlaylist(oldIndex, newIndex);
     // moveInPlaylist 会触发通知，无需手动 setState
   }
 
@@ -76,7 +78,9 @@ class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              ref.read(playbackCommandsProvider.notifier).removeFromPlaylist(music);
+              ref
+                  .read(playbackCommandsProvider.notifier)
+                  .removeFromPlaylist(music);
             },
             child: const Text('删除', style: TextStyle(color: Colors.red)),
           ),
@@ -200,7 +204,9 @@ class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
                       TextButton(
                         onPressed: () {
                           Navigator.pop(context);
-                          ref.read(playbackCommandsProvider.notifier).clearPlaylist();
+                          ref
+                              .read(playbackCommandsProvider.notifier)
+                              .clearPlaylist();
                         },
                         child: const Text(
                           '清空',
@@ -296,7 +302,9 @@ class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
           music: music,
           index: index,
           isPlaying: isPlaying,
-          isFavorite: ref.read(playbackCommandsProvider.notifier).isFavorite(music),
+          isFavorite: ref
+              .read(playbackCommandsProvider.notifier)
+              .isFavorite(music),
           onTap: () {
             widget.onTrackSelect(index);
           },

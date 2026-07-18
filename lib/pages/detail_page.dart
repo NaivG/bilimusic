@@ -177,9 +177,7 @@ class _DetailPageState extends ConsumerState<DetailPage>
       await commands.addToFavorites(_music);
     }
     setState(() {
-      _music = _music.copyWith(
-        isFavorite: !commands.isFavorite(_music),
-      );
+      _music = _music.copyWith(isFavorite: !commands.isFavorite(_music));
     });
   }
 
@@ -277,7 +275,8 @@ class _DetailPageState extends ConsumerState<DetailPage>
       onToggleShowLyrics: _toggleShowLyrics,
       onLoadLyric: _loadLyric,
       onSeek: _seek,
-      onTogglePlayMode: () => ref.read(playbackCommandsProvider.notifier).togglePlayMode(),
+      onTogglePlayMode: () =>
+          ref.read(playbackCommandsProvider.notifier).togglePlayMode(),
     );
   }
 }

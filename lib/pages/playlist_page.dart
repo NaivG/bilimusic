@@ -69,7 +69,9 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
 
       // 检查是否已收藏
       if (_songs.isNotEmpty) {
-        _isFavorited = ref.read(playlistManagerProvider).isFavorite(_songs.first);
+        _isFavorited = ref
+            .read(playlistManagerProvider)
+            .isFavorite(_songs.first);
       }
     } catch (e) {
       debugPrint('Failed to load playlist data: $e');
@@ -152,7 +154,9 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
     if (_songs.isEmpty) return;
 
     final music = _songs.first;
-    final newState = await ref.read(playlistManagerProvider).toggleFavorite(music);
+    final newState = await ref
+        .read(playlistManagerProvider)
+        .toggleFavorite(music);
 
     setState(() {
       _isFavorited = newState;

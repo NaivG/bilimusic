@@ -310,7 +310,8 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
                       ),
                     ),
                     // 滑动方向图标层
-                    if (ref.read(playerCoordinatorProvider).currentMusic != null) ...[
+                    if (ref.read(playerCoordinatorProvider).currentMusic !=
+                        null) ...[
                       if (_dragX > 20)
                         Positioned(
                           left: -44 - (_dragX * 0.2).clamp(0.0, 20.0),

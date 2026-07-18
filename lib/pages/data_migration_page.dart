@@ -235,7 +235,9 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
       final prefs = await SharedPreferences.getInstance();
 
       // 列表/歌单/收藏/历史数据由 PlaylistService 从 sqflite 给出
-      final listExport = await ref.read(playlistManagerProvider).exportForBackup();
+      final listExport = await ref
+          .read(playlistManagerProvider)
+          .exportForBackup();
 
       final Map<String, dynamic> exportData = {
         'settings': _exportSettings(prefs),

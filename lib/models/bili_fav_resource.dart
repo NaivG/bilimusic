@@ -15,11 +15,11 @@ class FavResourcePage {
   });
 
   const FavResourcePage.empty()
-      : resources = const [],
-        hasMore = false,
-        title = '',
-        cover = '',
-        mediaCount = 0;
+    : resources = const [],
+      hasMore = false,
+      title = '',
+      cover = '',
+      mediaCount = 0;
 }
 
 /// 收藏夹资源引用（批量查询 `id:type` 用）。

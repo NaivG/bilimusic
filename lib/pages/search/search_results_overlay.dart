@@ -19,7 +19,8 @@ class SearchResultsOverlay extends ConsumerStatefulWidget {
   const SearchResultsOverlay({super.key, required this.query});
 
   @override
-  ConsumerState<SearchResultsOverlay> createState() => _SearchResultsOverlayState();
+  ConsumerState<SearchResultsOverlay> createState() =>
+      _SearchResultsOverlayState();
 }
 
 class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
@@ -131,10 +132,7 @@ class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
 
   void _filterResults() {
     setState(() {
-      _filteredResults = SearchResult.filterByType(
-        _allResults,
-        _selectedType,
-      );
+      _filteredResults = SearchResult.filterByType(_allResults, _selectedType);
     });
   }
 

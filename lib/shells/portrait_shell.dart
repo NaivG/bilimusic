@@ -111,7 +111,8 @@ class PortraitShell extends ConsumerWidget {
               child: DesktopNavBar(
                 selectedIndex: selectedIndex,
                 onNavTap: (index) => pageManager.goToTab(index),
-                onClose: () => ref.read(playbackCommandsProvider.notifier).stop(),
+                onClose: () =>
+                    ref.read(playbackCommandsProvider.notifier).stop(),
               ),
             )
           : null,
@@ -185,7 +186,8 @@ class PortraitShell extends ConsumerWidget {
               child: DesktopNavBar(
                 selectedIndex: selectedIndex,
                 onNavTap: (index) => pageManager.goToTab(index),
-                onClose: () => ref.read(playbackCommandsProvider.notifier).stop(),
+                onClose: () =>
+                    ref.read(playbackCommandsProvider.notifier).stop(),
               ),
             )
           : null,

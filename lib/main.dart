@@ -102,10 +102,12 @@ void main() async {
     await _setupMainWindow();
   }
 
-  runApp(UncontrolledProviderScope(
-    container: container,
-    child: MyApp(audioHandler: audioHandler),
-  ));
+  runApp(
+    UncontrolledProviderScope(
+      container: container,
+      child: MyApp(audioHandler: audioHandler),
+    ),
+  );
 }
 
 /// 根Widget，负责管理播放器管理器实例

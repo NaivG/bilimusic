@@ -144,10 +144,7 @@ class ApiService {
   // ====================================================================
 
   /// 关键词 / BV / AV 入口。统一返回 [SearchResponse]。
-  Future<SearchResponse> search(
-    String query, {
-    SearchResultType? type,
-  }) async {
+  Future<SearchResponse> search(String query, {SearchResultType? type}) async {
     final trimmed = query.trim();
     if (trimmed.isEmpty) {
       return SearchResponse.empty(query);
@@ -158,9 +155,7 @@ class ApiService {
     }
 
     if (trimmed.toUpperCase().startsWith('AV')) {
-      final digits = trimmed
-          .substring(2)
-          .replaceAll(RegExp(r'[^0-9]'), '');
+      final digits = trimmed.substring(2).replaceAll(RegExp(r'[^0-9]'), '');
       if (digits.isEmpty) {
         return SearchResponse.empty(query);
       }
@@ -225,22 +220,15 @@ class ApiService {
     }
   }
 
-  SearchResponse _parseSearchResults(
-    Map<String, dynamic> data,
-    String query,
-  ) {
-    final results = data['result'] is List
-        ? data['result'] as List
-        : const [];
+  SearchResponse _parseSearchResults(Map<String, dynamic> data, String query) {
+    final results = data['result'] is List ? data['result'] as List : const [];
     final List<SearchResult> all = [];
     var total = 0;
 
     for (final result in results) {
       if (result is! Map) continue;
       final resultType = result['result_type']?.toString();
-      final items = result['data'] is List
-          ? result['data'] as List
-          : const [];
+      final items = result['data'] is List ? result['data'] as List : const [];
       final mapped = _mapResultType(resultType);
       if (mapped == null) continue;
       for (final item in items) {
@@ -380,9 +368,7 @@ class ApiService {
         hasMore: hasMore,
         title: info['title']?.toString() ?? '',
         cover: info['cover']?.toString() ?? '',
-        mediaCount: info['media_count'] is int
-            ? info['media_count'] as int
-            : 0,
+        mediaCount: info['media_count'] is int ? info['media_count'] as int : 0,
       );
     } on BiliException catch (e) {
       debugPrint('[FavAPI] fetchFolderResources: $e');
@@ -396,8 +382,7 @@ class ApiService {
   ) async {
     if (resources.isEmpty) return const [];
     try {
-      final resourceStr =
-          resources.map((r) => '${r.id}:${r.type}').join(',');
+      final resourceStr = resources.map((r) => '${r.id}:${r.type}').join(',');
       final data = await _client.get(
         '/x/v3/fav/resource/infos',
         query: {'resources': resourceStr, 'platform': 'web'},

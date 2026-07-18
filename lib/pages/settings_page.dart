@@ -134,7 +134,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               leading: Icon(Icons.tablet, color: _getPrimaryColor(context)),
               title: Text('平板模式'),
               subtitle: Text(
-                ref.read(settingsManagerProvider).getTabletModeText(settings.tabletMode),
+                ref
+                    .read(settingsManagerProvider)
+                    .getTabletModeText(settings.tabletMode),
               ),
               trailing: DropdownButton<String>(
                 value: settings.tabletMode,
@@ -153,9 +155,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               leading: Icon(Icons.volume_up, color: _getPrimaryColor(context)),
               title: Text('音频输出模式'),
               subtitle: Text(
-                ref.read(settingsManagerProvider).getAudioOutputModeText(
-                  settings.audioOutputMode,
-                ),
+                ref
+                    .read(settingsManagerProvider)
+                    .getAudioOutputModeText(settings.audioOutputMode),
               ),
               enabled: PlatformHelper.isAndroid, // 仅在安卓平台启用
               trailing: DropdownButton<String>(
@@ -180,7 +182,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
               title: Text('主题模式'),
               subtitle: Text(
-                ref.read(settingsManagerProvider).getThemeModeText(settings.themeMode),
+                ref
+                    .read(settingsManagerProvider)
+                    .getThemeModeText(settings.themeMode),
               ),
               trailing: DropdownButton<String>(
                 value: settings.themeMode,

@@ -179,7 +179,11 @@ class PipOverlay extends ConsumerWidget {
     );
   }
 
-  Widget _buildTransportRow(Brightness brightness, PlayerState playerState, WidgetRef ref) {
+  Widget _buildTransportRow(
+    Brightness brightness,
+    PlayerState playerState,
+    WidgetRef ref,
+  ) {
     final accentColor = LucentTokens.accentPrimary;
     final textSecondary = brightness == Brightness.dark
         ? LucentTokens.darkTextSecondary

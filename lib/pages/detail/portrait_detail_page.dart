@@ -315,10 +315,15 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage> {
               // 收藏
               IconButton(
                 icon: Icon(
-                  ref.read(playbackCommandsProvider.notifier).isFavorite(widget.music)
+                  ref
+                          .read(playbackCommandsProvider.notifier)
+                          .isFavorite(widget.music)
                       ? Icons.favorite
                       : Icons.favorite_border,
-                  color: ref.read(playbackCommandsProvider.notifier).isFavorite(widget.music)
+                  color:
+                      ref
+                          .read(playbackCommandsProvider.notifier)
+                          .isFavorite(widget.music)
                       ? Colors.red[400]
                       : Colors.white,
                 ),
@@ -381,7 +386,8 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage> {
                   color: Colors.white.withValues(alpha: 0.7),
                 ),
                 iconSize: 32,
-                onPressed: () => ref.read(playbackCommandsProvider.notifier).playPrevious(),
+                onPressed: () =>
+                    ref.read(playbackCommandsProvider.notifier).playPrevious(),
               ),
               IconButton(
                 icon: Icon(
@@ -389,7 +395,8 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage> {
                   color: Colors.white.withValues(alpha: 0.7),
                 ),
                 iconSize: 32,
-                onPressed: () => ref.read(playbackCommandsProvider.notifier).playNext(),
+                onPressed: () =>
+                    ref.read(playbackCommandsProvider.notifier).playNext(),
               ),
               IconButton(
                 icon: Icon(
@@ -515,15 +522,24 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage> {
             const SizedBox(height: 20),
             ListTile(
               leading: Icon(
-                ref.read(playbackCommandsProvider.notifier).isFavorite(widget.music)
+                ref
+                        .read(playbackCommandsProvider.notifier)
+                        .isFavorite(widget.music)
                     ? Icons.favorite
                     : Icons.favorite_border,
-                color: ref.read(playbackCommandsProvider.notifier).isFavorite(widget.music)
+                color:
+                    ref
+                        .read(playbackCommandsProvider.notifier)
+                        .isFavorite(widget.music)
                     ? Colors.red
                     : Colors.white,
               ),
               title: Text(
-                ref.read(playbackCommandsProvider.notifier).isFavorite(widget.music) ? '取消收藏' : '收藏',
+                ref
+                        .read(playbackCommandsProvider.notifier)
+                        .isFavorite(widget.music)
+                    ? '取消收藏'
+                    : '收藏',
                 style: const TextStyle(color: Colors.white),
               ),
               onTap: () {
