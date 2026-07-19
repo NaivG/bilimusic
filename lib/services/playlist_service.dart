@@ -73,45 +73,166 @@ class PlaylistService {
   /// 调用 [ensureCid] 拉详情补齐，并把补齐结果落盘 + 刷新内存镜像。
   ///
   /// 失败静默（debugPrint 留痕），调用方应 fire-and-forget。
+  ///
+  /// 关键约束：保留各表的"行身份/排序"列
+  /// - current_track.seq（AUTOINCREMENT）→ 用 seq 原地 UPDATE
+  /// - play_history.played_at → 删旧插新时透传
+  /// - favorite.added_at → 同上
+  /// 不走 [addToPlayHistory]/[addToFavorites] 等带副作用的公共方法，避免
+  /// "刚听过的歌置顶"语义把旧项打乱顺序。
   Future<void> backfillMissingCids({
     required Future<Music> Function(Music) ensureCid,
   }) async {
-    await _backfillList(_currentPlaylist.value, (m) async {
-      final updated = await ensureCid(m);
-      if (updated.cid.isNotEmpty && updated.cid != m.cid) {
-        await updateToPlaylist(updated);
-      }
-    });
-    await _backfillList(_playHistory.value, (m) async {
-      final updated = await ensureCid(m);
-      if (updated.cid.isNotEmpty && updated.cid != m.cid) {
-        await addToPlayHistory(updated);
-      }
-    });
-    await _backfillList(_favorites.value, (m) async {
-      final updated = await ensureCid(m);
-      if (updated.cid.isNotEmpty && updated.cid != m.cid) {
-        // cid 变化 → 主键变化，先删后插
-        await removeFromFavorites(m);
-        await addToFavorites(updated);
-      }
-    });
+    await _backfillCurrentPlaylist(ensureCid);
+    await _backfillPlayHistory(ensureCid);
+    await _backfillFavorites(ensureCid);
   }
 
-  Future<void> _backfillList(
-    List<Music> list,
-    Future<void> Function(Music) fix,
+  Future<void> _backfillCurrentPlaylist(
+    Future<Music> Function(Music) ensureCid,
   ) async {
-    for (final m in list) {
-      if (m.cid.isNotEmpty) continue;
-      try {
-        await fix(m);
-      } catch (e) {
-        debugPrint(
-          '[PlaylistService] backfill cid failed for ${m.id}: $e',
-        );
+    final snapshot = List<Music>.from(_currentPlaylist.value);
+    final updates = <(int, Music)>[];
+    await _dbChecked.transaction((txn) async {
+      for (var i = 0; i < snapshot.length; i++) {
+        final m = snapshot[i];
+        if (m.cid.isNotEmpty) continue;
+        try {
+          final updated = await ensureCid(m);
+          if (updated.cid.isEmpty || updated.cid == m.cid) continue;
+          final rows = await txn.query(
+            'current_track',
+            columns: ['seq'],
+            where: 'music_id = ? AND (cid = ? OR cid IS NULL)',
+            whereArgs: [updated.id, ''],
+            limit: 1,
+          );
+          if (rows.isEmpty) continue;
+          await txn.update(
+            'current_track',
+            {
+              'cid': updated.cid,
+              'payload': jsonEncode(updated.toJson()),
+            },
+            where: 'seq = ?',
+            whereArgs: [rows.first['seq'] as int],
+          );
+          updates.add((i, updated));
+        } catch (e) {
+          debugPrint(
+            '[PlaylistService] backfill current_track cid failed for ${m.id}: $e',
+          );
+        }
+      }
+    });
+    if (updates.isEmpty) return;
+    final newList = List<Music>.from(_currentPlaylist.value);
+    for (final (idx, updated) in updates) {
+      if (idx < newList.length) {
+        newList[idx] = updated;
       }
     }
+    _currentPlaylist.value = newList;
+  }
+
+  Future<void> _backfillPlayHistory(
+    Future<Music> Function(Music) ensureCid,
+  ) async {
+    final snapshot = List<Music>.from(_playHistory.value);
+    final updates = <(int, Music)>[];
+    await _dbChecked.transaction((txn) async {
+      for (var i = 0; i < snapshot.length; i++) {
+        final m = snapshot[i];
+        if (m.cid.isNotEmpty) continue;
+        try {
+          final updated = await ensureCid(m);
+          if (updated.cid.isEmpty || updated.cid == m.cid) continue;
+          final rows = await txn.query(
+            'play_history',
+            columns: ['played_at'],
+            where: 'music_id = ? AND (cid = ? OR cid IS NULL)',
+            whereArgs: [updated.id, ''],
+            limit: 1,
+          );
+          if (rows.isEmpty) continue;
+          final playedAt = rows.first['played_at'] as int? ?? 0;
+          await txn.delete(
+            'play_history',
+            where: 'music_id = ? AND (cid = ? OR cid IS NULL)',
+            whereArgs: [updated.id, ''],
+          );
+          await txn.insert('play_history', {
+            'music_id': updated.id,
+            'cid': updated.cid,
+            'payload': jsonEncode(updated.toJson()),
+            'played_at': playedAt,
+          });
+          updates.add((i, updated));
+        } catch (e) {
+          debugPrint(
+            '[PlaylistService] backfill play_history cid failed for ${m.id}: $e',
+          );
+        }
+      }
+    });
+    if (updates.isEmpty) return;
+    final newList = List<Music>.from(_playHistory.value);
+    for (final (idx, updated) in updates) {
+      if (idx < newList.length) {
+        newList[idx] = updated;
+      }
+    }
+    _playHistory.value = newList;
+  }
+
+  Future<void> _backfillFavorites(
+    Future<Music> Function(Music) ensureCid,
+  ) async {
+    final snapshot = List<Music>.from(_favorites.value);
+    final updates = <(int, Music)>[];
+    await _dbChecked.transaction((txn) async {
+      for (var i = 0; i < snapshot.length; i++) {
+        final m = snapshot[i];
+        if (m.cid.isNotEmpty) continue;
+        try {
+          final updated = await ensureCid(m);
+          if (updated.cid.isEmpty || updated.cid == m.cid) continue;
+          final rows = await txn.query(
+            'favorite',
+            columns: ['added_at'],
+            where: 'music_id = ? AND (cid = ? OR cid IS NULL)',
+            whereArgs: [updated.id, ''],
+            limit: 1,
+          );
+          if (rows.isEmpty) continue;
+          final addedAt = rows.first['added_at'] as int? ?? 0;
+          await txn.delete(
+            'favorite',
+            where: 'music_id = ? AND (cid = ? OR cid IS NULL)',
+            whereArgs: [updated.id, ''],
+          );
+          await txn.insert('favorite', {
+            'music_id': updated.id,
+            'cid': updated.cid,
+            'payload': jsonEncode(updated.toJson()),
+            'added_at': addedAt,
+          });
+          updates.add((i, updated));
+        } catch (e) {
+          debugPrint(
+            '[PlaylistService] backfill favorite cid failed for ${m.id}: $e',
+          );
+        }
+      }
+    });
+    if (updates.isEmpty) return;
+    final newList = List<Music>.from(_favorites.value);
+    for (final (idx, updated) in updates) {
+      if (idx < newList.length) {
+        newList[idx] = updated;
+      }
+    }
+    _favorites.value = newList;
   }
 
   // ==================== helpers ====================
@@ -348,16 +469,46 @@ class PlaylistService {
 
   Future<void> updateToPlaylist(Music music) async {
     final idx = _findMusicIndex(_currentPlaylist.value, music);
-    if (idx == -1) return;
+    if (idx != -1) {
+      await _dbChecked.update(
+        'current_track',
+        {'payload': jsonEncode(music.toJson())},
+        where: 'music_id = ? AND cid = ?',
+        whereArgs: [music.id, music.cid],
+      );
+      final newList = List<Music>.from(_currentPlaylist.value);
+      newList[idx] = music;
+      _currentPlaylist.value = newList;
+      return;
+    }
+
+    // cid 变化回退路径：调用方拿到的 music.cid 是新值，但 DB 中旧行 cid 还为空
+    // （首次 ensureCid 之后）。按 (id, cid="") 找到旧行，原地更新 cid + payload，
+    // seq 不动 → 列表顺序不变。
+    final rows = await _dbChecked.query(
+      'current_track',
+      columns: ['seq'],
+      where: 'music_id = ? AND (cid = ? OR cid IS NULL)',
+      whereArgs: [music.id, ''],
+      limit: 1,
+    );
+    if (rows.isEmpty) return;
     await _dbChecked.update(
       'current_track',
-      {'payload': jsonEncode(music.toJson())},
-      where: 'music_id = ? AND cid = ?',
-      whereArgs: [music.id, music.cid],
+      {'cid': music.cid, 'payload': jsonEncode(music.toJson())},
+      where: 'seq = ?',
+      whereArgs: [rows.first['seq'] as int],
     );
-    final newList = List<Music>.from(_currentPlaylist.value);
-    newList[idx] = music;
-    _currentPlaylist.value = newList;
+    final playlist = _currentPlaylist.value;
+    for (var i = 0; i < playlist.length; i++) {
+      if (playlist[i].id == music.id && playlist[i].cid.isEmpty) {
+        final newList = List<Music>.from(playlist);
+        newList[i] = music;
+        _currentPlaylist.value = newList;
+        return;
+      }
+    }
+    await _loadCurrentPlaylist();
   }
 
   Future<void> removeFromPlaylist(Music music) async {
