@@ -261,25 +261,27 @@ class PlayerCoordinator {
     }
   }
 
-  /// 将音乐添加到播放列表并设为下一首
+  /// 将音乐作为下一首放入播放列表
+  /// - 若当前无正在播放歌曲：直接播放（复用 playMusic 的查重+播放逻辑）
+  /// - 否则：将音乐插入/移至 currentIndex+1 位置，不自动播放
   Future<void> playNextFromIndex(Music music) async {
-    await _playlistService.addToPlaylist(music);
-    final currentIndex = _playlistService.currentIndexSync;
-    if (currentIndex != null) {
-      final playlist = _playlistService.currentPlaylist.value;
-      final newIndex = playlist.indexWhere(
-        (m) => m.id == music.id && m.cid == music.cid,
-      );
-      if (newIndex != -1) {
-        final newPlaylist = List<Music>.from(playlist);
-        final musicToMove = newPlaylist.removeAt(newIndex);
-        final insertIndex = currentIndex + 1;
-        newPlaylist.insert(insertIndex, musicToMove);
-        await _playlistService.clearPlaylist();
-        await _playlistService.addAllToPlaylist(newPlaylist);
-        playAtIndex(insertIndex);
-      }
+    final currentMusic = _playlistService.currentMusic;
+    if (currentMusic == null) {
+      await playMusic(music);
+      return;
     }
+
+    final currentIndex = _playlistService.currentIndexSync!;
+
+    await _playlistService.addToPlaylist(music);
+
+    final playlist = _playlistService.currentPlaylist.value;
+    final newIndex = playlist.indexWhere(
+      (m) => m.id == music.id && m.cid == music.cid,
+    );
+    if (newIndex == -1) return;
+
+    await _playlistService.moveInPlaylist(newIndex, currentIndex + 1);
   }
 
   /// 添加到播放列表
