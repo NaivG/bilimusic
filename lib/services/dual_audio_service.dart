@@ -1,6 +1,7 @@
 // ignore_for_file: constant_identifier_names
 
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart' as ja;
 import 'package:rxdart/rxdart.dart';
@@ -51,8 +52,11 @@ class DualAudioService {
   final ValueNotifier<Duration> _duration = ValueNotifier(Duration.zero);
   final ValueNotifier<PlayMode> _playMode = ValueNotifier(PlayMode.sequential);
 
-  final double _standbyVolume = 0.3; // 待命播放器的初始音量，避免进入mute状态
-  final int _audioTrackStartupDelay = 100; // 音频轨道启动的额外延迟，确保音量调整生效
+  // 待命播放器的初始音量种子。equal-power 曲线从 0 起，AudioTrack 长时静音会卡顿，
+  // 所以保留一个极小非零值让 AudioTrack 持续激活；0.01 听感上无影响。
+  final double _standbyVolume = 0.01;
+  // 音频轨道启动的额外延迟。配合上面的极小种子音量，50ms 已足够稳定。
+  final int _audioTrackStartupDelay = 50;
 
   // 音量：相对音量模型
   // 实际输出 = _numericalValue（用户设定，持久化） × _relativeVolume（fade 内部比率 0..1）
@@ -417,48 +421,62 @@ class DualAudioService {
     _standbyPlayer.player.play();
   }
 
-  /// Step 3：分 20 步同步调整 active/standby 音量，支持超时 + pause 中断。
+  /// Equal-power 交叉淡入淡出曲线增益。
+  /// p ∈ [0,1]：返回 (active 增益, standby 增益)。
+  /// sin²(πp/2) + cos²(πp/2) = 1 → 两路叠加后感知响度恒定，
+  /// 避免了线性振幅叠加在中段塌陷的问题。
+  ({double active, double standby}) _equalPowerGains(double p) {
+    final theta = p * math.pi / 2;
+    return (active: math.sin(theta), standby: math.cos(theta));
+  }
+
+  /// 在 fade 时间轴上推进一步：setVolume 不 await，
+  /// 与 _primeStandby 对 play() 的 fire-and-forget 处理保持一致，
+  /// 避免 50Hz 下平台通道往返延迟堆积；最新值会在音频线程覆盖旧值。
+  void _applyFadeStep(double p) {
+    final gains = _equalPowerGains(p);
+    final userVolume = _numericalValue.value;
+    _relativeVolume.value = p;
+
+    final standbyVolume = userVolume * gains.standby;
+    final activeVolume = userVolume * gains.active;
+
+    unawaited(_standbyPlayer.player.setVolume(standbyVolume));
+    _standbyPlayer.volume = standbyVolume;
+    unawaited(_activePlayer.player.setVolume(activeVolume));
+    _activePlayer.volume = activeVolume;
+  }
+
+  /// Step 3：按 wall clock 在 50Hz 节奏上连续推进 active/standby 音量。
   /// 相对音量模型：实际音量 = _numericalValue（用户设定）× _relativeVolume（fade 比率）
   Future<void> _performFadeCurve(int durationMs) async {
-    const steps = 20;
-    final stepDuration = Duration(milliseconds: durationMs ~/ steps);
-
     // 标记进入 fading 子态（Coordinator 会持续更新 fadeCountdown）
     _playerState.value = PlayerPlaying(
       fadeCountdown: (durationMs / 1000).ceil(),
     );
 
-    // 超时保护
-    final timeoutTimer = Timer(
-      Duration(milliseconds: durationMs + 2000),
-      () => debugPrint('[DualAudioService] Crossfade超时，强制完成'),
-    );
+    const tickMs = 20; // 50Hz，肉眼/听感无台阶
+    final startMs = DateTime.now().millisecondsSinceEpoch;
 
-    for (int i = 0; i <= steps; i++) {
-      final progress = i / steps;
-      _relativeVolume.value = progress;
-      final userVolume = _numericalValue.value;
-
-      // Standby 播放器淡出: userVolume → 0
-      final standbyVolume = userVolume * (1 - progress);
-      await _standbyPlayer.player.setVolume(standbyVolume);
-      _standbyPlayer.volume = standbyVolume;
-
-      // Active 播放器淡入: 0 → userVolume
-      final activeVolume = userVolume * progress;
-      await _activePlayer.player.setVolume(activeVolume);
-      _activePlayer.volume = activeVolume;
-
-      await Future.delayed(stepDuration);
-
-      // 检查被 pause 中断（pause() 会把状态切到 PlayerPaused）
+    final completer = Completer<void>();
+    Timer.periodic(const Duration(milliseconds: tickMs), (timer) {
+      // 先检查 pause 中断：pause() 已把状态切到 PlayerPaused，本 tick 直接退出
       if (_playerState.value is PlayerPaused) {
-        debugPrint('[DualAudioService] Crossfade被暂停中断');
-        break;
+        timer.cancel();
+        if (!completer.isCompleted) completer.complete();
+        return;
       }
-    }
+      final elapsed = DateTime.now().millisecondsSinceEpoch - startMs;
+      final p = (elapsed / durationMs).clamp(0.0, 1.0);
+      _applyFadeStep(p);
 
-    timeoutTimer.cancel();
+      if (p >= 1.0) {
+        timer.cancel();
+        if (!completer.isCompleted) completer.complete();
+      }
+    });
+
+    return completer.future;
   }
 
   /// Step 4-6：fade 完成后把 active 音量拉满、停止旧 active、归位 standby。
@@ -542,10 +560,15 @@ class DualAudioService {
   /// 暂停播放
   Future<void> pause() async {
     if (isFading) {
-      // fade 中断：把状态切到 Paused，_performFadeCurve 会自己跳出
-      _playerState.value = PlayerPaused();
-      // 退出 fade 时重置比率，避免 resume 后音量被锁在 fade 期间的值
+      // fade 中断：先把两路音量归位到稳定的"active 静音 / standby 用户音量"状态，
+      // 避免残留 fade 中间值；再切到 Paused，_performFadeCurve 下一个 tick 自行退出。
+      final v = _numericalValue.value;
+      await _activePlayer.player.setVolume(0);
+      _activePlayer.volume = 0;
+      await _standbyPlayer.player.setVolume(v);
+      _standbyPlayer.volume = v;
       _relativeVolume.value = 1.0;
+      _playerState.value = PlayerPaused();
       debugPrint('[DualAudioService] Crossfade中暂停');
     } else {
       await _activePlayer.player.pause();
