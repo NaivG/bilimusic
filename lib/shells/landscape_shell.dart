@@ -9,7 +9,7 @@ import 'package:bilimusic/shells/landscape/landscape_sidebar.dart';
 import 'package:bilimusic/shells/landscape/landscape_bottom_control.dart';
 import 'package:bilimusic/shells/landscape/landscape_title_bar.dart';
 import 'package:bilimusic/pages/home_content.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/theme/app_palette.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
 import 'package:bilimusic/providers/playlist_providers.dart';
 import 'package:bilimusic/providers/search_providers.dart';
@@ -114,8 +114,7 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
   @override
   Widget build(BuildContext context) {
     ref.watch(currentIndexProvider);
-    final brightness = Theme.of(context).brightness;
-    final sidebarSurface = LucentTokens.sidebarSurface(brightness);
+    final sidebarSurface = context.appPalette.sidebarSurface;
     return Scaffold(
       body: Stack(
         fit: StackFit.expand,
@@ -182,12 +181,7 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
   /// 背景模糊效果
   Widget _buildBackground(BuildContext context) {
     if (ref.watch(settingsProvider).fluidBackground == false) {
-      final isDark = Theme.of(context).brightness;
-      return Container(
-        color: isDark == Brightness.dark
-            ? LucentTokens.darkSurfaceBase
-            : LucentTokens.lightSurfaceBase,
-      );
+      return Container(color: Theme.of(context).colorScheme.surface);
     }
     final currentMusic = ref.watch(currentMusicProvider);
     return AnimatedSwitcher(

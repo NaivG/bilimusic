@@ -4,7 +4,7 @@ import 'package:bilimusic/models/playlist.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/utils/network_config.dart';
 import 'package:bilimusic/managers/cache_manager.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/theme/app_tokens.dart';
 
 /// 歌单卡片组件 - Apple Music 样式
 /// 设计:
@@ -99,12 +99,12 @@ class _PlaylistCardState extends State<PlaylistCard>
       case ScreenSize.mobile:
         return _buildCard(
           cardWidth: 120.0,
-          borderRadius: LucentTokens.radiusMd,
+          borderRadius: AppTokens.radiusMd,
         );
       case _:
         return _buildCard(
           cardWidth: 160.0,
-          borderRadius: LucentTokens.radiusMd,
+          borderRadius: AppTokens.radiusMd,
         );
     }
   }

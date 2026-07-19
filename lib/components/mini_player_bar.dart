@@ -10,7 +10,8 @@ import 'package:bilimusic/providers/playlist_providers.dart';
 import 'package:bilimusic/providers/settings_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/managers/cache_manager.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/theme/app_palette.dart';
+import 'package:bilimusic/theme/app_tokens.dart';
 
 /// Mini Player Bar
 /// 应用Lucent主题下的迷你播放器
@@ -218,20 +219,13 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
     final currentPosition = ref.watch(positionProvider);
     final currentPlayerState = ref.watch(playerStateProvider);
     ref.watch(currentMusicProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final palette = context.appPalette;
+    final colorScheme = Theme.of(context).colorScheme;
 
-    final baseColor = isDark
-        ? LucentTokens.darkSurfaceOverlay
-        : LucentTokens.lightSurfaceOverlay;
-    final progressColor = isDark
-        ? LucentTokens.darkSurfaceHover
-        : LucentTokens.lightSurfaceHover;
-    final textPrimary = isDark
-        ? LucentTokens.darkTextPrimary
-        : LucentTokens.lightTextPrimary;
-    final textSecondary = isDark
-        ? LucentTokens.darkTextSecondary
-        : LucentTokens.lightTextSecondary;
+    final baseColor = palette.surfaceOverlay;
+    final progressColor = palette.surfaceHover;
+    final textPrimary = colorScheme.onSurface;
+    final textSecondary = colorScheme.onSurfaceVariant;
 
     final blurEffect = ref.read(settingsProvider).blurEffect;
 
@@ -273,13 +267,13 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
                     // 毛玻璃层
                     ClipRRect(
                       borderRadius: BorderRadius.circular(
-                        LucentTokens.radiusLg,
+                        AppTokens.radiusLg,
                       ),
                       child: BackdropFilter(
                         filter: blurEffect
                             ? ImageFilter.blur(
-                                sigmaX: LucentTokens.overlayBlurSigma,
-                                sigmaY: LucentTokens.overlayBlurSigma,
+                                sigmaX: AppTokens.overlayBlurSigma,
+                                sigmaY: AppTokens.overlayBlurSigma,
                               )
                             : ImageFilter.blur(),
                         child: Container(
@@ -287,7 +281,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
                           decoration: BoxDecoration(
                             color: baseColor,
                             borderRadius: BorderRadius.circular(
-                              LucentTokens.radiusLg,
+                              AppTokens.radiusLg,
                             ),
                           ),
                         ),
@@ -297,7 +291,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
                     Positioned.fill(
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(
-                          LucentTokens.radiusLg,
+                          AppTokens.radiusLg,
                         ),
                         child: Align(
                           alignment: Alignment.centerLeft,
@@ -364,7 +358,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
                             onTap: widget.onExpand,
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(
-                                LucentTokens.radiusMd,
+                                AppTokens.radiusMd,
                               ),
                               child: _buildCover(context),
                             ),
@@ -479,8 +473,8 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
         : (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: p),
-      duration: LucentTokens.standardDuration,
-      curve: LucentTokens.standardEasing,
+      duration: AppTokens.standardDuration,
+      curve: AppTokens.standardEasing,
       builder: (context, value, child) {
         return Container(
           width: constraints.maxWidth * value,
@@ -492,6 +486,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
 
   Widget _buildPlayButton(PlayerState state) {
     final isPlaying = state is PlayerPlaying;
+    final accent = Theme.of(context).colorScheme.primary;
     return GestureDetector(
       onTap: _togglePlay,
       child: Container(
@@ -500,7 +495,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
         alignment: Alignment.center,
         child: Icon(
           isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-          color: LucentTokens.accentPrimary,
+          color: accent,
           size: 28,
         ),
       ),
@@ -508,15 +503,10 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
   }
 
   Widget _buildCoverPlaceholder() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final textTertiary = isDark
-        ? LucentTokens.darkTextTertiary
-        : LucentTokens.lightTextTertiary;
-
-    final surfaceHover = isDark
-        ? LucentTokens.darkSurfaceHover
-        : LucentTokens.lightSurfaceHover;
+    final palette = context.appPalette;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTertiary = colorScheme.onSurfaceVariant;
+    final surfaceHover = palette.surfaceHover;
 
     return Container(
       width: 44,
@@ -527,11 +517,8 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
   }
 
   Widget _buildTransitionText() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final transitionColor = isDark
-        ? LucentTokens.accentPrimary.withValues(alpha: 0.8)
-        : LucentTokens.accentPrimary.withValues(alpha: 0.8);
+    final accent = Theme.of(context).colorScheme.primary;
+    final transitionColor = accent.withValues(alpha: 0.8);
 
     return Row(
       key: const ValueKey('transition'),

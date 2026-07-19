@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:bilimusic/services/pip_service.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/theme/app_palette.dart';
 import 'package:bilimusic/utils/platform_helper.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -24,9 +24,9 @@ class LandscapeTitleBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final brightness = View.of(context).platformDispatcher.platformBrightness;
-    final iconColor = LucentTokens.textSecondary(brightness);
-    final searchFieldColor = LucentTokens.searchField(brightness);
+    final palette = context.appPalette;
+    final iconColor = colorScheme.onSurfaceVariant;
+    final searchFieldColor = palette.searchField;
 
     return SizedBox(
       height: 75,
@@ -274,8 +274,8 @@ class _WindowControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = View.of(context).platformDispatcher.platformBrightness;
-    final iconColor = LucentTokens.textSecondary(brightness);
+    final colorScheme = Theme.of(context).colorScheme;
+    final iconColor = colorScheme.onSurfaceVariant;
 
     return Row(
       mainAxisSize: MainAxisSize.min,

@@ -10,8 +10,8 @@ final _settingsManagerProvider = settingsManagerProvider;
 class SettingsState {
   final bool notificationsEnabled;
   final bool downloadQualityHigh;
-  final String themeMode;
-  final String themeColor;
+  final String appearance;
+  final String theme;
   final bool autoPlayNext;
   final bool showLyrics;
   final String tabletMode;
@@ -25,8 +25,8 @@ class SettingsState {
   const SettingsState({
     this.notificationsEnabled = true,
     this.downloadQualityHigh = true,
-    this.themeMode = 'system',
-    this.themeColor = 'lucent',
+    this.appearance = 'system',
+    this.theme = 'lucent',
     this.autoPlayNext = true,
     this.showLyrics = true,
     this.tabletMode = 'auto',
@@ -41,8 +41,8 @@ class SettingsState {
   SettingsState copyWith({
     bool? notificationsEnabled,
     bool? downloadQualityHigh,
-    String? themeMode,
-    String? themeColor,
+    String? appearance,
+    String? theme,
     bool? autoPlayNext,
     bool? showLyrics,
     String? tabletMode,
@@ -56,8 +56,8 @@ class SettingsState {
     return SettingsState(
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       downloadQualityHigh: downloadQualityHigh ?? this.downloadQualityHigh,
-      themeMode: themeMode ?? this.themeMode,
-      themeColor: themeColor ?? this.themeColor,
+      appearance: appearance ?? this.appearance,
+      theme: theme ?? this.theme,
       autoPlayNext: autoPlayNext ?? this.autoPlayNext,
       showLyrics: showLyrics ?? this.showLyrics,
       tabletMode: tabletMode ?? this.tabletMode,
@@ -80,8 +80,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
     return SettingsState(
       notificationsEnabled: s.notificationsEnabled,
       downloadQualityHigh: s.downloadQualityHigh,
-      themeMode: s.themeMode,
-      themeColor: s.themeColor,
+      appearance: s.appearance,
+      theme: s.theme,
       autoPlayNext: s.autoPlayNext,
       showLyrics: s.showLyrics,
       tabletMode: s.tabletMode,
@@ -99,8 +99,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
     state = SettingsState(
       notificationsEnabled: s.notificationsEnabled,
       downloadQualityHigh: s.downloadQualityHigh,
-      themeMode: s.themeMode,
-      themeColor: s.themeColor,
+      appearance: s.appearance,
+      theme: s.theme,
       autoPlayNext: s.autoPlayNext,
       showLyrics: s.showLyrics,
       tabletMode: s.tabletMode,
@@ -123,16 +123,16 @@ class SettingsNotifier extends Notifier<SettingsState> {
     await _save('download_quality_high', value);
   }
 
-  Future<void> setThemeMode(String? value) async {
+  Future<void> setAppearance(String? value) async {
     if (value == null) return;
-    state = state.copyWith(themeMode: value);
-    await _save('theme_mode', value);
+    state = state.copyWith(appearance: value);
+    await _save('appearance', value);
   }
 
-  Future<void> setThemeColor(String? value) async {
+  Future<void> setTheme(String? value) async {
     if (value == null) return;
-    state = state.copyWith(themeColor: value);
-    await _save('theme_color', value);
+    state = state.copyWith(theme: value);
+    await _save('theme', value);
   }
 
   Future<void> setAutoPlayNext(bool value) async {

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/core/app_providers.dart';
 import 'package:bilimusic/providers/settings_provider.dart';
+import 'package:bilimusic/theme/app_tokens.dart';
+import 'package:bilimusic/theme/theme_registry.dart';
 import 'package:bilimusic/utils/platform_helper.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -114,8 +116,45 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               onChanged: notifier.setDownloadQualityHigh,
             ),
 
-            // 界面设置
-            _buildSectionTitle('界面'),
+            // 外观设置
+            _buildSectionTitle('外观'),
+            ListTile(
+              leading: Icon(
+                Icons.settings_brightness,
+                color: _getPrimaryColor(context),
+              ),
+              title: Text('外观'),
+              subtitle: Text(
+                ref
+                    .read(settingsManagerProvider)
+                    .getAppearanceText(settings.appearance),
+              ),
+              trailing: DropdownButton<String>(
+                value: settings.appearance,
+                items: [
+                  DropdownMenuItem(value: 'system', child: Text('跟随系统')),
+                  DropdownMenuItem(value: 'light', child: Text('浅色')),
+                  DropdownMenuItem(value: 'dark', child: Text('深色')),
+                ],
+                onChanged: notifier.setAppearance,
+              ),
+            ),
+            ListTile(
+              leading: Icon(Icons.palette, color: _getPrimaryColor(context)),
+              title: Text('主题'),
+              subtitle: Text(ThemeRegistry.resolve(settings.theme).label),
+              trailing: _PalettePreview(
+                lightAccent: ThemeRegistry.resolve(settings.theme)
+                    .paletteAccent(Brightness.light),
+                lightSurface: ThemeRegistry.resolve(settings.theme)
+                    .paletteSurface(Brightness.light),
+                darkAccent: ThemeRegistry.resolve(settings.theme)
+                    .paletteAccent(Brightness.dark),
+                darkSurface: ThemeRegistry.resolve(settings.theme)
+                    .paletteSurface(Brightness.dark),
+              ),
+              onTap: () => _showThemePickerDialog(context, settings, notifier),
+            ),
             _buildSwitchListTile(
               icon: Icons.auto_awesome,
               title: '流体背景效果',
@@ -173,44 +212,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
             ),
 
-            // 主题设置
-            _buildSectionTitle('主题'),
-            ListTile(
-              leading: Icon(
-                Icons.settings_brightness,
-                color: _getPrimaryColor(context),
-              ),
-              title: Text('主题模式'),
-              subtitle: Text(
-                ref
-                    .read(settingsManagerProvider)
-                    .getThemeModeText(settings.themeMode),
-              ),
-              trailing: DropdownButton<String>(
-                value: settings.themeMode,
-                items: [
-                  DropdownMenuItem(value: 'system', child: Text('跟随系统')),
-                  DropdownMenuItem(value: 'light', child: Text('浅色')),
-                  DropdownMenuItem(value: 'dark', child: Text('深色')),
-                ],
-                onChanged: notifier.setThemeMode,
-              ),
-            ),
-            ListTile(
-              leading: Icon(Icons.palette, color: _getPrimaryColor(context)),
-              title: Text('主题配色'),
-              subtitle: Text('设置全局配色方案'),
-              trailing: DropdownButton<String>(
-                value: settings.themeColor,
-                items: [
-                  DropdownMenuItem(value: 'lucent', child: Text('Lucent (推荐)')),
-                ],
-                onChanged: notifier.setThemeColor,
-              ),
-            ),
-
             // 数据管理
-            _buildSectionTitle('数据管理'),
+            _buildSectionTitle('数据'),
             ListTile(
               leading: Icon(Icons.storage, color: _getPrimaryColor(context)),
               title: Text('数据管理'),
@@ -356,5 +359,171 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   void _showCookies() {
     ShellPageManager.instance.push(ShellPage.cookie);
+  }
+
+  void _showThemePickerDialog(
+    BuildContext context,
+    SettingsState settings,
+    SettingsNotifier notifier,
+  ) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return Dialog(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.palette,
+                          color: _getPrimaryColor(context),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '选择主题',
+                          style: Theme.of(ctx).textTheme.titleMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: ThemeRegistry.all.length,
+                      itemBuilder: (_, i) {
+                        final descriptor = ThemeRegistry.all[i];
+                        final selected = descriptor.id == settings.theme;
+                        return _ThemeOptionTile(
+                          descriptor: descriptor,
+                          selected: selected,
+                          onTap: () {
+                            notifier.setTheme(descriptor.id);
+                            Navigator.pop(ctx);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// 主题选择项
+class _ThemeOptionTile extends StatelessWidget {
+  final AppThemeDescriptor descriptor;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ThemeOptionTile({
+    required this.descriptor,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return ListTile(
+      leading: _PalettePreview(
+        lightAccent: descriptor.paletteAccent(Brightness.light),
+        lightSurface: descriptor.paletteSurface(Brightness.light),
+        darkAccent: descriptor.paletteAccent(Brightness.dark),
+        darkSurface: descriptor.paletteSurface(Brightness.dark),
+      ),
+      title: Text(
+        descriptor.label,
+        style: TextStyle(
+          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+        ),
+      ),
+      subtitle: descriptor.subtitle == null
+          ? null
+          : Text(
+              descriptor.subtitle!,
+              style: TextStyle(
+                fontSize: 12,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+      trailing: selected
+          ? Icon(Icons.check_circle, color: colorScheme.primary)
+          : null,
+      onTap: onTap,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+      ),
+    );
+  }
+}
+
+/// 双色板预览（左侧浅色 / 右侧暗色）
+class _PalettePreview extends StatelessWidget {
+  final Color lightAccent;
+  final Color lightSurface;
+  final Color darkAccent;
+  final Color darkSurface;
+
+  const _PalettePreview({
+    required this.lightAccent,
+    required this.lightSurface,
+    required this.darkAccent,
+    required this.darkSurface,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 44,
+      height: 28,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+        child: Row(
+          children: [
+            Expanded(
+              child: Container(
+                color: lightSurface,
+                alignment: Alignment.center,
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: lightAccent,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Container(
+                color: darkSurface,
+                alignment: Alignment.center,
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: darkAccent,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

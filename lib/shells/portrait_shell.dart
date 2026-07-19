@@ -1,4 +1,3 @@
-import 'package:bilimusic/theme/lucent_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/models/music.dart';
@@ -284,12 +283,7 @@ class PortraitShell extends ConsumerWidget {
   /// 背景模糊效果
   Widget _buildBackground(BuildContext context, WidgetRef ref) {
     if (ref.watch(settingsProvider).fluidBackground == false) {
-      final isDark = Theme.of(context).brightness;
-      return Container(
-        color: isDark == Brightness.dark
-            ? LucentTokens.darkSurfaceBase
-            : LucentTokens.lightSurfaceBase,
-      );
+      return Container(color: Theme.of(context).colorScheme.surface);
     }
     final currentMusic = ref.watch(currentMusicProvider);
     return AnimatedSwitcher(

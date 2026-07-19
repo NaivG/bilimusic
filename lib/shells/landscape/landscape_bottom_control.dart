@@ -8,7 +8,8 @@ import 'package:bilimusic/models/player_state.dart';
 import 'package:bilimusic/providers/playback_providers.dart';
 import 'package:bilimusic/providers/playlist_providers.dart';
 import 'package:bilimusic/providers/settings_provider.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/theme/app_palette.dart';
+import 'package:bilimusic/theme/app_tokens.dart';
 import 'package:bilimusic/utils/animations.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/utils/platform_helper.dart';
@@ -32,21 +33,19 @@ class LandscapeBottomControl extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final brightness = View.of(context).platformDispatcher.platformBrightness;
-    final isDark = brightness == Brightness.dark;
+    final palette = context.appPalette;
+    final colorScheme = Theme.of(context).colorScheme;
     final blurEnabled = ref.watch(settingsProvider).blurEffect;
 
-    // Lucent design tokens
-    final glassColor = isDark
-        ? LucentTokens.darkSurfaceOverlay
-        : LucentTokens.lightSurfaceOverlay;
-    final textPrimary = LucentTokens.textPrimary(brightness);
-    final textSecondary = LucentTokens.textSecondary(brightness);
-    final iconColor = LucentTokens.textSecondary(brightness);
-    final accentColor = LucentTokens.accentPrimary;
-    final borderColor = LucentTokens.borderSubtle(brightness);
-    final seekBarColor = LucentTokens.seekBarActive(brightness);
-    final volumeBarColor = LucentTokens.volumeBarActive(brightness);
+    // Theme-aware tokens
+    final glassColor = palette.surfaceOverlay;
+    final textPrimary = colorScheme.onSurface;
+    final textSecondary = colorScheme.onSurfaceVariant;
+    final iconColor = colorScheme.onSurfaceVariant;
+    final accentColor = colorScheme.primary;
+    final borderColor = colorScheme.outline;
+    final seekBarColor = palette.seekBarActive;
+    final volumeBarColor = palette.volumeBarActive;
 
     final currentMusic = ref.watch(currentMusicProvider);
     final playMode = ref.watch(playModeProvider);
@@ -62,8 +61,8 @@ class LandscapeBottomControl extends ConsumerWidget {
       child: ClipRRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(
-            sigmaX: blurEnabled ? LucentTokens.glassBlurSigma : 0,
-            sigmaY: blurEnabled ? LucentTokens.glassBlurSigma : 0,
+            sigmaX: blurEnabled ? AppTokens.glassBlurSigma : 0,
+            sigmaY: blurEnabled ? AppTokens.glassBlurSigma : 0,
           ),
           child: Container(
             color: glassColor,
@@ -77,6 +76,7 @@ class LandscapeBottomControl extends ConsumerWidget {
                     Expanded(
                       flex: 3,
                       child: _buildSongTile(
+                        context,
                         textPrimary,
                         textSecondary,
                         currentMusic,
@@ -120,6 +120,7 @@ class LandscapeBottomControl extends ConsumerWidget {
   // ==================== Left Section ====================
 
   Widget _buildSongTile(
+    BuildContext context,
     Color textPrimary,
     Color textSecondary,
     Music? music,
@@ -134,7 +135,7 @@ class LandscapeBottomControl extends ConsumerWidget {
         children: [
           LandscapeCoverArt(
             size: 48,
-            borderRadius: LucentTokens.radiusSm,
+            borderRadius: AppTokens.radiusSm,
             song: music,
           ),
           const SizedBox(width: 12),
@@ -156,9 +157,9 @@ class LandscapeBottomControl extends ConsumerWidget {
                 const SizedBox(height: 2),
                 music?.artist != null
                     ? AnimatedSwitcher(
-                        duration: LucentTokens.standardDuration,
+                        duration: AppTokens.standardDuration,
                         child: fading
-                            ? _buildCrossfadeIndicator()
+                            ? _buildCrossfadeIndicator(context)
                             : Text(
                                 music?.artist ?? 'Unknown Artist',
                                 key: const ValueKey('artist'),
@@ -179,7 +180,8 @@ class LandscapeBottomControl extends ConsumerWidget {
     );
   }
 
-  Widget _buildCrossfadeIndicator() {
+  Widget _buildCrossfadeIndicator(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
     return Row(
       key: const ValueKey('transition'),
       mainAxisSize: MainAxisSize.min,
@@ -190,7 +192,7 @@ class LandscapeBottomControl extends ConsumerWidget {
           child: CircularProgressIndicator(
             strokeWidth: 1.5,
             valueColor: AlwaysStoppedAnimation<Color>(
-              LucentTokens.accentPrimary.withValues(alpha: 0.8),
+              accent.withValues(alpha: 0.8),
             ),
           ),
         ),
@@ -198,7 +200,7 @@ class LandscapeBottomControl extends ConsumerWidget {
         Text(
           '过渡中',
           style: TextStyle(
-            color: LucentTokens.accentPrimary.withValues(alpha: 0.8),
+            color: accent.withValues(alpha: 0.8),
             fontSize: 12,
           ),
         ),
@@ -308,9 +310,9 @@ class LandscapeBottomControl extends ConsumerWidget {
                 }
               },
               icon: AnimatedSwitcher(
-                duration: LucentTokens.standardDuration,
-                switchInCurve: LucentTokens.standardEasing,
-                switchOutCurve: LucentTokens.standardEasing,
+                duration: AppTokens.standardDuration,
+                switchInCurve: AppTokens.standardEasing,
+                switchOutCurve: AppTokens.standardEasing,
                 child: Icon(
                   isPlaying ? Icons.pause : Icons.play_arrow,
                   key: ValueKey(isPlaying),

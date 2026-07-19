@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/theme/app_tokens.dart';
 
 /// 背景模糊组件 - 从封面图片生成模糊背景效果
 class BackgroundBlurWidget extends StatelessWidget {
@@ -11,8 +11,7 @@ class BackgroundBlurWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final backgroundColor = LucentTokens.surfaceBase(brightness);
+    final backgroundColor = Theme.of(context).colorScheme.surface;
 
     if (coverUrl == null || coverUrl!.isEmpty) {
       return TweenAnimationBuilder<Color?>(
@@ -37,8 +36,8 @@ class BackgroundBlurWidget extends StatelessWidget {
             ),
             BackdropFilter(
               filter: ImageFilter.blur(
-                sigmaX: LucentTokens.heavyGlassBlurSigma,
-                sigmaY: LucentTokens.heavyGlassBlurSigma,
+                sigmaX: AppTokens.heavyGlassBlurSigma,
+                sigmaY: AppTokens.heavyGlassBlurSigma,
               ),
               child: Container(color: color?.withValues(alpha: 0.6)),
             ),

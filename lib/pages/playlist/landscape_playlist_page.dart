@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/playlist.dart';
 import 'package:bilimusic/providers/playlist_providers.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
 import 'package:bilimusic/pages/playlist/widgets/playlist_hero.dart';
 import 'package:bilimusic/pages/playlist/widgets/playlist_song_list.dart';
 
@@ -36,7 +35,7 @@ class LandscapePlaylistPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final brightness = Theme.of(context).brightness;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -73,7 +72,7 @@ class LandscapePlaylistPage extends ConsumerWidget {
                     child: Divider(
                       height: 1,
                       thickness: 1,
-                      color: LucentTokens.borderSubtle(brightness),
+                      color: colorScheme.outline,
                       indent: 24,
                       endIndent: 24,
                     ),

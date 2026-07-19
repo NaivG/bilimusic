@@ -2,7 +2,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/components/landscape/apple_cover.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/theme/app_palette.dart';
+import 'package:bilimusic/theme/app_tokens.dart';
 
 /// 横屏左侧封面区域组件
 /// 包含封面展示和功能按钮（收藏、分享）
@@ -58,21 +59,21 @@ class LandscapeAlbumSection extends StatelessWidget {
   Widget _buildActionButtons(BuildContext context) {
     final buttonSize = 44.0;
     final iconSize = 24.0;
-    final brightness = Theme.of(context).brightness;
+    final palette = context.appPalette;
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(LucentTokens.radiusLg),
+      borderRadius: BorderRadius.circular(AppTokens.radiusLg),
       child: BackdropFilter(
         filter: ImageFilter.blur(
-          sigmaX: LucentTokens.glassBlurSigma,
-          sigmaY: LucentTokens.glassBlurSigma,
+          sigmaX: AppTokens.glassBlurSigma,
+          sigmaY: AppTokens.glassBlurSigma,
         ),
         child: Container(
           height: 50,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
-            color: LucentTokens.surfaceOverlay(brightness),
-            borderRadius: BorderRadius.circular(LucentTokens.radiusLg),
+            color: palette.surfaceOverlay,
+            borderRadius: BorderRadius.circular(AppTokens.radiusLg),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,

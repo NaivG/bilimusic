@@ -21,7 +21,7 @@ import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:bilimusic/utils/update_checker.dart';
 import 'package:bilimusic/components/dialogs/update_dialog.dart';
 import 'package:bilimusic/shells/app_shell.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/theme/theme_registry.dart';
 import 'package:bilimusic/providers/settings_provider.dart';
 
 Future<void> _setupMainWindow() async {
@@ -169,8 +169,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     // 例如，在暂停时释放一些资源
   }
 
-  // 根据设置获取主题模式
-  ThemeMode _getThemeMode(String mode) {
+  // 根据设置解析 ThemeMode
+  ThemeMode _parseAppearance(String mode) {
     switch (mode) {
       case 'light':
         return ThemeMode.light;
@@ -184,13 +184,15 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final settings = ref.watch(settingsProvider);
+    final descriptor = ThemeRegistry.resolve(settings.theme);
     return MaterialApp(
       navigatorKey: _navigatorKey,
       title: 'BiliMusic',
       debugShowCheckedModeBanner: false,
-      theme: LucentTheme.lightTheme(),
-      darkTheme: LucentTheme.darkTheme(),
-      themeMode: _getThemeMode(ref.watch(settingsProvider).themeMode),
+      theme: descriptor.light(),
+      darkTheme: descriptor.dark(),
+      themeMode: _parseAppearance(settings.appearance),
       home: const AppShell(),
     );
   }

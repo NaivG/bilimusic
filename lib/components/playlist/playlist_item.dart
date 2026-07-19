@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/theme/app_palette.dart';
+import 'package:bilimusic/theme/app_tokens.dart';
 
 /// 播放列表中的歌曲项组件
 class PlaylistItem extends StatefulWidget {
@@ -34,19 +35,21 @@ class _PlaylistItemState extends State<PlaylistItem> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final palette = context.appPalette;
     final brightness = theme.brightness;
+    final primary = theme.colorScheme.primary;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
-        duration: LucentTokens.standardDuration,
+        duration: AppTokens.standardDuration,
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
           color: _isHovered || widget.isPlaying
-              ? LucentTokens.surfaceHover(brightness)
+              ? palette.surfaceHover
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(LucentTokens.radiusSm),
+          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
         ),
         child: Material(
           color: Colors.transparent,
@@ -100,9 +103,7 @@ class _PlaylistItemState extends State<PlaylistItem> {
                         Row(
                           children: [
                             if (widget.isPlaying) ...[
-                              _PlayingIndicator(
-                                color: theme.colorScheme.primary,
-                              ),
+                              _PlayingIndicator(color: primary),
                               const SizedBox(width: 6),
                             ],
                             Expanded(
@@ -114,8 +115,8 @@ class _PlaylistItemState extends State<PlaylistItem> {
                                       ? FontWeight.w600
                                       : FontWeight.w500,
                                   color: widget.isPlaying || _isHovered
-                                      ? LucentTokens.accentPrimary
-                                      : LucentTokens.textPrimary(brightness),
+                                      ? primary
+                                      : theme.colorScheme.onSurface,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -129,10 +130,8 @@ class _PlaylistItemState extends State<PlaylistItem> {
                           style: TextStyle(
                             fontSize: 12,
                             color: widget.isPlaying || _isHovered
-                                ? LucentTokens.accentPrimary.withValues(
-                                    alpha: 0.7,
-                                  )
-                                : LucentTokens.textSecondary(brightness),
+                                ? primary.withValues(alpha: 0.7)
+                                : theme.colorScheme.onSurfaceVariant,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

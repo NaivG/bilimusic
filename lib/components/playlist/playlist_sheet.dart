@@ -5,7 +5,8 @@ import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/providers/playlist_providers.dart';
 import 'package:bilimusic/providers/playback_providers.dart';
 import 'package:bilimusic/components/playlist/playlist_item.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/theme/app_palette.dart';
+import 'package:bilimusic/theme/app_tokens.dart';
 
 /// 播放列表弹出组件
 /// 支持可调整高度的底部弹窗、拖拽排序和流畅动画
@@ -107,22 +108,21 @@ class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
           snap: true,
           snapSizes: const [0.25, 0.5, 0.75, 0.9],
           builder: (context, scrollController) {
-            final sheetTheme = Theme.of(context);
-            final sheetBrightness = sheetTheme.brightness;
+            final palette = context.appPalette;
             return ClipRRect(
               borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(LucentTokens.radiusLg),
+                top: Radius.circular(AppTokens.radiusLg),
               ),
               child: BackdropFilter(
                 filter: ImageFilter.blur(
-                  sigmaX: LucentTokens.glassBlurSigma,
-                  sigmaY: LucentTokens.glassBlurSigma,
+                  sigmaX: AppTokens.glassBlurSigma,
+                  sigmaY: AppTokens.glassBlurSigma,
                 ),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: LucentTokens.surfaceOverlay(sheetBrightness),
+                    color: palette.surfaceOverlay,
                     borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(LucentTokens.radiusLg),
+                      top: Radius.circular(AppTokens.radiusLg),
                     ),
                   ),
                   child: Column(

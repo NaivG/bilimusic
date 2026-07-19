@@ -7,7 +7,8 @@ import 'package:bilimusic/components/long_press_menu.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 import 'package:bilimusic/managers/cache_manager.dart';
 import 'package:bilimusic/utils/network_config.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/theme/app_palette.dart';
+import 'package:bilimusic/theme/app_tokens.dart';
 
 /// 通用音乐列表项组件
 /// 悬停/选中时背景和圆角边框从透明渐变至半透明(alpha: 0 -> 0.2)
@@ -53,20 +54,18 @@ class _CommonMusicListTileState extends State<CommonMusicListTile> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final brightness = theme.brightness;
+    final palette = context.appPalette;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
-        duration: LucentTokens.standardDuration,
+        duration: AppTokens.standardDuration,
         curve: Curves.easeOutCubic,
         height: 64,
         decoration: BoxDecoration(
-          color: _isHovered
-              ? LucentTokens.surfaceHover(brightness)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(LucentTokens.radiusSm),
+          color: _isHovered ? palette.surfaceHover : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
         ),
         child: ContextMenuWidget(
           menuProvider: (_) => buildMusicContextMenu(

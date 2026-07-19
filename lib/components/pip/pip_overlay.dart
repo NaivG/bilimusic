@@ -9,7 +9,8 @@ import 'package:bilimusic/models/player_state.dart';
 import 'package:bilimusic/providers/playback_providers.dart';
 import 'package:bilimusic/providers/playlist_providers.dart';
 import 'package:bilimusic/services/pip_service.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/theme/app_palette.dart';
+import 'package:bilimusic/theme/app_tokens.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -32,7 +33,6 @@ class PipOverlay extends ConsumerWidget {
     final currentMusic = ref.watch(currentMusicProvider);
     final playerState = ref.watch(playerStateProvider);
     final position = ref.watch(positionProvider);
-    final brightness = View.of(context).platformDispatcher.platformBrightness;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -40,7 +40,7 @@ class PipOverlay extends ConsumerWidget {
         borderRadius: BorderRadius.circular(12),
         child: Stack(
           children: [
-            _buildBackground(brightness),
+            _buildBackground(context),
             Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
@@ -52,11 +52,11 @@ class PipOverlay extends ConsumerWidget {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  _buildTopRow(context, brightness, currentMusic, playerState),
+                  _buildTopRow(context, currentMusic, playerState),
                   const SizedBox(height: 8),
-                  _buildTransportRow(brightness, playerState, ref),
+                  _buildTransportRow(context, playerState, ref),
                   const SizedBox(height: 6),
-                  _buildProgressBar(brightness, position, currentMusic),
+                  _buildProgressBar(context, position, currentMusic),
                 ],
               ),
             ),
@@ -66,44 +66,38 @@ class PipOverlay extends ConsumerWidget {
     );
   }
 
-  Widget _buildBackground(Brightness brightness) {
-    final baseColor = brightness == Brightness.dark
-        ? LucentTokens.darkSurfaceOverlay
-        : LucentTokens.lightSurfaceOverlay;
-
+  Widget _buildBackground(BuildContext context) {
+    final palette = context.appPalette;
     return BackdropFilter(
       filter: ImageFilter.blur(
-        sigmaX: LucentTokens.overlayBlurSigma,
-        sigmaY: LucentTokens.overlayBlurSigma,
+        sigmaX: AppTokens.overlayBlurSigma,
+        sigmaY: AppTokens.overlayBlurSigma,
       ),
-      child: Container(color: baseColor),
+      child: Container(color: palette.surfaceOverlay),
     );
   }
 
   Widget _buildTopRow(
     BuildContext context,
-    Brightness brightness,
     Music? currentMusic,
     PlayerState playerState,
   ) {
-    final textPrimary = brightness == Brightness.dark
-        ? LucentTokens.darkTextPrimary
-        : LucentTokens.lightTextPrimary;
-    final textSecondary = brightness == Brightness.dark
-        ? LucentTokens.darkTextSecondary
-        : LucentTokens.lightTextSecondary;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textPrimary = colorScheme.onSurface;
+    final textSecondary = colorScheme.onSurfaceVariant;
 
     return SizedBox(
       height: 52,
       child: Row(
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(LucentTokens.radiusMd),
+            borderRadius: BorderRadius.circular(AppTokens.radiusMd),
             child: _buildCover(context, currentMusic),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: _buildSongInfo(
+              context,
               textPrimary,
               textSecondary,
               currentMusic,
@@ -139,6 +133,7 @@ class PipOverlay extends ConsumerWidget {
   }
 
   Widget _buildSongInfo(
+    BuildContext context,
     Color textPrimary,
     Color textSecondary,
     Music? music,
@@ -165,7 +160,7 @@ class PipOverlay extends ConsumerWidget {
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
             child: fading
-                ? _buildTransitionText()
+                ? _buildTransitionText(context)
                 : Text(
                     music.artist,
                     key: const ValueKey('artist'),
@@ -180,14 +175,13 @@ class PipOverlay extends ConsumerWidget {
   }
 
   Widget _buildTransportRow(
-    Brightness brightness,
+    BuildContext context,
     PlayerState playerState,
     WidgetRef ref,
   ) {
-    final accentColor = LucentTokens.accentPrimary;
-    final textSecondary = brightness == Brightness.dark
-        ? LucentTokens.darkTextSecondary
-        : LucentTokens.lightTextSecondary;
+    final colorScheme = Theme.of(context).colorScheme;
+    final accentColor = colorScheme.primary;
+    final textSecondary = colorScheme.onSurfaceVariant;
     final isPlaying = playerState is PlayerPlaying;
     final hasMusic = ref.read(playerCoordinatorProvider).currentMusic != null;
     final commands = ref.read(playbackCommandsProvider.notifier);
@@ -221,14 +215,13 @@ class PipOverlay extends ConsumerWidget {
   }
 
   Widget _buildProgressBar(
-    Brightness brightness,
+    BuildContext context,
     Duration position,
     Music? music,
   ) {
-    final progressColor = brightness == Brightness.dark
-        ? LucentTokens.darkSurfaceHover
-        : LucentTokens.lightSurfaceHover;
-    final accentColor = LucentTokens.accentPrimary;
+    final palette = context.appPalette;
+    final accentColor = Theme.of(context).colorScheme.primary;
+    final progressColor = palette.surfaceHover;
     final duration = music?.duration ?? Duration.zero;
     final p = duration.inMilliseconds == 0
         ? 0.0
@@ -245,8 +238,8 @@ class PipOverlay extends ConsumerWidget {
                 Container(width: constraints.maxWidth, color: progressColor),
                 TweenAnimationBuilder<double>(
                   tween: Tween(begin: 0, end: p),
-                  duration: LucentTokens.standardDuration,
-                  curve: LucentTokens.standardEasing,
+                  duration: AppTokens.standardDuration,
+                  curve: AppTokens.standardEasing,
                   builder: (context, value, child) {
                     return Container(
                       width: constraints.maxWidth * value,
@@ -263,13 +256,10 @@ class PipOverlay extends ConsumerWidget {
   }
 
   Widget _buildCoverPlaceholder(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textTertiary = isDark
-        ? LucentTokens.darkTextTertiary
-        : LucentTokens.lightTextTertiary;
-    final surfaceHover = isDark
-        ? LucentTokens.darkSurfaceHover
-        : LucentTokens.lightSurfaceHover;
+    final palette = context.appPalette;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTertiary = colorScheme.onSurfaceVariant;
+    final surfaceHover = palette.surfaceHover;
 
     return Container(
       width: 52,
@@ -279,8 +269,9 @@ class PipOverlay extends ConsumerWidget {
     );
   }
 
-  Widget _buildTransitionText() {
-    final transitionColor = LucentTokens.accentPrimary.withValues(alpha: 0.8);
+  Widget _buildTransitionText(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    final transitionColor = accent.withValues(alpha: 0.8);
 
     return Row(
       key: const ValueKey('transition'),

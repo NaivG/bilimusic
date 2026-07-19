@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/theme/app_palette.dart';
+import 'package:bilimusic/theme/app_tokens.dart';
 import 'package:bilimusic/managers/cache_manager.dart';
 import 'package:bilimusic/utils/network_config.dart';
 
@@ -31,55 +32,50 @@ class PlaylistHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final brightness = theme.brightness;
-
-    return _buildHeroContent(context, brightness);
-  }
-
-  Widget _buildHeroContent(BuildContext context, Brightness brightness) {
     return isLandscape
-        ? _buildLandscapeLayout(context, brightness)
-        : _buildPortraitLayout(context, brightness);
+        ? _buildLandscapeLayout(context)
+        : _buildPortraitLayout(context);
   }
 
-  Widget _buildLandscapeLayout(BuildContext context, Brightness brightness) {
+  Widget _buildLandscapeLayout(BuildContext context) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildCover(context, brightness, 180),
+          _buildCover(context, 180),
           const SizedBox(width: 32),
-          Expanded(child: _buildInfoAndActions(context, brightness)),
+          Expanded(child: _buildInfoAndActions(context)),
         ],
       ),
     );
   }
 
-  Widget _buildPortraitLayout(BuildContext context, Brightness brightness) {
+  Widget _buildPortraitLayout(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const SizedBox(height: 24),
-          _buildCover(context, brightness, 220),
+          _buildCover(context, 220),
           const SizedBox(height: 24),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: _buildInfoAndActions(context, brightness),
+            child: _buildInfoAndActions(context),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCover(BuildContext context, Brightness brightness, double size) {
+  Widget _buildCover(BuildContext context, double size) {
     final coverUrl = playlist.safeCoverUrl;
     final systemIcon = playlist.systemPlaylistIcon;
     final systemIconColor = playlist.systemPlaylistIconColor;
     final songCount = songs.length;
+    final palette = context.appPalette;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Hero(
       tag: 'playlist_cover_${playlist.id}',
@@ -87,7 +83,7 @@ class PlaylistHero extends StatelessWidget {
         width: size,
         height: size,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(LucentTokens.radiusMd),
+          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.15),
@@ -97,7 +93,7 @@ class PlaylistHero extends StatelessWidget {
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(LucentTokens.radiusMd),
+          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -105,14 +101,13 @@ class PlaylistHero extends StatelessWidget {
                 Container(
                   color:
                       systemIconColor?.withValues(alpha: 0.15) ??
-                      LucentTokens.surfaceHover(brightness),
+                      palette.surfaceHover,
                   child: Center(
                     child: Icon(
                       systemIcon,
                       size: size * 0.4,
                       color:
-                          systemIconColor ??
-                          LucentTokens.textSecondary(brightness),
+                          systemIconColor ?? colorScheme.onSurfaceVariant,
                     ),
                   ),
                 )
@@ -121,20 +116,20 @@ class PlaylistHero extends StatelessWidget {
                   imageUrl: coverUrl,
                   httpHeaders: NetworkConfig.biliHeaders,
                   placeholder: (_, _) => Container(
-                    color: LucentTokens.surfaceHover(brightness),
+                    color: palette.surfaceHover,
                     child: Center(
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: LucentTokens.textTertiary(brightness),
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
                   errorWidget: (_, _, _) => Container(
-                    color: LucentTokens.surfaceHover(brightness),
+                    color: palette.surfaceHover,
                     child: Icon(
                       Icons.music_note,
                       size: size * 0.3,
-                      color: LucentTokens.textTertiary(brightness),
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                   fit: BoxFit.cover,
@@ -142,11 +137,11 @@ class PlaylistHero extends StatelessWidget {
                 )
               else
                 Container(
-                  color: LucentTokens.surfaceHover(brightness),
+                  color: palette.surfaceHover,
                   child: Icon(
                     Icons.music_note,
                     size: size * 0.3,
-                    color: LucentTokens.textTertiary(brightness),
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
               // Song count badge
@@ -187,7 +182,7 @@ class PlaylistHero extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoAndActions(BuildContext context, Brightness brightness) {
+  Widget _buildInfoAndActions(BuildContext context) {
     final songCount = songs.length;
     final totalMinutes = songs.fold<int>(
       0,
@@ -195,6 +190,7 @@ class PlaylistHero extends StatelessWidget {
     );
     final minutes = totalMinutes ~/ 60;
     final seconds = totalMinutes % 60;
+    final colorScheme = Theme.of(context).colorScheme;
 
     // Compute total duration text
     String durationText;
@@ -214,7 +210,7 @@ class PlaylistHero extends StatelessWidget {
           '专辑',
           style: TextStyle(
             fontSize: 12,
-            color: LucentTokens.textTertiary(brightness),
+            color: colorScheme.onSurfaceVariant,
             letterSpacing: 0.5,
           ),
         ),
@@ -225,7 +221,7 @@ class PlaylistHero extends StatelessWidget {
           style: TextStyle(
             fontSize: isLandscape ? 24 : 22,
             fontWeight: FontWeight.bold,
-            color: LucentTokens.textPrimary(brightness),
+            color: colorScheme.onSurface,
           ),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
@@ -238,14 +234,14 @@ class PlaylistHero extends StatelessWidget {
             Icon(
               Icons.music_note,
               size: 14,
-              color: LucentTokens.textSecondary(brightness),
+              color: colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 4),
             Text(
               '${songCount > 0 ? songCount : playlist.songCount}首曲目',
               style: TextStyle(
                 fontSize: 13,
-                color: LucentTokens.textSecondary(brightness),
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
             if (durationText.isNotEmpty) ...[
@@ -255,7 +251,7 @@ class PlaylistHero extends StatelessWidget {
                   '·',
                   style: TextStyle(
                     fontSize: 13,
-                    color: LucentTokens.textSecondary(brightness),
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),
@@ -263,7 +259,7 @@ class PlaylistHero extends StatelessWidget {
                 durationText,
                 style: TextStyle(
                   fontSize: 13,
-                  color: LucentTokens.textSecondary(brightness),
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -276,7 +272,7 @@ class PlaylistHero extends StatelessWidget {
             songs.first.artist,
             style: TextStyle(
               fontSize: 13,
-              color: LucentTokens.textSecondary(brightness),
+              color: colorScheme.onSurfaceVariant,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -284,16 +280,18 @@ class PlaylistHero extends StatelessWidget {
         ],
         const SizedBox(height: 20),
         // Pill buttons
-        _buildPillButtons(context, brightness),
+        _buildPillButtons(context),
         const SizedBox(height: 12),
         // Action icons
-        _buildActionIcons(context, brightness),
+        _buildActionIcons(context),
       ],
     );
   }
 
-  Widget _buildPillButtons(BuildContext context, Brightness brightness) {
+  Widget _buildPillButtons(BuildContext context) {
     final hasSongs = songs.isNotEmpty;
+    final colorScheme = Theme.of(context).colorScheme;
+    final palette = context.appPalette;
 
     return Wrap(
       spacing: 10,
@@ -307,11 +305,11 @@ class PlaylistHero extends StatelessWidget {
             icon: const Icon(Icons.play_arrow, size: 18),
             label: const Text('播放', style: TextStyle(fontSize: 14)),
             style: ElevatedButton.styleFrom(
-              backgroundColor: LucentTokens.accentPrimary,
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: LucentTokens.surfaceHover(brightness),
-              disabledForegroundColor: LucentTokens.textTertiary(brightness),
-              shape: StadiumBorder(),
+              backgroundColor: colorScheme.primary,
+              foregroundColor: colorScheme.onPrimary,
+              disabledBackgroundColor: palette.surfaceHover,
+              disabledForegroundColor: colorScheme.onSurfaceVariant,
+              shape: const StadiumBorder(),
               padding: const EdgeInsets.symmetric(horizontal: 20),
               elevation: 0,
             ),
@@ -326,24 +324,24 @@ class PlaylistHero extends StatelessWidget {
               Icons.playlist_add,
               size: 18,
               color: hasSongs
-                  ? LucentTokens.accentPrimary
-                  : LucentTokens.textTertiary(brightness),
+                  ? colorScheme.primary
+                  : colorScheme.onSurfaceVariant,
             ),
             label: Text(
               '添加到播放列表',
               style: TextStyle(
                 fontSize: 14,
                 color: hasSongs
-                    ? LucentTokens.accentPrimary
-                    : LucentTokens.textTertiary(brightness),
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
               ),
             ),
             style: OutlinedButton.styleFrom(
-              shape: StadiumBorder(),
+              shape: const StadiumBorder(),
               side: BorderSide(
                 color: hasSongs
-                    ? LucentTokens.accentPrimary.withValues(alpha: 0.4)
-                    : LucentTokens.borderSubtle(brightness),
+                    ? colorScheme.primary.withValues(alpha: 0.4)
+                    : colorScheme.outline,
               ),
               padding: const EdgeInsets.symmetric(horizontal: 20),
             ),
@@ -353,7 +351,8 @@ class PlaylistHero extends StatelessWidget {
     );
   }
 
-  Widget _buildActionIcons(BuildContext context, Brightness brightness) {
+  Widget _buildActionIcons(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -363,8 +362,8 @@ class PlaylistHero extends StatelessWidget {
           icon: Icon(
             isFavorited ? Icons.favorite : Icons.favorite_border,
             color: isFavorited
-                ? LucentTokens.accentError
-                : LucentTokens.textSecondary(brightness),
+                ? colorScheme.error
+                : colorScheme.onSurfaceVariant,
             size: 22,
           ),
           tooltip: isFavorited ? '取消收藏' : '收藏',
@@ -379,7 +378,7 @@ class PlaylistHero extends StatelessWidget {
           onPressed: () {},
           icon: Icon(
             Icons.more_horiz,
-            color: LucentTokens.textSecondary(brightness),
+            color: colorScheme.onSurfaceVariant,
             size: 22,
           ),
           tooltip: '更多',

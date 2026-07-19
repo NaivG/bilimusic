@@ -8,7 +8,7 @@ import 'package:bilimusic/managers/recommendation_manager.dart';
 import 'package:bilimusic/components/common/cards/playlist_card.dart';
 import 'package:bilimusic/components/common/cards/music_list_item.dart';
 import 'package:bilimusic/utils/responsive.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/theme/app_palette.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
 import 'package:bilimusic/providers/playback_providers.dart';
 import 'package:bilimusic/providers/playlist_providers.dart';
@@ -243,8 +243,7 @@ class _HomeContentState extends ConsumerState<HomeContent> {
     ScreenSize screenSize,
   ) {
     final isDesktop = screenSize == ScreenSize.desktop;
-    final brightness = View.of(context).platformDispatcher.platformBrightness;
-    final selectedColor = LucentTokens.selectedItem(brightness);
+    final selectedColor = context.appPalette.selectedItem;
 
     return SliverPadding(
       padding: EdgeInsets.all(
@@ -307,8 +306,7 @@ class _HomeContentState extends ConsumerState<HomeContent> {
     final displayList = recommendedList.isNotEmpty
         ? recommendedList.take(12).toList()
         : _recommendationManager.guessYouLikeList.take(12).toList();
-    final brightness = View.of(context).platformDispatcher.platformBrightness;
-    final selectedColor = LucentTokens.selectedItem(brightness);
+    final selectedColor = context.appPalette.selectedItem;
 
     return SliverPadding(
       padding: EdgeInsets.all(
