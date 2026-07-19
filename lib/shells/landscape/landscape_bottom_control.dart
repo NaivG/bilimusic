@@ -100,7 +100,12 @@ class LandscapeBottomControl extends ConsumerWidget {
                     if (PlatformHelper.isDesktop)
                       Expanded(
                         flex: 3,
-                        child: _buildRightControls(iconColor, volumeBarColor),
+                        child: _buildRightControls(
+                          context,
+                          ref,
+                          iconColor,
+                          volumeBarColor,
+                        ),
                       ),
                   ],
                 ),
@@ -379,7 +384,16 @@ class LandscapeBottomControl extends ConsumerWidget {
 
   // ==================== Right Section ====================
 
-  Widget _buildRightControls(Color iconColor, Color volumeBarColor) {
+  Widget _buildRightControls(
+    BuildContext context,
+    WidgetRef ref,
+    Color iconColor,
+    Color volumeBarColor,
+  ) {
+    final volume = ref.watch(volumeProvider);
+    final commands = ref.read(playbackCommandsProvider.notifier);
+    final isMuted = volume == 0;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
@@ -397,7 +411,22 @@ class LandscapeBottomControl extends ConsumerWidget {
             splashRadius: 18,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 4),
+        ScaleOnHover(
+          hoverScale: 1.1,
+          child: IconButton(
+            onPressed: () => commands.toggleMute(),
+            icon: Icon(
+              isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+              size: 20,
+              color: iconColor.withValues(alpha: 0.7),
+            ),
+            splashRadius: 16,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+          ),
+        ),
+        const SizedBox(width: 4),
         SizedBox(
           height: 20,
           width: 120,

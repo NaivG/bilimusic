@@ -1,7 +1,10 @@
+﻿// ignore_for_file: constant_identifier_names
+
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart' as ja;
 import 'package:rxdart/rxdart.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bilimusic/models/play_mode.dart';
 import 'package:bilimusic/models/player_state.dart';
 
@@ -51,6 +54,14 @@ class DualAudioService {
   final double _standbyVolume = 0.3; // 待命播放器的初始音量，避免进入mute状态
   final int _audioTrackStartupDelay = 100; // 音频轨道启动的额外延迟，确保音量调整生效
 
+  // 音量：相对音量模型
+  // 实际输出 = _numericalValue（用户设定，持久化） × _relativeVolume（fade 内部比率 0..1）
+  static const String KEY_VOLUME = 'player_volume';
+  static const double DEFAULT_VOLUME = 1.0;
+  final ValueNotifier<double> _numericalValue = ValueNotifier(DEFAULT_VOLUME);
+  final ValueNotifier<double> _relativeVolume = ValueNotifier(1.0);
+  double _previousNonZeroValue = DEFAULT_VOLUME;
+
   // 订阅管理
   final List<StreamSubscription> _subscriptions = [];
 
@@ -75,7 +86,25 @@ class DualAudioService {
     _setupPlayerListeners(_playerA);
     _setupPlayerListeners(_playerB);
 
+    // 异步加载持久化音量（不影响初始化流程）
+    _loadPersistedVolume();
+
     debugPrint('[DualAudioService] 双播放器初始化完成');
+  }
+
+  /// 从 SharedPreferences 恢复音量，并应用到两个播放器
+  Future<void> _loadPersistedVolume() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final v = (prefs.getDouble(KEY_VOLUME) ?? DEFAULT_VOLUME).clamp(0.0, 1.0);
+      _numericalValue.value = v;
+      if (v > 0) _previousNonZeroValue = v;
+      await _activePlayer.player.setVolume(v);
+      await _standbyPlayer.player.setVolume(v);
+      debugPrint('[DualAudioService] 恢复音量 $v');
+    } catch (e) {
+      debugPrint('[DualAudioService] 恢复音量失败 $e');
+    }
   }
 
   /// 获取活跃播放器引用
@@ -251,9 +280,42 @@ class DualAudioService {
   /// 检查待命播放器是否就绪
   bool get isStandbyReady => _standbyPlayer.isReady;
 
+  /// 用户音量（供 UI 订阅）
+  ValueListenable<double> get volume => _numericalValue;
+
+  /// 当前实际输出音量 = 用户值 × 相对比率
+  double get effectiveVolume => _numericalValue.value * _relativeVolume.value;
+
   /// 写状态机：替代 setPreloading + 直接赋值 crossfadeState/_isCrossfading
   void setPlayerState(PlayerState state) {
     _playerState.value = state;
+  }
+
+  // ============ 音量控制 ============
+
+  /// 设置用户音量（持久化）。fade 进行中只更新用户值，fade 曲线自己走完。
+  Future<void> setVolume(double value) async {
+    final v = value.clamp(0.0, 1.0);
+    _numericalValue.value = v;
+    if (v > 0) _previousNonZeroValue = v;
+    final effective = v * _relativeVolume.value;
+    await _activePlayer.player.setVolume(effective);
+    await _standbyPlayer.player.setVolume(effective);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(KEY_VOLUME, v);
+    } catch (e) {
+      debugPrint('[DualAudioService] 保存音量失败 $e');
+    }
+  }
+
+  /// 静音 / 取消静音切换
+  Future<void> toggleMute() async {
+    if (_numericalValue.value > 0) {
+      await setVolume(0);
+    } else {
+      await setVolume(_previousNonZeroValue);
+    }
   }
 
   // ============ 播放控制方法 ============
@@ -265,8 +327,10 @@ class DualAudioService {
       _playerState.value = PlayerBuffering();
       await _activePlayer.player.setUrl(url);
       await _activePlayer.player.seek(Duration.zero);
-      await _activePlayer.player.setVolume(1.0);
-      _activePlayer.volume = 1.0;
+      _relativeVolume.value = 1.0;
+      final v = _numericalValue.value;
+      await _activePlayer.player.setVolume(v);
+      _activePlayer.volume = v;
       _activePlayer.currentUrl = url;
       _activePlayer.isReady = true;
       await _activePlayer.player.play();
@@ -337,10 +401,13 @@ class DualAudioService {
   }
 
   /// Step 1：准备待命播放器（音量 + seek + play）。
-  /// 音量故意给到 `_standbyVolume`（非 0），避免 AudioTrack 进入长时间 mute。
+  /// 音量故意给到 `_standbyVolume * _numericalValue`（非 0），避免 AudioTrack
+  /// 进入长时间 mute；乘上用户音量，确保不会超过用户设定的听感峰值。
   Future<void> _primeStandby() async {
-    await _standbyPlayer.player.setVolume(_standbyVolume);
-    _standbyPlayer.volume = _standbyVolume;
+    final primeVolume = _standbyVolume * _numericalValue.value;
+    await _standbyPlayer.player.setVolume(primeVolume);
+    _standbyPlayer.volume = primeVolume;
+    _relativeVolume.value = 0.0;
     await _standbyPlayer.player.seek(Duration.zero);
 
     // 我不知道just_audio和media_kit是怎么协调的
@@ -351,6 +418,7 @@ class DualAudioService {
   }
 
   /// Step 3：分 20 步同步调整 active/standby 音量，支持超时 + pause 中断。
+  /// 相对音量模型：实际音量 = _numericalValue（用户设定）× _relativeVolume（fade 比率）
   Future<void> _performFadeCurve(int durationMs) async {
     const steps = 20;
     final stepDuration = Duration(milliseconds: durationMs ~/ steps);
@@ -368,14 +436,16 @@ class DualAudioService {
 
     for (int i = 0; i <= steps; i++) {
       final progress = i / steps;
+      _relativeVolume.value = progress;
+      final userVolume = _numericalValue.value;
 
-      // Standby播放器淡出: 1.0 → 0.0（允许到0）
-      final standbyVolume = 1.0 - progress;
+      // Standby 播放器淡出: userVolume → 0
+      final standbyVolume = userVolume * (1 - progress);
       await _standbyPlayer.player.setVolume(standbyVolume);
       _standbyPlayer.volume = standbyVolume;
 
-      // Active 播放器淡入: 0.0 → 1.0（从0开始）
-      final activeVolume = progress;
+      // Active 播放器淡入: 0 → userVolume
+      final activeVolume = userVolume * progress;
       await _activePlayer.player.setVolume(activeVolume);
       _activePlayer.volume = activeVolume;
 
@@ -393,9 +463,11 @@ class DualAudioService {
 
   /// Step 4-6：fade 完成后把 active 音量拉满、停止旧 active、归位 standby。
   Future<void> _finalizeSwap() async {
-    // 把当前 active（原 standby）音量恢复满
-    await _activePlayer.player.setVolume(1.0);
-    _activePlayer.volume = 1.0;
+    // 重置相对比率为 1.0，active 拉回到用户音量
+    _relativeVolume.value = 1.0;
+    final v = _numericalValue.value;
+    await _activePlayer.player.setVolume(v);
+    _activePlayer.volume = v;
 
     // 确保新 active 仍在播放
     if (!_activePlayer.player.playing) {
@@ -427,14 +499,16 @@ class DualAudioService {
   /// 从Crossfade错误中恢复
   Future<void> _recoverFromCrossfadeError() async {
     debugPrint('[DualAudioService] 从Crossfade错误中恢复');
+    _relativeVolume.value = 1.0;
 
     // 确保至少有一个播放器在播放
     if (!_activePlayer.player.playing && _standbyPlayer.player.playing) {
       _swapPlayers();
-      await _activePlayer.player.setVolume(1.0);
+      await _activePlayer.player.setVolume(_numericalValue.value);
       await _standbyPlayer.player.stop();
     } else if (!_standbyPlayer.player.playing) {
       await stop();
+      return;
     }
 
     if (_playerState.value is PlayerPlaying) {
@@ -444,7 +518,7 @@ class DualAudioService {
     }
   }
 
-  /// 取消crossfade并准备播放新歌曲
+  /// 取消crossfade并准备播放新首歌
   /// 如果url为null，则只取消crossfade状态，不播放新歌曲
   Future<void> cancelAndPlay(String? url) async {
     // 清掉 fade 子态
@@ -453,9 +527,10 @@ class DualAudioService {
     }
 
     // 清空待命播放器
+    _relativeVolume.value = 1.0;
     await _standbyPlayer.player.stop();
     await _standbyPlayer.player.seek(Duration.zero);
-    await _standbyPlayer.player.setVolume(1.0); // 重置音量为1.0，避免下次启动时状态异常
+    await _standbyPlayer.player.setVolume(_numericalValue.value);
     _standbyPlayer.reset();
 
     // 如果提供了URL，则播放新歌曲
@@ -469,6 +544,8 @@ class DualAudioService {
     if (isFading) {
       // fade 中断：把状态切到 Paused，_performFadeCurve 会自己跳出
       _playerState.value = PlayerPaused();
+      // 退出 fade 时重置比率，避免 resume 后音量被锁在 fade 期间的值
+      _relativeVolume.value = 1.0;
       debugPrint('[DualAudioService] Crossfade中暂停');
     } else {
       await _activePlayer.player.pause();
@@ -481,9 +558,11 @@ class DualAudioService {
   Future<void> resume() async {
     await _activePlayer.player.play();
 
-    // 确保音量为1.0
-    await _activePlayer.player.setVolume(1.0);
-    _activePlayer.volume = 1.0;
+    // 确保音量为用户设定值
+    _relativeVolume.value = 1.0;
+    final v = _numericalValue.value;
+    await _activePlayer.player.setVolume(v);
+    _activePlayer.volume = v;
 
     // 不在这里手动设置状态，让 playerStateStream 监听器自动处理
   }
@@ -492,9 +571,10 @@ class DualAudioService {
   Future<void> stop() async {
     await _activePlayer.player.stop();
     await _standbyPlayer.player.stop();
-    await _standbyPlayer.player.seek(Duration.zero);
+    await _activePlayer.player.seek(Duration.zero);
     _activePlayer.reset();
     _standbyPlayer.reset();
+    _relativeVolume.value = 1.0;
     _playerState.value = PlayerIdle();
     onStateChanged?.call(AudioState.stopped);
   }

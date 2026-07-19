@@ -88,6 +88,23 @@ final playModeProvider = NotifierProvider<_PlayModeWatcher, PlayMode>(
   _PlayModeWatcher.new,
 );
 
+class _VolumeWatcher extends Notifier<double> {
+  @override
+  double build() {
+    final vn = ref.read(_dualAudioServiceProvider).volume;
+    vn.addListener(_onChanged);
+    ref.onDispose(() => vn.removeListener(_onChanged));
+    return vn.value;
+  }
+
+  void _onChanged() =>
+      state = ref.read(_dualAudioServiceProvider).volume.value;
+}
+
+final volumeProvider = NotifierProvider<_VolumeWatcher, double>(
+  _VolumeWatcher.new,
+);
+
 /// 派生：当前正在播放的音乐（来自 PlayerCoordinator 内部的 playlist+index 组合）
 final currentMusicFromCoordinatorProvider = Provider<Music?>((ref) {
   final pc = ref.read(_playerCoordinatorProvider);
@@ -133,6 +150,9 @@ class PlaybackCommands extends Notifier<void> {
   Future<void> removeFromFavorites(Music music) =>
       _pc.removeFromFavorites(music);
   bool isFavorite(Music music) => _pc.isFavorite(music);
+
+  Future<void> setVolume(double value) => _dual.setVolume(value);
+  Future<void> toggleMute() => _dual.toggleMute();
 
   Duration get currentPosition => _dual.currentPosition;
   Duration get currentDuration => _dual.currentDuration;

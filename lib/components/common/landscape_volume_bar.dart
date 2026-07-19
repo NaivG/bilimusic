@@ -1,9 +1,11 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bilimusic/providers/playback_providers.dart';
 
 /// 横屏模式音量条组件
-/// 基于ParticleMusic的VolumeBar适配bilimusic
-class LandscapeVolumeBar extends StatefulWidget {
+/// 接入 PlayerCoordinator 的音量控制，状态来自 volumeProvider
+class LandscapeVolumeBar extends ConsumerWidget {
   final Color activeColor;
   final double width;
   final double height;
@@ -16,55 +18,37 @@ class LandscapeVolumeBar extends StatefulWidget {
   });
 
   @override
-  State<LandscapeVolumeBar> createState() => _LandscapeVolumeBarState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final volume = ref.watch(volumeProvider);
+    final commands = ref.read(playbackCommandsProvider.notifier);
 
-class _LandscapeVolumeBarState extends State<LandscapeVolumeBar> {
-  double _volume = 0.7; // 默认音量70%
-
-  @override
-  Widget build(BuildContext context) {
     return SizedBox(
-      width: widget.width,
-      height: widget.height,
+      width: width,
+      height: height,
       child: SliderTheme(
         data: SliderTheme.of(context).copyWith(
           trackHeight: 2,
           trackShape: const _FullWidthTrackShape(),
           thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 0),
           overlayColor: Colors.transparent,
-          activeTrackColor: widget.activeColor,
+          activeTrackColor: activeColor,
           inactiveTrackColor: Colors.black12,
         ),
         child: Listener(
           onPointerSignal: (event) {
             if (event is PointerScrollEvent) {
-              double step = 0.02;
-
-              double newValue;
-              if (event.scrollDelta.dy < 0) {
-                newValue = _volume + step;
-              } else {
-                newValue = _volume - step;
-              }
-
-              newValue = newValue.clamp(0.0, 1.0);
-              setState(() {
-                _volume = newValue;
-              });
-              // TODO: 集成bilimusic音量控制（如果可用）
+              const step = 0.02;
+              final newValue = event.scrollDelta.dy < 0
+                  ? volume + step
+                  : volume - step;
+              commands.setVolume(newValue.clamp(0.0, 1.0));
             }
           },
           child: Slider(
-            value: _volume,
+            value: volume,
             min: 0,
             max: 1,
-            onChanged: (value) {
-              setState(() {
-                _volume = value;
-              });
-              // TODO: 集成bilimusic音量控制（如果可用）
-            },
+            onChanged: commands.setVolume,
           ),
         ),
       ),
