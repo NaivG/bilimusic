@@ -36,7 +36,7 @@ class SettingsManager extends ChangeNotifier {
   static const bool DEFAULT_BLUR_EFFECT = true;
   static const String DEFAULT_AUDIO_OUTPUT_MODE =
       'audiotrack'; // 默认使用AudioTrack
-  static const int DEFAULT_VERSION_CODE = 26;
+  static const int DEFAULT_VERSION_CODE = 80;
   static const bool DEFAULT_PC_MODE = false;
 
   // Crossfade相关默认值
