@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bilimusic/providers/settings_provider.dart';
+import 'package:bilimusic/providers/playback_providers.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/utils/platform_helper.dart';
 import 'package:bilimusic/components/playlist/playlist_sheet.dart';
@@ -10,14 +12,14 @@ import 'package:bilimusic/shells/portrait_shell.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
 
 /// 统一入口Shell - 根据屏幕方向路由到对应的Shell
-class AppShell extends StatefulWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
 
   @override
-  State<AppShell> createState() => _AppShellState();
+  ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends ConsumerState<AppShell> {
   final ShellPageManager _pageManager = ShellPageManager.instance;
   final PipService _pipService = PipService();
   final bool _isPcPlatform = PlatformHelper.isDesktop;
@@ -45,7 +47,7 @@ class _AppShellState extends State<AppShell> {
   }
 
   bool _isTabletMode(BuildContext context) {
-    switch (sl.settingsManager.tabletMode) {
+    switch (ref.watch(settingsProvider).tabletMode) {
       case 'on':
         return true;
       case 'off':
@@ -63,7 +65,7 @@ class _AppShellState extends State<AppShell> {
       backgroundColor: Colors.transparent,
       builder: (context) => PlaylistSheet(
         onTrackSelect: (index) {
-          sl.playerManager.playAtIndex(index);
+          ref.read(playbackCommandsProvider.notifier).playAtIndex(index);
           Navigator.pop(context);
         },
       ),

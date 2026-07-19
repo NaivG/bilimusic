@@ -2,16 +2,20 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/core/service_locator.dart';
-import 'package:bilimusic/managers/player_manager.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bilimusic/core/app_providers.dart';
+import 'package:bilimusic/models/player_state.dart';
+import 'package:bilimusic/providers/playback_providers.dart';
+import 'package:bilimusic/providers/playlist_providers.dart';
+import 'package:bilimusic/providers/settings_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/managers/cache_manager.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/theme/app_palette.dart';
+import 'package:bilimusic/theme/app_tokens.dart';
 
 /// Mini Player Bar
 /// 应用Lucent主题下的迷你播放器
-class MiniPlayerBar extends StatefulWidget {
+class MiniPlayerBar extends ConsumerStatefulWidget {
   final VoidCallback onExpand;
   final VoidCallback onPlayList;
 
@@ -22,16 +26,11 @@ class MiniPlayerBar extends StatefulWidget {
   });
 
   @override
-  State<MiniPlayerBar> createState() => _MiniPlayerBarState();
+  ConsumerState<MiniPlayerBar> createState() => _MiniPlayerBarState();
 }
 
-class _MiniPlayerBarState extends State<MiniPlayerBar>
+class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
     with TickerProviderStateMixin {
-  AudioState? _audioState;
-  Music? _currentMusic;
-  Duration _position = Duration.zero;
-  int _crossfadeCountdown = -1;
-
   // Gesture state
   double _dragX = 0;
   double _dragY = 0;
@@ -50,15 +49,6 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
   @override
   void initState() {
     super.initState();
-    _audioState = sl.playerManager.currentState;
-    _currentMusic = sl.playerManager.currentMusic;
-    _crossfadeCountdown = sl.playerManager.crossfadeCountdown.value;
-
-    sl.playerManager.addStateListener(_updateAudioState);
-    sl.playerManager.addPositionListener(_updatePosition);
-    sl.playerManager.addMusicListener(_updateMusic);
-    sl.playerManager.addCountdownListener(_updateCountdown);
-
     _slideController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 250),
@@ -83,69 +73,29 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
   }
 
   void _applyPendingDirection() {
+    final commands = ref.read(playbackCommandsProvider.notifier);
     if (_pendingDirection == -1) {
-      sl.playerManager.playPrevious();
+      commands.playPrevious();
     } else if (_pendingDirection == 1) {
-      sl.playerManager.playNext();
-    }
-  }
-
-  void _updateAudioState(AudioState state) {
-    if (mounted) {
-      setState(() {
-        _audioState = state;
-      });
-      debugPrint('_updateAudioState: $state');
-    }
-  }
-
-  void _updatePosition(Duration position) {
-    if (mounted) {
-      setState(() {
-        _position = position;
-      });
-    }
-  }
-
-  void _updateMusic(Music? music) {
-    if (mounted && music != null) {
-      setState(() {
-        _currentMusic = music;
-      });
-    }
-  }
-
-  void _updateCountdown(int countdown) {
-    if (mounted) {
-      setState(() {
-        _crossfadeCountdown = countdown;
-      });
+      commands.playNext();
     }
   }
 
   @override
   void dispose() {
-    sl.playerManager.removeStateListener(_updateAudioState);
-    sl.playerManager.removePositionListener(_updatePosition);
-    sl.playerManager.removeMusicListener(_updateMusic);
-    sl.playerManager.removeCountdownListener(_updateCountdown);
     _slideController.dispose();
     super.dispose();
   }
 
   void _togglePlay() async {
     if (_isTransitioning) return;
-    if (_audioState == AudioState.playing) {
-      await sl.playerManager.pause();
-    } else {
-      await sl.playerManager.resume();
+    final commands = ref.read(playbackCommandsProvider.notifier);
+    final ps = ref.read(playerStateProvider);
+    if (ps is PlayerPlaying) {
+      await commands.pause();
+    } else if (ps is PlayerPaused || ps is PlayerCompleted) {
+      await commands.resume();
     }
-  }
-
-  double get _progress {
-    final duration = _currentMusic?.duration;
-    if (duration == null || duration.inMilliseconds == 0) return 0.0;
-    return (_position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
   }
 
   // Gesture handlers
@@ -157,7 +107,7 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
     _isVerticalSwipe = false;
 
     // 无音乐时不启动水平拖动
-    if (_currentMusic == null) {
+    if (ref.read(playerCoordinatorProvider).currentMusic == null) {
       _isVerticalSwipe = true;
     }
   }
@@ -266,22 +216,18 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final currentPosition = ref.watch(positionProvider);
+    final currentPlayerState = ref.watch(playerStateProvider);
+    ref.watch(currentMusicProvider);
+    final palette = context.appPalette;
+    final colorScheme = Theme.of(context).colorScheme;
 
-    final baseColor = isDark
-        ? LucentTokens.darkSurfaceOverlay
-        : LucentTokens.lightSurfaceOverlay;
-    final progressColor = isDark
-        ? LucentTokens.darkSurfaceHover
-        : LucentTokens.lightSurfaceHover;
-    final textPrimary = isDark
-        ? LucentTokens.darkTextPrimary
-        : LucentTokens.lightTextPrimary;
-    final textSecondary = isDark
-        ? LucentTokens.darkTextSecondary
-        : LucentTokens.lightTextSecondary;
+    final baseColor = palette.surfaceOverlay;
+    final progressColor = palette.surfaceHover;
+    final textPrimary = colorScheme.onSurface;
+    final textSecondary = colorScheme.onSurfaceVariant;
 
-    final blurEffect = sl.settingsManager.blurEffect;
+    final blurEffect = ref.read(settingsProvider).blurEffect;
 
     // Compute scale/opacity based on drag distance
     final absDragX = _dragX.abs();
@@ -320,14 +266,12 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
                   children: [
                     // 毛玻璃层
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(
-                        LucentTokens.radiusLg,
-                      ),
+                      borderRadius: BorderRadius.circular(AppTokens.radiusLg),
                       child: BackdropFilter(
                         filter: blurEffect
                             ? ImageFilter.blur(
-                                sigmaX: LucentTokens.overlayBlurSigma,
-                                sigmaY: LucentTokens.overlayBlurSigma,
+                                sigmaX: AppTokens.overlayBlurSigma,
+                                sigmaY: AppTokens.overlayBlurSigma,
                               )
                             : ImageFilter.blur(),
                         child: Container(
@@ -335,42 +279,29 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
                           decoration: BoxDecoration(
                             color: baseColor,
                             borderRadius: BorderRadius.circular(
-                              LucentTokens.radiusLg,
+                              AppTokens.radiusLg,
                             ),
                           ),
                         ),
                       ),
                     ),
-                    // 背景进度条层
+                    // 背景进度条层（订阅 position）
                     Positioned.fill(
                       child: ClipRRect(
-                        // 圆角遮罩
-                        borderRadius: BorderRadius.circular(
-                          LucentTokens.radiusLg,
-                        ),
+                        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
                         child: Align(
                           alignment: Alignment.centerLeft,
-                          child: TweenAnimationBuilder<double>(
-                            // 进度条动画
-                            tween: Tween(
-                              begin: 0,
-                              end: _progress.clamp(0.0, 1.0),
-                            ),
-                            duration: LucentTokens.standardDuration,
-                            curve: LucentTokens.standardEasing,
-                            builder: (context, value, child) {
-                              return Container(
-                                width: constraints.maxWidth * value,
-                                color: progressColor,
-                              );
-                            },
+                          child: _buildProgressBar(
+                            constraints,
+                            progressColor,
+                            currentPosition,
                           ),
                         ),
                       ),
                     ),
                     // 滑动方向图标层
-                    if (_currentMusic != null) ...[
-                      // 上一首图标（向右滑时显示在左侧）
+                    if (ref.read(playerCoordinatorProvider).currentMusic !=
+                        null) ...[
                       if (_dragX > 20)
                         Positioned(
                           left: -44 - (_dragX * 0.2).clamp(0.0, 20.0),
@@ -390,7 +321,6 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
                             ),
                           ),
                         ),
-                      // 下一首图标（向左滑时显示在右侧）
                       if (_dragX < -20)
                         Positioned(
                           right: -44 - (_dragX.abs() * 0.2).clamp(0.0, 20.0),
@@ -424,83 +354,25 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
                             onTap: widget.onExpand,
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(
-                                LucentTokens.radiusMd,
+                                AppTokens.radiusMd,
                               ),
-                              child: _currentMusic != null
-                                  ? CachedNetworkImage(
-                                      imageUrl: _currentMusic!.safeCoverUrl,
-                                      width: 44,
-                                      height: 44,
-                                      fit: BoxFit.cover,
-                                      placeholder: (context, url) =>
-                                          _buildCoverPlaceholder(),
-                                      errorWidget: (context, url, error) =>
-                                          _buildCoverPlaceholder(),
-                                      cacheManager: imageCacheManager,
-                                      cacheKey: _currentMusic!.id,
-                                    )
-                                  : _buildCoverPlaceholder(),
+                              child: _buildCover(context),
                             ),
                           ),
                           const SizedBox(width: 12),
                           // 歌曲信息
                           Expanded(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _currentMusic?.title ?? 'Not Playing',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: textPrimary,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                if (_currentMusic != null) ...[
-                                  const SizedBox(height: 2),
-                                  AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 300),
-                                    child: _crossfadeCountdown > 0
-                                        ? _buildTransitionText()
-                                        : Text(
-                                            _currentMusic!.artist,
-                                            key: const ValueKey('artist'),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              color: textSecondary,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                  ),
-                                ],
-                              ],
+                            child: _buildSongInfo(
+                              textPrimary,
+                              textSecondary,
+                              currentPlayerState,
                             ),
                           ),
                           // 控制按钮
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              // 播放/暂停按钮
-                              GestureDetector(
-                                onTap: _togglePlay,
-                                child: Container(
-                                  width: 44,
-                                  height: 44,
-                                  alignment: Alignment.center,
-                                  child: Icon(
-                                    _audioState == AudioState.playing
-                                        ? Icons.pause_rounded
-                                        : Icons.play_arrow_rounded,
-                                    color: LucentTokens.accentPrimary,
-                                    size: 28,
-                                  ),
-                                ),
-                              ),
-                              // 播放列表按钮
+                              _buildPlayButton(currentPlayerState),
                               GestureDetector(
                                 onTap: widget.onPlayList,
                                 child: Container(
@@ -529,16 +401,108 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
     );
   }
 
+  Widget _buildCover(BuildContext context) {
+    final music = ref.read(playerCoordinatorProvider).currentMusic;
+    if (music == null) return _buildCoverPlaceholder();
+    return CachedNetworkImage(
+      imageUrl: music.safeCoverUrl,
+      width: 44,
+      height: 44,
+      fit: BoxFit.cover,
+      placeholder: (context, url) => _buildCoverPlaceholder(),
+      errorWidget: (context, url, error) => _buildCoverPlaceholder(),
+      cacheManager: imageCacheManager,
+      cacheKey: music.id,
+    );
+  }
+
+  Widget _buildSongInfo(
+    Color textPrimary,
+    Color textSecondary,
+    PlayerState playerState,
+  ) {
+    final music = ref.read(playerCoordinatorProvider).currentMusic;
+    final fading =
+        playerState is PlayerPlaying && playerState.fadeCountdown != null;
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          music?.title ?? 'Not Playing',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: textPrimary,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        if (music != null) ...[
+          const SizedBox(height: 2),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: fading
+                ? _buildTransitionText()
+                : Text(
+                    music.artist,
+                    key: const ValueKey('artist'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: textSecondary, fontSize: 12),
+                  ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildProgressBar(
+    BoxConstraints constraints,
+    Color progressColor,
+    Duration position,
+  ) {
+    final music = ref.read(playerCoordinatorProvider).currentMusic;
+    final duration = music?.duration ?? Duration.zero;
+    final p = duration.inMilliseconds == 0
+        ? 0.0
+        : (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: p),
+      duration: AppTokens.standardDuration,
+      curve: AppTokens.standardEasing,
+      builder: (context, value, child) {
+        return Container(
+          width: constraints.maxWidth * value,
+          color: progressColor,
+        );
+      },
+    );
+  }
+
+  Widget _buildPlayButton(PlayerState state) {
+    final isPlaying = state is PlayerPlaying;
+    final accent = Theme.of(context).colorScheme.primary;
+    return GestureDetector(
+      onTap: _togglePlay,
+      child: Container(
+        width: 44,
+        height: 44,
+        alignment: Alignment.center,
+        child: Icon(
+          isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+          color: accent,
+          size: 28,
+        ),
+      ),
+    );
+  }
+
   Widget _buildCoverPlaceholder() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final textTertiary = isDark
-        ? LucentTokens.darkTextTertiary
-        : LucentTokens.lightTextTertiary;
-
-    final surfaceHover = isDark
-        ? LucentTokens.darkSurfaceHover
-        : LucentTokens.lightSurfaceHover;
+    final palette = context.appPalette;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTertiary = colorScheme.onSurfaceVariant;
+    final surfaceHover = palette.surfaceHover;
 
     return Container(
       width: 44,
@@ -549,11 +513,8 @@ class _MiniPlayerBarState extends State<MiniPlayerBar>
   }
 
   Widget _buildTransitionText() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final transitionColor = isDark
-        ? LucentTokens.accentPrimary.withValues(alpha: 0.8)
-        : LucentTokens.accentPrimary.withValues(alpha: 0.8);
+    final accent = Theme.of(context).colorScheme.primary;
+    final transitionColor = accent.withValues(alpha: 0.8);
 
     return Row(
       key: const ValueKey('transition'),

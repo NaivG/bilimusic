@@ -1,269 +1,426 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite/sqflite.dart';
+
+import 'package:bilimusic/core/database.dart';
+import 'package:bilimusic/models/play_mode.dart';
 import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/models/playlist_tag.dart';
 import 'package:bilimusic/models/playlist.dart';
+import 'package:bilimusic/models/playlist_tag.dart';
 
-import 'package:bilimusic/managers/player_manager.dart';
-
-/// 播放列表管理服务
-/// 管理播放列表、播放历史、收藏列表的增删改查和持久化
+/// 唯一一份播放列表数据层。
+///
+/// 之前由 `playlist_service.dart` 和 `playlist_repository.dart` 各自维护一份 SharedPreferences
+/// 镜像，两边互不感知、可能漂移。合并后这里同时承担：
+///
+/// - 当前播放队列（被 PlayerCoordinator 写入）
+/// - 收藏列表 + 播放历史（被 UI + 协调器写入）
+/// - 用户歌单元数据 + 歌曲列表（被 PlaylistManager / FavSyncManager 写入）
+/// - 自定义标签
+///
+/// 底层是 `AppDatabase`（`playlist.db`）。每次写操作落盘后立刻重新加载该集合的内存镜像
+/// 并触发 `ValueNotifier`，所以监听者（PlayerCoordinator 的 listeners / UI 重建）拿到
+/// 的永远是数据库的当前状态，没有第二个持有者会漂移。
 class PlaylistService {
-  // ============ 核心状态 ============
+  static const int _maxHistorySize = 100;
+
   final ValueNotifier<List<Music>> _currentPlaylist = ValueNotifier([]);
   final ValueNotifier<int?> _currentIndex = ValueNotifier(null);
   final ValueNotifier<List<Music>> _playHistory = ValueNotifier([]);
   final ValueNotifier<List<Music>> _favorites = ValueNotifier([]);
-
-  // ============ 歌单管理状态 ============
   final ValueNotifier<List<Playlist>> _userPlaylists = ValueNotifier([]);
   final ValueNotifier<List<PlaylistTag>> _allTags = ValueNotifier([]);
   final ValueNotifier<Playlist?> _currentPlaylistDetail = ValueNotifier(null);
 
-  SharedPreferences? _prefs;
-  static const int _maxHistorySize = 100;
-  static const int _maxFavoritesSize = 500;
+  Database? _db;
+  List<PlaylistTag> _defaultTagsCache = const [];
+  Future<void>? _initFuture;
 
   PlaylistService();
 
-  /// 初始化服务
-  Future<void> initialize() async {
-    _prefs = await SharedPreferences.getInstance();
-    await _loadAllData();
-    // 初始化默认标签
-    _initializeDefaultTags();
+  Database get _dbChecked {
+    final db = _db;
+    if (db == null) {
+      throw StateError('PlaylistService not initialized');
+    }
+    return db;
   }
 
-  /// 初始化默认标签
-  void _initializeDefaultTags() {
-    _allTags.value = DefaultPlaylistTags.allTags;
+  Future<void> initialize() {
+    return _initFuture ??= _doInitialize();
   }
 
-  /// 加载所有数据
-  Future<void> _loadAllData() async {
-    await _loadPlaylist();
+  Future<void> _doInitialize() async {
+    _db = await AppDatabase.instance.database;
+    _defaultTagsCache = DefaultPlaylistTags.allTags;
+    await _loadAll();
+  }
+
+  Future<void> _loadAll() async {
+    await _loadCurrentPlaylist();
     await _loadPlayHistory();
     await _loadFavorites();
     await _loadUserPlaylists();
+    await _loadCustomTags();
   }
 
-  // ============ 当前播放列表操作 ============
+  // ==================== cid backfill ====================
 
-  /// 加载播放列表
-  Future<void> _loadPlaylist() async {
-    try {
-      if (_prefs == null) return;
-      final playlistJson = _prefs!.getString('playlist');
-      if (playlistJson != null && playlistJson.isNotEmpty) {
-        final decoded = jsonDecode(playlistJson);
-        if (decoded is List<dynamic>) {
-          final playlist = decoded
-              .map((json) {
-                try {
-                  return Music.fromJson(json);
-                } catch (e) {
-                  debugPrint('Failed to parse music item: $e');
-                  return null;
-                }
-              })
-              .where((music) => music != null)
-              .cast<Music>()
-              .toList();
+  /// 加载阶段回填：扫描当前播放列表/历史/收藏，对 cid 缺失的 item
+  /// 调用 [ensureCid] 拉详情补齐，并把补齐结果落盘 + 刷新内存镜像。
+  ///
+  /// 失败静默（debugPrint 留痕），调用方应 fire-and-forget。
+  ///
+  /// 关键约束：保留各表的"行身份/排序"列
+  /// - current_track.seq（AUTOINCREMENT）→ 用 seq 原地 UPDATE
+  /// - play_history.played_at → 删旧插新时透传
+  /// - favorite.added_at → 同上
+  /// 不走 [addToPlayHistory]/[addToFavorites] 等带副作用的公共方法，避免
+  /// "刚听过的歌置顶"语义把旧项打乱顺序。
+  Future<void> backfillMissingCids({
+    required Future<Music> Function(Music) ensureCid,
+  }) async {
+    await _backfillCurrentPlaylist(ensureCid);
+    await _backfillPlayHistory(ensureCid);
+    await _backfillFavorites(ensureCid);
+  }
 
-          _currentPlaylist.value = playlist;
+  Future<void> _backfillCurrentPlaylist(
+    Future<Music> Function(Music) ensureCid,
+  ) async {
+    final snapshot = List<Music>.from(_currentPlaylist.value);
+    final updates = <(int, Music)>[];
+    await _dbChecked.transaction((txn) async {
+      for (var i = 0; i < snapshot.length; i++) {
+        final m = snapshot[i];
+        if (m.cid.isNotEmpty) continue;
+        try {
+          final updated = await ensureCid(m);
+          if (updated.cid.isEmpty || updated.cid == m.cid) continue;
+          final rows = await txn.query(
+            'current_track',
+            columns: ['seq'],
+            where: 'music_id = ? AND (cid = ? OR cid IS NULL)',
+            whereArgs: [updated.id, ''],
+            limit: 1,
+          );
+          if (rows.isEmpty) continue;
+          await txn.update(
+            'current_track',
+            {'cid': updated.cid, 'payload': jsonEncode(updated.toJson())},
+            where: 'seq = ?',
+            whereArgs: [rows.first['seq'] as int],
+          );
+          updates.add((i, updated));
+        } catch (e) {
+          debugPrint(
+            '[PlaylistService] backfill current_track cid failed for ${m.id}: $e',
+          );
         }
       }
-    } catch (e) {
-      debugPrint('Failed to load playlist: $e');
+    });
+    if (updates.isEmpty) return;
+    final newList = List<Music>.from(_currentPlaylist.value);
+    for (final (idx, updated) in updates) {
+      if (idx < newList.length) {
+        newList[idx] = updated;
+      }
     }
+    _currentPlaylist.value = newList;
   }
 
-  /// 保存播放列表
-  Future<void> _savePlaylist() async {
+  Future<void> _backfillPlayHistory(
+    Future<Music> Function(Music) ensureCid,
+  ) async {
+    final snapshot = List<Music>.from(_playHistory.value);
+    final updates = <(int, Music)>[];
+    await _dbChecked.transaction((txn) async {
+      for (var i = 0; i < snapshot.length; i++) {
+        final m = snapshot[i];
+        if (m.cid.isNotEmpty) continue;
+        try {
+          final updated = await ensureCid(m);
+          if (updated.cid.isEmpty || updated.cid == m.cid) continue;
+          final rows = await txn.query(
+            'play_history',
+            columns: ['played_at'],
+            where: 'music_id = ? AND (cid = ? OR cid IS NULL)',
+            whereArgs: [updated.id, ''],
+            limit: 1,
+          );
+          if (rows.isEmpty) continue;
+          final playedAt = rows.first['played_at'] as int? ?? 0;
+          await txn.delete(
+            'play_history',
+            where: 'music_id = ? AND (cid = ? OR cid IS NULL)',
+            whereArgs: [updated.id, ''],
+          );
+          await txn.insert('play_history', {
+            'music_id': updated.id,
+            'cid': updated.cid,
+            'payload': jsonEncode(updated.toJson()),
+            'played_at': playedAt,
+          });
+          updates.add((i, updated));
+        } catch (e) {
+          debugPrint(
+            '[PlaylistService] backfill play_history cid failed for ${m.id}: $e',
+          );
+        }
+      }
+    });
+    if (updates.isEmpty) return;
+    final newList = List<Music>.from(_playHistory.value);
+    for (final (idx, updated) in updates) {
+      if (idx < newList.length) {
+        newList[idx] = updated;
+      }
+    }
+    _playHistory.value = newList;
+  }
+
+  Future<void> _backfillFavorites(
+    Future<Music> Function(Music) ensureCid,
+  ) async {
+    final snapshot = List<Music>.from(_favorites.value);
+    final updates = <(int, Music)>[];
+    await _dbChecked.transaction((txn) async {
+      for (var i = 0; i < snapshot.length; i++) {
+        final m = snapshot[i];
+        if (m.cid.isNotEmpty) continue;
+        try {
+          final updated = await ensureCid(m);
+          if (updated.cid.isEmpty || updated.cid == m.cid) continue;
+          final rows = await txn.query(
+            'favorite',
+            columns: ['added_at'],
+            where: 'music_id = ? AND (cid = ? OR cid IS NULL)',
+            whereArgs: [updated.id, ''],
+            limit: 1,
+          );
+          if (rows.isEmpty) continue;
+          final addedAt = rows.first['added_at'] as int? ?? 0;
+          await txn.delete(
+            'favorite',
+            where: 'music_id = ? AND (cid = ? OR cid IS NULL)',
+            whereArgs: [updated.id, ''],
+          );
+          await txn.insert('favorite', {
+            'music_id': updated.id,
+            'cid': updated.cid,
+            'payload': jsonEncode(updated.toJson()),
+            'added_at': addedAt,
+          });
+          updates.add((i, updated));
+        } catch (e) {
+          debugPrint(
+            '[PlaylistService] backfill favorite cid failed for ${m.id}: $e',
+          );
+        }
+      }
+    });
+    if (updates.isEmpty) return;
+    final newList = List<Music>.from(_favorites.value);
+    for (final (idx, updated) in updates) {
+      if (idx < newList.length) {
+        newList[idx] = updated;
+      }
+    }
+    _favorites.value = newList;
+  }
+
+  // ==================== helpers ====================
+
+  Music? _decodeMusic(String payload) {
     try {
-      if (_prefs == null) return;
-      final playlistJson = jsonEncode(
-        _currentPlaylist.value.map((music) => music.toJson()).toList(),
-      );
-      await _prefs!.setString('playlist', playlistJson);
-    } catch (e) {
-      debugPrint('Failed to save playlist: $e');
+      return Music.fromJson(jsonDecode(payload) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
     }
   }
 
-  /// 加载播放历史
+  String _encodeMusicList(List<Music> musics) =>
+      jsonEncode(musics.map((m) => m.toJson()).toList());
+
+  int _findMusicIndex(List<Music> list, Music music) =>
+      list.indexWhere((m) => m.id == music.id && m.cid == music.cid);
+
+  Map<String, Object?> _playlistRow(Playlist p) => {
+    'id': p.id,
+    'name': p.name,
+    'description': p.description,
+    'cover_url': p.coverUrl,
+    'song_count': p.songCount,
+    'total_duration_sec': p.totalDuration.inSeconds,
+    'tag_ids': jsonEncode(p.tagIds),
+    'source': p.source.name,
+    'play_count': p.playCount,
+    'created_at': p.createdAt.millisecondsSinceEpoch,
+    'updated_at': p.updatedAt.millisecondsSinceEpoch,
+    'last_played_at': p.lastPlayedAt?.millisecondsSinceEpoch,
+    'is_default': p.isDefault ? 1 : 0,
+    'created_by': p.createdBy,
+  };
+
+  Playlist? _rowToPlaylist(Map<String, Object?> row) {
+    try {
+      final tagIdsRaw = row['tag_ids'] as String?;
+      final tagIds = tagIdsRaw == null
+          ? <String>[]
+          : (jsonDecode(tagIdsRaw) as List).cast<String>();
+      return Playlist(
+        id: row['id'] as String,
+        name: row['name'] as String,
+        description: row['description'] as String?,
+        coverUrl: row['cover_url'] as String?,
+        songCount: (row['song_count'] as int?) ?? 0,
+        totalDuration: Duration(
+          seconds: (row['total_duration_sec'] as int?) ?? 0,
+        ),
+        tagIds: tagIds,
+        source: PlaylistSource.values.firstWhere(
+          (e) => e.name == (row['source'] as String?),
+          orElse: () => PlaylistSource.user,
+        ),
+        playCount: (row['play_count'] as int?) ?? 0,
+        createdAt: DateTime.fromMillisecondsSinceEpoch(
+          (row['created_at'] as int?) ?? DateTime.now().millisecondsSinceEpoch,
+        ),
+        updatedAt: DateTime.fromMillisecondsSinceEpoch(
+          (row['updated_at'] as int?) ?? DateTime.now().millisecondsSinceEpoch,
+        ),
+        lastPlayedAt: row['last_played_at'] == null
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(row['last_played_at'] as int),
+        isDefault: ((row['is_default'] as int?) ?? 0) != 0,
+        createdBy: row['created_by'] as String?,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _replacePayload(
+    String table,
+    Music m, {
+    String? wherePlaylistId,
+  }) async {
+    await _dbChecked.update(
+      table,
+      {'payload': jsonEncode(m.toJson())},
+      where: wherePlaylistId == null
+          ? 'music_id = ? AND cid = ?'
+          : 'playlist_id = ? AND music_id = ? AND cid = ?',
+      whereArgs: wherePlaylistId == null
+          ? [m.id, m.cid]
+          : [wherePlaylistId, m.id, m.cid],
+    );
+  }
+
+  // ==================== loaders ====================
+
+  Future<void> _loadCurrentPlaylist() async {
+    final rows = await _dbChecked.query('current_track', orderBy: 'seq ASC');
+    _currentPlaylist.value = rows
+        .map((r) => _decodeMusic(r['payload'] as String))
+        .whereType<Music>()
+        .toList();
+    if (_currentPlaylist.value.isEmpty) {
+      _currentIndex.value = null;
+    } else if (_currentIndex.value == null ||
+        _currentIndex.value! >= _currentPlaylist.value.length) {
+      _currentIndex.value = null;
+    }
+  }
+
   Future<void> _loadPlayHistory() async {
-    try {
-      if (_prefs == null) return;
-      final historyJson = _prefs!.getString('play_history');
-      if (historyJson != null && historyJson.isNotEmpty) {
-        final decoded = jsonDecode(historyJson);
-        if (decoded is List<dynamic>) {
-          final history = decoded
-              .map((json) {
-                try {
-                  return Music.fromJson(json);
-                } catch (e) {
-                  debugPrint('Failed to parse music item in history: $e');
-                  return null;
-                }
-              })
-              .where((music) => music != null)
-              .cast<Music>()
-              .toList();
-
-          _playHistory.value = history;
-        }
-      }
-    } catch (e) {
-      debugPrint('Failed to load play history: $e');
-    }
+    final rows = await _dbChecked.query(
+      'play_history',
+      orderBy: 'played_at DESC',
+    );
+    _playHistory.value = rows
+        .map((r) => _decodeMusic(r['payload'] as String))
+        .whereType<Music>()
+        .toList();
   }
 
-  /// 保存播放历史
-  Future<void> _savePlayHistory() async {
-    try {
-      if (_prefs == null) return;
-      final historyJson = jsonEncode(
-        _playHistory.value.map((music) => music.toJson()).toList(),
-      );
-      await _prefs!.setString('play_history', historyJson);
-    } catch (e) {
-      debugPrint('Failed to save play history: $e');
-    }
-  }
-
-  /// 加载收藏列表
   Future<void> _loadFavorites() async {
-    try {
-      if (_prefs == null) return;
-      final favoritesJson = _prefs!.getString('favorites');
-      if (favoritesJson != null && favoritesJson.isNotEmpty) {
-        final decoded = jsonDecode(favoritesJson);
-        if (decoded is List<dynamic>) {
-          final favorites = decoded
-              .map((json) {
-                try {
-                  return Music.fromJson(json);
-                } catch (e) {
-                  debugPrint('Failed to parse music item in favorites: $e');
-                  return null;
-                }
-              })
-              .where((music) => music != null)
-              .cast<Music>()
-              .toList();
-
-          _favorites.value = favorites;
-        }
-      }
-    } catch (e) {
-      debugPrint('Failed to load favorites: $e');
-    }
+    final rows = await _dbChecked.query('favorite');
+    _favorites.value = rows
+        .map((r) => _decodeMusic(r['payload'] as String))
+        .whereType<Music>()
+        .toList();
   }
 
-  /// 保存收藏列表
-  Future<void> _saveFavorites() async {
-    try {
-      if (_prefs == null) return;
-      final favoritesJson = jsonEncode(
-        _favorites.value.map((music) => music.toJson()).toList(),
-      );
-      await _prefs!.setString('favorites', favoritesJson);
-    } catch (e) {
-      debugPrint('Failed to save favorites: $e');
-    }
-  }
-
-  // ============ 用户歌单操作 ============
-
-  /// 加载用户歌单
   Future<void> _loadUserPlaylists() async {
-    try {
-      if (_prefs == null) return;
-      final playlistsJson = _prefs!.getString('user_playlists_enhanced');
-      if (playlistsJson != null && playlistsJson.isNotEmpty) {
-        final decoded = jsonDecode(playlistsJson);
-        if (decoded is List<dynamic>) {
-          final playlists = decoded
-              .map((json) {
-                try {
-                  return Playlist.fromJson(json);
-                } catch (e) {
-                  debugPrint('Failed to parse playlist: $e');
-                  return null;
-                }
-              })
-              .where((p) => p != null)
-              .cast<Playlist>()
-              .toList();
-
-          _userPlaylists.value = playlists;
-        }
-      }
-    } catch (e) {
-      debugPrint('Failed to load user playlists: $e');
-    }
+    final rows = await _dbChecked.query(
+      'playlist',
+      where: 'is_default = ?',
+      whereArgs: [0],
+      orderBy: 'updated_at DESC',
+    );
+    _userPlaylists.value = rows
+        .map(_rowToPlaylist)
+        .whereType<Playlist>()
+        .toList();
   }
 
-  /// 保存用户歌单
-  Future<void> _saveUserPlaylists() async {
-    try {
-      if (_prefs == null) return;
-      final playlistsJson = jsonEncode(
-        _userPlaylists.value.map((p) => p.toJson()).toList(),
-      );
-      await _prefs!.setString('user_playlists_enhanced', playlistsJson);
-    } catch (e) {
-      debugPrint('Failed to save user playlists: $e');
-    }
+  Future<void> _loadCustomTags() async {
+    final rows = await _dbChecked.query('custom_tag');
+    final customs = rows
+        .map((r) {
+          try {
+            return PlaylistTag.fromJson(
+              jsonDecode(r['payload'] as String) as Map<String, dynamic>,
+            );
+          } catch (_) {
+            return null;
+          }
+        })
+        .whereType<PlaylistTag>()
+        .toList();
+    _allTags.value = [..._defaultTagsCache, ...customs];
   }
 
-  // ============ Getters ============
+  // ==================== getters ====================
 
-  /// 获取当前播放列表
   ValueListenable<List<Music>> get currentPlaylist => _currentPlaylist;
-
-  /// 获取当前播放索引
   ValueListenable<int?> get currentIndex => _currentIndex;
-
-  /// 获取播放历史
   ValueListenable<List<Music>> get playHistory => _playHistory;
-
-  /// 获取收藏列表
   ValueListenable<List<Music>> get favorites => _favorites;
-
-  /// 获取用户歌单列表
   ValueListenable<List<Playlist>> get userPlaylists => _userPlaylists;
-
-  /// 获取所有可用标签
   ValueListenable<List<PlaylistTag>> get allTags => _allTags;
-
-  /// 获取当前歌单详情
   ValueListenable<Playlist?> get currentPlaylistDetail =>
       _currentPlaylistDetail;
 
-  /// 获取当前播放的音乐
+  List<Music> get playHistorySnapshot => _playHistory.value;
+  List<Music> get favoritesSnapshot => _favorites.value;
+  List<Playlist> get userPlaylistsSnapshot => _userPlaylists.value;
+
   Music? get currentMusic {
-    final index = _currentIndex.value;
-    if (index != null && index >= 0 && index < _currentPlaylist.value.length) {
-      return _currentPlaylist.value[index];
+    final idx = _currentIndex.value;
+    if (idx == null || idx < 0 || idx >= _currentPlaylist.value.length) {
+      return null;
     }
-    return null;
+    return _currentPlaylist.value[idx];
   }
 
-  /// 获取播放列表长度
   int get playlistLength => _currentPlaylist.value.length;
-
-  /// 获取当前播放索引（同步）
   int? get currentIndexSync => _currentIndex.value;
+  int get historyCount => _playHistory.value.length;
+  int get favoritesCount => _favorites.value.length;
+  int get userPlaylistsCount => _userPlaylists.value.length;
 
-  // ============ 当前播放列表操作 ============
+  bool isSystemPlaylist(String playlistId) =>
+      DefaultPlaylists.getById(playlistId) != null;
 
-  /// 设置当前播放索引
+  List<Playlist> get systemPlaylists => DefaultPlaylists.all;
+
+  // ==================== current playlist ====================
+
   void setCurrentIndex(int index) {
     if (index >= 0 && index < _currentPlaylist.value.length) {
       _currentIndex.value = index;
@@ -272,171 +429,257 @@ class PlaylistService {
     }
   }
 
-  /// 添加音乐到播放列表
   Future<void> addToPlaylist(Music music) async {
-    final existingIndex = _findMusicIndex(_currentPlaylist.value, music);
-    if (existingIndex == -1) {
-      _currentPlaylist.value = [..._currentPlaylist.value, music];
-      await _savePlaylist();
-    }
+    await _addUniqueToCurrentPlaylist([music]);
   }
 
-  /// 更新音乐信息
-  Future<void> updateToPlaylist(Music music) async {
-    final index = _findMusicIndex(_currentPlaylist.value, music);
-    if (index != -1) {
-      final newPlaylist = List<Music>.from(_currentPlaylist.value);
-      newPlaylist[index] = music;
-      _currentPlaylist.value = newPlaylist;
-      await _savePlaylist();
-    }
-  }
-
-  /// 批量添加音乐到播放列表
   Future<void> addAllToPlaylist(List<Music> musics) async {
-    final newMusics = musics
-        .where((music) => _findMusicIndex(_currentPlaylist.value, music) == -1)
-        .toList();
-
-    if (newMusics.isNotEmpty) {
-      _currentPlaylist.value = [..._currentPlaylist.value, ...newMusics];
-      await _savePlaylist();
-    }
+    if (musics.isEmpty) return;
+    await _addUniqueToCurrentPlaylist(musics);
   }
 
-  /// 从播放列表移除音乐
-  Future<void> removeFromPlaylist(Music music) async {
-    final index = _findMusicIndex(_currentPlaylist.value, music);
-    if (index != -1) {
-      final newPlaylist = List<Music>.from(_currentPlaylist.value);
-      newPlaylist.removeAt(index);
-      _currentPlaylist.value = newPlaylist;
-
-      // 调整当前索引
-      final currentIdx = _currentIndex.value;
-      if (currentIdx != null) {
-        if (index == currentIdx) {
-          if (newPlaylist.isNotEmpty) {
-            _currentIndex.value = index < newPlaylist.length
-                ? index
-                : newPlaylist.length - 1;
-          } else {
-            _currentIndex.value = null;
-          }
-        } else if (index < currentIdx) {
-          _currentIndex.value = currentIdx - 1;
-        }
+  Future<void> _addUniqueToCurrentPlaylist(List<Music> musics) async {
+    final existing = _currentPlaylist.value
+        .map((m) => '${m.id}_${m.cid}')
+        .toSet();
+    final fresh = <Music>[];
+    for (final m in musics) {
+      if (!existing.contains('${m.id}_${m.cid}')) {
+        existing.add('${m.id}_${m.cid}');
+        fresh.add(m);
       }
-
-      await _savePlaylist();
     }
+    if (fresh.isEmpty) return;
+
+    final db = _dbChecked;
+    await db.transaction((txn) async {
+      for (final m in fresh) {
+        await txn.insert('current_track', {
+          'music_id': m.id,
+          'cid': m.cid,
+          'payload': jsonEncode(m.toJson()),
+        });
+      }
+    });
+    await _loadCurrentPlaylist();
   }
 
-  /// 清空播放列表
+  Future<void> updateToPlaylist(Music music) async {
+    final idx = _findMusicIndex(_currentPlaylist.value, music);
+    if (idx != -1) {
+      await _dbChecked.update(
+        'current_track',
+        {'payload': jsonEncode(music.toJson())},
+        where: 'music_id = ? AND cid = ?',
+        whereArgs: [music.id, music.cid],
+      );
+      final newList = List<Music>.from(_currentPlaylist.value);
+      newList[idx] = music;
+      _currentPlaylist.value = newList;
+      return;
+    }
+
+    // cid 变化回退路径：调用方拿到的 music.cid 是新值，但 DB 中旧行 cid 还为空
+    // （首次 ensureCid 之后）。按 (id, cid="") 找到旧行，原地更新 cid + payload，
+    // seq 不动 → 列表顺序不变。
+    final rows = await _dbChecked.query(
+      'current_track',
+      columns: ['seq'],
+      where: 'music_id = ? AND (cid = ? OR cid IS NULL)',
+      whereArgs: [music.id, ''],
+      limit: 1,
+    );
+    if (rows.isEmpty) return;
+    await _dbChecked.update(
+      'current_track',
+      {'cid': music.cid, 'payload': jsonEncode(music.toJson())},
+      where: 'seq = ?',
+      whereArgs: [rows.first['seq'] as int],
+    );
+    final playlist = _currentPlaylist.value;
+    for (var i = 0; i < playlist.length; i++) {
+      if (playlist[i].id == music.id && playlist[i].cid.isEmpty) {
+        final newList = List<Music>.from(playlist);
+        newList[i] = music;
+        _currentPlaylist.value = newList;
+        return;
+      }
+    }
+    await _loadCurrentPlaylist();
+  }
+
+  Future<void> removeFromPlaylist(Music music) async {
+    final list = _currentPlaylist.value;
+    final removeIdx = _findMusicIndex(list, music);
+    if (removeIdx == -1) return;
+
+    final currentIdx = _currentIndex.value;
+    if (currentIdx != null) {
+      if (removeIdx == currentIdx) {
+        if (list.length - 1 > 0) {
+          _currentIndex.value = removeIdx < list.length - 1
+              ? removeIdx
+              : removeIdx - 1;
+        } else {
+          _currentIndex.value = null;
+        }
+      } else if (removeIdx < currentIdx) {
+        _currentIndex.value = currentIdx - 1;
+      }
+    }
+
+    await _dbChecked.delete(
+      'current_track',
+      where: 'music_id = ? AND cid = ?',
+      whereArgs: [music.id, music.cid],
+    );
+    await _loadCurrentPlaylist();
+  }
+
   Future<void> clearPlaylist() async {
+    await _dbChecked.delete('current_track');
     _currentPlaylist.value = [];
     _currentIndex.value = null;
-    await _savePlaylist();
   }
 
-  /// 在指定位置插入音乐
   Future<void> insertToPlaylist(Music music, int index) async {
-    final newPlaylist = List<Music>.from(_currentPlaylist.value);
-    if (index >= 0 && index <= newPlaylist.length) {
-      newPlaylist.insert(index, music);
-      _currentPlaylist.value = newPlaylist;
-      await _savePlaylist();
-    }
+    if (index < 0 || index > _currentPlaylist.value.length) return;
+    final list = List<Music>.from(_currentPlaylist.value);
+    list.insert(index, music);
+    await _rewriteCurrentPlaylistInOrder(list);
   }
 
-  /// 移动音乐到指定位置
-  Future<void> moveInPlaylist(int fromIndex, int toIndex) async {
-    if (fromIndex == toIndex) return;
+  Future<void> moveInPlaylist(int from, int to) async {
+    if (from == to) return;
+    final list = _currentPlaylist.value;
+    if (from < 0 || from >= list.length || to < 0 || to >= list.length) return;
+
     final currentIdx = _currentIndex.value;
-    final newPlaylist = List<Music>.from(_currentPlaylist.value);
-    if (fromIndex >= 0 &&
-        fromIndex < newPlaylist.length &&
-        toIndex >= 0 &&
-        toIndex < newPlaylist.length) {
-      final music = newPlaylist.removeAt(fromIndex);
-      newPlaylist.insert(toIndex, music);
-      _currentPlaylist.value = newPlaylist;
+    if (currentIdx != null) {
+      if (from == currentIdx) {
+        _currentIndex.value = to;
+      } else if (from < currentIdx && to >= currentIdx) {
+        _currentIndex.value = currentIdx - 1;
+      } else if (from > currentIdx && to <= currentIdx) {
+        _currentIndex.value = currentIdx + 1;
+      }
+    }
 
-      // 同步更新 currentIndex
-      if (currentIdx != null) {
-        if (fromIndex == currentIdx) {
-          // 移动的是当前播放的歌曲，更新索引为新位置
-          _currentIndex.value = toIndex;
-        } else if (fromIndex < currentIdx && toIndex >= currentIdx) {
-          // 从前移动到当前索引之后，currentIndex 减 1
-          _currentIndex.value = currentIdx - 1;
-        } else if (fromIndex > currentIdx && toIndex <= currentIdx) {
-          // 从后移动到当前索引之前，currentIndex 加 1
-          _currentIndex.value = currentIdx + 1;
+    final moved = List<Music>.from(list);
+    final m = moved.removeAt(from);
+    moved.insert(to, m);
+    await _rewriteCurrentPlaylistInOrder(moved);
+  }
+
+  Future<void> _rewriteCurrentPlaylistInOrder(List<Music> musics) async {
+    if (musics.isEmpty) {
+      await clearPlaylist();
+      return;
+    }
+    final db = _dbChecked;
+    await db.transaction((txn) async {
+      await txn.delete('current_track');
+      for (final m in musics) {
+        await txn.insert('current_track', {
+          'music_id': m.id,
+          'cid': m.cid,
+          'payload': jsonEncode(m.toJson()),
+        });
+      }
+    });
+    await _loadCurrentPlaylist();
+  }
+
+  int? getNextIndex(PlayMode playMode, {Random? random}) {
+    final currentIdx = _currentIndex.value;
+    final list = _currentPlaylist.value;
+    if (currentIdx == null || list.isEmpty) return null;
+    switch (playMode) {
+      case PlayMode.sequential:
+        return (currentIdx + 1) % list.length;
+      case PlayMode.loop:
+        return currentIdx;
+      case PlayMode.shuffle:
+        final rng = random ?? Random();
+        var idx = rng.nextInt(list.length);
+        while (idx == currentIdx && list.length > 1) {
+          idx = rng.nextInt(list.length);
         }
-        // 其他情况 currentIndex 不变
-      }
-
-      await _savePlaylist();
+        return idx;
     }
   }
 
-  // ============ 播放历史操作 ============
+  int? getPreviousIndex(PlayMode playMode, {Random? random}) {
+    final currentIdx = _currentIndex.value;
+    final list = _currentPlaylist.value;
+    if (currentIdx == null || list.isEmpty) return null;
+    switch (playMode) {
+      case PlayMode.sequential:
+        return (currentIdx - 1 + list.length) % list.length;
+      case PlayMode.loop:
+        return currentIdx;
+      case PlayMode.shuffle:
+        final rng = random ?? Random();
+        var idx = rng.nextInt(list.length);
+        while (idx == currentIdx && list.length > 1) {
+          idx = rng.nextInt(list.length);
+        }
+        return idx;
+    }
+  }
 
-  /// 添加音乐到播放历史
+  // ==================== play history ====================
+
   Future<void> addToPlayHistory(Music music) async {
-    final index = _findMusicIndex(_playHistory.value, music);
-    final newHistory = List<Music>.from(_playHistory.value);
+    final db = _dbChecked;
+    await db.transaction((txn) async {
+      await txn.delete(
+        'play_history',
+        where: 'music_id = ? AND cid = ?',
+        whereArgs: [music.id, music.cid],
+      );
+      final maxRow = await txn.rawQuery(
+        'SELECT MAX(played_at) AS mx FROM play_history',
+      );
+      final mx = (maxRow.first['mx'] as int?) ?? 0;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final playedAt = now > mx ? now : mx + 1;
 
-    if (index != -1) {
-      newHistory.removeAt(index);
-      newHistory.insert(0, music);
-    } else {
-      newHistory.insert(0, music);
-      if (newHistory.length > _maxHistorySize) {
-        newHistory.removeRange(_maxHistorySize, newHistory.length);
+      await txn.insert('play_history', {
+        'music_id': music.id,
+        'cid': music.cid,
+        'payload': jsonEncode(music.toJson()),
+        'played_at': playedAt,
+      });
+
+      final cutoffRow = await txn.rawQuery(
+        'SELECT played_at FROM play_history '
+        'ORDER BY played_at DESC LIMIT 1 OFFSET ?',
+        [_maxHistorySize - 1],
+      );
+      if (cutoffRow.isNotEmpty) {
+        final cutoff = cutoffRow.first['played_at'] as int;
+        await txn.delete(
+          'play_history',
+          where: 'played_at < ?',
+          whereArgs: [cutoff],
+        );
       }
-    }
-
-    _playHistory.value = newHistory;
-    await _savePlayHistory();
+    });
+    await _loadPlayHistory();
   }
 
-  /// 清空播放历史
   Future<void> clearPlayHistory() async {
+    await _dbChecked.delete('play_history');
     _playHistory.value = [];
-    await _savePlayHistory();
   }
 
-  // ============ 收藏操作 ============
+  // ==================== favorites ====================
 
-  /// 添加音乐到收藏
-  Future<void> addToFavorites(Music music) async {
-    final index = _findMusicIndex(_favorites.value, music);
-    if (index == -1) {
-      final favoritedMusic = music.copyWith(isFavorite: true);
-      _favorites.value = [..._favorites.value, favoritedMusic];
-      await _saveFavorites();
-
-      _updateFavoriteStatusInLists(music, true);
-      debugPrint('Added to favorites: ${music.title}');
-    }
+  bool isFavorite(Music music) {
+    return _findMusicIndex(_favorites.value, music) != -1;
   }
 
-  /// 从收藏移除音乐
-  Future<void> removeFromFavorites(Music music) async {
-    final index = _findMusicIndex(_favorites.value, music);
-    if (index != -1) {
-      final newFavorites = List<Music>.from(_favorites.value);
-      newFavorites.removeAt(index);
-      _favorites.value = newFavorites;
-      await _saveFavorites();
-
-      _updateFavoriteStatusInLists(music, false);
-    }
-  }
-
-  /// 切换收藏状态
   Future<bool> toggleFavorite(Music music) async {
     if (isFavorite(music)) {
       await removeFromFavorites(music);
@@ -447,41 +690,123 @@ class PlaylistService {
     }
   }
 
-  /// 检查音乐是否已收藏
-  bool isFavorite(Music music) {
-    return _findMusicIndex(_favorites.value, music) != -1;
+  Future<void> addToFavorites(Music music) async {
+    final favorited = music.copyWith(isFavorite: true);
+    await _dbChecked.insert('favorite', {
+      'music_id': music.id,
+      'cid': music.cid,
+      'payload': jsonEncode(favorited.toJson()),
+      'added_at': DateTime.now().millisecondsSinceEpoch,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    _favorites.value = [..._favorites.value, favorited];
+    await _propagateFavoriteFlag(favorited, true);
   }
 
-  /// 更新列表中的收藏状态
-  void _updateFavoriteStatusInLists(Music music, bool isFavorite) {
-    final playlistIndex = _findMusicIndex(_currentPlaylist.value, music);
-    if (playlistIndex != -1) {
-      final newPlaylist = List<Music>.from(_currentPlaylist.value);
-      newPlaylist[playlistIndex] = newPlaylist[playlistIndex].copyWith(
-        isFavorite: isFavorite,
-      );
-      _currentPlaylist.value = newPlaylist;
-      _savePlaylist();
+  Future<void> removeFromFavorites(Music music) async {
+    if (_findMusicIndex(_favorites.value, music) == -1) return;
+    final unfavorited = music.copyWith(isFavorite: false);
+    await _dbChecked.delete(
+      'favorite',
+      where: 'music_id = ? AND cid = ?',
+      whereArgs: [music.id, music.cid],
+    );
+    final newFavs = List<Music>.from(_favorites.value)
+      ..removeWhere((m) => m.id == music.id && m.cid == music.cid);
+    _favorites.value = newFavs;
+    await _propagateFavoriteFlag(unfavorited, false);
+  }
+
+  /// 把 `isFavorite` 标志同步到当前播放列表 / 播放历史的镜像和落盘行里，
+  /// 与历史 `_updateFavoriteStatusInLists` 等价。
+  Future<void> _propagateFavoriteFlag(Music updated, bool isFavorite) async {
+    final list = _currentPlaylist.value;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].id == updated.id && list[i].cid == updated.cid) {
+        final newList = List<Music>.from(list);
+        newList[i] = updated;
+        _currentPlaylist.value = newList;
+        await _replacePayload('current_track', updated);
+        break;
+      }
     }
 
-    final historyIndex = _findMusicIndex(_playHistory.value, music);
-    if (historyIndex != -1) {
-      final newHistory = List<Music>.from(_playHistory.value);
-      newHistory[historyIndex] = newHistory[historyIndex].copyWith(
-        isFavorite: isFavorite,
+    final history = _playHistory.value;
+    for (var i = 0; i < history.length; i++) {
+      if (history[i].id == updated.id && history[i].cid == updated.cid) {
+        final newHistory = List<Music>.from(history);
+        newHistory[i] = updated;
+        _playHistory.value = newHistory;
+        await _replacePayload('play_history', updated);
+        break;
+      }
+    }
+
+    for (final playlist in _userPlaylists.value) {
+      final rows = await _dbChecked.query(
+        'playlist_song',
+        where: 'playlist_id = ? AND music_id = ? AND cid = ?',
+        whereArgs: [playlist.id, updated.id, updated.cid],
       );
-      _playHistory.value = newHistory;
-      _savePlayHistory();
+      if (rows.isNotEmpty) {
+        await _replacePayload(
+          'playlist_song',
+          updated,
+          wherePlaylistId: playlist.id,
+        );
+      }
     }
   }
 
-  // ============ 用户歌单操作 (CRUD) ============
+  // ==================== user playlists (CRUD) ====================
 
-  /// 创建新的用户歌单
+  Playlist? getPlaylistInfo(String playlistId) {
+    try {
+      return _userPlaylists.value.firstWhere((p) => p.id == playlistId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Playlist?> getPlaylistDetail(String playlistId) async {
+    if (isSystemPlaylist(playlistId)) {
+      return _buildSystemPlaylistDetail(playlistId);
+    }
+    final info = getPlaylistInfo(playlistId);
+    if (info == null) return null;
+    final songs = await loadPlaylistSongs(playlistId);
+    return info.copyWith(songs: songs);
+  }
+
+  Future<Playlist?> getSystemPlaylistDetail(String playlistId) async {
+    if (!isSystemPlaylist(playlistId)) return null;
+    return _buildSystemPlaylistDetail(playlistId);
+  }
+
+  Future<Playlist?> _buildSystemPlaylistDetail(String playlistId) async {
+    final sys = DefaultPlaylists.getById(playlistId);
+    if (sys == null) return null;
+    final songs = await getSystemPlaylistSongs(playlistId);
+    return sys.copyWith(songs: songs, songCount: songs.length);
+  }
+
+  Future<List<Music>> getSystemPlaylistSongs(String playlistId) async {
+    switch (playlistId) {
+      case 'favorites':
+        return _favorites.value;
+      case 'history':
+        return _playHistory.value;
+      case 'recommended':
+        return loadPlaylistSongs('recommended');
+      default:
+        return <Music>[];
+    }
+  }
+
   Future<Playlist> createPlaylist({
     required String name,
     String? description,
     List<String> tagIds = const [],
+    PlaylistSource source = PlaylistSource.user,
   }) async {
     final now = DateTime.now();
     final playlist = Playlist(
@@ -489,249 +814,266 @@ class PlaylistService {
       name: name,
       description: description,
       tagIds: tagIds,
-      source: PlaylistSource.user,
+      source: source,
       createdAt: now,
       updatedAt: now,
     );
-
-    _userPlaylists.value = [..._userPlaylists.value, playlist];
-    await _saveUserPlaylists();
-
+    await _dbChecked.insert('playlist', _playlistRow(playlist));
+    await _loadUserPlaylists();
     return playlist;
   }
 
-  /// 删除用户歌单
   Future<void> deletePlaylist(String playlistId) async {
-    _userPlaylists.value = _userPlaylists.value
-        .where((p) => p.id != playlistId)
-        .toList();
-    await _saveUserPlaylists();
-    await _savePlaylistSongs(playlistId, []);
+    if (isSystemPlaylist(playlistId)) return;
+    final db = _dbChecked;
+    await db.transaction((txn) async {
+      await txn.delete(
+        'playlist_song',
+        where: 'playlist_id = ?',
+        whereArgs: [playlistId],
+      );
+      await txn.delete(
+        'playlist',
+        where: 'id = ? AND is_default = 0',
+        whereArgs: [playlistId],
+      );
+    });
+    await _loadUserPlaylists();
   }
 
-  /// 重命名歌单
   Future<void> renamePlaylist(String playlistId, String newName) async {
-    final index = _userPlaylists.value.indexWhere((p) => p.id == playlistId);
-    if (index != -1) {
-      final playlist = _userPlaylists.value[index];
-      _userPlaylists.value = [
-        ..._userPlaylists.value.sublist(0, index),
-        playlist.copyWith(name: newName, updatedAt: DateTime.now()),
-        ..._userPlaylists.value.sublist(index + 1),
-      ];
-      await _saveUserPlaylists();
-    }
+    await _updateUserPlaylist(playlistId, {
+      'name': newName,
+      'updated_at': DateTime.now().millisecondsSinceEpoch,
+    });
   }
 
-  /// 更新歌单描述
   Future<void> updatePlaylistDescription(
     String playlistId,
     String? description,
   ) async {
-    final index = _userPlaylists.value.indexWhere((p) => p.id == playlistId);
-    if (index != -1) {
-      final playlist = _userPlaylists.value[index];
-      _userPlaylists.value = [
-        ..._userPlaylists.value.sublist(0, index),
-        playlist.copyWith(description: description, updatedAt: DateTime.now()),
-        ..._userPlaylists.value.sublist(index + 1),
-      ];
-      await _saveUserPlaylists();
+    await _updateUserPlaylist(playlistId, {
+      'description': description,
+      'updated_at': DateTime.now().millisecondsSinceEpoch,
+    });
+  }
+
+  Future<void> _updateUserPlaylist(
+    String playlistId,
+    Map<String, Object?> patch,
+  ) async {
+    if (isSystemPlaylist(playlistId)) return;
+    final count = await _dbChecked.update(
+      'playlist',
+      patch,
+      where: 'id = ? AND is_default = 0',
+      whereArgs: [playlistId],
+    );
+    if (count > 0) {
+      await _loadUserPlaylists();
     }
   }
 
-  /// 为歌单添加标签
   Future<void> addTagToPlaylist(String playlistId, String tagId) async {
-    final index = _userPlaylists.value.indexWhere((p) => p.id == playlistId);
-    if (index != -1) {
-      final playlist = _userPlaylists.value[index];
-      if (!playlist.tagIds.contains(tagId)) {
-        _userPlaylists.value = [
-          ..._userPlaylists.value.sublist(0, index),
-          playlist.copyWith(
-            tagIds: [...playlist.tagIds, tagId],
-            updatedAt: DateTime.now(),
-          ),
-          ..._userPlaylists.value.sublist(index + 1),
-        ];
-        await _saveUserPlaylists();
-      }
-    }
+    final info = getPlaylistInfo(playlistId);
+    if (info == null || info.tagIds.contains(tagId)) return;
+    await _updateUserPlaylist(playlistId, {
+      'tag_ids': jsonEncode([...info.tagIds, tagId]),
+      'updated_at': DateTime.now().millisecondsSinceEpoch,
+    });
   }
 
-  /// 从歌单移除标签
   Future<void> removeTagFromPlaylist(String playlistId, String tagId) async {
-    final index = _userPlaylists.value.indexWhere((p) => p.id == playlistId);
-    if (index != -1) {
-      final playlist = _userPlaylists.value[index];
-      _userPlaylists.value = [
-        ..._userPlaylists.value.sublist(0, index),
-        playlist.copyWith(
-          tagIds: playlist.tagIds.where((id) => id != tagId).toList(),
-          updatedAt: DateTime.now(),
-        ),
-        ..._userPlaylists.value.sublist(index + 1),
-      ];
-      await _saveUserPlaylists();
-    }
+    final info = getPlaylistInfo(playlistId);
+    if (info == null || !info.tagIds.contains(tagId)) return;
+    await _updateUserPlaylist(playlistId, {
+      'tag_ids': jsonEncode(info.tagIds.where((t) => t != tagId).toList()),
+      'updated_at': DateTime.now().millisecondsSinceEpoch,
+    });
   }
 
-  /// 获取歌单详情（包含歌曲列表）
-  Future<Playlist?> getPlaylistDetail(String playlistId) async {
-    // 检查是否为系统歌单
-    final defaultPlaylist = DefaultPlaylists.getById(playlistId);
-    if (defaultPlaylist != null) {
-      List<Music> songs;
-      switch (playlistId) {
-        case 'favorites':
-          songs = _favorites.value;
-          break;
-        case 'history':
-          songs = _playHistory.value;
-          break;
-        default:
-          songs = [];
-      }
-      return defaultPlaylist.copyWith(songs: songs, songCount: songs.length);
-    }
-
-    // 用户歌单
-    final index = _userPlaylists.value.indexWhere((p) => p.id == playlistId);
-    if (index == -1) return null;
-
-    final playlist = _userPlaylists.value[index];
-    final songs = await _loadPlaylistSongs(playlistId);
-    return playlist.copyWith(songs: songs);
+  List<Playlist> filterPlaylistsByTag(String tagId) {
+    return _userPlaylists.value.where((p) => p.tagIds.contains(tagId)).toList();
   }
 
-  /// 设置当前查看的歌单
   void setCurrentPlaylistDetail(Playlist? playlist) {
     _currentPlaylistDetail.value = playlist;
   }
 
-  // ============ 歌单歌曲操作 ============
+  // ==================== playlist songs ====================
 
-  /// 加载歌单歌曲
-  Future<List<Music>> _loadPlaylistSongs(String playlistId) async {
-    try {
-      if (_prefs == null) return [];
-      final songsJson = _prefs!.getString('playlist_songs_$playlistId');
-      if (songsJson != null && songsJson.isNotEmpty) {
-        final decoded = jsonDecode(songsJson);
-        if (decoded is List<dynamic>) {
-          return decoded
-              .map((json) {
-                try {
-                  return Music.fromJson(json);
-                } catch (e) {
-                  return null;
-                }
-              })
-              .where((m) => m != null)
-              .cast<Music>()
-              .toList();
-        }
-      }
-    } catch (e) {
-      debugPrint('Failed to load playlist songs: $e');
-    }
-    return [];
+  Future<List<Music>> loadPlaylistSongs(String playlistId) async {
+    final rows = await _dbChecked.query(
+      'playlist_song',
+      where: 'playlist_id = ?',
+      whereArgs: [playlistId],
+      orderBy: 'position ASC',
+    );
+    return rows
+        .map((r) => _decodeMusic(r['payload'] as String))
+        .whereType<Music>()
+        .toList();
   }
 
-  /// 保存歌单歌曲
-  Future<void> _savePlaylistSongs(String playlistId, List<Music> songs) async {
-    try {
-      if (_prefs == null) return;
-      final songsJson = jsonEncode(songs.map((s) => s.toJson()).toList());
-      await _prefs!.setString('playlist_songs_$playlistId', songsJson);
-    } catch (e) {
-      debugPrint('Failed to save playlist songs: $e');
-    }
-  }
-
-  /// 向歌单添加歌曲
-  Future<void> addSongToUserPlaylist(String playlistId, Music song) async {
-    final songs = await _loadPlaylistSongs(playlistId);
-
-    // 检查是否已存在
-    final exists = songs.any((s) => s.id == song.id && s.cid == song.cid);
-
-    if (!exists) {
-      songs.add(song);
-      await _savePlaylistSongs(playlistId, songs);
-      await _updatePlaylistSongCount(playlistId, songs.length);
-    }
-  }
-
-  /// 从歌单移除歌曲
-  Future<void> removeSongFromUserPlaylist(String playlistId, Music song) async {
-    final songs = await _loadPlaylistSongs(playlistId);
-
-    songs.removeWhere((s) => s.id == song.id && s.cid == song.cid);
-
-    await _savePlaylistSongs(playlistId, songs);
-    await _updatePlaylistSongCount(playlistId, songs.length);
-  }
-
-  /// 批量添加歌曲到歌单
-  Future<void> addSongsToUserPlaylist(
+  Future<bool> addSongsToPlaylist(
     String playlistId,
     List<Music> newSongs,
   ) async {
-    final songs = await _loadPlaylistSongs(playlistId);
-    final existingIds = songs.map((s) => '${s.id}_${s.cid}').toSet();
+    if (newSongs.isEmpty) return false;
+    if (isSystemPlaylist(playlistId) && playlistId != 'recommended') {
+      return false;
+    }
 
-    int addedCount = 0;
-    for (final song in newSongs) {
-      final songKey = '${song.id}_${song.cid}';
-      if (!existingIds.contains(songKey)) {
-        songs.add(song);
-        addedCount++;
+    final db = _dbChecked;
+    var added = 0;
+    var updatedRowCountOrCover = false;
+    await db.transaction((txn) async {
+      final existing = await txn.query(
+        'playlist_song',
+        columns: ['music_id', 'cid'],
+        where: 'playlist_id = ?',
+        whereArgs: [playlistId],
+      );
+      final existingKeys = existing
+          .map((r) => '${r['music_id']}_${r['cid']}')
+          .toSet();
+      final maxPosRow = await txn.rawQuery(
+        'SELECT COALESCE(MAX(position), -1) AS mx '
+        'FROM playlist_song WHERE playlist_id = ?',
+        [playlistId],
+      );
+      var pos = (maxPosRow.first['mx'] as int?) ?? -1;
+
+      for (final m in newSongs) {
+        final key = '${m.id}_${m.cid}';
+        if (existingKeys.contains(key)) continue;
+        existingKeys.add(key);
+        pos += 1;
+        await txn.insert('playlist_song', {
+          'playlist_id': playlistId,
+          'music_id': m.id,
+          'cid': m.cid,
+          'position': pos,
+          'payload': jsonEncode(m.toJson()),
+          'added_at': DateTime.now().millisecondsSinceEpoch,
+        });
+        added += 1;
       }
-    }
 
-    if (addedCount > 0) {
-      await _savePlaylistSongs(playlistId, songs);
-      await _updatePlaylistSongCount(playlistId, songs.length);
+      if (added > 0) {
+        final countRow = await txn.rawQuery(
+          'SELECT COUNT(*) AS c FROM playlist_song WHERE playlist_id = ?',
+          [playlistId],
+        );
+        final count = (countRow.first['c'] as int?) ?? 0;
+
+        String? coverUrl;
+        if (!isSystemPlaylist(playlistId)) {
+          final firstRow = await txn.query(
+            'playlist_song',
+            where: 'playlist_id = ?',
+            whereArgs: [playlistId],
+            orderBy: 'position ASC',
+            limit: 1,
+          );
+          if (firstRow.isNotEmpty) {
+            final m = _decodeMusic(firstRow.first['payload'] as String);
+            if (m != null && m.safeCoverUrl.isNotEmpty) {
+              coverUrl = m.safeCoverUrl;
+            }
+          }
+        }
+
+        final update = <String, Object?>{
+          'song_count': count,
+          'updated_at': DateTime.now().millisecondsSinceEpoch,
+        };
+        if (coverUrl != null) update['cover_url'] = coverUrl;
+
+        final updated = await txn.update(
+          'playlist',
+          update,
+          where: 'id = ?',
+          whereArgs: [playlistId],
+        );
+        if (updated > 0) updatedRowCountOrCover = true;
+      }
+    });
+
+    if (updatedRowCountOrCover) {
+      await _loadUserPlaylists();
+    }
+    return added > 0;
+  }
+
+  Future<bool> addSongToUserPlaylist(String playlistId, Music music) async {
+    return addSongsToPlaylist(playlistId, [music]);
+  }
+
+  Future<void> removeSongsFromPlaylist(
+    String playlistId,
+    List<Music> songsToRemove,
+  ) async {
+    if (isSystemPlaylist(playlistId) && playlistId != 'recommended') return;
+    final db = _dbChecked;
+    var touchedPlaylistRow = false;
+    await db.transaction((txn) async {
+      for (final m in songsToRemove) {
+        await txn.delete(
+          'playlist_song',
+          where: 'playlist_id = ? AND music_id = ? AND cid = ?',
+          whereArgs: [playlistId, m.id, m.cid],
+        );
+      }
+      final countRow = await txn.rawQuery(
+        'SELECT COUNT(*) AS c FROM playlist_song WHERE playlist_id = ?',
+        [playlistId],
+      );
+      final count = (countRow.first['c'] as int?) ?? 0;
+      final updated = await txn.update(
+        'playlist',
+        {
+          'song_count': count,
+          'updated_at': DateTime.now().millisecondsSinceEpoch,
+        },
+        where: 'id = ?',
+        whereArgs: [playlistId],
+      );
+      if (updated > 0) touchedPlaylistRow = true;
+    });
+    if (touchedPlaylistRow) {
+      await _loadUserPlaylists();
     }
   }
 
-  /// 更新歌单歌曲数量
-  Future<void> _updatePlaylistSongCount(String playlistId, int count) async {
-    final index = _userPlaylists.value.indexWhere((p) => p.id == playlistId);
-    if (index != -1) {
-      final playlist = _userPlaylists.value[index];
-      _userPlaylists.value = [
-        ..._userPlaylists.value.sublist(0, index),
-        playlist.copyWith(songCount: count, updatedAt: DateTime.now()),
-        ..._userPlaylists.value.sublist(index + 1),
-      ];
-      await _saveUserPlaylists();
+  /// 用传入歌曲列表的首项封面做歌单封面（仅当现有封面为空时使用）。
+  /// 兼容旧 `updatePlaylistCover` 行为。
+  Future<void> updatePlaylistCover(String playlistId, List<Music> songs) async {
+    if (isSystemPlaylist(playlistId)) return;
+    if (songs.isEmpty) return;
+    final coverUrl = songs.first.safeCoverUrl;
+    if (coverUrl.isEmpty) return;
+    final info = getPlaylistInfo(playlistId);
+    if (info == null) return;
+    if ((info.coverUrl ?? '').isNotEmpty && info.coverUrl == coverUrl) {
+      return;
     }
+    await _updateUserPlaylist(playlistId, {
+      'cover_url': coverUrl,
+      'updated_at': DateTime.now().millisecondsSinceEpoch,
+    });
   }
 
-  // ============ 标签操作 ============
+  // ==================== tags ====================
 
-  /// 获取所有标签（按分类分组）
   Map<TagCategory, List<PlaylistTag>> getTagsByCategory() {
     final tags = _allTags.value;
     return {
-      TagCategory.genre: tags
-          .where((t) => t.category == TagCategory.genre)
-          .toList(),
-      TagCategory.scenario: tags
-          .where((t) => t.category == TagCategory.scenario)
-          .toList(),
-      TagCategory.mood: tags
-          .where((t) => t.category == TagCategory.mood)
-          .toList(),
-      TagCategory.custom: tags
-          .where((t) => t.category == TagCategory.custom)
-          .toList(),
+      for (final c in TagCategory.values)
+        c: tags.where((t) => t.category == c).toList(),
     };
   }
 
-  /// 根据标签ID获取标签
   PlaylistTag? getTagById(String tagId) {
     try {
       return _allTags.value.firstWhere((t) => t.id == tagId);
@@ -740,12 +1082,6 @@ class PlaylistService {
     }
   }
 
-  /// 根据标签筛选歌单
-  List<Playlist> filterPlaylistsByTag(String tagId) {
-    return _userPlaylists.value.where((p) => p.tagIds.contains(tagId)).toList();
-  }
-
-  /// 创建自定义标签
   Future<PlaylistTag> createCustomTag({
     required String name,
     required String nameCn,
@@ -760,111 +1096,179 @@ class PlaylistService {
       colorValue: colorValue,
       isSystem: false,
     );
-
+    await _dbChecked.insert('custom_tag', {
+      'id': tag.id,
+      'payload': jsonEncode(tag.toJson()),
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     _allTags.value = [..._allTags.value, tag];
-    await _saveCustomTags();
-
     return tag;
   }
 
-  /// 保存自定义标签
-  Future<void> _saveCustomTags() async {
-    try {
-      if (_prefs == null) return;
-      final customTags = _allTags.value
-          .where((t) => !t.isSystem)
-          .map((t) => t.toJson())
-          .toList();
-      final tagsJson = jsonEncode(customTags);
-      await _prefs!.setString('custom_tags', tagsJson);
-    } catch (e) {
-      debugPrint('Failed to save custom tags: $e');
+  // ==================== watch helpers (compat) ====================
+
+  ValueListenable<List<Music>> watchPlayHistory() => _playHistory;
+  ValueListenable<List<Music>> watchFavorites() => _favorites;
+  ValueListenable<List<Playlist>> watchUserPlaylists() => _userPlaylists;
+  ValueListenable<List<PlaylistTag>> watchTags() => _allTags;
+
+  // ==================== export / import / clear ====================
+
+  /// 备份导出: 返回与旧 `data_migration_page.dart` 兼容的 key 字符串 map。
+  Future<Map<String, String?>> exportForBackup() async {
+    final db = _dbChecked;
+    final result = <String, String?>{};
+
+    result['play_history'] = _encodeMusicList(_playHistory.value);
+    result['favorites'] = _encodeMusicList(_favorites.value);
+
+    final playlistRows = await db.query('playlist');
+    final playlistObjects = <Map<String, dynamic>>[];
+    for (final row in playlistRows) {
+      final p = _rowToPlaylist(row);
+      if (p == null) continue;
+      final json = p.toJson();
+      playlistObjects.add(json);
+      final id = p.id;
+      result['playlist_info_$id'] = jsonEncode(json);
+      final songs = await loadPlaylistSongs(id);
+      result['playlist_songs_$id'] = _encodeMusicList(songs);
     }
+    result['user_playlists_enhanced'] = jsonEncode(playlistObjects);
+    result['user_playlists'] = jsonEncode(
+      playlistObjects.map((j) => j['id']).toList(),
+    );
+
+    return result;
   }
 
-  /// 加载自定义标签
-  Future<void> _loadCustomTags() async {
-    try {
-      if (_prefs == null) return;
-      final tagsJson = _prefs!.getString('custom_tags');
-      if (tagsJson != null && tagsJson.isNotEmpty) {
-        final decoded = jsonDecode(tagsJson);
-        if (decoded is List<dynamic>) {
-          final customTags = decoded
-              .map((json) {
-                try {
-                  return PlaylistTag.fromJson(json);
-                } catch (e) {
-                  return null;
-                }
-              })
-              .where((t) => t != null)
-              .cast<PlaylistTag>()
-              .toList();
+  /// 备份导入: 接受 `data_migration_page.dart` 旧格式的 map。
+  Future<void> importFromBackup(Map<String, dynamic> data) async {
+    final db = _dbChecked;
+    await db.transaction((txn) async {
+      await txn.delete('current_track');
+      await txn.delete('play_history');
+      await txn.delete('favorite');
+      await txn.delete('playlist_song');
+      await txn.delete('playlist');
+      await txn.delete('custom_tag');
 
-          _allTags.value = [...DefaultPlaylistTags.allTags, ...customTags];
-        }
+      Future<void> insertMusicList(
+        Object? raw,
+        String table, {
+        required bool withPlayedAt,
+      }) async {
+        if (raw is! String) return;
+        try {
+          final list = jsonDecode(raw) as List;
+          var i = 0;
+          final now = DateTime.now().millisecondsSinceEpoch;
+          for (final entry in list) {
+            try {
+              final m = Music.fromJson(entry as Map<String, dynamic>);
+              final row = <String, Object?>{
+                'music_id': m.id,
+                'cid': m.cid,
+                'payload': jsonEncode(m.toJson()),
+              };
+              if (withPlayedAt) {
+                row['played_at'] = now - i++;
+              } else if (table == 'favorite') {
+                row['added_at'] = now;
+              }
+              await txn.insert(
+                table,
+                row,
+                conflictAlgorithm: ConflictAlgorithm.replace,
+              );
+            } catch (_) {}
+          }
+        } catch (_) {}
       }
-    } catch (e) {
-      debugPrint('Failed to load custom tags: $e');
-    }
-  }
 
-  // ============ 播放控制辅助方法 ============
+      await insertMusicList(
+        data['play_history'],
+        'play_history',
+        withPlayedAt: true,
+      );
+      await insertMusicList(data['favorites'], 'favorite', withPlayedAt: false);
 
-  /// 获取下一首索引（根据播放模式）
-  int? getNextIndex(PlayMode playMode, {Random? random}) {
-    final currentIdx = _currentIndex.value;
-    if (currentIdx == null || _currentPlaylist.value.isEmpty) return null;
-
-    switch (playMode) {
-      case PlayMode.sequential:
-        return (currentIdx + 1) % _currentPlaylist.value.length;
-      case PlayMode.loop:
-        return currentIdx;
-      case PlayMode.shuffle:
-        final rng = random ?? Random();
-        var newIndex = rng.nextInt(_currentPlaylist.value.length);
-        while (newIndex == currentIdx && _currentPlaylist.value.length > 1) {
-          newIndex = rng.nextInt(_currentPlaylist.value.length);
+      final playlistEntries = <Map<String, dynamic>>[];
+      if (data['user_playlists_enhanced'] is String) {
+        try {
+          final list = jsonDecode(data['user_playlists_enhanced']) as List;
+          for (final entry in list) {
+            if (entry is Map<String, dynamic>) playlistEntries.add(entry);
+          }
+        } catch (_) {}
+      }
+      data.forEach((key, value) {
+        if (key.startsWith('playlist_info_') && value is String) {
+          try {
+            final j = jsonDecode(value) as Map<String, dynamic>;
+            final id = key.substring('playlist_info_'.length);
+            j['id'] ??= id;
+            if (!playlistEntries.any((e) => e['id'] == id)) {
+              playlistEntries.add(j);
+            }
+          } catch (_) {}
         }
-        return newIndex;
-    }
+      });
+
+      for (final raw in playlistEntries) {
+        try {
+          final p = Playlist.fromJson(raw);
+          await txn.insert(
+            'playlist',
+            _playlistRow(p),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        } catch (_) {}
+      }
+
+      for (final key in data.keys) {
+        if (!key.startsWith('playlist_songs_')) continue;
+        if (data[key] is! String) continue;
+        final id = key.substring('playlist_songs_'.length);
+        try {
+          final list = jsonDecode(data[key] as String);
+          if (list is! List) continue;
+          var pos = 0;
+          for (final entry in list) {
+            try {
+              final m = Music.fromJson(entry as Map<String, dynamic>);
+              await txn.insert('playlist_song', {
+                'playlist_id': id,
+                'music_id': m.id,
+                'cid': m.cid,
+                'position': pos++,
+                'payload': jsonEncode(m.toJson()),
+                'added_at': DateTime.now().millisecondsSinceEpoch,
+              }, conflictAlgorithm: ConflictAlgorithm.ignore);
+            } catch (_) {}
+          }
+        } catch (_) {}
+      }
+    });
+
+    await _loadAll();
   }
 
-  /// 获取上一首索引（根据播放模式）
-  int? getPreviousIndex(PlayMode playMode, {Random? random}) {
-    final currentIdx = _currentIndex.value;
-    if (currentIdx == null || _currentPlaylist.value.isEmpty) return null;
-
-    switch (playMode) {
-      case PlayMode.sequential:
-        return (currentIdx - 1 + _currentPlaylist.value.length) %
-            _currentPlaylist.value.length;
-      case PlayMode.loop:
-        return currentIdx;
-      case PlayMode.shuffle:
-        final rng = random ?? Random();
-        var newIndex = rng.nextInt(_currentPlaylist.value.length);
-        while (newIndex == currentIdx && _currentPlaylist.value.length > 1) {
-          newIndex = rng.nextInt(_currentPlaylist.value.length);
-        }
-        return newIndex;
-    }
+  /// 清除所有列表数据。Settings/cookies/login 不在范围内。
+  Future<void> clearAllUserData() async {
+    final db = _dbChecked;
+    await db.transaction((txn) async {
+      await txn.delete('current_track');
+      await txn.delete('play_history');
+      await txn.delete('favorite');
+      await txn.delete('playlist_song');
+      await txn.delete('playlist');
+      await txn.delete('custom_tag');
+      await txn.delete('kv');
+    });
+    await _loadAll();
   }
 
-  // ============ 工具方法 ============
-
-  /// 在列表中查找音乐索引
-  int _findMusicIndex(List<Music> list, Music music) {
-    return list.indexWhere((m) => m.id == music.id && m.cid == music.cid);
-  }
-
-  /// 释放资源
   Future<void> dispose() async {
-    await _savePlaylist();
-    await _savePlayHistory();
-    await _saveFavorites();
-    await _saveUserPlaylists();
+    // sqflite 数据库由 AppDatabase 单例持有, 此处不需要关闭
   }
 }

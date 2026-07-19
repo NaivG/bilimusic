@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/managers/player_manager.dart';
+import 'package:bilimusic/services/player_coordinator.dart';
 import 'package:bilimusic/managers/playlist_manager.dart';
 import 'package:bilimusic/components/common/cards/common_music_list_tile.dart';
 
@@ -14,7 +14,7 @@ class MusicListItem extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onFavoriteToggle;
   final VoidCallback? onDelete;
-  final PlayerManager playerManager;
+  final PlayerCoordinator playerCoordinator;
   final PlaylistManager? playlistManager;
   final bool showCover;
   final bool showDetails;
@@ -23,7 +23,7 @@ class MusicListItem extends StatelessWidget {
   const MusicListItem({
     super.key,
     required this.music,
-    required this.playerManager,
+    required this.playerCoordinator,
     this.playlistManager,
     this.index,
     this.isPlaying = false,
@@ -40,7 +40,7 @@ class MusicListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return CommonMusicListTile(
       music: music,
-      playerManager: playerManager,
+      playerCoordinator: playerCoordinator,
       playlistManager: playlistManager,
       index: index,
       isPlaying: isPlaying,

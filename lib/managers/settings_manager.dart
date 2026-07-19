@@ -9,8 +9,8 @@ class SettingsManager extends ChangeNotifier {
   // 设置键名常量
   static const String KEY_NOTIFICATIONS_ENABLED = 'notifications_enabled';
   static const String KEY_DOWNLOAD_QUALITY_HIGH = 'download_quality_high';
-  static const String KEY_THEME_MODE = 'theme_mode';
-  static const String KEY_THEME_COLOR = 'theme_color';
+  static const String KEY_APPEARANCE = 'appearance';
+  static const String KEY_THEME = 'theme';
   static const String KEY_AUTO_PLAY_NEXT = 'auto_play_next';
   static const String KEY_SHOW_LYRICS = 'show_lyrics';
   static const String KEY_TABLET_MODE = 'tablet_mode'; // 平板模式设置项
@@ -27,8 +27,8 @@ class SettingsManager extends ChangeNotifier {
   // 默认值
   static const bool DEFAULT_NOTIFICATIONS_ENABLED = true;
   static const bool DEFAULT_DOWNLOAD_QUALITY_HIGH = true;
-  static const String DEFAULT_THEME_MODE = 'system';
-  static const String DEFAULT_THEME_COLOR = 'lucent';
+  static const String DEFAULT_APPEARANCE = 'system';
+  static const String DEFAULT_THEME = 'lucent';
   static const bool DEFAULT_AUTO_PLAY_NEXT = true;
   static const bool DEFAULT_SHOW_LYRICS = true;
   static const String DEFAULT_TABLET_MODE = 'auto';
@@ -36,7 +36,7 @@ class SettingsManager extends ChangeNotifier {
   static const bool DEFAULT_BLUR_EFFECT = true;
   static const String DEFAULT_AUDIO_OUTPUT_MODE =
       'audiotrack'; // 默认使用AudioTrack
-  static const int DEFAULT_VERSION_CODE = 26;
+  static const int DEFAULT_VERSION_CODE = 80;
   static const bool DEFAULT_PC_MODE = false;
 
   // Crossfade相关默认值
@@ -54,7 +54,37 @@ class SettingsManager extends ChangeNotifier {
 
   /// 初始化设置管理器
   Future<void> init() async {
+    await _migrateLegacyKeys();
     await _loadAllSettings();
+  }
+
+  /// 一次性迁移:旧的 `theme_mode`/`theme_color` 键值迁到 `appearance`/`theme`。
+  /// 仅在新键未写入时执行,避免覆盖用户新设置。
+  Future<void> _migrateLegacyKeys() async {
+    const legacyAppearance = 'theme_mode';
+    const legacyTheme = 'theme_color';
+    final prefs = await SharedPreferences.getInstance();
+    var migrated = false;
+    if (!prefs.containsKey(KEY_APPEARANCE) &&
+        prefs.containsKey(legacyAppearance)) {
+      final v = prefs.getString(legacyAppearance);
+      if (v != null) {
+        await prefs.setString(KEY_APPEARANCE, v);
+        migrated = true;
+      }
+      await prefs.remove(legacyAppearance);
+    }
+    if (!prefs.containsKey(KEY_THEME) && prefs.containsKey(legacyTheme)) {
+      final v = prefs.getString(legacyTheme);
+      if (v != null) {
+        await prefs.setString(KEY_THEME, v);
+        migrated = true;
+      }
+      await prefs.remove(legacyTheme);
+    }
+    if (migrated) {
+      debugPrint('SettingsManager: migrated legacy theme keys');
+    }
   }
 
   /// 加载所有设置到缓存
@@ -67,10 +97,9 @@ class SettingsManager extends ChangeNotifier {
     _cache[KEY_DOWNLOAD_QUALITY_HIGH] =
         prefs.getBool(KEY_DOWNLOAD_QUALITY_HIGH) ??
         DEFAULT_DOWNLOAD_QUALITY_HIGH;
-    _cache[KEY_THEME_MODE] =
-        prefs.getString(KEY_THEME_MODE) ?? DEFAULT_THEME_MODE;
-    _cache[KEY_THEME_COLOR] =
-        prefs.getString(KEY_THEME_COLOR) ?? DEFAULT_THEME_COLOR;
+    _cache[KEY_APPEARANCE] =
+        prefs.getString(KEY_APPEARANCE) ?? DEFAULT_APPEARANCE;
+    _cache[KEY_THEME] = prefs.getString(KEY_THEME) ?? DEFAULT_THEME;
 
     _cache[KEY_AUTO_PLAY_NEXT] =
         prefs.getBool(KEY_AUTO_PLAY_NEXT) ?? DEFAULT_AUTO_PLAY_NEXT;
@@ -116,22 +145,22 @@ class SettingsManager extends ChangeNotifier {
     _cache[KEY_DOWNLOAD_QUALITY_HIGH] = value;
   }
 
-  /// 获取主题模式设置
-  String get themeMode => _cache[KEY_THEME_MODE] ?? DEFAULT_THEME_MODE;
+  /// 获取外观设置 (system / light / dark)
+  String get appearance => _cache[KEY_APPEARANCE] ?? DEFAULT_APPEARANCE;
 
-  /// 设置主题模式
-  Future<void> setThemeMode(String value) async {
-    await _saveSetting(KEY_THEME_MODE, value);
-    _cache[KEY_THEME_MODE] = value;
+  /// 设置外观
+  Future<void> setAppearance(String value) async {
+    await _saveSetting(KEY_APPEARANCE, value);
+    _cache[KEY_APPEARANCE] = value;
   }
 
-  /// 获取主题配色设置
-  String get themeColor => _cache[KEY_THEME_COLOR] ?? DEFAULT_THEME_COLOR;
+  /// 获取主题设置 (lucent / nocturne / verdant)
+  String get theme => _cache[KEY_THEME] ?? DEFAULT_THEME;
 
-  /// 设置主题配色
-  Future<void> setThemeColor(String value) async {
-    await _saveSetting(KEY_THEME_COLOR, value);
-    _cache[KEY_THEME_COLOR] = value;
+  /// 设置主题
+  Future<void> setTheme(String value) async {
+    await _saveSetting(KEY_THEME, value);
+    _cache[KEY_THEME] = value;
   }
 
   /// 获取自动播放下一首设置
@@ -264,8 +293,8 @@ class SettingsManager extends ChangeNotifier {
     _cache[KEY_PRELOAD_SECONDS] = finalValue;
   }
 
-  /// 获取主题模式的文本描述
-  String getThemeModeText(String mode) {
+  /// 获取外观的文本描述
+  String getAppearanceText(String mode) {
     switch (mode) {
       case 'system':
         return '跟随系统';

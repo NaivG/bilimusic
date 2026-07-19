@@ -1,41 +1,59 @@
-import 'dart:convert';
 import 'package:flutter/cupertino.dart' show debugPrint;
-import 'package:http/http.dart' as http;
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/models/bili_item.dart';
-import 'package:bilimusic/models/bili_fav_folder.dart';
-import 'package:bilimusic/managers/cache_manager.dart';
-import 'package:bilimusic/utils/network_config.dart';
 
-/// API服务
-/// 职责：统一处理所有网络API调用
+import 'package:bilimusic/api/bili_client.dart';
+import 'package:bilimusic/api/bili_exception.dart';
+import 'package:bilimusic/managers/cache_manager.dart';
+import 'package:bilimusic/models/bili_fav_folder.dart';
+import 'package:bilimusic/models/bili_fav_resource.dart';
+import 'package:bilimusic/models/bili_item.dart';
+import 'package:bilimusic/models/music.dart';
+import 'package:bilimusic/models/search_result.dart';
+import 'package:bilimusic/utils/av_bv.dart';
+
+/// B 站 API 服务。所有 HTTP 请求统一走 [BiliClient]。
 class ApiService {
-  /// 获取视频详情（返回 BiliItem，推荐使用）
+  ApiService({BiliClient? client}) : _client = client ?? BiliClient();
+
+  final BiliClient _client;
+
+  // ====================================================================
+  //  视频详情
+  // ====================================================================
+
+  /// 获取 [BiliItem]（包含分P、UP 主、Stat 等完整信息）。
   Future<BiliItem?> getBiliItemDetails(String bvid) async {
     try {
-      final response = await http.get(
-        Uri.parse('https://api.bilibili.com/x/web-interface/view?bvid=$bvid'),
-        headers: NetworkConfig.biliHeaders,
+      final data = await _client.get(
+        '/x/web-interface/view',
+        query: {'bvid': bvid},
       );
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        if (json['code'] == 0) {
-          return BiliItem.fromViewApi(json['data']);
-        }
+      if (data is Map<String, dynamic>) {
+        return BiliItem.fromViewApi(data);
       }
       return null;
-    } catch (e) {
-      debugPrint('Error getting BiliItem details: $e');
+    } on BiliException catch (e) {
+      debugPrint('[ApiService] getBiliItemDetails($bvid): $e');
       return null;
     }
   }
 
-  /// 获取视频详情（兼容旧接口，内部调用 getBiliItemDetails）
+  /// 若 cid 缺失则拉详情补齐，返回更新后的 [Music]；
+  /// 已填 cid 或网络失败则原样返回。
   ///
-  /// [pageIndex] - 可选参数，指定返回第几个分P（从0开始）
-  /// [targetCid] - 可选参数，指定返回cid对应的分P
-  /// 如果同时指定了pageIndex和targetCid，优先使用targetCid
+  /// 用于"按 (bvid, cid) 唯一性检测"前置环节：调用方拿到 music 后先过一遍 ensureCid，
+  /// 再交给 PlaylistService 做去重。
+  Future<Music> ensureCid(Music music) async {
+    if (music.cid.isNotEmpty) return music;
+    final item = await getBiliItemDetails(music.id);
+    if (item == null || item.pages.isEmpty) return music;
+    // BiliItem.pages 里每个元素已是 Music（不是 deprecated 的 Page），
+    // 直接取首分 P 作为补齐后的候选。
+    return item.pages.first;
+  }
+
+  /// 兼容旧接口：返回 [Music]。可选 [pageIndex] / [targetCid] 选择分P。
+  ///
+  /// 失败时返回仅含 bvid 的占位 [Music]，避免上游链路过早崩。
   Future<Music> getVideoDetails(
     String bvid, {
     int? pageIndex,
@@ -43,24 +61,20 @@ class ApiService {
   }) async {
     final biliItem = await getBiliItemDetails(bvid);
     if (biliItem != null && biliItem.pages.isNotEmpty) {
-      // 如果指定了targetCid，查找匹配的分P
       if (targetCid != null && targetCid.isNotEmpty) {
-        final matchedPage = biliItem.pages.firstWhere(
-          (page) => page.cid == targetCid,
+        final matched = biliItem.pages.firstWhere(
+          (p) => p.cid == targetCid,
           orElse: () => biliItem.pages.first,
         );
-        return matchedPage;
+        return matched;
       }
-      // 如果指定了pageIndex，返回对应分P
       if (pageIndex != null &&
           pageIndex >= 0 &&
           pageIndex < biliItem.pages.length) {
         return biliItem.pages[pageIndex];
       }
-      // 默认返回第一个分P（保持向后兼容）
       return biliItem.pages.first;
     }
-    // 失败时返回仅含 bvid 的 Music，避免抛异常
     return Music(
       id: bvid,
       title: '未知标题',
@@ -71,388 +85,332 @@ class ApiService {
     );
   }
 
-  /// 获取音频URL
-  /// 优先使用 music.cid，如果为空则 fallback 到 music.pages[0].cid
+  // ====================================================================
+  //  音频 URL
+  // ====================================================================
+
+  /// 获取可播放的音频 URL（命中本地缓存则返回本地路径，否则走 `/x/player/playurl` 后下载）。
+  ///
+  /// 失败返回 `''` —— 该方法历史上是「尽力而为」语义，未改为抛异常以避免
+  /// 破坏 [PlayerCoordinator] 的 fallback 逻辑（无 URL 即停在 stopped 态）。
   Future<String> getAudioUrl(Music music) async {
     try {
-      // 获取 CID：优先用 music.cid，其次用 pages[0].cid
       String cid = music.cid;
       if (cid.isEmpty && music.pages.isNotEmpty) {
         cid = music.pages[0].cid;
       }
 
-      // 构建缓存键
-      final cacheKey = cid.isNotEmpty ? "${music.id}_$cid" : music.id;
-
-      final cachedFile = await musicCacheManager.getFileFromCache(cacheKey);
-      if (cachedFile != null) {
-        return cachedFile.file.path;
+      final cacheKey = cid.isNotEmpty ? '${music.id}_$cid' : music.id;
+      final cached = await musicCacheManager.getFileFromCache(cacheKey);
+      if (cached != null) {
+        return cached.file.path;
       }
 
-      // 如果 cid 仍然为空，先获取视频详情
       if (cid.isEmpty) {
         final biliItem = await getBiliItemDetails(music.id);
         if (biliItem != null && biliItem.pages.isNotEmpty) {
           cid = biliItem.pages.first.cid;
         }
       }
-
       if (cid.isEmpty) {
-        debugPrint('Failed to get cid for ${music.id}');
+        debugPrint('[ApiService] getAudioUrl(${music.id}): no cid');
         return '';
       }
 
-      // 获取音频URL
-      final audioResponse = await http.get(
-        Uri.parse(
-          'https://api.bilibili.com/x/player/playurl?bvid=${music.id}&cid=$cid&fnval=16',
-        ),
-        headers: NetworkConfig.biliHeaders,
+      final data = await _client.get(
+        '/x/player/playurl',
+        query: {'bvid': music.id, 'cid': cid, 'fnval': '16'},
       );
 
-      if (audioResponse.statusCode == 200) {
-        final audioJson = jsonDecode(audioResponse.body);
-
-        if (audioJson['code'] == 0 &&
-            audioJson['data'] != null &&
-            audioJson['data']['dash'] != null &&
-            audioJson['data']['dash']['audio'] != null &&
-            audioJson['data']['dash']['audio'].isNotEmpty) {
-          final audioUrl = audioJson['data']['dash']['audio'][0]['baseUrl'];
-
-          final file = await musicCacheManager.downloadFile(
-            audioUrl,
-            key: "${music.id}_$cid",
-            authHeaders: {
-              'User-Agent':
-                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
-              'Referer': 'https://www.bilibili.com',
-            },
-          );
-          return file.file.path;
-        }
+      final dash = (data as Map<String, dynamic>?)?['dash'];
+      final audios = dash is Map ? dash['audio'] as List? : null;
+      if (audios == null || audios.isEmpty) {
+        debugPrint('[ApiService] getAudioUrl(${music.id}): no dash audio');
+        return '';
+      }
+      final audioUrl = audios.first['baseUrl']?.toString() ?? '';
+      if (audioUrl.isEmpty) {
+        return '';
       }
 
-      debugPrint('Failed to get audio URL for ${music.id}');
+      final file = await musicCacheManager.downloadFile(
+        audioUrl,
+        key: '${music.id}_$cid',
+        authHeaders: {
+          'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
+          'Referer': 'https://www.bilibili.com',
+        },
+      );
+      return file.file.path;
+    } on BiliException catch (e) {
+      debugPrint('[ApiService] getAudioUrl(${music.id}): $e');
       return '';
-    } catch (e, stackTrace) {
-      debugPrint('Error getting audio URL for ${music.id}: $e');
-      debugPrint('Stack trace: $stackTrace');
+    } catch (e, st) {
+      debugPrint('[ApiService] getAudioUrl(${music.id}) crash: $e');
+      debugPrint('Stack trace: $st');
       return '';
     }
   }
 
-  /// 搜索音乐
-  Future<List<Music>> searchMusic(String query) async {
+  // ====================================================================
+  //  搜索
+  // ====================================================================
+
+  /// 关键词 / BV / AV 入口。统一返回 [SearchResponse]。
+  Future<SearchResponse> search(String query, {SearchResultType? type}) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) {
+      return SearchResponse.empty(query);
+    }
+
+    if (trimmed.startsWith('BV1')) {
+      return _searchByBvid(trimmed);
+    }
+
+    if (trimmed.toUpperCase().startsWith('AV')) {
+      final digits = trimmed.substring(2).replaceAll(RegExp(r'[^0-9]'), '');
+      if (digits.isEmpty) {
+        return SearchResponse.empty(query);
+      }
+      final aid = int.tryParse(digits);
+      if (aid == null) {
+        return SearchResponse.empty(query);
+      }
+      return _searchByBvid(av2bv(aid));
+    }
+
+    return _searchByKeyword(trimmed, type: type);
+  }
+
+  Future<SearchResponse> _searchByBvid(String bvid) async {
+    final biliItem = await getBiliItemDetails(bvid);
+    if (biliItem == null) {
+      return SearchResponse.empty(bvid);
+    }
+    final cover = biliItem.pic;
+    final result = SearchResult(
+      id: bvid,
+      title: biliItem.title,
+      subtitle: biliItem.owner.name,
+      coverUrl: cover.isNotEmpty ? '$cover@672w_378h' : cover,
+      type: SearchResultType.video,
+    );
+    return SearchResponse(
+      keyword: bvid,
+      results: [result],
+      hasMore: false,
+      page: 1,
+      totalResults: 1,
+    );
+  }
+
+  Future<SearchResponse> _searchByKeyword(
+    String query, {
+    SearchResultType? type,
+  }) async {
     try {
-      final response = await http.get(
-        Uri.parse(
-          'https://api.bilibili.com/x/web-interface/search/all/v2?keyword=$query',
-        ),
-        headers: NetworkConfig.biliHeaders,
+      final data = await _client.getJson(
+        '/x/web-interface/search/all/v2',
+        query: {'keyword': query},
       );
+      return _parseSearchResults(data, query);
+    } on BiliApiException catch (e) {
+      if (e.code == -101) {
+        debugPrint('[ApiService] search($query): not logged in');
+      } else {
+        debugPrint('[ApiService] search($query): $e');
+      }
+      return SearchResponse(
+        keyword: query,
+        results: const [],
+        hasMore: false,
+        page: 0,
+        totalResults: 0,
+      );
+    } on BiliNetworkException catch (e) {
+      debugPrint('[ApiService] search($query): network $e');
+      return SearchResponse.empty(query);
+    }
+  }
 
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        if (json['code'] == 0 && json['data']['result'] != null) {
-          final results = json['data']['result'];
-          final musicResults = <Music>[];
+  SearchResponse _parseSearchResults(Map<String, dynamic> data, String query) {
+    final results = data['result'] is List ? data['result'] as List : const [];
+    final List<SearchResult> all = [];
+    var total = 0;
 
-          // 解析搜索结果
-          for (final result in results) {
-            if (result['result_type'] == 'video') {
-              final videos = result['data'] ?? [];
-              for (final video in videos) {
-                musicResults.add(
-                  Music(
-                    id: video['bvid'] ?? '',
-                    title: video['title'] ?? '未知标题',
-                    artist: video['author'] ?? '未知艺术家',
-                    album: '搜索',
-                    coverUrl: video['pic']!.toString() + "@672w_378h",
-                    duration: Duration(seconds: video['duration'] ?? 180),
-                    audioUrl: '',
-                    pages: [],
-                    isFavorite: false,
-                  ),
-                );
-              }
-            }
-          }
-
-          return musicResults;
+    for (final result in results) {
+      if (result is! Map) continue;
+      final resultType = result['result_type']?.toString();
+      final items = result['data'] is List ? result['data'] as List : const [];
+      final mapped = _mapResultType(resultType);
+      if (mapped == null) continue;
+      for (final item in items) {
+        if (item is Map) {
+          all.add(SearchResult.fromJson(_stringKeys(item), mapped));
         }
       }
-      return [];
-    } catch (e) {
-      debugPrint('Error searching music: $e');
-      return [];
+      total += items.length;
     }
+
+    final page = data['page'] is int ? data['page'] as int : 1;
+    final numPages = data['numPages'] is int ? data['numPages'] as int : 1;
+
+    return SearchResponse(
+      keyword: query,
+      results: all,
+      hasMore: page < numPages,
+      page: page,
+      totalResults: total,
+    );
   }
 
-  /// 获取推荐音乐
-  Future<List<Music>> getRecommendedMusic() async {
-    try {
-      // 这里可以调用B站的推荐API
-      // 暂时返回空列表，实际项目中需要实现
-      return [];
-    } catch (e) {
-      debugPrint('Error getting recommended music: $e');
-      return [];
+  SearchResultType? _mapResultType(String? raw) {
+    switch (raw) {
+      case 'video':
+        return SearchResultType.video;
+      case 'album':
+        return SearchResultType.album;
+      case 'author':
+        return SearchResultType.author;
+      case 'media_bangumi':
+        return SearchResultType.bangumi;
+      case 'topic':
+        return SearchResultType.topic;
+      case 'upuser':
+        return SearchResultType.upuser;
     }
+    return null;
   }
 
-  /// 获取热门音乐
-  Future<List<Music>> getPopularMusic() async {
-    try {
-      // 这里可以调用B站的热门API
-      // 暂时返回空列表，实际项目中需要实现
-      return [];
-    } catch (e) {
-      debugPrint('Error getting popular music: $e');
-      return [];
-    }
+  Map<String, dynamic> _stringKeys(Map<dynamic, dynamic> source) {
+    return source.map((k, v) => MapEntry(k.toString(), v));
   }
 
-  // ==================================================================
-  //  收藏夹 API（Bilibili Fav API）
-  // ==================================================================
+  // ====================================================================
+  //  收藏夹 / 歌单
+  // ====================================================================
 
-  /// 获取指定用户创建的所有收藏夹列表
-  ///
-  /// [upMid] - 目标用户 mid（通常为登录用户自己的 mid）
-  /// 对应 API: GET /x/v3/fav/folder/created/list-all
+  /// 获取指定用户创建的所有收藏夹。
   Future<List<BiliFavFolder>> fetchUserCreatedFolders(int upMid) async {
     try {
-      final response = await http.get(
-        Uri.parse(
-          'https://api.bilibili.com/x/v3/fav/folder/created/list-all?up_mid=$upMid',
-        ),
-        headers: NetworkConfig.biliHeaders,
+      final data = await _client.get(
+        '/x/v3/fav/folder/created/list-all',
+        query: {'up_mid': '$upMid'},
       );
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        if (json['code'] == 0 && json['data'] != null) {
-          final list = json['data']['list'];
-          if (list is List) {
-            return list.map((e) => BiliFavFolder.fromCreatedList(e)).toList();
-          }
-        } else if (json['code'] == -101) {
-          debugPrint('[FavAPI] 未登录，无法获取收藏夹');
-        }
+      final list = (data as Map<String, dynamic>?)?['list'];
+      if (list is List) {
+        return list
+            .whereType<Map>()
+            .map((e) => BiliFavFolder.fromCreatedList(_stringKeys(e)))
+            .toList();
       }
-      return [];
-    } catch (e) {
-      debugPrint('[FavAPI] fetchUserCreatedFolders error: $e');
-      return [];
+      return const [];
+    } on BiliApiException catch (e) {
+      if (e.code == -101) {
+        debugPrint('[FavAPI] 未登录，无法获取收藏夹');
+      } else {
+        debugPrint('[FavAPI] fetchUserCreatedFolders: $e');
+      }
+      return const [];
+    } on BiliNetworkException catch (e) {
+      debugPrint('[FavAPI] fetchUserCreatedFolders network: $e');
+      return const [];
     }
   }
 
-  /// 获取指定用户收藏的收藏夹列表（分页）
-  ///
-  /// [upMid] - 目标用户 mid
-  /// [page] - 页码（从1开始）
-  /// [pageSize] - 每页数量（默认20，最大>70）
-  /// 对应 API: GET /x/v3/fav/folder/collected/list
+  /// 获取指定用户收藏的收藏夹（分页）。
   Future<List<BiliFavFolder>> fetchCollectedFolders(
     int upMid, {
     int page = 1,
     int pageSize = 20,
   }) async {
     try {
-      final response = await http.get(
-        Uri.parse(
-          'https://api.bilibili.com/x/v3/fav/folder/collected/list'
-          '?up_mid=$upMid&ps=$pageSize&pn=$page&platform=web',
-        ),
-        headers: NetworkConfig.biliHeaders,
+      final data = await _client.get(
+        '/x/v3/fav/folder/collected/list',
+        query: {
+          'up_mid': '$upMid',
+          'ps': '$pageSize',
+          'pn': '$page',
+          'platform': 'web',
+        },
       );
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        if (json['code'] == 0 && json['data'] != null) {
-          final list = json['data']['list'];
-          if (list is List) {
-            return list.map((e) => BiliFavFolder.fromCollectedList(e)).toList();
-          }
-        }
+      final list = (data as Map<String, dynamic>?)?['list'];
+      if (list is List) {
+        return list
+            .whereType<Map>()
+            .map((e) => BiliFavFolder.fromCollectedList(_stringKeys(e)))
+            .toList();
       }
-      return [];
-    } catch (e) {
-      debugPrint('[FavAPI] fetchCollectedFolders error: $e');
-      return [];
+      return const [];
+    } on BiliException catch (e) {
+      debugPrint('[FavAPI] fetchCollectedFolders: $e');
+      return const [];
     }
   }
 
-  /// 获取收藏夹资源列表（分页）
-  ///
-  /// [mediaId] - 目标收藏夹完整 id
-  /// [page] - 页码（从1开始）
-  /// [pageSize] - 每页数量（1-20）
-  /// 返回 [FavResourcePage]，包含资源列表和是否有下一页
-  /// 对应 API: GET /x/v3/fav/resource/list
+  /// 获取收藏夹资源列表（分页）。
   Future<FavResourcePage> fetchFolderResources(
     int mediaId, {
     int page = 1,
     int pageSize = 20,
   }) async {
     try {
-      final response = await http.get(
-        Uri.parse(
-          'https://api.bilibili.com/x/v3/fav/resource/list'
-          '?media_id=$mediaId&platform=web&pn=$page&ps=$pageSize',
-        ),
-        headers: NetworkConfig.biliHeaders,
+      final raw = await _client.getJson(
+        '/x/v3/fav/resource/list',
+        query: {
+          'media_id': '$mediaId',
+          'platform': 'web',
+          'pn': '$page',
+          'ps': '$pageSize',
+        },
       );
+      final data = raw['data'];
+      if (data is! Map) return FavResourcePage.empty();
+      final info = (data['info'] is Map) ? data['info'] as Map : const {};
+      final medias = (data['medias'] is List)
+          ? data['medias'] as List
+          : const [];
+      final hasMore = data['has_more'] == true;
+      final resources = medias
+          .whereType<Map>()
+          .map((e) => FavResource.fromJson(_stringKeys(e)))
+          .toList();
 
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        if (json['code'] == 0 && json['data'] != null) {
-          final data = json['data'];
-          final info = data['info'] ?? {};
-          final medias = (data['medias'] as List?) ?? [];
-          final hasMore = data['has_more'] == true;
-
-          final resources = medias.map((e) => FavResource.fromJson(e)).toList();
-
-          return FavResourcePage(
-            resources: resources,
-            hasMore: hasMore,
-            title: info['title'] ?? '',
-            cover: info['cover'] ?? '',
-            mediaCount: info['media_count'] ?? 0,
-          );
-        }
-      }
-      return FavResourcePage.empty();
-    } catch (e) {
-      debugPrint('[FavAPI] fetchFolderResources error: $e');
+      return FavResourcePage(
+        resources: resources,
+        hasMore: hasMore,
+        title: info['title']?.toString() ?? '',
+        cover: info['cover']?.toString() ?? '',
+        mediaCount: info['media_count'] is int ? info['media_count'] as int : 0,
+      );
+    } on BiliException catch (e) {
+      debugPrint('[FavAPI] fetchFolderResources: $e');
       return FavResourcePage.empty();
     }
   }
 
-  /// 批量获取指定资源详情
-  ///
-  /// [resources] - 资源引用列表（id + type）
-  /// 一次最多建议 20-30 个
-  /// 对应 API: GET /x/v3/fav/resource/infos
+  /// 批量获取指定资源详情。
   Future<List<FavResource>> batchFetchResourceDetails(
     List<FavResourceRef> resources,
   ) async {
-    if (resources.isEmpty) return [];
-
+    if (resources.isEmpty) return const [];
     try {
-      // 构建 resources 参数：id1:type1,id2:type2,...
       final resourceStr = resources.map((r) => '${r.id}:${r.type}').join(',');
-
-      final response = await http.get(
-        Uri.parse(
-          'https://api.bilibili.com/x/v3/fav/resource/infos'
-          '?resources=$resourceStr&platform=web',
-        ),
-        headers: NetworkConfig.biliHeaders,
+      final data = await _client.get(
+        '/x/v3/fav/resource/infos',
+        query: {'resources': resourceStr, 'platform': 'web'},
       );
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        if (json['code'] == 0 && json['data'] != null) {
-          final list = json['data'] as List;
-          return list.map((e) => FavResource.fromJson(e)).toList();
-        }
+      if (data is List) {
+        return data
+            .whereType<Map>()
+            .map((e) => FavResource.fromJson(_stringKeys(e)))
+            .toList();
       }
-      return [];
-    } catch (e) {
-      debugPrint('[FavAPI] batchFetchResourceDetails error: $e');
-      return [];
+      return const [];
+    } on BiliException catch (e) {
+      debugPrint('[FavAPI] batchFetchResourceDetails: $e');
+      return const [];
     }
-  }
-}
-
-// ==================================================================
-//  收藏夹资源相关数据模型
-// ==================================================================
-
-/// 收藏夹资源分页结果
-class FavResourcePage {
-  final List<FavResource> resources;
-  final bool hasMore;
-  final String title;
-  final String cover;
-  final int mediaCount;
-
-  const FavResourcePage({
-    required this.resources,
-    required this.hasMore,
-    this.title = '',
-    this.cover = '',
-    this.mediaCount = 0,
-  });
-
-  const FavResourcePage.empty()
-    : resources = const [],
-      hasMore = false,
-      title = '',
-      cover = '',
-      mediaCount = 0;
-}
-
-/// 收藏夹资源引用（批量查询用）
-class FavResourceRef {
-  final int id;
-  final int type;
-
-  const FavResourceRef({required this.id, required this.type});
-}
-
-/// 收藏夹资源（对应 API medias[] 中的条目）
-///
-/// 类型对照：
-///   2  = 视频稿件（可用 bvid 播放）
-///   12 = 音频稿件（部分有 bvid，可用 bvid 播放）
-///   21 = 视频合集（跳过）
-class FavResource {
-  final int id;
-  final int type;
-  final String title;
-  final String cover;
-  final String intro;
-  final int page;
-  final int duration;
-  final String bvid;
-  final String upperName;
-  final int attr; // 0=正常, 1/9=失效
-
-  const FavResource({
-    required this.id,
-    required this.type,
-    required this.title,
-    this.cover = '',
-    this.intro = '',
-    this.page = 1,
-    this.duration = 0,
-    this.bvid = '',
-    this.upperName = '',
-    this.attr = 0,
-  });
-
-  /// 是否可用于播放（视频稿件或音频稿件，且未失效）
-  bool get isPlayable =>
-      (type == 2 || type == 12) && (attr == 0) && bvid.isNotEmpty;
-
-  factory FavResource.fromJson(Map<String, dynamic> json) {
-    final upper = json['upper'] ?? {};
-    return FavResource(
-      id: json['id'] ?? 0,
-      type: json['type'] ?? 0,
-      title: json['title'] ?? '',
-      cover: json['cover'] ?? '',
-      intro: json['intro'] ?? '',
-      page: json['page'] ?? 1,
-      duration: json['duration'] ?? 0,
-      bvid: json['bvid'] ?? json['bv_id'] ?? '',
-      upperName: upper['name'] ?? '',
-      attr: json['attr'] ?? 0,
-    );
   }
 }

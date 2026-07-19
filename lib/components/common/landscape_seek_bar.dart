@@ -1,10 +1,11 @@
-import 'package:bilimusic/index.dart';
 import 'package:flutter/material.dart';
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bilimusic/core/app_providers.dart';
+import 'package:bilimusic/providers/playback_providers.dart';
 
 /// 横屏模式进度条组件
 /// 基于ParticleMusic的SeekBar适配bilimusic的PlayerManager
-class LandscapeSeekBar extends StatefulWidget {
+class LandscapeSeekBar extends ConsumerStatefulWidget {
   final Color? color;
   final double widgetHeight;
   final double seekBarHeight;
@@ -19,60 +20,23 @@ class LandscapeSeekBar extends StatefulWidget {
   });
 
   @override
-  State<LandscapeSeekBar> createState() => _LandscapeSeekBarState();
+  ConsumerState<LandscapeSeekBar> createState() => _LandscapeSeekBarState();
 }
 
-class _LandscapeSeekBarState extends State<LandscapeSeekBar> {
+class _LandscapeSeekBarState extends ConsumerState<LandscapeSeekBar> {
   double? dragValue;
   bool isDragging = false;
   double horizontalPadding = 45;
 
-  Duration _position = Duration.zero;
-  Duration _duration = Duration.zero;
-
-  @override
-  void initState() {
-    super.initState();
-    // Initialize with current values before listening
-    _position = sl.playerManager.currentPosition;
-    final music = sl.playerManager.currentMusic;
-    _duration = music?.duration ?? Duration.zero;
-    _setupListeners();
-  }
-
-  void _setupListeners() {
-    sl.playerManager.addPositionListener(_onPositionChanged);
-    sl.playerManager.addMusicListener(_onMusicChanged);
-  }
-
-  void _onMusicChanged(Music? music) {
-    if (mounted && music != null) {
-      setState(() {
-        _duration = music.duration ?? Duration.zero; // 只获取时长，避免不必要的状态更新
-      });
-    }
-  }
-
-  void _onPositionChanged(Duration position) {
-    if (!isDragging) {
-      setState(() {
-        _position = position;
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    sl.playerManager.removePositionListener(_onPositionChanged);
-    sl.playerManager.removeMusicListener(_onMusicChanged);
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final durationMs = _duration.inMilliseconds.toDouble();
-    final effectiveValue = dragValue ?? _position.inMilliseconds.toDouble();
-    final sliderValue = _duration.inMilliseconds == 0
+    final position = ref.watch(positionProvider);
+    final music = ref.read(playerCoordinatorProvider).currentMusic;
+    final duration = music?.duration ?? Duration.zero;
+    final durationMs = duration.inMilliseconds.toDouble();
+
+    final effectiveValue = dragValue ?? position.inMilliseconds.toDouble();
+    final sliderValue = durationMs == 0
         ? 0.0
         : effectiveValue.clamp(0.0, durationMs);
 
@@ -81,33 +45,34 @@ class _LandscapeSeekBarState extends State<LandscapeSeekBar> {
       child: Stack(
         alignment: Alignment.centerLeft,
         children: [
-          // Duration labels
           if (widget.showDurationLabels)
             Positioned(
               left: 0,
               right: 0,
               bottom: 2,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _formatDuration(
-                      Duration(milliseconds: sliderValue.toInt()),
+              child: isDragging
+                  ? const SizedBox.shrink()
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _formatDuration(
+                            Duration(milliseconds: sliderValue.toInt()),
+                          ),
+                          style: TextStyle(
+                            color: widget.color ?? Colors.grey,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                        Text(
+                          _formatDuration(duration),
+                          style: TextStyle(
+                            color: widget.color ?? Colors.grey,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                      ],
                     ),
-                    style: TextStyle(
-                      color: widget.color ?? Colors.grey,
-                      fontSize: 12.5,
-                    ),
-                  ),
-                  Text(
-                    _formatDuration(_duration),
-                    style: TextStyle(
-                      color: widget.color ?? Colors.grey,
-                      fontSize: 12.5,
-                    ),
-                  ),
-                ],
-              ),
             ),
 
           // Slider visuals
@@ -135,7 +100,7 @@ class _LandscapeSeekBarState extends State<LandscapeSeekBar> {
             ),
           ),
 
-          // Full-track GestureDetector to capture touches anywhere on the track
+          // Full-track GestureDetector
           Positioned.fill(
             top: (widget.widgetHeight - widget.seekBarHeight) / 2,
             bottom: (widget.widgetHeight - widget.seekBarHeight) / 2,
@@ -145,13 +110,13 @@ class _LandscapeSeekBarState extends State<LandscapeSeekBar> {
                 setState(() => isDragging = false);
               },
               onTapDown: (_) {
-                if (sl.playerManager.currentMusic == null) {
+                if (ref.read(playerCoordinatorProvider).currentMusic == null) {
                   return;
                 }
                 setState(() => isDragging = true);
               },
               onHorizontalDragUpdate: (details) {
-                if (sl.playerManager.currentMusic == null) {
+                if (ref.read(playerCoordinatorProvider).currentMusic == null) {
                   return;
                 }
                 _seekByTouch(details.localPosition.dx, context, durationMs);
@@ -160,13 +125,13 @@ class _LandscapeSeekBarState extends State<LandscapeSeekBar> {
                 });
               },
               onHorizontalDragEnd: (_) async {
-                if (sl.playerManager.currentMusic == null) {
+                if (ref.read(playerCoordinatorProvider).currentMusic == null) {
                   return;
                 }
                 if (dragValue != null) {
-                  await sl.playerManager.seek(
-                    Duration(milliseconds: dragValue!.toInt()),
-                  );
+                  await ref
+                      .read(playbackCommandsProvider.notifier)
+                      .seek(Duration(milliseconds: dragValue!.toInt()));
                 }
                 setState(() {
                   dragValue = null;
@@ -174,13 +139,13 @@ class _LandscapeSeekBarState extends State<LandscapeSeekBar> {
                 });
               },
               onTapUp: (details) async {
-                if (sl.playerManager.currentMusic == null) {
+                if (ref.read(playerCoordinatorProvider).currentMusic == null) {
                   return;
                 }
                 _seekByTouch(details.localPosition.dx, context, durationMs);
-                await sl.playerManager.seek(
-                  Duration(milliseconds: dragValue!.toInt()),
-                );
+                await ref
+                    .read(playbackCommandsProvider.notifier)
+                    .seek(Duration(milliseconds: dragValue!.toInt()));
                 setState(() {
                   dragValue = null;
                   isDragging = false;

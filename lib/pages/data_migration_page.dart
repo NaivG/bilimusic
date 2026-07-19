@@ -1,22 +1,24 @@
 import 'dart:convert';
 import 'package:bilimusic/components/auto_appbar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, Uint8List;
 import 'dart:io' show File;
 import 'package:restart_app/restart_app.dart';
+import '../core/app_providers.dart';
 import '../managers/settings_manager.dart';
 import '../utils/platform_helper.dart';
 
-class DataMigrationPage extends StatefulWidget {
+class DataMigrationPage extends ConsumerStatefulWidget {
   const DataMigrationPage({super.key});
 
   @override
-  State<DataMigrationPage> createState() => _DataMigrationPageState();
+  ConsumerState<DataMigrationPage> createState() => _DataMigrationPageState();
 }
 
-class _DataMigrationPageState extends State<DataMigrationPage> {
+class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
   bool _isExporting = false;
   bool _isImporting = false;
   String _statusMessage = '';
@@ -232,58 +234,26 @@ class _DataMigrationPageState extends State<DataMigrationPage> {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // 获取所有需要导出的数据
-      final Map<String, dynamic> exportData = {};
+      // 列表/歌单/收藏/历史数据由 PlaylistService 从 sqflite 给出
+      final listExport = await ref
+          .read(playlistManagerProvider)
+          .exportForBackup();
 
-      // 导出所有设置
-      exportData['settings'] = _exportSettings(prefs);
+      final Map<String, dynamic> exportData = {
+        'settings': _exportSettings(prefs),
+        'cookies': prefs.getString('cookies'),
+        'login_time': prefs.getString('login_time'),
+        ...listExport,
+      };
 
-      // 导出播放历史
-      exportData['play_history'] = prefs.getString('play_history');
-
-      // 导出收藏列表（我喜欢的音乐）
-      exportData['favorites'] = prefs.getString('favorites');
-
-      // 导出播放列表索引
-      exportData['user_playlists'] = prefs.getString('user_playlists');
-
-      // 导出各个播放列表信息和歌曲
-      final playlistIdsJson = prefs.getString('user_playlists');
-      if (playlistIdsJson != null) {
-        try {
-          final List<dynamic> playlistIds = jsonDecode(playlistIdsJson);
-          for (var id in playlistIds) {
-            if (id is String) {
-              exportData['playlist_info_$id'] = prefs.getString(
-                'playlist_info_$id',
-              );
-              exportData['playlist_songs_$id'] = prefs.getString(
-                'playlist_songs_$id',
-              );
-            }
-          }
-        } catch (e) {
-          debugPrint('Error exporting playlists: $e');
-        }
-      }
-
-      // 导出Cookie信息
-      exportData['cookies'] = prefs.getString('cookies');
-      exportData['login_time'] = prefs.getString('login_time');
-
-      // 计算导出项目数量
       _exportedItemCount = exportData.keys.length;
-
       debugPrint('Exporting data with $_exportedItemCount top-level keys');
 
-      // 创建JSON字符串
       final jsonString = jsonEncode(exportData);
 
       if (kIsWeb) {
-        // Web端处理
         _downloadWebFile(jsonString);
       } else {
-        // 移动端/桌面端处理
         await _saveToFile(jsonString);
       }
     } catch (e) {
@@ -502,30 +472,8 @@ class _DataMigrationPageState extends State<DataMigrationPage> {
           }
         }
 
-        // 导入播放历史
-        if (importData['play_history'] != null) {
-          await prefs.setString('play_history', importData['play_history']);
-        }
-
-        // 导入收藏列表（我喜欢的音乐）
-        if (importData['favorites'] != null) {
-          await prefs.setString('favorites', importData['favorites']);
-        }
-
-        // 导入播放列表索引
-        if (importData['user_playlists'] != null) {
-          await prefs.setString('user_playlists', importData['user_playlists']);
-        }
-
-        // 导入播放列表信息和歌曲
-        importData.forEach((key, value) {
-          if (key.startsWith('playlist_info_') ||
-              key.startsWith('playlist_songs_')) {
-            if (value != null) {
-              prefs.setString(key, value);
-            }
-          }
-        });
+        // 列表数据统一交给 PlaylistService 处理
+        await ref.read(playlistManagerProvider).importFromBackup(importData);
 
         // 导入Cookie信息
         if (importData['cookies'] != null) {

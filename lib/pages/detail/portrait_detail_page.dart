@@ -2,7 +2,7 @@ import 'dart:ui';
 import 'package:bilimusic/components/auto_appbar.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/models/music.dart' as model;
 import 'package:bilimusic/utils/animations.dart';
 import 'package:bilimusic/utils/dialog_helpers.dart';
@@ -10,9 +10,10 @@ import 'package:bilimusic/utils/lyric_parser.dart';
 import 'package:bilimusic/components/lyric/lyric_section.dart';
 import 'package:bilimusic/components/lyric/lyric_source.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
+import 'package:bilimusic/providers/playback_providers.dart';
 
 /// 竖屏详情页
-class PortraitDetailPage extends StatefulWidget {
+class PortraitDetailPage extends ConsumerStatefulWidget {
   final model.Music music;
   final Duration position;
   final Duration? duration;
@@ -59,10 +60,10 @@ class PortraitDetailPage extends StatefulWidget {
   });
 
   @override
-  State<PortraitDetailPage> createState() => _PortraitDetailPageState();
+  ConsumerState<PortraitDetailPage> createState() => _PortraitDetailPageState();
 }
 
-class _PortraitDetailPageState extends State<PortraitDetailPage> {
+class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -314,10 +315,15 @@ class _PortraitDetailPageState extends State<PortraitDetailPage> {
               // 收藏
               IconButton(
                 icon: Icon(
-                  sl.playerManager.isFavorite(widget.music)
+                  ref
+                          .read(playbackCommandsProvider.notifier)
+                          .isFavorite(widget.music)
                       ? Icons.favorite
                       : Icons.favorite_border,
-                  color: sl.playerManager.isFavorite(widget.music)
+                  color:
+                      ref
+                          .read(playbackCommandsProvider.notifier)
+                          .isFavorite(widget.music)
                       ? Colors.red[400]
                       : Colors.white,
                 ),
@@ -380,7 +386,8 @@ class _PortraitDetailPageState extends State<PortraitDetailPage> {
                   color: Colors.white.withValues(alpha: 0.7),
                 ),
                 iconSize: 32,
-                onPressed: () => sl.playerManager.playPrevious(),
+                onPressed: () =>
+                    ref.read(playbackCommandsProvider.notifier).playPrevious(),
               ),
               IconButton(
                 icon: Icon(
@@ -388,7 +395,8 @@ class _PortraitDetailPageState extends State<PortraitDetailPage> {
                   color: Colors.white.withValues(alpha: 0.7),
                 ),
                 iconSize: 32,
-                onPressed: () => sl.playerManager.playNext(),
+                onPressed: () =>
+                    ref.read(playbackCommandsProvider.notifier).playNext(),
               ),
               IconButton(
                 icon: Icon(
@@ -514,15 +522,24 @@ class _PortraitDetailPageState extends State<PortraitDetailPage> {
             const SizedBox(height: 20),
             ListTile(
               leading: Icon(
-                sl.playerManager.isFavorite(widget.music)
+                ref
+                        .read(playbackCommandsProvider.notifier)
+                        .isFavorite(widget.music)
                     ? Icons.favorite
                     : Icons.favorite_border,
-                color: sl.playerManager.isFavorite(widget.music)
+                color:
+                    ref
+                        .read(playbackCommandsProvider.notifier)
+                        .isFavorite(widget.music)
                     ? Colors.red
                     : Colors.white,
               ),
               title: Text(
-                sl.playerManager.isFavorite(widget.music) ? '取消收藏' : '收藏',
+                ref
+                        .read(playbackCommandsProvider.notifier)
+                        .isFavorite(widget.music)
+                    ? '取消收藏'
+                    : '收藏',
                 style: const TextStyle(color: Colors.white),
               ),
               onTap: () {

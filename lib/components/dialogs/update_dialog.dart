@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:bilimusic/models/changelog_entry.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/theme/app_tokens.dart';
 
 class UpdateAvailableDialog extends StatelessWidget {
   final String newVersion;
@@ -33,17 +33,13 @@ class UpdateAvailableDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
+    final colorScheme = Theme.of(context).colorScheme;
     return AlertDialog(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(LucentTokens.radiusLg),
+        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
       ),
-      backgroundColor: LucentTokens.surfaceRaised(brightness),
-      icon: Icon(
-        Icons.system_update,
-        size: 48,
-        color: LucentTokens.accentPrimary,
-      ),
+      backgroundColor: colorScheme.surfaceContainerHighest,
+      icon: Icon(Icons.system_update, size: 48, color: colorScheme.primary),
       title: Text('发现新版本 v$newVersion'),
       content: SizedBox(
         width: 400,
@@ -53,10 +49,12 @@ class UpdateAvailableDialog extends StatelessWidget {
           children: [
             Text(
               '以下是本次更新内容：',
-              style: TextStyle(color: LucentTokens.textSecondary(brightness)),
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 12),
-            ...changelog.map((entry) => _buildChangelogItem(entry, brightness)),
+            ...changelog.map(
+              (entry) => _buildChangelogItem(entry, colorScheme),
+            ),
           ],
         ),
       ),
@@ -65,7 +63,7 @@ class UpdateAvailableDialog extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
           child: Text(
             '暂不更新',
-            style: TextStyle(color: LucentTokens.textSecondary(brightness)),
+            style: TextStyle(color: colorScheme.onSurfaceVariant),
           ),
         ),
         ElevatedButton(
@@ -74,10 +72,10 @@ class UpdateAvailableDialog extends StatelessWidget {
             _launchUpdateUrl();
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: LucentTokens.accentPrimary,
-            foregroundColor: Colors.white,
+            backgroundColor: colorScheme.primary,
+            foregroundColor: colorScheme.onPrimary,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(LucentTokens.radiusSm),
+              borderRadius: BorderRadius.circular(AppTokens.radiusSm),
             ),
           ),
           child: const Text('立即更新'),
@@ -86,7 +84,7 @@ class UpdateAvailableDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildChangelogItem(ChangelogEntry entry, Brightness brightness) {
+  Widget _buildChangelogItem(ChangelogEntry entry, ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
@@ -99,7 +97,7 @@ class UpdateAvailableDialog extends StatelessWidget {
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
-                  color: LucentTokens.textPrimary(brightness),
+                  color: colorScheme.onSurface,
                 ),
               ),
               const SizedBox(width: 8),
@@ -107,7 +105,7 @@ class UpdateAvailableDialog extends StatelessWidget {
                 entry.date,
                 style: TextStyle(
                   fontSize: 12,
-                  color: LucentTokens.textTertiary(brightness),
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -121,17 +119,14 @@ class UpdateAvailableDialog extends StatelessWidget {
                 children: [
                   Text(
                     '• ',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: LucentTokens.accentPrimary,
-                    ),
+                    style: TextStyle(fontSize: 12, color: colorScheme.primary),
                   ),
                   Expanded(
                     child: Text(
                       change,
                       style: TextStyle(
                         fontSize: 12,
-                        color: LucentTokens.textSecondary(brightness),
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),

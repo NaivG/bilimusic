@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/pages/playlist_page.dart';
 import 'package:bilimusic/pages/search/search_overlay.dart';
@@ -8,10 +9,11 @@ import 'package:bilimusic/shells/landscape/landscape_sidebar.dart';
 import 'package:bilimusic/shells/landscape/landscape_bottom_control.dart';
 import 'package:bilimusic/shells/landscape/landscape_title_bar.dart';
 import 'package:bilimusic/pages/home_content.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:bilimusic/theme/app_palette.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
-import 'package:bilimusic/providers/search_state_provider.dart';
+import 'package:bilimusic/providers/playlist_providers.dart';
+import 'package:bilimusic/providers/search_providers.dart';
+import 'package:bilimusic/providers/settings_provider.dart';
 import 'package:bilimusic/pages/profile_page.dart';
 import 'package:bilimusic/pages/settings_page.dart';
 import 'package:bilimusic/pages/detail_page.dart';
@@ -21,11 +23,10 @@ import 'package:bilimusic/pages/data_management_page.dart';
 import 'package:bilimusic/pages/data_migration_page.dart';
 import 'package:bilimusic/pages/login_page.dart';
 import 'package:bilimusic/pages/fav_import_page.dart';
-import 'package:bilimusic/utils/platform_helper.dart';
 
 /// 横屏模式外壳 - 基于ParticleMusic风格
 /// 布局：标题栏 + 侧边栏 + 主内容区 + 底部播放器栏
-class LandscapeShell extends StatefulWidget {
+class LandscapeShell extends ConsumerStatefulWidget {
   final ShellPage currentPage;
   final ShellPageManager pageManager;
   final VoidCallback onPlayList;
@@ -38,19 +39,14 @@ class LandscapeShell extends StatefulWidget {
   });
 
   @override
-  State<LandscapeShell> createState() => _LandscapeShellState();
+  ConsumerState<LandscapeShell> createState() => _LandscapeShellState();
 }
 
-class _LandscapeShellState extends State<LandscapeShell> {
+class _LandscapeShellState extends ConsumerState<LandscapeShell> {
   @override
   void initState() {
     super.initState();
-    sl.playerManager.addMusicListener(_onMusicChanged);
     widget.pageManager.addListener(_onPageChanged);
-  }
-
-  void _onMusicChanged(Music? music) {
-    if (mounted) setState(() {});
   }
 
   void _onPageChanged() {
@@ -59,7 +55,6 @@ class _LandscapeShellState extends State<LandscapeShell> {
 
   @override
   void dispose() {
-    sl.playerManager.removeMusicListener(_onMusicChanged);
     widget.pageManager.removeListener(_onPageChanged);
     super.dispose();
   }
@@ -101,9 +96,6 @@ class _LandscapeShellState extends State<LandscapeShell> {
       case ShellPage.favImport:
         return const FavImportPage();
       case ShellPage.login:
-        if (PlatformHelper.isDesktop) {
-          return const _DesktopLoginPlaceholder();
-        }
         return LoginPage();
     }
   }
@@ -121,14 +113,14 @@ class _LandscapeShellState extends State<LandscapeShell> {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final sidebarSurface = LucentTokens.sidebarSurface(brightness);
+    ref.watch(currentIndexProvider);
+    final sidebarSurface = context.appPalette.sidebarSurface;
     return Scaffold(
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // 背景模糊层
-          _buildBackground(),
+          // 背景模糊层（依赖当前播放曲目）
+          _buildBackground(context),
           // 主内容
           Column(
             children: [
@@ -187,16 +179,11 @@ class _LandscapeShellState extends State<LandscapeShell> {
   }
 
   /// 背景模糊效果
-  Widget _buildBackground() {
-    if (sl.settingsManager.fluidBackground == false) {
-      final isDark = Theme.of(context).brightness;
-      return Container(
-        color: isDark == Brightness.dark
-            ? LucentTokens.darkSurfaceBase
-            : LucentTokens.lightSurfaceBase,
-      );
+  Widget _buildBackground(BuildContext context) {
+    if (ref.watch(settingsProvider).fluidBackground == false) {
+      return Container(color: Theme.of(context).colorScheme.surface);
     }
-    final currentMusic = sl.playerManager.currentMusic;
+    final currentMusic = ref.watch(currentMusicProvider);
     return AnimatedSwitcher(
       switchInCurve: Curves.linearToEaseOut,
       switchOutCurve: Curves.easeInToLinear,
@@ -213,7 +200,7 @@ class _LandscapeShellState extends State<LandscapeShell> {
     return LandscapeTitleBar(
       onBack: () => widget.pageManager.pop(),
       onSearchSubmit: (query) {
-        SearchStateNotifier.instance.setQuery(query);
+        ref.read(searchStateProvider.notifier).setQuery(query);
         widget.pageManager.goToTab(1);
       },
       onSettingsTap: () {
@@ -230,7 +217,7 @@ class _LandscapeShellState extends State<LandscapeShell> {
     final selectedLabel = _getSelectedLabel();
     return LandscapeSidebar(
       selectedLabel: selectedLabel,
-      playlists: sl.playlistManager.userPlaylists,
+      playlists: ref.watch(userPlaylistsProvider),
       selectedPlaylistId: widget.pageManager.getArgs<String>(
         'selectedPlaylistId',
       ),
@@ -270,15 +257,5 @@ class _LandscapeShellState extends State<LandscapeShell> {
         widget.pageManager.goToTab(3);
         break;
     }
-  }
-}
-
-/// 桌面端登录占位组件
-class _DesktopLoginPlaceholder extends StatelessWidget {
-  const _DesktopLoginPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('桌面端暂不支持登录'));
   }
 }

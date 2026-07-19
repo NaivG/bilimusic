@@ -1,25 +1,31 @@
 import 'dart:convert';
+import 'package:bilimusic/shells/shell_page_manager.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:crypto/crypto.dart';
 import 'package:bilimusic/utils/network_config.dart';
 import 'package:bilimusic/utils/captcha_helper.dart';
+import 'package:bilimusic/utils/platform_helper.dart';
+import 'package:bilimusic/pages/qr_login_widget.dart';
+
+enum _LoginMode { sms, password, qr }
 
 class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
   @override
   _LoginPageState createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
+  _LoginMode _mode = PlatformHelper.isDesktop ? _LoginMode.qr : _LoginMode.sms;
   String _selectedCountry = '中国大陆';
   String _countryId = '86';
   int _cid = 1; // 添加数据库ID字段
   String _phoneNumber = '';
   String _password = '';
   String _captcha = '';
-  bool _isSmsLogin = true;
   bool _isLoading = false;
   bool _isCaptchaSent = false;
 
@@ -251,17 +257,18 @@ class _LoginPageState extends State<LoginPage> {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['code'] == 0) {
-          // 保存登录信息
-          final cookies = _parseCookies(response.headers['set-cookie'] ?? '');
-          await _saveLoginInfo(cookies);
+          final cookies = NetworkConfig.parseSetCookieHeaders(
+            response.headers['set-cookie'] ?? '',
+          );
+          if (cookies.isNotEmpty) {
+            NetworkConfig.updateCookies(cookies);
+          }
 
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text('登录成功')));
 
-          // TODO: 跳转到主页面
-          // Navigator.pushReplacementNamed(context, '/home');
-          Navigator.pop(context); // 返回上一页
+          ShellPageManager.instance.pop(); // 返回上一页
         } else {
           ScaffoldMessenger.of(
             context,
@@ -399,17 +406,18 @@ class _LoginPageState extends State<LoginPage> {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['code'] == 0) {
-          // 保存登录信息
-          final cookies = _parseCookies(response.headers['set-cookie'] ?? '');
-          await _saveLoginInfo(cookies);
+          final cookies = NetworkConfig.parseSetCookieHeaders(
+            response.headers['set-cookie'] ?? '',
+          );
+          if (cookies.isNotEmpty) {
+            NetworkConfig.updateCookies(cookies);
+          }
 
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text('登录成功')));
 
-          // TODO: 跳转到主页面
-          // Navigator.pushReplacementNamed(context, '/home');
-          Navigator.pop(context); // 返回上一页
+          ShellPageManager.instance.pop(); // 返回上一页
         } else {
           ScaffoldMessenger.of(
             context,
@@ -424,75 +432,6 @@ class _LoginPageState extends State<LoginPage> {
       setState(() {
         _isLoading = false;
       });
-    }
-  }
-
-  // 解析Cookie
-  Map<String, String> _parseCookies(String cookieHeader) {
-    final cookies = <String, String>{};
-
-    if (cookieHeader.isNotEmpty) {
-      // 处理可能存在的多个Set-Cookie头
-      final cookieList = cookieHeader.split(',');
-
-      for (var cookie in cookieList) {
-        // 分割cookie键值对，忽略过期时间等附加信息
-        final parts = cookie.split(';')[0].split('=');
-
-        if (parts.length == 2) {
-          // 存储cookie键值
-          cookies[parts[0].trim()] = parts[1].trim();
-        }
-      }
-    }
-
-    return cookies;
-  }
-
-  // 保存登录信息
-  Future<void> _saveLoginInfo(Map<String, String> newCookies) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    try {
-      // 获取现有的 cookies
-      final existingCookiesJson = prefs.getString('cookies');
-      Map<String, String> existingCookies = {};
-
-      // 解析现有的 cookies
-      if (existingCookiesJson != null && existingCookiesJson.isNotEmpty) {
-        try {
-          final parsed = json.decode(existingCookiesJson);
-          if (parsed is Map) {
-            existingCookies = Map<String, String>.from(
-              parsed.map(
-                (key, value) => MapEntry(key.toString(), value.toString()),
-              ),
-            );
-          }
-        } catch (e) {
-          // 如果解析失败，可能是旧格式的 cookies 字符串
-          // 在这种情况下，我们忽略旧的 cookies 并使用新的
-          debugPrint('解析现有 cookies 失败: $e');
-        }
-      }
-
-      // 合并现有的 cookies 和新的 cookies，新的 cookies 优先
-      final mergedCookies = Map<String, String>.from(existingCookies);
-      mergedCookies.addAll(newCookies);
-
-      // 保存合并后的 cookies 数据
-      await prefs.setString('cookies', json.encode(mergedCookies));
-      // 保存登录时间
-      await prefs.setString('login_time', DateTime.now().toIso8601String());
-
-      // 更新NetworkConfig中的cookies
-      NetworkConfig.setCookies(mergedCookies);
-    } catch (e) {
-      // 捕获并记录错误
-      print('保存登录信息失败: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('保存登录信息失败: $e')));
     }
   }
 
@@ -526,7 +465,7 @@ class _LoginPageState extends State<LoginPage> {
                           _countryId = country['country_id'];
                           _cid = country['id']; // 更新数据库ID
                         });
-                        Navigator.pop(context);
+                        ShellPageManager.instance.pop();
                       },
                     );
                   },
@@ -539,135 +478,158 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
+  Widget _buildQrTab() {
+    return QrLoginWidget(
+      onSuccess: () {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('登录成功')));
+        ShellPageManager.instance.pop();
+      },
+    );
+  }
+
+  Widget _buildSmsOrPasswordTab() {
+    final isSms = _mode == _LoginMode.sms;
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 国家/地区选择
+          if (isSms) ...[
+            ListTile(
+              title: Text('国家/地区'),
+              subtitle: Text('$_selectedCountry (+$_countryId)'),
+              trailing: Icon(Icons.arrow_forward_ios),
+              onTap: _selectCountry,
+            ),
+            SizedBox(height: 10),
+          ],
+
+          // 手机号/账号输入
+          TextFormField(
+            decoration: InputDecoration(
+              labelText: isSms ? '手机号' : '账号',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.phone),
+            ),
+            keyboardType: TextInputType.phone,
+            onChanged: (value) => _phoneNumber = value,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return isSms ? '请输入手机号' : '请输入账号';
+              }
+              return null;
+            },
+          ),
+          SizedBox(height: 10),
+
+          // 密码输入（仅密码登录）
+          if (!isSms) ...[
+            TextFormField(
+              decoration: InputDecoration(
+                labelText: '密码',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.lock),
+              ),
+              obscureText: true,
+              onChanged: (value) => _password = value,
+              validator: (value) {
+                if (!isSms && (value == null || value.isEmpty)) {
+                  return '请输入密码';
+                }
+                return null;
+              },
+            ),
+            SizedBox(height: 20),
+          ],
+
+          // 验证码输入（仅短信登录）
+          if (isSms) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    decoration: InputDecoration(
+                      labelText: '验证码',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.security),
+                    ),
+                    keyboardType: TextInputType.number,
+                    onChanged: (value) => _captcha = value,
+                    validator: (value) {
+                      if (isSms &&
+                          _isCaptchaSent &&
+                          (value == null || value.isEmpty)) {
+                        return '请输入验证码';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                SizedBox(width: 10),
+                ElevatedButton(
+                  onPressed: _isCaptchaSent ? null : _getCaptcha,
+                  child: Text(_isCaptchaSent ? '已发送' : '获取验证码'),
+                ),
+              ],
+            ),
+            SizedBox(height: 20),
+          ],
+
+          // 登录按钮
+          ElevatedButton(
+            onPressed: _isLoading
+                ? null
+                : (isSms
+                      ? (_isCaptchaSent ? _smsLogin : _getCaptcha)
+                      : _passwordLogin),
+            child: _isLoading
+                ? CircularProgressIndicator()
+                : Text(isSms ? (_isCaptchaSent ? '登录' : '获取验证码') : '登录'),
+            style: ElevatedButton.styleFrom(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('登录')),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // 切换登录方式
-              SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment(value: true, label: Text('短信登录')),
-                  ButtonSegment(value: false, label: Text('密码登录')),
-                ],
-                selected: {_isSmsLogin},
-                onSelectionChanged: (Set<bool> newSelection) {
-                  setState(() {
-                    _isSmsLogin = newSelection.first;
-                  });
-                },
-              ),
-              SizedBox(height: 20),
-
-              // 国家/地区选择
-              if (_isSmsLogin) ...[
-                ListTile(
-                  title: Text('国家/地区'),
-                  subtitle: Text('$_selectedCountry (+$_countryId)'),
-                  trailing: Icon(Icons.arrow_forward_ios),
-                  onTap: _selectCountry,
-                ),
-                SizedBox(height: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 切换登录方式
+            SegmentedButton<_LoginMode>(
+              segments: const [
+                ButtonSegment(value: _LoginMode.sms, label: Text('短信登录')),
+                ButtonSegment(value: _LoginMode.password, label: Text('密码登录')),
+                ButtonSegment(value: _LoginMode.qr, label: Text('扫码登录')),
               ],
-
-              // 手机号/账号输入
-              TextFormField(
-                decoration: InputDecoration(
-                  labelText: _isSmsLogin ? '手机号' : '账号',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.phone),
-                ),
-                keyboardType: TextInputType.phone,
-                onChanged: (value) => _phoneNumber = value,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return _isSmsLogin ? '请输入手机号' : '请输入账号';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 10),
-
-              // 密码输入（仅密码登录）
-              if (!_isSmsLogin) ...[
-                TextFormField(
-                  decoration: InputDecoration(
-                    labelText: '密码',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.lock),
-                  ),
-                  obscureText: true,
-                  onChanged: (value) => _password = value,
-                  validator: (value) {
-                    if (!_isSmsLogin && (value == null || value.isEmpty)) {
-                      return '请输入密码';
-                    }
-                    return null;
-                  },
-                ),
-                SizedBox(height: 20),
-              ],
-
-              // 验证码输入（仅短信登录）
-              if (_isSmsLogin) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        decoration: InputDecoration(
-                          labelText: '验证码',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.security),
-                        ),
-                        keyboardType: TextInputType.number,
-                        onChanged: (value) => _captcha = value,
-                        validator: (value) {
-                          if (_isSmsLogin &&
-                              _isCaptchaSent &&
-                              (value == null || value.isEmpty)) {
-                            return '请输入验证码';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                    SizedBox(width: 10),
-                    ElevatedButton(
-                      onPressed: _isCaptchaSent ? null : _getCaptcha,
-                      child: Text(_isCaptchaSent ? '已发送' : '获取验证码'),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 20),
-              ],
-
-              // 登录按钮
-              ElevatedButton(
-                onPressed: _isLoading
-                    ? null
-                    : (_isSmsLogin
-                          ? (_isCaptchaSent ? _smsLogin : _getCaptcha)
-                          : _passwordLogin),
-                child: _isLoading
-                    ? CircularProgressIndicator()
-                    : Text(
-                        _isSmsLogin ? (_isCaptchaSent ? '登录' : '获取验证码') : '登录',
-                      ),
-                style: ElevatedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-            ],
-          ),
+              selected: {_mode},
+              onSelectionChanged: (Set<_LoginMode> newSelection) {
+                setState(() {
+                  _mode = newSelection.first;
+                });
+              },
+            ),
+            SizedBox(height: 20),
+            if (_mode == _LoginMode.qr)
+              _buildQrTab()
+            else
+              _buildSmsOrPasswordTab(),
+          ],
         ),
       ),
     );

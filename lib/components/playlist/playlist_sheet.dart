@@ -1,22 +1,25 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/models/music.dart';
+import 'package:bilimusic/providers/playlist_providers.dart';
+import 'package:bilimusic/providers/playback_providers.dart';
 import 'package:bilimusic/components/playlist/playlist_item.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/theme/app_palette.dart';
+import 'package:bilimusic/theme/app_tokens.dart';
 
 /// 播放列表弹出组件
 /// 支持可调整高度的底部弹窗、拖拽排序和流畅动画
-class PlaylistSheet extends StatefulWidget {
+class PlaylistSheet extends ConsumerStatefulWidget {
   final Function(int) onTrackSelect;
 
   const PlaylistSheet({super.key, required this.onTrackSelect});
 
   @override
-  State<PlaylistSheet> createState() => _PlaylistSheetState();
+  ConsumerState<PlaylistSheet> createState() => _PlaylistSheetState();
 }
 
-class _PlaylistSheetState extends State<PlaylistSheet>
+class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -43,25 +46,12 @@ class _PlaylistSheetState extends State<PlaylistSheet>
         );
 
     _animationController.forward();
-
-    // 添加状态监听器
-    sl.playerManager.addStateListener(_onPlayerStateChanged);
-    sl.playerManager.addPlayModeListener(_onPlayerStateChanged);
   }
 
   @override
   void dispose() {
-    sl.playerManager.removeStateListener(_onPlayerStateChanged);
-    sl.playerManager.removePlayModeListener(_onPlayerStateChanged);
     _animationController.dispose();
     super.dispose();
-  }
-
-  void _onPlayerStateChanged(dynamic state) {
-    // 状态变化时刷新 UI
-    if (mounted) {
-      setState(() {});
-    }
   }
 
   Future<void> _handleReorder(int oldIndex, int newIndex) async {
@@ -69,7 +59,9 @@ class _PlaylistSheetState extends State<PlaylistSheet>
     if (newIndex > oldIndex) {
       newIndex -= 1;
     }
-    await sl.playerManager.moveInPlaylist(oldIndex, newIndex);
+    await ref
+        .read(playbackCommandsProvider.notifier)
+        .moveInPlaylist(oldIndex, newIndex);
     // moveInPlaylist 会触发通知，无需手动 setState
   }
 
@@ -87,7 +79,9 @@ class _PlaylistSheetState extends State<PlaylistSheet>
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              sl.playerManager.removeFromPlayList(music);
+              ref
+                  .read(playbackCommandsProvider.notifier)
+                  .removeFromPlaylist(music);
             },
             child: const Text('删除', style: TextStyle(color: Colors.red)),
           ),
@@ -98,9 +92,10 @@ class _PlaylistSheetState extends State<PlaylistSheet>
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(currentIndexProvider);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final currentIndex = sl.playerManager.getCurrentIndex();
+    final currentIndex = ref.watch(currentIndexProvider) ?? -1;
 
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -113,31 +108,27 @@ class _PlaylistSheetState extends State<PlaylistSheet>
           snap: true,
           snapSizes: const [0.25, 0.5, 0.75, 0.9],
           builder: (context, scrollController) {
-            final sheetTheme = Theme.of(context);
-            final sheetBrightness = sheetTheme.brightness;
+            final palette = context.appPalette;
             return ClipRRect(
               borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(LucentTokens.radiusLg),
+                top: Radius.circular(AppTokens.radiusLg),
               ),
               child: BackdropFilter(
                 filter: ImageFilter.blur(
-                  sigmaX: LucentTokens.glassBlurSigma,
-                  sigmaY: LucentTokens.glassBlurSigma,
+                  sigmaX: AppTokens.glassBlurSigma,
+                  sigmaY: AppTokens.glassBlurSigma,
                 ),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: LucentTokens.surfaceOverlay(sheetBrightness),
+                    color: palette.surfaceOverlay,
                     borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(LucentTokens.radiusLg),
+                      top: Radius.circular(AppTokens.radiusLg),
                     ),
                   ),
                   child: Column(
                     children: [
-                      // 拖拽手柄
                       _buildDragHandle(isDark),
-                      // 头部
                       _buildHeader(context, isDark),
-                      // 播放列表
                       Expanded(
                         child: SlideTransition(
                           position: _slideAnimation,
@@ -176,7 +167,7 @@ class _PlaylistSheetState extends State<PlaylistSheet>
   }
 
   Widget _buildHeader(BuildContext context, bool isDark) {
-    final playlistLength = sl.playerManager.playList.length;
+    final playlistLength = ref.watch(currentPlaylistProvider).length;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -213,7 +204,9 @@ class _PlaylistSheetState extends State<PlaylistSheet>
                       TextButton(
                         onPressed: () {
                           Navigator.pop(context);
-                          sl.playerManager.clearPlayList();
+                          ref
+                              .read(playbackCommandsProvider.notifier)
+                              .clearPlaylist();
                         },
                         child: const Text(
                           '清空',
@@ -241,7 +234,7 @@ class _PlaylistSheetState extends State<PlaylistSheet>
     int currentIndex,
     bool isDark,
   ) {
-    final playlist = sl.playerManager.playList;
+    final playlist = ref.watch(currentPlaylistProvider);
 
     if (playlist.isEmpty) {
       return Center(
@@ -309,15 +302,18 @@ class _PlaylistSheetState extends State<PlaylistSheet>
           music: music,
           index: index,
           isPlaying: isPlaying,
-          isFavorite: sl.playerManager.isFavorite(music),
+          isFavorite: ref
+              .read(playbackCommandsProvider.notifier)
+              .isFavorite(music),
           onTap: () {
             widget.onTrackSelect(index);
           },
           onFavoriteToggle: () async {
-            if (sl.playerManager.isFavorite(music)) {
-              await sl.playerManager.removeFromFavorites(music);
+            final commands = ref.read(playbackCommandsProvider.notifier);
+            if (commands.isFavorite(music)) {
+              await commands.removeFromFavorites(music);
             } else {
-              await sl.playerManager.addToFavorites(music);
+              await commands.addToFavorites(music);
             }
             setState(() {});
           },

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/playlist.dart';
 import 'package:bilimusic/models/bili_fav_folder.dart';
+import 'package:bilimusic/models/bili_fav_resource.dart';
 import 'package:bilimusic/models/fav_import_record.dart';
 import 'package:bilimusic/services/api_service.dart';
 import 'package:bilimusic/managers/playlist_manager.dart';

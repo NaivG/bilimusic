@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bilimusic/core/app_providers.dart';
 import 'package:bilimusic/models/bili_fav_folder.dart';
 import 'package:bilimusic/models/fav_import_record.dart';
 import 'package:bilimusic/managers/fav_sync_manager.dart';
@@ -8,15 +9,15 @@ import 'package:bilimusic/shells/shell_page_manager.dart';
 
 /// Bilibili 收藏夹导入页面
 /// 列出用户的 Bilibili 收藏夹，支持导入到本地歌单
-class FavImportPage extends StatefulWidget {
+class FavImportPage extends ConsumerStatefulWidget {
   const FavImportPage({super.key});
 
   @override
-  State<FavImportPage> createState() => _FavImportPageState();
+  ConsumerState<FavImportPage> createState() => _FavImportPageState();
 }
 
-class _FavImportPageState extends State<FavImportPage> {
-  final FavSyncManager _syncManager = sl.favSyncManager;
+class _FavImportPageState extends ConsumerState<FavImportPage> {
+  late final FavSyncManager _syncManager = ref.read(favSyncManagerProvider);
 
   List<BiliFavFolder> _createdFolders = [];
   List<BiliFavFolder> _collectedFolders = [];
@@ -48,7 +49,7 @@ class _FavImportPageState extends State<FavImportPage> {
     });
 
     try {
-      final userInfo = sl.userManager.userInfo;
+      final userInfo = ref.read(userManagerProvider).userInfo;
       if (userInfo == null) {
         setState(() {
           _isFetching = false;

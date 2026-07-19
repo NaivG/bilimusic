@@ -1,19 +1,29 @@
+import 'dart:async';
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 import 'package:bilimusic/utils/platform_helper.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:bilimusic/utils/window_listener.dart';
 import 'package:flutter/material.dart';
 
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
+
+import 'package:bilimusic/core/database.dart';
+import 'package:bilimusic/core/app_providers.dart';
 import 'package:bilimusic/managers/audio_handler.dart';
 
 import 'package:bilimusic/utils/network_config.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 
 import 'package:bilimusic/utils/update_checker.dart';
 import 'package:bilimusic/components/dialogs/update_dialog.dart';
 import 'package:bilimusic/shells/app_shell.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/theme/theme_registry.dart';
+import 'package:bilimusic/providers/settings_provider.dart';
 
 Future<void> _setupMainWindow() async {
   await windowManager.ensureInitialized();
@@ -34,21 +44,49 @@ Future<void> _setupMainWindow() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (kIsWeb) {
+    // Web 端 sqflite FFI 初始化
+    databaseFactory = databaseFactoryFfiWeb;
+    debugPrint('Web 端 sqflite 为实验性功能，可能存在兼容性问题');
+  } else if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+    // 桌面端 sqflite FFI 初始化
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
 
   // 初始化网络配置
   await NetworkConfig.init();
+
+  // 一次性把旧 SharedPreferences 列表数据迁入 playlist.db
+  await AppDatabase.instance.migrateFromPrefsOnce();
 
   // 初始化just_audio_media_kit（仅在非Web和非Android/iOS平台上需要）
   if (PlatformHelper.isDesktop) {
     JustAudioMediaKit.ensureInitialized();
   }
 
-  // 通过 ServiceLocator 初始化所有管理器和服务
-  await sl.init();
+  // 构造 Riverpod 容器，让依赖关系通过 ref.watch 编译期声明
+  final container = ProviderContainer();
+
+  // 读取 playerCoordinator（首次读取会触发依赖图所有服务初始化）
+  final coordinator = container.read(playerCoordinatorProvider);
+
+  // 等待播放列表服务与管理器初始化完成，
+  // 否则 UI 在 build 阶段同步读取 .favorites / .userPlaylists 等会抛 StateError
+  final playlistService = container.read(playlistServiceProvider);
+  await playlistService.initialize();
+  await container
+      .read(playlistManagerProvider)
+      .initialize(service: playlistService);
+
+  // 后台回填历史/收藏/当前列表中 cid 缺失的 item（不阻塞初始化）
+  unawaited(
+    playlistService.backfillMissingCids(ensureCid: coordinator.ensureCid),
+  );
 
   // 初始化音频服务并保存实例
   final audioHandler = await AudioService.init(
-    builder: () => AudioHandlerConnector(sl.playerManager),
+    builder: () => AudioHandlerConnector(coordinator),
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'github.naivg.bilimusic.channel.audio',
       androidNotificationChannelName: 'BiliMusic Playback',
@@ -63,27 +101,32 @@ void main() async {
   );
 
   // 初始化通知服务(音频处理器)
-  sl.notificationService.initialize(audioHandler);
+  container.read(notificationServiceProvider).initialize(audioHandler);
 
   // 初始化桌面窗口
   if (PlatformHelper.isDesktop) {
     await _setupMainWindow();
   }
 
-  runApp(MyApp(audioHandler: audioHandler));
+  runApp(
+    UncontrolledProviderScope(
+      container: container,
+      child: MyApp(audioHandler: audioHandler),
+    ),
+  );
 }
 
 /// 根Widget，负责管理播放器管理器实例
-class MyApp extends StatefulWidget {
+class MyApp extends ConsumerStatefulWidget {
   final BaseAudioHandler audioHandler;
 
   const MyApp({super.key, required this.audioHandler});
 
   @override
-  State<MyApp> createState() => _MyAppState();
+  ConsumerState<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   // 添加全局key用于获取MaterialApp的context
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
@@ -121,8 +164,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    // 在应用关闭时释放播放器资源
-    sl.playerManager.dispose();
+    // 播放器资源由 ProviderContainer.onDispose 释放，无需手动 dispose
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -133,8 +175,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // 例如，在暂停时释放一些资源
   }
 
-  // 根据设置获取主题模式
-  ThemeMode _getThemeMode(String mode) {
+  // 根据设置解析 ThemeMode
+  ThemeMode _parseAppearance(String mode) {
     switch (mode) {
       case 'light':
         return ThemeMode.light;
@@ -148,13 +190,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final settings = ref.watch(settingsProvider);
+    final descriptor = ThemeRegistry.resolve(settings.theme);
     return MaterialApp(
       navigatorKey: _navigatorKey,
       title: 'BiliMusic',
       debugShowCheckedModeBanner: false,
-      theme: LucentTheme.lightTheme(),
-      darkTheme: LucentTheme.darkTheme(),
-      themeMode: _getThemeMode(sl.settingsManager.themeMode),
+      theme: descriptor.light(),
+      darkTheme: descriptor.dark(),
+      themeMode: _parseAppearance(settings.appearance),
       home: const AppShell(),
     );
   }

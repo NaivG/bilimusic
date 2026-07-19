@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/core/service_locator.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/providers/playlist_providers.dart';
 import 'package:bilimusic/pages/playlist/widgets/playlist_hero.dart';
 import 'package:bilimusic/pages/playlist/widgets/playlist_song_list.dart';
 
 /// Landscape playlist page with hero Row + track list in a single scroll.
-class LandscapePlaylistPage extends StatelessWidget {
+class LandscapePlaylistPage extends ConsumerWidget {
   final String? playlistId;
   final List<Music> songs;
   final Playlist? currentPlaylist;
@@ -34,8 +34,8 @@ class LandscapePlaylistPage extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -72,7 +72,7 @@ class LandscapePlaylistPage extends StatelessWidget {
                     child: Divider(
                       height: 1,
                       thickness: 1,
-                      color: LucentTokens.borderSubtle(brightness),
+                      color: colorScheme.outline,
                       indent: 24,
                       endIndent: 24,
                     ),
@@ -80,7 +80,7 @@ class LandscapePlaylistPage extends StatelessWidget {
                   // Track list
                   PlaylistSongList(
                     songs: songs,
-                    currentPlayingMusic: sl.playerManager.currentMusic,
+                    currentPlayingMusic: ref.watch(currentMusicProvider),
                     onSongTap: onSongTap,
                     isEditable: playlistId != null,
                     onRemove: playlistId != null ? onRemoveSong : null,

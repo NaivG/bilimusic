@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:bilimusic/core/service_locator.dart';
-import 'package:bilimusic/managers/player_manager.dart';
+import 'package:bilimusic/core/app_providers.dart';
+import 'package:bilimusic/models/play_mode.dart';
 import 'package:bilimusic/models/music.dart' as model;
+import 'package:bilimusic/models/player_state.dart';
 import 'package:bilimusic/utils/color_extractor.dart';
 import 'package:bilimusic/utils/lyric_parser.dart';
 import 'package:bilimusic/utils/netease_music_api.dart';
@@ -13,26 +15,27 @@ import 'package:bilimusic/pages/detail/widgets/controls_bar.dart';
 import 'package:bilimusic/components/lyric/lyric_section.dart';
 import 'package:bilimusic/components/lyric/lyric_source.dart';
 import 'package:bilimusic/components/playlist/playlist_sheet.dart';
-import 'package:bilimusic/providers/shell_navigation_provider.dart';
+import 'package:bilimusic/providers/navigation_providers.dart';
+import 'package:bilimusic/providers/playback_providers.dart';
+import 'package:bilimusic/providers/playlist_providers.dart';
 
 /// 横屏详情页主容器
 /// Apple Music 风格的左右分栏布局
-class LandscapeDetailPage extends StatefulWidget {
+class LandscapeDetailPage extends ConsumerStatefulWidget {
   const LandscapeDetailPage({super.key});
 
   @override
-  State<LandscapeDetailPage> createState() => _LandscapeDetailPageState();
+  ConsumerState<LandscapeDetailPage> createState() =>
+      _LandscapeDetailPageState();
 }
 
-class _LandscapeDetailPageState extends State<LandscapeDetailPage>
+class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
     with TickerProviderStateMixin {
   late model.Music _music;
   String? _previousMusicId;
   Duration _position = Duration.zero;
   Duration? _duration;
-  bool _isPlaying = true;
   bool _isFavorite = false;
-  int _crossfadeCountdown = -1;
 
   // 背景颜色
   Color? _dominantColor;
@@ -44,23 +47,14 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
   LyricParser? _lyricParser;
   bool _isLoadingLyrics = false;
 
-  // 播放模式
-  IconData _playModeIcon = Icons.repeat;
-
-  // 监听器
-  late Function(model.Music?) _musicChangedListener;
-  late Function(AudioState) _stateListener;
-  late Function(Duration) _positionListener;
-  late Function(PlayMode) _playModeListener;
-  late Function(int) _countdownListener;
-
   @override
   void initState() {
     super.initState();
 
     // 初始化音乐信息
+    final coordinator = _readCoordinator();
     final currentMusic =
-        sl.playerManager.currentMusic ??
+        coordinator.currentMusic ??
         model.Music(
           id: '',
           title: '未知标题',
@@ -73,85 +67,13 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
         );
     _music = currentMusic;
     _duration = currentMusic.duration;
-    _isFavorite = sl.playerManager.isFavorite(_music);
+    _isFavorite = coordinator.isFavorite(_music);
 
     // 提取背景颜色
     _extractBackgroundColor(_music.coverUrl);
 
     // 初始化歌词选项
     _initLyricOptions();
-
-    // 设置监听器
-    _setupListeners();
-  }
-
-  void _setupListeners() {
-    _musicChangedListener = (music) {
-      if (!mounted) return;
-      if (music == null) return;
-
-      final musicChanged = _previousMusicId != music.id;
-
-      if (musicChanged) {
-        _previousMusicId = music.id;
-        _previousDominantColor = _dominantColor;
-        _updateBackgroundColor(music.coverUrl);
-
-        // 重新加载歌词
-        _initLyricOptions();
-
-        setState(() {
-          _music = music;
-          _duration = music.duration;
-          _isFavorite = sl.playerManager.isFavorite(_music);
-        });
-      }
-    };
-
-    _stateListener = (state) {
-      if (!mounted) return;
-
-      setState(() {
-        _isPlaying = state == AudioState.playing;
-      });
-    };
-
-    _positionListener = (position) {
-      if (mounted) {
-        setState(() {
-          _position = position;
-        });
-      }
-    };
-
-    _playModeListener = (playMode) {
-      if (mounted) {
-        setState(() {
-          switch (playMode) {
-            case PlayMode.sequential:
-              _playModeIcon = Icons.repeat;
-            case PlayMode.loop:
-              _playModeIcon = Icons.repeat_one;
-            case PlayMode.shuffle:
-              _playModeIcon = Icons.shuffle;
-          }
-        });
-      }
-    };
-
-    _countdownListener = (countdown) {
-      if (mounted) {
-        setState(() {
-          _crossfadeCountdown = countdown;
-        });
-      }
-    };
-
-    sl.playerManager.addMusicListener(_musicChangedListener);
-    sl.playerManager.addStateListener(_stateListener);
-    sl.playerManager.addPositionListener(_positionListener);
-    sl.playerManager.addPlayModeListener(_playModeListener);
-    sl.playerManager.addCountdownListener(_countdownListener);
   }
 
   Future<void> _initLyricOptions() async {
@@ -234,13 +156,14 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
   }
 
   void _toggleFavorite() async {
-    if (sl.playerManager.isFavorite(_music)) {
-      await sl.playerManager.removeFromFavorites(_music);
+    final commands = ref.read(playbackCommandsProvider.notifier);
+    if (commands.isFavorite(_music)) {
+      await commands.removeFromFavorites(_music);
     } else {
-      await sl.playerManager.addToFavorites(_music);
+      await commands.addToFavorites(_music);
     }
     setState(() {
-      _isFavorite = sl.playerManager.isFavorite(_music);
+      _isFavorite = commands.isFavorite(_music);
     });
   }
 
@@ -261,10 +184,12 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
   }
 
   void _togglePlay() {
-    if (_isPlaying) {
-      sl.playerManager.pause();
-    } else {
-      sl.playerManager.resume();
+    final commands = ref.read(playbackCommandsProvider.notifier);
+    final ps = ref.read(playerStateProvider);
+    if (ps is PlayerPlaying) {
+      commands.pause();
+    } else if (ps is PlayerPaused || ps is PlayerCompleted) {
+      commands.resume();
     }
   }
 
@@ -276,7 +201,7 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
       isScrollControlled: true,
       builder: (context) => PlaylistSheet(
         onTrackSelect: (index) {
-          sl.playerManager.playAtIndex(index);
+          ref.read(playbackCommandsProvider.notifier).playAtIndex(index);
           Navigator.pop(context);
         },
       ),
@@ -284,41 +209,70 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
   }
 
   @override
-  void dispose() {
-    sl.playerManager.removeMusicListener(_musicChangedListener);
-    sl.playerManager.removeStateListener(_stateListener);
-    sl.playerManager.removePositionListener(_positionListener);
-    sl.playerManager.removePlayModeListener(_playModeListener);
-    sl.playerManager.removeCountdownListener(_countdownListener);
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final leftRatio = LandscapeBreakpoints.getLeftSectionRatio(context);
 
+    ref.watch(currentIndexProvider);
+    final position = ref.watch(positionProvider);
+    final ps = ref.watch(playerStateProvider);
+    final mode = ref.watch(playModeProvider);
+
+    final liveMusic = _readCoordinator().currentMusic;
+    if (liveMusic != null && liveMusic.id != _previousMusicId) {
+      final musicChanged = _previousMusicId != liveMusic.id;
+      if (musicChanged) {
+        _previousMusicId = liveMusic.id;
+        _previousDominantColor = _dominantColor;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _updateBackgroundColor(liveMusic.coverUrl);
+          _initLyricOptions();
+        });
+        _music = liveMusic;
+        _duration = liveMusic.duration;
+        _isFavorite = ref
+            .read(playbackCommandsProvider.notifier)
+            .isFavorite(_music);
+      }
+    }
+
+    _position = position;
+
+    final isPlaying = ps is PlayerPlaying;
+    final fading = ps is PlayerPlaying && ps.fadeCountdown != null;
+    final icon = switch (mode) {
+      PlayMode.sequential => Icons.repeat,
+      PlayMode.loop => Icons.repeat_one,
+      PlayMode.shuffle => Icons.shuffle,
+    };
+
+    return _buildScaffold(context, leftRatio, isPlaying, fading, icon);
+  }
+
+  Widget _buildScaffold(
+    BuildContext context,
+    double leftRatio,
+    bool isPlaying,
+    bool fading,
+    IconData icon,
+  ) {
     return Scaffold(
       backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          // 动态背景
           AnimatedLandscapeBackground(
             coverUrl: _music.coverUrl,
             previousColor: _previousDominantColor,
             newColor: _dominantColor,
             child: const SizedBox.expand(),
           ),
-          // 主内容
           Column(
             children: [
-              // 顶部导航栏
               _buildAppBar(context),
-              // 主内容区
               Expanded(
                 child: Row(
                   children: [
-                    // 左侧封面区域
                     SizedBox(
                       width: MediaQuery.of(context).size.width * leftRatio,
                       child: AnimatedLandscapeAlbumSection(
@@ -333,7 +287,6 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
                         onSharePressed: _shareMusic,
                       ),
                     ),
-                    // 右侧歌词区域
                     Expanded(
                       child: LyricSection(
                         title: _music.title,
@@ -346,26 +299,32 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
                         isLoadingLyrics: _isLoadingLyrics,
                         onLyricSourceChanged: _loadLyric,
                         onLyricTap: (duration) {
-                          sl.playerManager.seek(duration);
+                          ref
+                              .read(playbackCommandsProvider.notifier)
+                              .seek(duration);
                         },
                       ),
                     ),
                   ],
                 ),
               ),
-              // 底部控制条
               LandscapeControlsBar(
                 position: _position,
                 duration: _duration,
-                isPlaying: _isPlaying,
-                playModeIcon: _playModeIcon,
+                isPlaying: isPlaying,
+                playModeIcon: icon,
                 onPlayPause: _togglePlay,
-                onPrevious: () => sl.playerManager.playPrevious(),
-                onNext: () => sl.playerManager.playNext(),
-                onPlayModeToggle: () => sl.playerManager.togglePlayMode(),
+                onPrevious: () =>
+                    ref.read(playbackCommandsProvider.notifier).playPrevious(),
+                onNext: () =>
+                    ref.read(playbackCommandsProvider.notifier).playNext(),
+                onPlayModeToggle: () => ref
+                    .read(playbackCommandsProvider.notifier)
+                    .togglePlayMode(),
                 onPlaylist: _showPlaylist,
-                onSeek: (duration) => sl.playerManager.seek(duration),
-                isTransitioning: _crossfadeCountdown > 0,
+                onSeek: (duration) =>
+                    ref.read(playbackCommandsProvider.notifier).seek(duration),
+                isTransitioning: fading,
               ),
             ],
           ),
@@ -397,7 +356,7 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
                 ),
               ),
               onPressed: () =>
-                  ShellNavigationNotifier.instance.maybePop(context),
+                  ref.read(shellNavigationProvider.notifier).maybePop(context),
             ),
             const Spacer(),
             // 标题
@@ -543,4 +502,6 @@ class _LandscapeDetailPageState extends State<LandscapeDetailPage>
     final seconds = twoDigits(duration.inSeconds.remainder(60));
     return '$minutes:$seconds';
   }
+
+  dynamic _readCoordinator() => ref.read(playerCoordinatorProvider);
 }

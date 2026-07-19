@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/models/search_result.dart';
 import 'package:bilimusic/models/music.dart' as music_model;
-import 'package:bilimusic/core/service_locator.dart';
-import 'package:bilimusic/services/search_service.dart';
+import 'package:bilimusic/core/app_providers.dart';
 import 'package:bilimusic/pages/search/widgets/search_type_tabs.dart';
 import 'package:bilimusic/pages/search/widgets/search_empty_state.dart';
 import 'package:bilimusic/components/common/cards/music_list_item.dart';
@@ -10,20 +10,20 @@ import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/utils/animations.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:bilimusic/providers/playback_providers.dart';
 
 /// 搜索结果Overlay - 接收搜索关键词，展示搜索结果
-class SearchResultsOverlay extends StatefulWidget {
+class SearchResultsOverlay extends ConsumerStatefulWidget {
   final String query;
 
   const SearchResultsOverlay({super.key, required this.query});
 
   @override
-  State<SearchResultsOverlay> createState() => _SearchResultsOverlayState();
+  ConsumerState<SearchResultsOverlay> createState() =>
+      _SearchResultsOverlayState();
 }
 
-class _SearchResultsOverlayState extends State<SearchResultsOverlay> {
-  final SearchService _searchService = SearchService();
-
+class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
   // 搜索状态
   List<SearchResult> _allResults = [];
   List<SearchResult> _filteredResults = [];
@@ -77,7 +77,7 @@ class _SearchResultsOverlayState extends State<SearchResultsOverlay> {
       _errorMessage = null;
     });
 
-    final response = await _searchService.search(query);
+    final response = await ref.read(apiServiceProvider).search(query);
 
     setState(() {
       _isLoading = false;
@@ -88,7 +88,7 @@ class _SearchResultsOverlayState extends State<SearchResultsOverlay> {
         _availableTypes = [];
       } else {
         _allResults = response.results;
-        _availableTypes = _searchService.getAvailableTypes(response.results);
+        _availableTypes = SearchResult.getAvailableTypes(response.results);
         _filterResults();
       }
     });
@@ -132,10 +132,7 @@ class _SearchResultsOverlayState extends State<SearchResultsOverlay> {
 
   void _filterResults() {
     setState(() {
-      _filteredResults = _searchService.filterByType(
-        _allResults,
-        _selectedType,
-      );
+      _filteredResults = SearchResult.filterByType(_allResults, _selectedType);
     });
   }
 
@@ -150,7 +147,7 @@ class _SearchResultsOverlayState extends State<SearchResultsOverlay> {
     if (result.type == SearchResultType.video) {
       final music = result.toMusic();
       final detailedMusic = await music.getVideoDetails();
-      sl.playerManager.play(detailedMusic);
+      ref.read(playbackCommandsProvider.notifier).playMusic(detailedMusic);
     }
   }
 
@@ -395,8 +392,8 @@ class _SearchResultsOverlayState extends State<SearchResultsOverlay> {
         padding: const EdgeInsets.only(bottom: _cardSpacing),
         child: _SearchResultCard(
           result: result,
-          playerManager: sl.playerManager,
-          playlistManager: sl.playlistManager,
+          playerCoordinator: ref.read(playerCoordinatorProvider),
+          playlistManager: ref.read(playlistManagerProvider),
           onTap: () => _playResult(result),
         ),
       );
@@ -417,8 +414,8 @@ class _SearchResultsOverlayState extends State<SearchResultsOverlay> {
 
     return MusicListItem(
       music: music,
-      playerManager: sl.playerManager,
-      playlistManager: sl.playlistManager,
+      playerCoordinator: ref.read(playerCoordinatorProvider),
+      playlistManager: ref.read(playlistManagerProvider),
       onTap: () => _navigateToPlaylist(result, pages),
       showCover: true,
       showDetails: true,
@@ -429,8 +426,8 @@ class _SearchResultsOverlayState extends State<SearchResultsOverlay> {
   Widget _buildListItem(BuildContext context, SearchResult result) {
     return MusicListItem(
       music: result.toMusic(),
-      playerManager: sl.playerManager,
-      playlistManager: sl.playlistManager,
+      playerCoordinator: ref.read(playerCoordinatorProvider),
+      playlistManager: ref.read(playlistManagerProvider),
       onTap: () => _playResult(result),
     );
   }
@@ -479,13 +476,13 @@ class _SearchResultsOverlayState extends State<SearchResultsOverlay> {
 /// 简化版搜索结果卡片（用于搜索结果页）
 class _SearchResultCard extends StatelessWidget {
   final SearchResult result;
-  final dynamic playerManager;
+  final dynamic playerCoordinator;
   final dynamic playlistManager;
   final VoidCallback? onTap;
 
   const _SearchResultCard({
     required this.result,
-    required this.playerManager,
+    required this.playerCoordinator,
     required this.playlistManager,
     this.onTap,
   });

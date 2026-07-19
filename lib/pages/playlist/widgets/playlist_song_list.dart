@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/core/service_locator.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/core/app_providers.dart';
+import 'package:bilimusic/theme/app_palette.dart';
+import 'package:bilimusic/theme/app_tokens.dart';
 import 'package:bilimusic/components/long_press_menu.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 
 /// Enhanced song list for playlist page.
 /// Supports search bar, table headers (landscape), track rows with
 /// index/title/duration/heart, editable reorder, and long-press menu.
-class PlaylistSongList extends StatelessWidget {
+class PlaylistSongList extends ConsumerWidget {
   final List<Music> songs;
   final Music? currentPlayingMusic;
   final Function(Music) onSongTap;
@@ -29,7 +31,7 @@ class PlaylistSongList extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (songs.isEmpty) {
       return SliverFillRemaining(child: _buildEmptyState(context));
     }
@@ -42,33 +44,26 @@ class PlaylistSongList extends StatelessWidget {
   }
 
   Widget _buildEmptyState(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.music_off,
-            size: 80,
-            color: LucentTokens.textTertiary(brightness),
-          ),
+          Icon(Icons.music_off, size: 80, color: colorScheme.onSurfaceVariant),
           const SizedBox(height: 16),
           Text(
             '歌单为空',
             style: TextStyle(
               fontSize: 18,
-              color: LucentTokens.textSecondary(brightness),
+              color: colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             '快去添加喜欢的音乐吧',
-            style: TextStyle(
-              fontSize: 14,
-              color: LucentTokens.textTertiary(brightness),
-            ),
+            style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -76,16 +71,13 @@ class PlaylistSongList extends StatelessWidget {
   }
 
   Widget _buildTableHeader(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(
-            color: LucentTokens.borderSubtle(brightness),
-            width: 1,
-          ),
+          bottom: BorderSide(color: colorScheme.outline, width: 1),
         ),
       ),
       child: Row(
@@ -97,7 +89,7 @@ class PlaylistSongList extends StatelessWidget {
               '#',
               style: TextStyle(
                 fontSize: 11,
-                color: LucentTokens.textTertiary(brightness),
+                color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -108,7 +100,7 @@ class PlaylistSongList extends StatelessWidget {
               'TITLE',
               style: TextStyle(
                 fontSize: 11,
-                color: LucentTokens.textTertiary(brightness),
+                color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -119,7 +111,7 @@ class PlaylistSongList extends StatelessWidget {
             child: Icon(
               Icons.access_time,
               size: 14,
-              color: LucentTokens.textTertiary(brightness),
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
           // Heart placeholder
@@ -225,7 +217,7 @@ class PlaylistSongList extends StatelessWidget {
 
 /// Track row widget for playlist song list.
 /// Shows index, title (with artist subtitle), duration, and heart icon.
-class PlaylistTrackRow extends StatefulWidget {
+class PlaylistTrackRow extends ConsumerStatefulWidget {
   final Music music;
   final int index;
   final bool isPlaying;
@@ -244,10 +236,10 @@ class PlaylistTrackRow extends StatefulWidget {
   });
 
   @override
-  State<PlaylistTrackRow> createState() => _PlaylistTrackRowState();
+  ConsumerState<PlaylistTrackRow> createState() => _PlaylistTrackRowState();
 }
 
-class _PlaylistTrackRowState extends State<PlaylistTrackRow> {
+class _PlaylistTrackRowState extends ConsumerState<PlaylistTrackRow> {
   bool _isHovered = false;
 
   String _formatDuration(Music music) {
@@ -263,13 +255,14 @@ class _PlaylistTrackRowState extends State<PlaylistTrackRow> {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
+    final colorScheme = Theme.of(context).colorScheme;
+    final palette = context.appPalette;
 
     return ContextMenuWidget(
       menuProvider: (_) => buildMusicContextMenu(
         context: context,
         music: widget.music,
-        playerManager: sl.playerManager,
+        playerCoordinator: ref.read(playerCoordinatorProvider),
         onRemoveFromPlaylist: widget.onRemoveFromPlaylist,
       ),
       child: MouseRegion(
@@ -278,18 +271,13 @@ class _PlaylistTrackRowState extends State<PlaylistTrackRow> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedContainer(
-            duration: LucentTokens.standardDuration,
+            duration: AppTokens.standardDuration,
             curve: Curves.easeOutCubic,
             height: 56,
             decoration: BoxDecoration(
-              color: _isHovered
-                  ? LucentTokens.surfaceHover(brightness)
-                  : Colors.transparent,
+              color: _isHovered ? palette.surfaceHover : Colors.transparent,
               border: Border(
-                bottom: BorderSide(
-                  color: LucentTokens.borderSubtle(brightness),
-                  width: 1,
-                ),
+                bottom: BorderSide(color: colorScheme.outline, width: 1),
               ),
             ),
             child: Padding(
@@ -304,8 +292,8 @@ class _PlaylistTrackRowState extends State<PlaylistTrackRow> {
                       style: TextStyle(
                         fontSize: 13,
                         color: widget.isPlaying
-                            ? LucentTokens.accentPrimary
-                            : LucentTokens.textTertiary(brightness),
+                            ? colorScheme.primary
+                            : colorScheme.onSurfaceVariant,
                         fontWeight: widget.isPlaying
                             ? FontWeight.w600
                             : FontWeight.normal,
@@ -327,8 +315,8 @@ class _PlaylistTrackRowState extends State<PlaylistTrackRow> {
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
                             color: widget.isPlaying
-                                ? LucentTokens.accentPrimary
-                                : LucentTokens.textPrimary(brightness),
+                                ? colorScheme.primary
+                                : colorScheme.onSurface,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -338,7 +326,7 @@ class _PlaylistTrackRowState extends State<PlaylistTrackRow> {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 12,
-                            color: LucentTokens.textTertiary(brightness),
+                            color: colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -352,7 +340,7 @@ class _PlaylistTrackRowState extends State<PlaylistTrackRow> {
                       _formatDuration(widget.music),
                       style: TextStyle(
                         fontSize: 13,
-                        color: LucentTokens.textSecondary(brightness),
+                        color: colorScheme.onSurfaceVariant,
                       ),
                       textAlign: TextAlign.right,
                     ),
@@ -365,8 +353,8 @@ class _PlaylistTrackRowState extends State<PlaylistTrackRow> {
                         : Icons.favorite_border,
                     size: 16,
                     color: widget.music.isFavorite
-                        ? LucentTokens.accentError
-                        : LucentTokens.textTertiary(brightness),
+                        ? colorScheme.error
+                        : colorScheme.onSurfaceVariant,
                   ),
                 ],
               ),

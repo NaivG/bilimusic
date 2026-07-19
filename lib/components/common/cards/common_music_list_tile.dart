@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/managers/player_manager.dart';
+import 'package:bilimusic/services/player_coordinator.dart';
 import 'package:bilimusic/managers/playlist_manager.dart';
 import 'package:bilimusic/components/long_press_menu.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 import 'package:bilimusic/managers/cache_manager.dart';
 import 'package:bilimusic/utils/network_config.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/theme/app_palette.dart';
+import 'package:bilimusic/theme/app_tokens.dart';
 
 /// 通用音乐列表项组件
 /// 悬停/选中时背景和圆角边框从透明渐变至半透明(alpha: 0 -> 0.2)
 class CommonMusicListTile extends StatefulWidget {
   final Music music;
-  final PlayerManager playerManager;
+  final PlayerCoordinator playerCoordinator;
   final PlaylistManager? playlistManager;
   final int? index;
   final bool isPlaying;
@@ -29,7 +30,7 @@ class CommonMusicListTile extends StatefulWidget {
   const CommonMusicListTile({
     super.key,
     required this.music,
-    required this.playerManager,
+    required this.playerCoordinator,
     this.playlistManager,
     this.index,
     this.isPlaying = false,
@@ -53,26 +54,24 @@ class _CommonMusicListTileState extends State<CommonMusicListTile> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final brightness = theme.brightness;
+    final palette = context.appPalette;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
-        duration: LucentTokens.standardDuration,
+        duration: AppTokens.standardDuration,
         curve: Curves.easeOutCubic,
         height: 64,
         decoration: BoxDecoration(
-          color: _isHovered
-              ? LucentTokens.surfaceHover(brightness)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(LucentTokens.radiusSm),
+          color: _isHovered ? palette.surfaceHover : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
         ),
         child: ContextMenuWidget(
           menuProvider: (_) => buildMusicContextMenu(
             context: context,
             music: widget.music,
-            playerManager: widget.playerManager,
+            playerCoordinator: widget.playerCoordinator,
             playlistManager: widget.playlistManager,
           ),
           child: Material(
@@ -209,6 +208,6 @@ class _CommonMusicListTileState extends State<CommonMusicListTile> {
 
   Future<void> _playMusic(BuildContext context) async {
     final detailedMusic = await widget.music.getVideoDetails();
-    widget.playerManager.play(detailedMusic);
+    widget.playerCoordinator.playMusic(detailedMusic);
   }
 }

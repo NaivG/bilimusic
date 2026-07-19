@@ -163,6 +163,24 @@ class SearchResult {
       pages: newPages,
     );
   }
+
+  /// 按类型过滤搜索结果。
+  static List<SearchResult> filterByType(
+    List<SearchResult> results,
+    SearchResultType type,
+  ) {
+    return results.where((r) => r.type == type).toList();
+  }
+
+  /// 从结果集中提取所有出现过的类型（保持首次出现顺序）。
+  static List<SearchResultType> getAvailableTypes(List<SearchResult> results) {
+    final seen = <SearchResultType>{};
+    final out = <SearchResultType>[];
+    for (final r in results) {
+      if (seen.add(r.type)) out.add(r.type);
+    }
+    return out;
+  }
 }
 
 /// 搜索响应模型

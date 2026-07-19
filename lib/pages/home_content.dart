@@ -1,26 +1,29 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/models/music.dart';
 import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:bilimusic/core/app_providers.dart';
 import 'package:bilimusic/managers/recommendation_manager.dart';
 import 'package:bilimusic/components/common/cards/playlist_card.dart';
 import 'package:bilimusic/components/common/cards/music_list_item.dart';
 import 'package:bilimusic/utils/responsive.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/theme/app_palette.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
+import 'package:bilimusic/providers/playback_providers.dart';
+import 'package:bilimusic/providers/playlist_providers.dart';
 
-class HomeContent extends StatefulWidget {
+class HomeContent extends ConsumerStatefulWidget {
   final bool showAppBar;
   final String? appBarTitle;
 
   const HomeContent({super.key, this.showAppBar = false, this.appBarTitle});
 
   @override
-  State<HomeContent> createState() => _HomeContentState();
+  ConsumerState<HomeContent> createState() => _HomeContentState();
 }
 
-class _HomeContentState extends State<HomeContent> {
+class _HomeContentState extends ConsumerState<HomeContent> {
   List<Music> recommendedList = [];
   List<Music> guessYouLikeList = [];
   late RecommendationManager _recommendationManager;
@@ -34,7 +37,7 @@ class _HomeContentState extends State<HomeContent> {
   @override
   void initState() {
     super.initState();
-    _recommendationManager = sl.recommendationManager;
+    _recommendationManager = ref.read(recommendationManagerProvider);
 
     _loadRecommendations();
   }
@@ -63,7 +66,8 @@ class _HomeContentState extends State<HomeContent> {
 
   Future<void> _updateGuessYouLike() async {
     await _recommendationManager.updateGuessYouLike(
-      sl.playerManager.playHistory,
+      ref.read(playHistoryProvider),
+      playlistService: ref.read(playlistServiceProvider),
     );
     setState(() {
       guessYouLikeList = _recommendationManager.guessYouLikeList;
@@ -94,14 +98,14 @@ class _HomeContentState extends State<HomeContent> {
 
   Future<void> _playMusic(Music music) async {
     final detailedMusic = await music.getVideoDetails();
-    sl.playerManager.play(detailedMusic);
+    ref.read(playbackCommandsProvider.notifier).playMusic(detailedMusic);
   }
 
   Widget _buildMusicListItem(Music music, {bool showCover = false}) {
     return MusicListItem(
       music: music,
-      playerManager: sl.playerManager,
-      playlistManager: sl.playlistManager,
+      playerCoordinator: ref.read(playerCoordinatorProvider),
+      playlistManager: ref.read(playlistManagerProvider),
       onTap: () => _playMusic(music),
       showCover: showCover,
       showDetails: true,
@@ -239,8 +243,7 @@ class _HomeContentState extends State<HomeContent> {
     ScreenSize screenSize,
   ) {
     final isDesktop = screenSize == ScreenSize.desktop;
-    final brightness = View.of(context).platformDispatcher.platformBrightness;
-    final selectedColor = LucentTokens.selectedItem(brightness);
+    final selectedColor = context.appPalette.selectedItem;
 
     return SliverPadding(
       padding: EdgeInsets.all(
@@ -260,19 +263,19 @@ class _HomeContentState extends State<HomeContent> {
                   children: [
                     PlaylistCard(
                       playlist: DefaultPlaylists.favorites
-                        ..songs = sl.playlistManager.favorites,
+                        ..songs = ref.read(playlistManagerProvider).favorites,
                       onTap: () => ShellPageManager.instance.goToPlaylist(
                         playlistId: 'favorites',
-                        songs: sl.playlistManager.favorites,
+                        songs: ref.read(playlistManagerProvider).favorites,
                       ),
                     ),
                     const SizedBox(width: 12),
                     PlaylistCard(
                       playlist: DefaultPlaylists.history
-                        ..songs = sl.playerManager.playHistory,
+                        ..songs = ref.read(playHistoryProvider),
                       onTap: () => ShellPageManager.instance.goToPlaylist(
                         playlistId: 'history',
-                        songs: sl.playerManager.playHistory,
+                        songs: ref.read(playHistoryProvider),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -303,8 +306,7 @@ class _HomeContentState extends State<HomeContent> {
     final displayList = recommendedList.isNotEmpty
         ? recommendedList.take(12).toList()
         : _recommendationManager.guessYouLikeList.take(12).toList();
-    final brightness = View.of(context).platformDispatcher.platformBrightness;
-    final selectedColor = LucentTokens.selectedItem(brightness);
+    final selectedColor = context.appPalette.selectedItem;
 
     return SliverPadding(
       padding: EdgeInsets.all(
@@ -395,7 +397,7 @@ class _HomeContentState extends State<HomeContent> {
     ScreenSize screenSize,
   ) {
     final isDesktop = screenSize == ScreenSize.desktop;
-    final playHistory = sl.playerManager.playHistory;
+    final playHistory = ref.watch(playHistoryProvider);
     final displayHistory = playHistory.take(12).toList();
 
     return SliverPadding(

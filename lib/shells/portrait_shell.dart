@@ -1,7 +1,9 @@
-import 'package:bilimusic/theme/lucent_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/core/service_locator.dart';
+import 'package:bilimusic/providers/playlist_providers.dart';
+import 'package:bilimusic/providers/playback_providers.dart';
+import 'package:bilimusic/providers/settings_provider.dart';
 import 'package:bilimusic/components/mini_player_bar.dart';
 import 'package:bilimusic/components/desktop_window_controls.dart';
 import 'package:bilimusic/components/common/background_blur_widget.dart';
@@ -19,12 +21,11 @@ import 'package:bilimusic/pages/data_management_page.dart';
 import 'package:bilimusic/pages/data_migration_page.dart';
 import 'package:bilimusic/pages/login_page.dart';
 import 'package:bilimusic/pages/fav_import_page.dart';
-import 'package:bilimusic/utils/platform_helper.dart';
 
 /// 竖屏模式外壳 - 包含平板模式和手机模式布局
 /// 平板：NavigationRail + 主内容 + 迷你播放器
 /// 手机：主内容 + 迷你播放器 + 底部导航栏
-class PortraitShell extends StatefulWidget {
+class PortraitShell extends ConsumerWidget {
   final ShellPage currentPage;
   final ShellPageManager pageManager;
   final bool isTabletMode;
@@ -41,32 +42,12 @@ class PortraitShell extends StatefulWidget {
   });
 
   @override
-  State<PortraitShell> createState() => _PortraitShellState();
-}
-
-class _PortraitShellState extends State<PortraitShell> {
-  @override
-  void initState() {
-    super.initState();
-    sl.playerManager.addMusicListener(_onMusicChanged);
-  }
-
-  @override
-  void dispose() {
-    sl.playerManager.removeMusicListener(_onMusicChanged);
-    super.dispose();
-  }
-
-  void _onMusicChanged(Music? music) {
-    if (mounted) setState(() {});
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.isTabletMode) {
-      return _buildTabletLayout(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(currentIndexProvider);
+    if (isTabletMode) {
+      return _buildTabletLayout(context, ref);
     } else {
-      return _buildMobileLayout(context);
+      return _buildMobileLayout(context, ref);
     }
   }
 
@@ -78,7 +59,7 @@ class _PortraitShellState extends State<PortraitShell> {
       case ShellPage.search:
         return const SearchOverlay();
       case ShellPage.searchResults:
-        final query = widget.pageManager.getArgs<String>('query') ?? '';
+        final query = pageManager.getArgs<String>('query') ?? '';
         return SearchResultsOverlay(query: query);
       case ShellPage.profile:
         return const ProfilePage();
@@ -87,9 +68,9 @@ class _PortraitShellState extends State<PortraitShell> {
       case ShellPage.detail:
         return const DetailPage();
       case ShellPage.playlist:
-        final playlistId = widget.pageManager.getArgs<String>('playlistId');
-        final songs = widget.pageManager.getArgs<List<Music>>('songs');
-        final playlistName = widget.pageManager.getArgs<String>('playlistName');
+        final playlistId = pageManager.getArgs<String>('playlistId');
+        final songs = pageManager.getArgs<List<Music>>('songs');
+        final playlistName = pageManager.getArgs<String>('playlistName');
         return PlaylistPage(
           playlistId: playlistId,
           songs: songs,
@@ -106,43 +87,40 @@ class _PortraitShellState extends State<PortraitShell> {
       case ShellPage.favImport:
         return const FavImportPage();
       case ShellPage.login:
-        if (PlatformHelper.isDesktop) {
-          return const _DesktopLoginPlaceholder();
-        }
         return LoginPage();
     }
   }
 
   /// 是否显示底部导航栏
   bool get _showBottomBar {
-    return widget.currentPage == ShellPage.home ||
-        widget.currentPage == ShellPage.search ||
-        widget.currentPage == ShellPage.profile ||
-        widget.currentPage == ShellPage.settings;
+    return currentPage == ShellPage.home ||
+        currentPage == ShellPage.search ||
+        currentPage == ShellPage.profile ||
+        currentPage == ShellPage.settings;
   }
 
   /// 平板模式布局
-  Widget _buildTabletLayout(BuildContext context) {
-    final selectedIndex = widget.pageManager.selectedTabIndex;
+  Widget _buildTabletLayout(BuildContext context, WidgetRef ref) {
+    final selectedIndex = pageManager.selectedTabIndex;
 
     return Scaffold(
-      appBar: widget.isPcPlatform
+      appBar: isPcPlatform
           ? PreferredSize(
               preferredSize: const Size.fromHeight(40),
               child: DesktopNavBar(
                 selectedIndex: selectedIndex,
-                onNavTap: (index) => widget.pageManager.goToTab(index),
-                onClose: () => sl.playerManager.stop(),
+                onNavTap: (index) => pageManager.goToTab(index),
+                onClose: () =>
+                    ref.read(playbackCommandsProvider.notifier).stop(),
               ),
             )
           : null,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          _buildBackground(),
+          _buildBackground(context, ref),
           Row(
             children: [
-              // 主内容区域
               Expanded(
                 child: Stack(
                   children: [
@@ -168,9 +146,8 @@ class _PortraitShellState extends State<PortraitShell> {
                           ),
                         );
                       },
-                      child: _buildPageContent(widget.currentPage),
+                      child: _buildPageContent(currentPage),
                     ),
-                    // 平板模式下的悬浮迷你播放器
                     if (_showBottomBar)
                       Positioned(
                         left: 0,
@@ -181,8 +158,8 @@ class _PortraitShellState extends State<PortraitShell> {
                             width: MediaQuery.of(context).size.width * 0.8,
                             child: MiniPlayerBar(
                               onExpand: () =>
-                                  widget.pageManager.push(ShellPage.detail),
-                              onPlayList: widget.onPlayList,
+                                  pageManager.push(ShellPage.detail),
+                              onPlayList: onPlayList,
                             ),
                           ),
                         ),
@@ -198,24 +175,25 @@ class _PortraitShellState extends State<PortraitShell> {
   }
 
   /// 手机模式布局
-  Widget _buildMobileLayout(BuildContext context) {
-    final selectedIndex = widget.pageManager.selectedTabIndex;
+  Widget _buildMobileLayout(BuildContext context, WidgetRef ref) {
+    final selectedIndex = pageManager.selectedTabIndex;
 
     return Scaffold(
-      appBar: widget.isPcPlatform
+      appBar: isPcPlatform
           ? PreferredSize(
               preferredSize: const Size.fromHeight(40),
               child: DesktopNavBar(
                 selectedIndex: selectedIndex,
-                onNavTap: (index) => widget.pageManager.goToTab(index),
-                onClose: () => sl.playerManager.stop(),
+                onNavTap: (index) => pageManager.goToTab(index),
+                onClose: () =>
+                    ref.read(playbackCommandsProvider.notifier).stop(),
               ),
             )
           : null,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          _buildBackground(),
+          _buildBackground(context, ref),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
             switchInCurve: Curves.easeOut,
@@ -238,7 +216,7 @@ class _PortraitShellState extends State<PortraitShell> {
                 ),
               );
             },
-            child: _buildPageContent(widget.currentPage),
+            child: _buildPageContent(currentPage),
           ),
           // 悬浮迷你播放器
           if (_showBottomBar)
@@ -250,8 +228,8 @@ class _PortraitShellState extends State<PortraitShell> {
                 child: SizedBox(
                   width: MediaQuery.of(context).size.width * 0.95,
                   child: MiniPlayerBar(
-                    onExpand: () => widget.pageManager.push(ShellPage.detail),
-                    onPlayList: widget.onPlayList,
+                    onExpand: () => pageManager.push(ShellPage.detail),
+                    onPlayList: onPlayList,
                   ),
                 ),
               ),
@@ -295,7 +273,7 @@ class _PortraitShellState extends State<PortraitShell> {
                   ),
                 ],
                 currentIndex: selectedIndex,
-                onTap: (index) => widget.pageManager.goToTab(index),
+                onTap: (index) => pageManager.goToTab(index),
               ),
             )
           : null,
@@ -303,16 +281,11 @@ class _PortraitShellState extends State<PortraitShell> {
   }
 
   /// 背景模糊效果
-  Widget _buildBackground() {
-    if (sl.settingsManager.fluidBackground == false) {
-      final isDark = Theme.of(context).brightness;
-      return Container(
-        color: isDark == Brightness.dark
-            ? LucentTokens.darkSurfaceBase
-            : LucentTokens.lightSurfaceBase,
-      );
+  Widget _buildBackground(BuildContext context, WidgetRef ref) {
+    if (ref.watch(settingsProvider).fluidBackground == false) {
+      return Container(color: Theme.of(context).colorScheme.surface);
     }
-    final currentMusic = sl.playerManager.currentMusic;
+    final currentMusic = ref.watch(currentMusicProvider);
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 400),
       child: BackgroundBlurWidget(
@@ -320,15 +293,5 @@ class _PortraitShellState extends State<PortraitShell> {
         coverUrl: currentMusic?.coverUrl,
       ),
     );
-  }
-}
-
-/// 桌面端登录占位组件
-class _DesktopLoginPlaceholder extends StatelessWidget {
-  const _DesktopLoginPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('桌面端暂不支持登录'));
   }
 }

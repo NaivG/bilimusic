@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/theme/app_palette.dart';
 
 /// 横屏模式新侧边栏 - 基于ParticleMusic风格
 class LandscapeSidebar extends StatelessWidget {
@@ -24,8 +24,7 @@ class LandscapeSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final brightness = View.of(context).platformDispatcher.platformBrightness;
-    final selectedItemColor = LucentTokens.selectedItem(brightness);
+    final selectedItemColor = context.appPalette.selectedItem;
 
     return Material(
       color: Colors.transparent,
@@ -103,7 +102,7 @@ class LandscapeSidebar extends StatelessWidget {
                     const SizedBox(height: 10),
                     // 创建的歌单
                     _buildPlaylistSection(
-                      brightness,
+                      context,
                       colorScheme,
                       selectedItemColor,
                     ),
@@ -128,7 +127,7 @@ class LandscapeSidebar extends StatelessWidget {
   }
 
   Widget _buildPlaylistSection(
-    Brightness brightness,
+    BuildContext context,
     ColorScheme colorScheme,
     Color selectedItemColor,
   ) {

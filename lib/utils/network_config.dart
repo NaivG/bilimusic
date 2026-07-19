@@ -55,6 +55,26 @@ class NetworkConfig {
     _saveCookiesToPrefs();
   }
 
+  /// 解析 Set-Cookie 响应头（支持单个 header 中合并的多个 cookie）
+  ///
+  /// `http` 包会把多个 Set-Cookie header 拼接成一个以 ", " 分隔的字符串；
+  /// 当 cookie 的 Expires 属性本身含逗号（如 `Expires=Sat, 04 Mar 2023 07:30:09 GMT`）时，
+  /// 简单的按 "," 切分会误切。识别规则：cookie 名以 RFC 6265 token 子集 `[A-Za-z0-9_.-]+`
+  /// 限定，且其前必须紧邻 `, ` 或字符串开头，紧跟 `=`，可以正确避开 Expires 日期里的逗号。
+  static Map<String, String> parseSetCookieHeaders(String headerValue) {
+    final result = <String, String>{};
+    if (headerValue.isEmpty) return result;
+    final pattern = RegExp(r'(?:^|,\s*)([A-Za-z0-9_.\-]+)=([^;,]*)');
+    for (final match in pattern.allMatches(headerValue)) {
+      final name = match.group(1);
+      final value = match.group(2);
+      if (name != null && value != null) {
+        result[name] = value;
+      }
+    }
+    return result;
+  }
+
   static Future<void> _saveCookiesToPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     if (_cookies.isNotEmpty) {

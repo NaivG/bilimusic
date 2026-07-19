@@ -1,10 +1,15 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:bilimusic/core/service_locator.dart';
-import 'package:bilimusic/managers/player_manager.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bilimusic/models/play_mode.dart';
 import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/theme/lucent_theme.dart';
+import 'package:bilimusic/models/player_state.dart';
+import 'package:bilimusic/providers/playback_providers.dart';
+import 'package:bilimusic/providers/playlist_providers.dart';
+import 'package:bilimusic/providers/settings_provider.dart';
+import 'package:bilimusic/theme/app_palette.dart';
+import 'package:bilimusic/theme/app_tokens.dart';
 import 'package:bilimusic/utils/animations.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/utils/platform_helper.dart';
@@ -13,63 +18,11 @@ import 'package:bilimusic/components/common/landscape_seek_bar.dart';
 import 'package:bilimusic/components/common/landscape_volume_bar.dart';
 
 /// 横屏模式底部播放器控制栏 - Lucent设计语言
-class LandscapeBottomControl extends StatefulWidget {
+class LandscapeBottomControl extends ConsumerWidget {
   final VoidCallback? onExpand;
   final VoidCallback? onPlayList;
 
   const LandscapeBottomControl({super.key, this.onExpand, this.onPlayList});
-
-  @override
-  State<LandscapeBottomControl> createState() => _LandscapeBottomControlState();
-}
-
-class _LandscapeBottomControlState extends State<LandscapeBottomControl> {
-  AudioState? _audioState;
-  Music? _currentMusic;
-  PlayMode? _playMode;
-  int _crossfadeCountdown = -1;
-
-  @override
-  void initState() {
-    super.initState();
-    _audioState = sl.playerManager.currentState;
-    _currentMusic = sl.playerManager.currentMusic;
-    _playMode = sl.playerManager.playMode;
-    _crossfadeCountdown = sl.playerManager.crossfadeCountdown.value;
-    _setupListeners();
-  }
-
-  void _setupListeners() {
-    sl.playerManager.addStateListener(_onStateChanged);
-    sl.playerManager.addMusicListener(_onMusicChanged);
-    sl.playerManager.addPlayModeListener(_onPlayModeChanged);
-    sl.playerManager.addCountdownListener(_onCountdownChanged);
-  }
-
-  void _onStateChanged(AudioState state) {
-    if (mounted) setState(() => _audioState = state);
-  }
-
-  void _onMusicChanged(Music? music) {
-    if (mounted) setState(() => _currentMusic = music);
-  }
-
-  void _onPlayModeChanged(PlayMode mode) {
-    if (mounted) setState(() => _playMode = mode);
-  }
-
-  void _onCountdownChanged(int countdown) {
-    if (mounted) setState(() => _crossfadeCountdown = countdown);
-  }
-
-  @override
-  void dispose() {
-    sl.playerManager.removeStateListener(_onStateChanged);
-    sl.playerManager.removeMusicListener(_onMusicChanged);
-    sl.playerManager.removePlayModeListener(_onPlayModeChanged);
-    sl.playerManager.removeCountdownListener(_onCountdownChanged);
-    super.dispose();
-  }
 
   double _barHeight(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
@@ -79,23 +32,24 @@ class _LandscapeBottomControlState extends State<LandscapeBottomControl> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final brightness = View.of(context).platformDispatcher.platformBrightness;
-    final isDark = brightness == Brightness.dark;
-    final blurEnabled = sl.settingsManager.blurEffect;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.appPalette;
+    final colorScheme = Theme.of(context).colorScheme;
+    final blurEnabled = ref.watch(settingsProvider).blurEffect;
 
-    // Lucent design tokens
-    final glassColor = isDark
-        ? LucentTokens.darkSurfaceOverlay
-        : LucentTokens.lightSurfaceOverlay;
-    final textPrimary = LucentTokens.textPrimary(brightness);
-    final textSecondary = LucentTokens.textSecondary(brightness);
-    final iconColor = LucentTokens.textSecondary(brightness);
-    final accentColor = LucentTokens.accentPrimary;
-    final borderColor = LucentTokens.borderSubtle(brightness);
-    final seekBarColor = LucentTokens.seekBarActive(brightness);
-    final volumeBarColor = LucentTokens.volumeBarActive(brightness);
+    // Theme-aware tokens
+    final glassColor = palette.surfaceOverlay;
+    final textPrimary = colorScheme.onSurface;
+    final textSecondary = colorScheme.onSurfaceVariant;
+    final iconColor = colorScheme.onSurfaceVariant;
+    final accentColor = colorScheme.primary;
+    final borderColor = colorScheme.outline;
+    final seekBarColor = palette.seekBarActive;
+    final volumeBarColor = palette.volumeBarActive;
 
+    final currentMusic = ref.watch(currentMusicProvider);
+    final playMode = ref.watch(playModeProvider);
+    final playerState = ref.watch(playerStateProvider);
     final barHeight = _barHeight(context);
     final hPadding = LandscapeBreakpoints.getHorizontalPadding(context);
 
@@ -107,8 +61,8 @@ class _LandscapeBottomControlState extends State<LandscapeBottomControl> {
       child: ClipRRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(
-            sigmaX: blurEnabled ? LucentTokens.glassBlurSigma : 0,
-            sigmaY: blurEnabled ? LucentTokens.glassBlurSigma : 0,
+            sigmaX: blurEnabled ? AppTokens.glassBlurSigma : 0,
+            sigmaY: blurEnabled ? AppTokens.glassBlurSigma : 0,
           ),
           child: Container(
             color: glassColor,
@@ -121,23 +75,37 @@ class _LandscapeBottomControlState extends State<LandscapeBottomControl> {
                     // Left: current song tile
                     Expanded(
                       flex: 3,
-                      child: _buildSongTile(textPrimary, textSecondary),
+                      child: _buildSongTile(
+                        context,
+                        textPrimary,
+                        textSecondary,
+                        currentMusic,
+                        playerState,
+                      ),
                     ),
                     // Center: play controls + seek bar
                     Expanded(
                       flex: 4,
                       child: _buildCenterControls(
                         context,
+                        ref,
                         iconColor,
                         accentColor,
                         seekBarColor,
+                        playMode,
+                        playerState,
                       ),
                     ),
                     // Right: lyrics + volume (desktop only)
                     if (PlatformHelper.isDesktop)
                       Expanded(
                         flex: 3,
-                        child: _buildRightControls(iconColor, volumeBarColor),
+                        child: _buildRightControls(
+                          context,
+                          ref,
+                          iconColor,
+                          volumeBarColor,
+                        ),
                       ),
                   ],
                 ),
@@ -151,16 +119,23 @@ class _LandscapeBottomControlState extends State<LandscapeBottomControl> {
 
   // ==================== Left Section ====================
 
-  Widget _buildSongTile(Color textPrimary, Color textSecondary) {
-    final music = _currentMusic;
+  Widget _buildSongTile(
+    BuildContext context,
+    Color textPrimary,
+    Color textSecondary,
+    Music? music,
+    PlayerState playerState,
+  ) {
+    final fading =
+        playerState is PlayerPlaying && playerState.fadeCountdown != null;
     return GestureDetector(
-      onTap: widget.onExpand,
+      onTap: onExpand,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           LandscapeCoverArt(
             size: 48,
-            borderRadius: LucentTokens.radiusSm,
+            borderRadius: AppTokens.radiusSm,
             song: music,
           ),
           const SizedBox(width: 12),
@@ -182,9 +157,9 @@ class _LandscapeBottomControlState extends State<LandscapeBottomControl> {
                 const SizedBox(height: 2),
                 music?.artist != null
                     ? AnimatedSwitcher(
-                        duration: LucentTokens.standardDuration,
-                        child: _crossfadeCountdown > 0
-                            ? _buildCrossfadeIndicator()
+                        duration: AppTokens.standardDuration,
+                        child: fading
+                            ? _buildCrossfadeIndicator(context)
                             : Text(
                                 music?.artist ?? 'Unknown Artist',
                                 key: const ValueKey('artist'),
@@ -205,7 +180,8 @@ class _LandscapeBottomControlState extends State<LandscapeBottomControl> {
     );
   }
 
-  Widget _buildCrossfadeIndicator() {
+  Widget _buildCrossfadeIndicator(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
     return Row(
       key: const ValueKey('transition'),
       mainAxisSize: MainAxisSize.min,
@@ -216,17 +192,14 @@ class _LandscapeBottomControlState extends State<LandscapeBottomControl> {
           child: CircularProgressIndicator(
             strokeWidth: 1.5,
             valueColor: AlwaysStoppedAnimation<Color>(
-              LucentTokens.accentPrimary.withValues(alpha: 0.8),
+              accent.withValues(alpha: 0.8),
             ),
           ),
         ),
         const SizedBox(width: 6),
         Text(
           '过渡中',
-          style: TextStyle(
-            color: LucentTokens.accentPrimary.withValues(alpha: 0.8),
-            fontSize: 12,
-          ),
+          style: TextStyle(color: accent.withValues(alpha: 0.8), fontSize: 12),
         ),
       ],
     );
@@ -236,9 +209,12 @@ class _LandscapeBottomControlState extends State<LandscapeBottomControl> {
 
   Widget _buildCenterControls(
     BuildContext context,
+    WidgetRef ref,
     Color iconColor,
     Color accentColor,
     Color seekBarColor,
+    PlayMode playMode,
+    PlayerState playerState,
   ) {
     final width = MediaQuery.of(context).size.width;
     final showSeekBar = width >= LandscapeBreakpoints.largeTabletMin;
@@ -247,7 +223,15 @@ class _LandscapeBottomControlState extends State<LandscapeBottomControl> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _buildPlayButtonRow(context, iconColor, accentColor, mainButtonSize),
+        _buildPlayButtonRow(
+          context,
+          ref,
+          iconColor,
+          accentColor,
+          mainButtonSize,
+          playMode,
+          playerState,
+        ),
         if (showSeekBar) ...[
           const SizedBox(height: 6),
           SizedBox(
@@ -266,24 +250,27 @@ class _LandscapeBottomControlState extends State<LandscapeBottomControl> {
 
   Widget _buildPlayButtonRow(
     BuildContext context,
+    WidgetRef ref,
     Color iconColor,
     Color accentColor,
     double mainButtonSize,
+    PlayMode playMode,
+    PlayerState playerState,
   ) {
     final smallSize = 32.0;
-    final isPlaying = _audioState == AudioState.playing;
-    final mode = _playMode ?? sl.playerManager.playMode;
+    final isPlaying = playerState is PlayerPlaying;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         _buildSmallButton(
-          icon: _playModeIcon(mode),
+          icon: _playModeIcon(playMode),
           size: smallSize,
           iconSize: smallSize * 0.55,
           color: iconColor.withValues(alpha: 0.7),
-          onTap: () => sl.playerManager.togglePlayMode(),
+          onTap: () =>
+              ref.read(playbackCommandsProvider.notifier).togglePlayMode(),
         ),
         const SizedBox(width: 16),
         _buildSmallButton(
@@ -291,7 +278,8 @@ class _LandscapeBottomControlState extends State<LandscapeBottomControl> {
           size: smallSize,
           iconSize: smallSize * 0.6,
           color: iconColor.withValues(alpha: 0.85),
-          onTap: () => sl.playerManager.playPrevious(),
+          onTap: () =>
+              ref.read(playbackCommandsProvider.notifier).playPrevious(),
         ),
         const SizedBox(width: 16),
         ScaleOnHover(
@@ -313,15 +301,15 @@ class _LandscapeBottomControlState extends State<LandscapeBottomControl> {
             child: IconButton(
               onPressed: () {
                 if (isPlaying) {
-                  sl.playerManager.pause();
+                  ref.read(playbackCommandsProvider.notifier).pause();
                 } else {
-                  sl.playerManager.resume();
+                  ref.read(playbackCommandsProvider.notifier).resume();
                 }
               },
               icon: AnimatedSwitcher(
-                duration: LucentTokens.standardDuration,
-                switchInCurve: LucentTokens.standardEasing,
-                switchOutCurve: LucentTokens.standardEasing,
+                duration: AppTokens.standardDuration,
+                switchInCurve: AppTokens.standardEasing,
+                switchOutCurve: AppTokens.standardEasing,
                 child: Icon(
                   isPlaying ? Icons.pause : Icons.play_arrow,
                   key: ValueKey(isPlaying),
@@ -344,16 +332,16 @@ class _LandscapeBottomControlState extends State<LandscapeBottomControl> {
           size: smallSize,
           iconSize: smallSize * 0.6,
           color: iconColor.withValues(alpha: 0.85),
-          onTap: () => sl.playerManager.playNext(),
+          onTap: () => ref.read(playbackCommandsProvider.notifier).playNext(),
         ),
         const SizedBox(width: 16),
-        if (widget.onPlayList != null)
+        if (onPlayList != null)
           _buildSmallButton(
             icon: Icons.queue_music,
             size: smallSize,
             iconSize: smallSize * 0.55,
             color: iconColor.withValues(alpha: 0.7),
-            onTap: widget.onPlayList,
+            onTap: onPlayList,
           ),
       ],
     );
@@ -395,7 +383,16 @@ class _LandscapeBottomControlState extends State<LandscapeBottomControl> {
 
   // ==================== Right Section ====================
 
-  Widget _buildRightControls(Color iconColor, Color volumeBarColor) {
+  Widget _buildRightControls(
+    BuildContext context,
+    WidgetRef ref,
+    Color iconColor,
+    Color volumeBarColor,
+  ) {
+    final volume = ref.watch(volumeProvider);
+    final commands = ref.read(playbackCommandsProvider.notifier);
+    final isMuted = volume == 0;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
@@ -413,7 +410,22 @@ class _LandscapeBottomControlState extends State<LandscapeBottomControl> {
             splashRadius: 18,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 4),
+        ScaleOnHover(
+          hoverScale: 1.1,
+          child: IconButton(
+            onPressed: () => commands.toggleMute(),
+            icon: Icon(
+              isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+              size: 20,
+              color: iconColor.withValues(alpha: 0.7),
+            ),
+            splashRadius: 16,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+          ),
+        ),
+        const SizedBox(width: 4),
         SizedBox(
           height: 20,
           width: 120,
