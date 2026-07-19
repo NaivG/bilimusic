@@ -67,6 +67,53 @@ class PlaylistService {
     await _loadCustomTags();
   }
 
+  // ==================== cid backfill ====================
+
+  /// 加载阶段回填：扫描当前播放列表/历史/收藏，对 cid 缺失的 item
+  /// 调用 [ensureCid] 拉详情补齐，并把补齐结果落盘 + 刷新内存镜像。
+  ///
+  /// 失败静默（debugPrint 留痕），调用方应 fire-and-forget。
+  Future<void> backfillMissingCids({
+    required Future<Music> Function(Music) ensureCid,
+  }) async {
+    await _backfillList(_currentPlaylist.value, (m) async {
+      final updated = await ensureCid(m);
+      if (updated.cid.isNotEmpty && updated.cid != m.cid) {
+        await updateToPlaylist(updated);
+      }
+    });
+    await _backfillList(_playHistory.value, (m) async {
+      final updated = await ensureCid(m);
+      if (updated.cid.isNotEmpty && updated.cid != m.cid) {
+        await addToPlayHistory(updated);
+      }
+    });
+    await _backfillList(_favorites.value, (m) async {
+      final updated = await ensureCid(m);
+      if (updated.cid.isNotEmpty && updated.cid != m.cid) {
+        // cid 变化 → 主键变化，先删后插
+        await removeFromFavorites(m);
+        await addToFavorites(updated);
+      }
+    });
+  }
+
+  Future<void> _backfillList(
+    List<Music> list,
+    Future<void> Function(Music) fix,
+  ) async {
+    for (final m in list) {
+      if (m.cid.isNotEmpty) continue;
+      try {
+        await fix(m);
+      } catch (e) {
+        debugPrint(
+          '[PlaylistService] backfill cid failed for ${m.id}: $e',
+        );
+      }
+    }
+  }
+
   // ==================== helpers ====================
 
   Music? _decodeMusic(String payload) {

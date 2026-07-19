@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
@@ -77,6 +78,11 @@ void main() async {
   await container
       .read(playlistManagerProvider)
       .initialize(service: playlistService);
+
+  // 后台回填历史/收藏/当前列表中 cid 缺失的 item（不阻塞初始化）
+  unawaited(
+    playlistService.backfillMissingCids(ensureCid: coordinator.ensureCid),
+  );
 
   // 初始化音频服务并保存实例
   final audioHandler = await AudioService.init(

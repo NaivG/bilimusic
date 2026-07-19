@@ -67,29 +67,40 @@ class PlayerCoordinator {
   }
 
   /// 播放音乐
+  ///
+  /// 唯一性流程：
+  /// 1. 若 cid 缺失，调 [_apiService.ensureCid] 补齐（同时刷新元信息）。
+  /// 2. 在当前播放列表里按 (bvid, cid) 查重：
+  ///    - 命中 → 直接选中已有项播放。
+  ///    - 未命中 → 先 addToPlaylist，再选中新增项播放。
   Future<void> playMusic(Music music) async {
     try {
-      // 获取视频详情
-      final detailedMusic = await _apiService.getVideoDetails(music.id);
+      final candidate = music.cid.isEmpty
+          ? await _apiService.ensureCid(music)
+          : music;
 
-      // 添加到播放列表
-      await _playlistService.addToPlaylist(detailedMusic);
-
-      // 设置当前播放索引
-      final playlist = _playlistService.currentPlaylist.value;
-      final index = playlist.indexWhere(
-        (m) => m.id == detailedMusic.id && m.cid == detailedMusic.cid,
+      var idx = _playlistService.currentPlaylist.value.indexWhere(
+        (m) => m.id == candidate.id && m.cid == candidate.cid,
       );
 
-      if (index != -1) {
-        _playlistService.setCurrentIndex(index);
-        await _playCurrentTrack();
+      if (idx == -1) {
+        await _playlistService.addToPlaylist(candidate);
+        idx = _playlistService.currentPlaylist.value.indexWhere(
+          (m) => m.id == candidate.id && m.cid == candidate.cid,
+        );
+        if (idx == -1) return;
       }
+
+      _playlistService.setCurrentIndex(idx);
+      await _playCurrentTrack();
     } catch (e) {
       debugPrint('[PlayerCoordinator] Error playing music: $e');
       rethrow;
     }
   }
+
+  /// 暴露 [ApiService.ensureCid] 给 PlaylistService 在加载时回填缺失 cid。
+  Future<Music> ensureCid(Music music) => _apiService.ensureCid(music);
 
   /// 播放当前曲目
   Future<void> _playCurrentTrack() async {
@@ -102,16 +113,13 @@ class PlayerCoordinator {
     try {
       Music detailedMusic;
 
-      // 如果已有有效的cid或audioUrl为空,尝试获取对应分P的详情
-      if (music.cid.isNotEmpty || music.audioUrl.isEmpty) {
-        detailedMusic = await _apiService.getVideoDetails(
-          music.id,
-          targetCid: music.cid.isEmpty ? null : music.cid,
-        );
-        // 更新播放列表
-        await _playlistService.updateToPlaylist(detailedMusic);
+      // 仅在 cid 缺失时回填。已有 cid + 已有 audioUrl 的稳定 fast-path 不再走网络。
+      if (music.cid.isEmpty) {
+        detailedMusic = await _apiService.ensureCid(music);
+        if (detailedMusic.cid.isNotEmpty) {
+          await _playlistService.updateToPlaylist(detailedMusic);
+        }
       } else {
-        // 否则使用原始的Music对象
         detailedMusic = music;
       }
 
@@ -260,12 +268,7 @@ class PlayerCoordinator {
     if (currentIndex != null) {
       final playlist = _playlistService.currentPlaylist.value;
       final newIndex = playlist.indexWhere(
-        (m) =>
-            m.id == music.id &&
-            (m.pages.isEmpty && music.pages.isEmpty ||
-                m.pages.isNotEmpty &&
-                    music.pages.isNotEmpty &&
-                    m.pages[0].cid == music.pages[0].cid),
+        (m) => m.id == music.id && m.cid == music.cid,
       );
       if (newIndex != -1) {
         final newPlaylist = List<Music>.from(playlist);

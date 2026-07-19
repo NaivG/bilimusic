@@ -37,6 +37,20 @@ class ApiService {
     }
   }
 
+  /// 若 cid 缺失则拉详情补齐，返回更新后的 [Music]；
+  /// 已填 cid 或网络失败则原样返回。
+  ///
+  /// 用于"按 (bvid, cid) 唯一性检测"前置环节：调用方拿到 music 后先过一遍 ensureCid，
+  /// 再交给 PlaylistService 做去重。
+  Future<Music> ensureCid(Music music) async {
+    if (music.cid.isNotEmpty) return music;
+    final item = await getBiliItemDetails(music.id);
+    if (item == null || item.pages.isEmpty) return music;
+    // BiliItem.pages 里每个元素已是 Music（不是 deprecated 的 Page），
+    // 直接取首分 P 作为补齐后的候选。
+    return item.pages.first;
+  }
+
   /// 兼容旧接口：返回 [Music]。可选 [pageIndex] / [targetCid] 选择分P。
   ///
   /// 失败时返回仅含 bvid 的占位 [Music]，避免上游链路过早崩。
