@@ -8,7 +8,8 @@ import 'package:bilimusic/components/auto_appbar.dart';
 import 'package:bilimusic/components/lyric/lyric_section.dart';
 import 'package:bilimusic/components/lyric/lyric_source.dart';
 import 'package:bilimusic/models/music.dart' as model;
-import 'package:bilimusic/pages/detail/portrait_detail_page.dart' show LyricInfo;
+import 'package:bilimusic/pages/detail/portrait_detail_page.dart'
+    show LyricInfo;
 import 'package:bilimusic/providers/playback_providers.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
 import 'package:bilimusic/utils/dialog_helpers.dart';
@@ -70,8 +71,7 @@ class SquareDetailPage extends ConsumerWidget {
     if (showLyrics) return _buildLyricsView(context, ref);
 
     return Scaffold(
-      backgroundColor:
-          dominantColor?.withValues(alpha: 0.4) ?? Colors.black,
+      backgroundColor: dominantColor?.withValues(alpha: 0.4) ?? Colors.black,
       extendBodyBehindAppBar: true,
       appBar: _buildAppBar(context, ref),
       body: Stack(
@@ -80,8 +80,7 @@ class SquareDetailPage extends ConsumerWidget {
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final outerPadding =
-                    SquareBreakpoints.getOuterPadding(context);
+                final outerPadding = SquareBreakpoints.getOuterPadding(context);
                 return Padding(
                   padding: EdgeInsets.all(outerPadding),
                   child: Column(
@@ -152,8 +151,7 @@ class SquareDetailPage extends ConsumerWidget {
               end: Alignment.bottomCenter,
               colors: [
                 dominantColor?.withValues(alpha: 0.8) ?? Colors.black,
-                dominantColor?.withValues(alpha: 0.6) ??
-                    Colors.grey[900]!,
+                dominantColor?.withValues(alpha: 0.6) ?? Colors.grey[900]!,
                 Colors.black,
               ],
               stops: const [0.0, 0.5, 1.0],
@@ -177,10 +175,7 @@ class SquareDetailPage extends ConsumerWidget {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Colors.transparent,
-                Colors.black.withValues(alpha: 0.8),
-              ],
+              colors: [Colors.transparent, Colors.black.withValues(alpha: 0.8)],
             ),
           ),
         ),
@@ -202,9 +197,8 @@ class SquareDetailPage extends ConsumerWidget {
                 ? CachedNetworkImage(
                     imageUrl: music.coverUrl,
                     fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: Colors.grey[800],
-                    ),
+                    placeholder: (context, url) =>
+                        Container(color: Colors.grey[800]),
                     errorWidget: (context, url, error) => Container(
                       color: Colors.grey[800],
                       child: Icon(
@@ -260,10 +254,9 @@ class SquareDetailPage extends ConsumerWidget {
   }
 
   Widget _buildProgressBar(BuildContext context) {
-    final progress =
-        duration != null && duration!.inSeconds > 0
-            ? position.inSeconds / duration!.inSeconds
-            : 0.0;
+    final progress = duration != null && duration!.inSeconds > 0
+        ? position.inSeconds / duration!.inSeconds
+        : 0.0;
 
     return Column(
       children: [
@@ -282,9 +275,7 @@ class SquareDetailPage extends ConsumerWidget {
             onChanged: (value) {
               if (duration != null) {
                 onSeek(
-                  Duration(
-                    seconds: (value * duration!.inSeconds).toInt(),
-                  ),
+                  Duration(seconds: (value * duration!.inSeconds).toInt()),
                 );
               }
             },
@@ -414,7 +405,10 @@ class SquareDetailPage extends ConsumerWidget {
             ListTile(
               dense: true,
               leading: const Icon(Icons.share, color: Colors.white, size: 22),
-              title: const Text('分享', style: TextStyle(color: Colors.white, fontSize: 14)),
+              title: const Text(
+                '分享',
+                style: TextStyle(color: Colors.white, fontSize: 14),
+              ),
               onTap: () {
                 Navigator.pop(sheetContext);
                 onShare();

@@ -97,8 +97,7 @@ class _VolumeWatcher extends Notifier<double> {
     return vn.value;
   }
 
-  void _onChanged() =>
-      state = ref.read(_dualAudioServiceProvider).volume.value;
+  void _onChanged() => state = ref.read(_dualAudioServiceProvider).volume.value;
 }
 
 final volumeProvider = NotifierProvider<_VolumeWatcher, double>(
