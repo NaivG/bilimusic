@@ -49,13 +49,23 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
     setState(() => _isLoading = true);
 
     try {
+      final systemDefault = widget.playlistId != null
+          ? DefaultPlaylists.getById(widget.playlistId!)
+          : null;
+
       if (widget.songs != null) {
         _songs = List.from(widget.songs!);
-        // 为特殊播放列表创建临时歌单对象用于显示
-        _currentPlaylist = _createTempPlaylist(
-          _songs,
-          name: widget.playlistName,
-        );
+        if (systemDefault != null) {
+          _currentPlaylist = systemDefault.copyWith(
+            songs: _songs,
+            songCount: _songs.length,
+          );
+        } else {
+          _currentPlaylist = _createTempPlaylist(
+            _songs,
+            name: widget.playlistName,
+          );
+        }
       } else if (widget.playlistId != null) {
         // 从管理器加载歌单详情
         final detail = await ref

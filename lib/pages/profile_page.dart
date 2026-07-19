@@ -312,7 +312,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           trailing: const Icon(Icons.arrow_forward_ios),
           onTap: () {
             ShellPageManager.instance.goToPlaylist(
-              playlistId: 'playHistory',
+              playlistId: 'history', // 播放历史，这里之前写错了没发现绷
               songs: ref.read(playHistoryProvider),
             );
           },
