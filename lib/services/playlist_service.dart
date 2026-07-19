@@ -110,10 +110,7 @@ class PlaylistService {
           if (rows.isEmpty) continue;
           await txn.update(
             'current_track',
-            {
-              'cid': updated.cid,
-              'payload': jsonEncode(updated.toJson()),
-            },
+            {'cid': updated.cid, 'payload': jsonEncode(updated.toJson())},
             where: 'seq = ?',
             whereArgs: [rows.first['seq'] as int],
           );

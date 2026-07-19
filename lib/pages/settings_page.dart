@@ -144,14 +144,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               title: Text('主题'),
               subtitle: Text(ThemeRegistry.resolve(settings.theme).label),
               trailing: _PalettePreview(
-                lightAccent: ThemeRegistry.resolve(settings.theme)
-                    .paletteAccent(Brightness.light),
-                lightSurface: ThemeRegistry.resolve(settings.theme)
-                    .paletteSurface(Brightness.light),
-                darkAccent: ThemeRegistry.resolve(settings.theme)
-                    .paletteAccent(Brightness.dark),
-                darkSurface: ThemeRegistry.resolve(settings.theme)
-                    .paletteSurface(Brightness.dark),
+                lightAccent: ThemeRegistry.resolve(
+                  settings.theme,
+                ).paletteAccent(Brightness.light),
+                lightSurface: ThemeRegistry.resolve(
+                  settings.theme,
+                ).paletteSurface(Brightness.light),
+                darkAccent: ThemeRegistry.resolve(
+                  settings.theme,
+                ).paletteAccent(Brightness.dark),
+                darkSurface: ThemeRegistry.resolve(
+                  settings.theme,
+                ).paletteSurface(Brightness.dark),
               ),
               onTap: () => _showThemePickerDialog(context, settings, notifier),
             ),
@@ -381,10 +385,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
                     child: Row(
                       children: [
-                        Icon(
-                          Icons.palette,
-                          color: _getPrimaryColor(context),
-                        ),
+                        Icon(Icons.palette, color: _getPrimaryColor(context)),
                         const SizedBox(width: 8),
                         Text(
                           '选择主题',

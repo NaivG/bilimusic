@@ -39,11 +39,7 @@ class UpdateAvailableDialog extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppTokens.radiusLg),
       ),
       backgroundColor: colorScheme.surfaceContainerHighest,
-      icon: Icon(
-        Icons.system_update,
-        size: 48,
-        color: colorScheme.primary,
-      ),
+      icon: Icon(Icons.system_update, size: 48, color: colorScheme.primary),
       title: Text('发现新版本 v$newVersion'),
       content: SizedBox(
         width: 400,
@@ -123,10 +119,7 @@ class UpdateAvailableDialog extends StatelessWidget {
                 children: [
                   Text(
                     '• ',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colorScheme.primary,
-                    ),
+                    style: TextStyle(fontSize: 12, color: colorScheme.primary),
                   ),
                   Expanded(
                     child: Text(

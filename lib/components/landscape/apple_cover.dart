@@ -69,9 +69,7 @@ class _AppleMusicCoverState extends State<AppleMusicCover>
   Widget build(BuildContext context) {
     final size =
         widget.customSize ?? LandscapeBreakpoints.getCoverSize(context);
-    final borderRadius = size > 300
-        ? AppTokens.radiusLg
-        : AppTokens.radiusMd;
+    final borderRadius = size > 300 ? AppTokens.radiusLg : AppTokens.radiusMd;
     final dominantColor = widget.dominantColor ?? Colors.pink;
 
     return GestureDetector(

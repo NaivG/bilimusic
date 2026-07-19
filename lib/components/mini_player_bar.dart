@@ -266,9 +266,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
                   children: [
                     // 毛玻璃层
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(
-                        AppTokens.radiusLg,
-                      ),
+                      borderRadius: BorderRadius.circular(AppTokens.radiusLg),
                       child: BackdropFilter(
                         filter: blurEffect
                             ? ImageFilter.blur(
@@ -290,9 +288,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
                     // 背景进度条层（订阅 position）
                     Positioned.fill(
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(
-                          AppTokens.radiusLg,
-                        ),
+                        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
                         child: Align(
                           alignment: Alignment.centerLeft,
                           child: _buildProgressBar(

@@ -199,10 +199,7 @@ class LandscapeBottomControl extends ConsumerWidget {
         const SizedBox(width: 6),
         Text(
           '过渡中',
-          style: TextStyle(
-            color: accent.withValues(alpha: 0.8),
-            fontSize: 12,
-          ),
+          style: TextStyle(color: accent.withValues(alpha: 0.8), fontSize: 12),
         ),
       ],
     );

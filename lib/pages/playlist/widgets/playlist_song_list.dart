@@ -50,11 +50,7 @@ class PlaylistSongList extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.music_off,
-            size: 80,
-            color: colorScheme.onSurfaceVariant,
-          ),
+          Icon(Icons.music_off, size: 80, color: colorScheme.onSurfaceVariant),
           const SizedBox(height: 16),
           Text(
             '歌单为空',
@@ -67,10 +63,7 @@ class PlaylistSongList extends ConsumerWidget {
           const SizedBox(height: 8),
           Text(
             '快去添加喜欢的音乐吧',
-            style: TextStyle(
-              fontSize: 14,
-              color: colorScheme.onSurfaceVariant,
-            ),
+            style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant),
           ),
         ],
       ),

@@ -106,8 +106,7 @@ class PlaylistHero extends StatelessWidget {
                     child: Icon(
                       systemIcon,
                       size: size * 0.4,
-                      color:
-                          systemIconColor ?? colorScheme.onSurfaceVariant,
+                      color: systemIconColor ?? colorScheme.onSurfaceVariant,
                     ),
                   ),
                 )
@@ -270,10 +269,7 @@ class PlaylistHero extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             songs.first.artist,
-            style: TextStyle(
-              fontSize: 13,
-              color: colorScheme.onSurfaceVariant,
-            ),
+            style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

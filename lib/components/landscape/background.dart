@@ -189,10 +189,10 @@ class _AnimatedLandscapeBackgroundState
               Positioned.fill(
                 child: ImageFiltered(
                   imageFilter: ImageFilter.blur(
-sigmaX: AppTokens.heavyGlassBlurSigma,
-                  sigmaY: AppTokens.heavyGlassBlurSigma,
-                ),
-                child: Opacity(
+                    sigmaX: AppTokens.heavyGlassBlurSigma,
+                    sigmaY: AppTokens.heavyGlassBlurSigma,
+                  ),
+                  child: Opacity(
                     opacity: _opacityAnimation.value,
                     child: CachedNetworkImage(
                       imageUrl: widget.coverUrl,

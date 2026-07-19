@@ -97,15 +97,9 @@ class _PlaylistCardState extends State<PlaylistCard>
 
     switch (screenSize) {
       case ScreenSize.mobile:
-        return _buildCard(
-          cardWidth: 120.0,
-          borderRadius: AppTokens.radiusMd,
-        );
+        return _buildCard(cardWidth: 120.0, borderRadius: AppTokens.radiusMd);
       case _:
-        return _buildCard(
-          cardWidth: 160.0,
-          borderRadius: AppTokens.radiusMd,
-        );
+        return _buildCard(cardWidth: 160.0, borderRadius: AppTokens.radiusMd);
     }
   }
 

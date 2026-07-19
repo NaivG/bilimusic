@@ -38,10 +38,9 @@ class _LucentDescriptor extends AppThemeDescriptor {
   Color paletteAccent(Brightness brightness) => LucentColors.accentPrimary;
 
   @override
-  Color paletteSurface(Brightness brightness) =>
-      brightness == Brightness.light
-          ? LucentColors.lightSurfaceBase
-          : LucentColors.darkSurfaceBase;
+  Color paletteSurface(Brightness brightness) => brightness == Brightness.light
+      ? LucentColors.lightSurfaceBase
+      : LucentColors.darkSurfaceBase;
 }
 
 class _NocturneDescriptor extends AppThemeDescriptor {
@@ -58,16 +57,14 @@ class _NocturneDescriptor extends AppThemeDescriptor {
   ThemeData dark() => NocturneTheme.darkTheme();
 
   @override
-  Color paletteAccent(Brightness brightness) =>
-      brightness == Brightness.light
-          ? NocturneColors.primaryLight
-          : NocturneColors.primaryDark;
+  Color paletteAccent(Brightness brightness) => brightness == Brightness.light
+      ? NocturneColors.primaryLight
+      : NocturneColors.primaryDark;
 
   @override
-  Color paletteSurface(Brightness brightness) =>
-      brightness == Brightness.light
-          ? NocturneColors.surfaceLight
-          : NocturneColors.surfaceDark;
+  Color paletteSurface(Brightness brightness) => brightness == Brightness.light
+      ? NocturneColors.surfaceLight
+      : NocturneColors.surfaceDark;
 }
 
 class _VerdantDescriptor extends AppThemeDescriptor {
@@ -84,16 +81,14 @@ class _VerdantDescriptor extends AppThemeDescriptor {
   ThemeData dark() => VerdantTheme.darkTheme();
 
   @override
-  Color paletteAccent(Brightness brightness) =>
-      brightness == Brightness.light
-          ? VerdantColors.primaryLight
-          : VerdantColors.primaryDark;
+  Color paletteAccent(Brightness brightness) => brightness == Brightness.light
+      ? VerdantColors.primaryLight
+      : VerdantColors.primaryDark;
 
   @override
-  Color paletteSurface(Brightness brightness) =>
-      brightness == Brightness.light
-          ? VerdantColors.surfaceLight
-          : VerdantColors.surfaceDark;
+  Color paletteSurface(Brightness brightness) => brightness == Brightness.light
+      ? VerdantColors.surfaceLight
+      : VerdantColors.surfaceDark;
 }
 
 /// 主题注册表 —— 提供稳定顺序的 [AppThemeDescriptor] 列表。
