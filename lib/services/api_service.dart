@@ -85,6 +85,25 @@ class ApiService {
     );
   }
 
+  /// 获取视频全部分P（延迟加载场景，如搜索结果的分P徽标与系列拆分）。
+  ///
+  /// 失败或无分P时返回空列表。
+  Future<List<Page>> getVideoPages(String bvid) async {
+    if (bvid.isEmpty) return const [];
+    final item = await getBiliItemDetails(bvid);
+    return item?.pages
+            .map(
+              (p) => Page(
+                cid: p.cid,
+                duration: '${p.duration?.inSeconds ?? 0}',
+                part: p.title,
+                pageIndex: p.currentPageIndex,
+              ),
+            )
+            .toList() ??
+        const [];
+  }
+
   // ====================================================================
   //  音频 URL
   // ====================================================================

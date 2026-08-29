@@ -1,7 +1,3 @@
-import 'package:bilimusic/utils/network_config.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-
 /// 音乐渲染样式枚举
 enum MusicRenderStyle {
   /// 卡片样式 - 响应式卡片（Mobile/Tablet/Desktop自适应）
@@ -94,79 +90,6 @@ class Music {
       'currentPageIndex': currentPageIndex,
       'renderStyle': renderStyle.name,
     };
-  }
-
-  /// 获取视频详情
-  Future<Music> getVideoDetails() async {
-    // 如果已经有持续时间，不需要重新获取
-    if (duration != null && duration!.inSeconds > 0) {
-      return Music(
-        id: id,
-        cid: cid,
-        title: title,
-        artist: artist,
-        album: album,
-        coverUrl: coverUrl,
-        duration: duration,
-        audioUrl: audioUrl,
-        pages: pages,
-        isFavorite: isFavorite,
-        currentPageIndex: currentPageIndex,
-        renderStyle: renderStyle,
-      );
-    }
-
-    // 否则从网络获取详细信息
-    final response = await http.get(
-      Uri.parse('https://api.bilibili.com/x/web-interface/view?bvid=$id'),
-      headers: NetworkConfig.biliHeaders,
-    );
-    if (response.statusCode == 200) {
-      final json = jsonDecode(response.body);
-      if (json['code'] == 0) {
-        final data = json['data'];
-        final pagesData = data['pages'] ?? [];
-        final pagesList = pagesData
-            .map<Page>(
-              (pageJson) => Page.fromJson(
-                pageJson,
-                pageIndex: pagesData.indexOf(pageJson),
-              ),
-            )
-            .toList();
-
-        // 更新duration为第一个分P的时长
-        final newDuration = pagesList.isNotEmpty
-            ? Duration(seconds: int.parse(pagesList[0].duration))
-            : const Duration(seconds: 180);
-
-        // 获取当前分P的 cid
-        String pageCid;
-        if (pages.isNotEmpty && currentPageIndex < pages.length) {
-          pageCid = pages[currentPageIndex].cid;
-        } else if (pagesList.isNotEmpty) {
-          pageCid = pagesList[0].cid;
-        } else {
-          pageCid = data['cid']?.toString() ?? '';
-        }
-
-        return Music(
-          id: id,
-          cid: pageCid,
-          title: title.isEmpty ? data['title'] : title,
-          artist: artist.isEmpty ? data['owner']['name'] : artist,
-          album: album.isEmpty ? (data['album'] ?? '未知专辑') : album,
-          coverUrl: coverUrl.isEmpty ? data['pic'] + "@672w_378h" : coverUrl,
-          duration: newDuration,
-          audioUrl: audioUrl,
-          pages: pagesList,
-          isFavorite: isFavorite,
-          currentPageIndex: currentPageIndex,
-          renderStyle: renderStyle,
-        );
-      }
-    }
-    return this; // 如果获取失败保持原样
   }
 
   /// 是否为系列（多P）视频

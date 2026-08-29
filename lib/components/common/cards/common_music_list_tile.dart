@@ -72,7 +72,7 @@ class _CommonMusicListTileState extends State<CommonMusicListTile> {
             color: Colors.transparent,
             child: InkWell(
               borderRadius: BorderRadius.circular(10),
-              onTap: widget.onTap ?? () => _playMusic(context),
+              onTap: widget.onTap ?? _playMusic,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   vertical: 8.0,
@@ -200,8 +200,8 @@ class _CommonMusicListTileState extends State<CommonMusicListTile> {
     );
   }
 
-  Future<void> _playMusic(BuildContext context) async {
-    final detailedMusic = await widget.music.getVideoDetails();
-    widget.playerCoordinator.playMusic(detailedMusic);
+  void _playMusic() {
+    // cid 缺失时 playMusic 内部会经 ApiService.ensureCid 补齐
+    widget.playerCoordinator.playMusic(widget.music);
   }
 }

@@ -113,7 +113,9 @@ class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
       setState(() => _pagesLoading[result.id] = true);
 
       try {
-        final pages = await result.fetchPages();
+        final pages = await ref
+            .read(apiServiceProvider)
+            .getVideoPages(result.id);
         if (mounted) {
           setState(() {
             _pagesCache[result.id] = pages;
@@ -145,11 +147,11 @@ class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
     });
   }
 
-  Future<void> _playResult(SearchResult result) async {
+  void _playResult(SearchResult result) {
     if (result.type == SearchResultType.video) {
-      final music = result.toMusic();
-      final detailedMusic = await music.getVideoDetails();
-      ref.read(playbackCommandsProvider.notifier).playMusic(detailedMusic);
+      // 分P已预取时直接携带 cid；缺失时 playMusic 内部经 ensureCid 补齐
+      final music = result.toMusic(pages: _pagesCache[result.id]);
+      ref.read(playbackCommandsProvider.notifier).playMusic(music);
     }
   }
 
@@ -425,7 +427,7 @@ class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
 
   Widget _buildListItem(BuildContext context, SearchResult result) {
     return MusicListItem(
-      music: result.toMusic(),
+      music: result.toMusic(pages: _pagesCache[result.id]),
       playerCoordinator: ref.read(playerCoordinatorProvider),
       playlistManager: ref.read(playlistManagerProvider),
       onTap: () => _playResult(result),

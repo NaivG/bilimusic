@@ -96,9 +96,9 @@ class _HomeContentState extends ConsumerState<HomeContent> {
     );
   }
 
-  Future<void> _playMusic(Music music) async {
-    final detailedMusic = await music.getVideoDetails();
-    ref.read(playbackCommandsProvider.notifier).playMusic(detailedMusic);
+  void _playMusic(Music music) {
+    // cid 缺失时 playMusic 内部会经 ApiService.ensureCid 补齐
+    ref.read(playbackCommandsProvider.notifier).playMusic(music);
   }
 
   Widget _buildMusicListItem(Music music, {bool showCover = false}) {

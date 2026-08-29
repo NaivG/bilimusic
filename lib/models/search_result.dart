@@ -1,7 +1,4 @@
 import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/utils/network_config.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 
 /// 搜索结果类型枚举
 enum SearchResultType {
@@ -111,45 +108,6 @@ class SearchResult {
       audioUrl: '',
       pages: musicPages,
     );
-  }
-
-  /// 获取视频分P信息
-  Future<List<Page>> fetchPages() async {
-    if (type != SearchResultType.video || id.isEmpty) {
-      return [];
-    }
-
-    // 如果已经有分P信息，直接返回
-    if (pages.isNotEmpty) {
-      return pages;
-    }
-
-    try {
-      final response = await http.get(
-        Uri.parse('https://api.bilibili.com/x/web-interface/view?bvid=$id'),
-        headers: NetworkConfig.biliHeaders,
-      );
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        if (json['code'] == 0) {
-          final data = json['data'];
-          final pagesData = data['pages'] ?? [];
-          pages = pagesData
-              .map<Page>(
-                (pageJson) => Page.fromJson(
-                  pageJson,
-                  pageIndex: pagesData.indexOf(pageJson),
-                ),
-              )
-              .toList();
-          return pages;
-        }
-      }
-    } catch (_) {
-      // 网络错误或解析失败
-    }
-    return [];
   }
 
   /// 创建副本并更新分P信息

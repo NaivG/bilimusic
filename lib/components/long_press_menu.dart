@@ -31,11 +31,10 @@ FutureOr<Menu?> buildMusicContextMenu({
         image: MenuImage.icon(Icons.play_arrow),
         callback: () async {
           try {
-            final detailedMusic = await music.getVideoDetails();
-            await playerCoordinator.playMusic(detailedMusic);
+            await playerCoordinator.playMusic(music);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('开始播放"${detailedMusic.title}"')),
+                SnackBar(content: Text('开始播放"${music.title}"')),
               );
             }
           } catch (e) {
@@ -52,11 +51,10 @@ FutureOr<Menu?> buildMusicContextMenu({
         image: MenuImage.icon(Icons.playlist_play),
         callback: () async {
           try {
-            final detailedMusic = await music.getVideoDetails();
-            await playerCoordinator.playNextFromIndex(detailedMusic);
+            await playerCoordinator.playNextFromIndex(music);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('已添加到下一首播放"${detailedMusic.title}"')),
+                SnackBar(content: Text('已添加到下一首播放"${music.title}"')),
               );
             }
           } catch (e) {
@@ -242,11 +240,11 @@ Future<void> _pushToDevice(
 ) async {
   if (!context.mounted) return;
   final messenger = ScaffoldMessenger.of(context);
-  final lanSvc = ProviderScope.containerOf(
-    context,
-  ).read(lanSyncServiceProvider);
+  final container = ProviderScope.containerOf(context);
+  final lanSvc = container.read(lanSyncServiceProvider);
   try {
-    final detailed = await music.getVideoDetails();
+    // 推送前补齐 cid，保证对端拿到即可播放
+    final detailed = await container.read(apiServiceProvider).ensureCid(music);
     lanSvc.pushMusicToPeer(peer.id, detailed);
     messenger.showSnackBar(
       SnackBar(content: Text('已推送到"${peer.name}"：${detailed.title}')),
