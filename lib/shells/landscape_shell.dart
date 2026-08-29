@@ -60,7 +60,6 @@ class LandscapeShell extends ConsumerWidget {
                             page: pageManager.basePage,
                             pageManager: pageManager,
                             homePage: const HomeContent(showAppBar: false),
-                            onPlaylistBack: () => pageManager.pop(),
                           ),
                         ),
                       ),

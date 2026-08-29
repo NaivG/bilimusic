@@ -502,6 +502,9 @@ class LanSyncService {
     }
   }
 
+  // TODO(未实现功能): 远端「现在播放」接收链（→ remoteNowPlayingController →
+  // remoteNowPlayingProvider）目前无 UI 消费，属未完成的新功能，暂保留；
+  // 实现「查看对端播放」UI 后接入，届时仍未用可整链删除。
   void _handleState(LanSession session, StateMessage msg) {
     final remote = RemoteNowPlaying(
       peerId: session.peerId,
@@ -822,10 +825,6 @@ class LanSyncService {
       PairingResult(peerId: peerId, ok: false, reason: '已取消'),
     );
   }
-
-  /// 被动侧响应 PIN 请求的旧入口（保留兼容；内部转 [acceptPeerPairing]）。
-  Future<void> pairWithPeerById(String peerId, String pinCode) =>
-      acceptPeerPairing(peerId, pinCode);
 
   /// 关闭与对端的 TCP 会话但保留 token，允许后续免 PIN 重连。
   ///

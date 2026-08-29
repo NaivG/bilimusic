@@ -8,22 +8,10 @@ enum LanSyncMode {
   private,
   public;
 
-  /// 是否启用了任何同步模式。
-  bool get isActive => this != LanSyncMode.off;
-
   /// 本地是否接受私有配对连接。
   bool get acceptsPrivate => this == LanSyncMode.private;
 
-  /// 本地是否接受公共只读连接。
-  bool get acceptsPublic => this == LanSyncMode.public;
-
-  /// 是否在 mDNS TXT 中广告自己的私有模式存在。
-  bool get advertisesPrivate => this == LanSyncMode.private;
-
-  /// 是否在 mDNS TXT 中广告自己的公共模式存在。
-  bool get advertisesPublic => this == LanSyncMode.public;
-
-  /// 在 mDNS TXT 中广播的字符串（取自 `advertises*` 的组合）。
+  /// 在 mDNS TXT 中广播的字符串。
   ///
   /// 映射到对端的解析：
   /// - `private` → 对端能 connect

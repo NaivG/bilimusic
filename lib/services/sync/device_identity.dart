@@ -18,12 +18,10 @@ class DeviceIdentity {
   String _id = '';
   String _name = '';
   String _platform = 'unknown';
-  bool _loaded = false;
 
   String get id => _id;
   String get name => _name;
   String get platform => _platform;
-  bool get isLoaded => _loaded;
 
   /// 从持久化存储加载；缺失字段会自动生成并写回。
   ///
@@ -47,7 +45,6 @@ class DeviceIdentity {
     }
 
     _platform = _platformString();
-    _loaded = true;
   }
 
   /// 用户在设置里改设备名。

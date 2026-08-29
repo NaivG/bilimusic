@@ -233,7 +233,6 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     }
 
     final isPlaying = ps is PlayerPlaying;
-    final fading = ps is PlayerPlaying && ps.fadeCountdown != null;
     final icon = switch (mode) {
       PlayMode.sequential => Icons.repeat,
       PlayMode.loop => Icons.repeat_one,
@@ -257,7 +256,6 @@ class _DetailPageState extends ConsumerState<DetailPage> {
         isLoadingLyrics: resolved.loading,
         dominantColor: _dominantColor,
         playModeIcon: icon,
-        isTransitioning: fading,
         onToggleFavorite: _toggleFavorite,
         onShare: _shareMusic,
         onTogglePlay: _togglePlay,
@@ -280,7 +278,6 @@ class _DetailPageState extends ConsumerState<DetailPage> {
       isLoadingLyrics: resolved.loading,
       dominantColor: _dominantColor,
       playModeIcon: icon,
-      isTransitioning: fading,
       onToggleFavorite: _toggleFavorite,
       onShare: _shareMusic,
       onTogglePlay: _togglePlay,

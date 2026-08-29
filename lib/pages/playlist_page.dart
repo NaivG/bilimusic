@@ -7,7 +7,6 @@ import 'package:bilimusic/core/app_providers.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/pages/playlist/portrait_playlist_page.dart';
 import 'package:bilimusic/pages/playlist/landscape_playlist_page.dart';
-import 'package:bilimusic/shells/shell_page_manager.dart';
 import 'package:bilimusic/providers/playback_providers.dart';
 import 'package:bilimusic/providers/playlist_providers.dart';
 
@@ -17,14 +16,12 @@ class PlaylistPage extends ConsumerStatefulWidget {
   final String? playlistId;
   final List<Music>? songs;
   final String? playlistName;
-  final VoidCallback? onBack;
 
   const PlaylistPage({
     super.key,
     this.playlistId,
     this.songs,
     this.playlistName,
-    this.onBack,
   });
 
   @override
@@ -244,7 +241,6 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
         songs: _songs,
         currentPlaylist: _currentPlaylist,
         isFavorited: _isFavorited,
-        onBack: widget.onBack ?? () => ShellPageManager.instance.pop(),
         onSongTap: _playSong,
         onRemoveSong: _removeSong,
         onPlayAll: _playAll,
@@ -259,7 +255,6 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
       songs: _songs,
       currentPlaylist: _currentPlaylist,
       isFavorited: _isFavorited,
-      onBack: widget.onBack ?? () => ShellPageManager.instance.pop(),
       onSongTap: _playSong,
       onRemoveSong: _removeSong,
       onPlayAll: _playAll,

@@ -23,14 +23,13 @@ import 'package:bilimusic/pages/sync_page.dart';
 
 /// 竖屏与横屏两个壳共享的页面渲染逻辑。
 ///
-/// 两个壳的差异点（home 是包不包 AppBar、playlist 要不要 onBack）通过
+/// 两个壳的差异点（home 是包不包 AppBar）通过
 /// 参数注入；剩余的 11 个 ShellPage 走完全相同的渲染管线，
 /// 新加页面只需在这里加一行。
 Widget buildShellPageContent({
   required ShellPage page,
   required ShellPageManager pageManager,
   required Widget homePage,
-  VoidCallback? onPlaylistBack,
 }) {
   switch (page) {
     case ShellPage.home:
@@ -54,7 +53,6 @@ Widget buildShellPageContent({
         playlistId: playlistId,
         songs: songs,
         playlistName: playlistName,
-        onBack: onPlaylistBack,
       );
     case ShellPage.changelog:
       return const ChangelogPage();

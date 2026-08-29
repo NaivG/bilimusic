@@ -30,7 +30,6 @@ class SquareDetailPage extends ConsumerWidget {
   final bool isLoadingLyrics;
   final Color? dominantColor;
   final IconData playModeIcon;
-  final bool isTransitioning;
   final VoidCallback onToggleFavorite;
   final VoidCallback onShare;
   final VoidCallback onTogglePlay;
@@ -52,7 +51,6 @@ class SquareDetailPage extends ConsumerWidget {
     required this.isLoadingLyrics,
     required this.dominantColor,
     required this.playModeIcon,
-    required this.isTransitioning,
     required this.onToggleFavorite,
     required this.onShare,
     required this.onTogglePlay,

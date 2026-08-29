@@ -12,7 +12,6 @@ class PortraitPlaylistPage extends ConsumerWidget {
   final List<Music> songs;
   final Playlist? currentPlaylist;
   final bool isFavorited;
-  final VoidCallback onBack;
   final Function(Music) onSongTap;
   final Function(Music)? onRemoveSong;
   final VoidCallback onPlayAll;
@@ -25,7 +24,6 @@ class PortraitPlaylistPage extends ConsumerWidget {
     required this.songs,
     this.currentPlaylist,
     this.isFavorited = false,
-    required this.onBack,
     required this.onSongTap,
     this.onRemoveSong,
     required this.onPlayAll,

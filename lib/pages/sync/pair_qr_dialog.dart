@@ -4,6 +4,9 @@ import 'package:pretty_qr_code/pretty_qr_code.dart';
 
 /// 显示本机的"配对二维码"——内容为 `{id}|{name}|{pin}`，供对方扫码后用。
 ///
+/// TODO(未实现功能): 项目内暂无扫码端（无 mobile_scanner 等扫码依赖），
+/// "扫一扫"入口未实现，二维码 payload 目前无人消费；待扫码配对实现后移除此提示。
+///
 /// 对方扫到后用我们的 id/name/PIN 主动发起配对（PIN 在对方 hello-ack 之前
 /// 直接随 hello / pin 消息带过去，省去手动输入）。
 class PairQrDialog extends StatelessWidget {

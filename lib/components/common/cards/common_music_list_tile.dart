@@ -17,11 +17,8 @@ class CommonMusicListTile extends StatefulWidget {
   final PlayerCoordinator playerCoordinator;
   final PlaylistManager? playlistManager;
   final int? index;
-  final bool isPlaying;
-  final bool isFavorite;
   final VoidCallback? onTap;
   final VoidCallback? onFavoriteToggle;
-  final VoidCallback? onDelete;
   final bool showCover;
   final bool showDetails;
   final bool showPageIndicator;
@@ -33,11 +30,8 @@ class CommonMusicListTile extends StatefulWidget {
     required this.playerCoordinator,
     this.playlistManager,
     this.index,
-    this.isPlaying = false,
-    this.isFavorite = false,
     this.onTap,
     this.onFavoriteToggle,
-    this.onDelete,
     this.showCover = true,
     this.showDetails = true,
     this.showPageIndicator = true,

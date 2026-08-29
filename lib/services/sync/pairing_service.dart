@@ -28,9 +28,6 @@ class PairingService {
   /// 本机 selfToken（64 字符 hex）。load 之前为空。
   String get selfToken => _selfToken ?? '';
 
-  /// 已知私有成员的 token 快照：`peerId → token`。
-  Map<String, String> get knownPeerTokens => Map.unmodifiable(_peerTokens);
-
   /// 当前节点已知的私有配对边，用于向其他 private peer 传播拓扑。
   List<Map<String, String>> get rosterEdges =>
       _edges.values.map((edge) => Map<String, String>.from(edge)).toList();
@@ -192,18 +189,6 @@ class PairingService {
     _pin = newPin;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsPin, newPin);
-  }
-
-  /// 重置本机 selfToken；调用后所有私有边都需要重新 PIN 配对。
-  Future<void> rotateSelfToken() async {
-    final newToken = generateToken();
-    _selfToken = newToken;
-    _peerTokens = const {};
-    _edges = const {};
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefsSelfToken, newToken);
-    await prefs.setString(_prefsPeerTokens, '');
-    await prefs.setString(_prefsEdges, '');
   }
 
   /// 生成新 token（hex 编码 64 字符）。

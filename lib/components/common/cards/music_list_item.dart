@@ -9,11 +9,8 @@ import 'package:bilimusic/components/common/cards/common_music_list_tile.dart';
 class MusicListItem extends StatelessWidget {
   final Music music;
   final int? index;
-  final bool isPlaying;
-  final bool isFavorite;
   final VoidCallback? onTap;
   final VoidCallback? onFavoriteToggle;
-  final VoidCallback? onDelete;
   final PlayerCoordinator playerCoordinator;
   final PlaylistManager? playlistManager;
   final bool showCover;
@@ -26,11 +23,8 @@ class MusicListItem extends StatelessWidget {
     required this.playerCoordinator,
     this.playlistManager,
     this.index,
-    this.isPlaying = false,
-    this.isFavorite = false,
     this.onTap,
     this.onFavoriteToggle,
-    this.onDelete,
     this.showCover = true,
     this.showDetails = true,
     this.showPageIndicator = true,
@@ -43,11 +37,8 @@ class MusicListItem extends StatelessWidget {
       playerCoordinator: playerCoordinator,
       playlistManager: playlistManager,
       index: index,
-      isPlaying: isPlaying,
-      isFavorite: isFavorite,
       onTap: onTap,
       onFavoriteToggle: onFavoriteToggle,
-      onDelete: onDelete,
       showCover: showCover,
       showDetails: showDetails,
       showPageIndicator: showPageIndicator,
