@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_lyric/core/lyric_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/components/auto_appbar.dart';
 import 'package:bilimusic/components/lyric/lyric_section.dart';
@@ -10,7 +11,6 @@ import 'package:bilimusic/models/music.dart' as model;
 import 'package:bilimusic/providers/playback_providers.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
 import 'package:bilimusic/utils/dialog_helpers.dart';
-import 'package:bilimusic/utils/lyric_parser.dart';
 
 /// 竖屏详情页 —— Apple Music 风格单面板布局
 /// （与横屏 `LandscapeAlbumSection` 思路一致：封面 + 信息 + 操作 + 进度 + 5 按钮 + 音量）
@@ -22,7 +22,7 @@ class PortraitDetailPage extends ConsumerStatefulWidget {
   final bool showLyrics;
   final List<LyricSource> lyricSources;
   final String? selectedLyricId;
-  final LyricParser? lyricParser;
+  final LyricController? lyricController;
   final bool isLoadingLyrics;
   final Color? dominantColor;
   final IconData playModeIcon;
@@ -45,7 +45,7 @@ class PortraitDetailPage extends ConsumerStatefulWidget {
     required this.showLyrics,
     required this.lyricSources,
     required this.selectedLyricId,
-    required this.lyricParser,
+    required this.lyricController,
     required this.isLoadingLyrics,
     required this.dominantColor,
     required this.playModeIcon,
@@ -207,7 +207,7 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage> {
       title: widget.music.title,
       artist: widget.music.artist,
       album: widget.music.album,
-      lyricParser: widget.lyricParser,
+      lyricController: widget.lyricController,
       position: widget.position,
       lyricSources: widget.lyricSources,
       selectedLyricId: widget.selectedLyricId,

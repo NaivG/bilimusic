@@ -133,8 +133,6 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    // 确保playerManager已设置audioHandler
-    // 重构后的播放器管理器不需要设置audioHandler
     WidgetsBinding.instance.addObserver(this);
 
     // 启动时检查更新
@@ -147,7 +145,6 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     final updateChecker = UpdateChecker();
     final result = await updateChecker.compareVersions();
     if (result != null && mounted) {
-      // 使用navigatorKey的context来显示对话框
       final navigatorContext = _navigatorKey.currentContext;
       debugPrint(
         'Update available: ${result.remoteVersion}\nChangelog:\n${result.newEntries.map((entry) => entry.toString()).join('\n')}',
@@ -164,18 +161,13 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    // 播放器资源由 ProviderContainer.onDispose 释放，无需手动 dispose
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // 可以在这里处理应用生命周期变化
-    // 例如，在暂停时释放一些资源
-  }
+  void didChangeAppLifecycleState(AppLifecycleState state) {}
 
-  // 根据设置解析 ThemeMode
   ThemeMode _parseAppearance(String mode) {
     switch (mode) {
       case 'light':

@@ -63,13 +63,16 @@ dependencies:
   file_picker: ^10.3.3
   window_manager: ^0.4.3
   restart_app: ^1.8.3
-  flutter_native_splash: ^2.4.7
+  flutter_native_splash: ^2.4.4
   super_context_menu: ^0.9.1
   dio: ^5.9.2
   pretty_qr_code: ^3.6.0
   bonsoir: ^7.1.4
   device_info_plus: ^11.5.0
   uuid: 4.5.1
+  lyrics_now:
+    git:
+      url: https://github.com/NaivG/lyrics_now.git
 #  just_aaudio:
 #    path: ../just_aaudio
 

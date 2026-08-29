@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_lyric/core/lyric_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:bilimusic/components/auto_appbar.dart';
@@ -11,7 +12,6 @@ import 'package:bilimusic/models/music.dart' as model;
 import 'package:bilimusic/providers/playback_providers.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
 import 'package:bilimusic/utils/dialog_helpers.dart';
-import 'package:bilimusic/utils/lyric_parser.dart';
 import 'package:bilimusic/utils/responsive.dart';
 
 /// 方屏详情页（手表/折叠外屏/近正方形 PiP）
@@ -26,7 +26,7 @@ class SquareDetailPage extends ConsumerWidget {
   final bool showLyrics;
   final List<LyricSource> lyricSources;
   final String? selectedLyricId;
-  final LyricParser? lyricParser;
+  final LyricController? lyricController;
   final bool isLoadingLyrics;
   final Color? dominantColor;
   final IconData playModeIcon;
@@ -48,7 +48,7 @@ class SquareDetailPage extends ConsumerWidget {
     required this.showLyrics,
     required this.lyricSources,
     required this.selectedLyricId,
-    required this.lyricParser,
+    required this.lyricController,
     required this.isLoadingLyrics,
     required this.dominantColor,
     required this.playModeIcon,
@@ -345,7 +345,7 @@ class SquareDetailPage extends ConsumerWidget {
       backgroundColor: Colors.black,
       appBar: _buildAppBar(context, ref),
       body: LyricSection(
-        lyricParser: lyricParser,
+        lyricController: lyricController,
         position: position,
         lyricSources: lyricSources,
         selectedLyricId: selectedLyricId,

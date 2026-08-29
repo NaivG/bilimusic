@@ -1,8 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lyrics_now/lyrics_now.dart';
 
 import 'package:bilimusic/api/bili_client.dart';
+import 'package:bilimusic/managers/cache_manager.dart';
 import 'package:bilimusic/services/api_service.dart';
 import 'package:bilimusic/services/dual_audio_service.dart';
+import 'package:bilimusic/services/lyrics_service.dart';
 import 'package:bilimusic/services/notification_service.dart';
 import 'package:bilimusic/services/player_coordinator.dart';
 import 'package:bilimusic/services/playlist_service.dart';
@@ -115,6 +118,35 @@ final playerCoordinatorProvider = Provider<PlayerCoordinator>((ref) {
   pc.initialize();
   ref.onDispose(pc.dispose);
   return pc;
+});
+
+// ==================== 歌词 ====================
+
+final lyricsFinderProvider = Provider<LyricFinder>((ref) {
+  final http = PackageHttpClient();
+  final finder = LyricFinder(
+    http: http,
+    providers: [
+      LrclibProvider(http),
+      KgProvider(http),
+      QmProvider(http),
+      NeProvider(http),
+    ],
+    searchCacheTtl: const Duration(hours: 1),
+    matcher: const SongMatcher(),
+  );
+  ref.onDispose(finder.close);
+  return finder;
+});
+
+final lyricsServiceProvider = Provider<LyricsService>((ref) {
+  final svc = LyricsService(
+    cache: lyricsCacheManager,
+    finder: ref.watch(lyricsFinderProvider),
+  );
+  svc.bind(ref.watch(playerCoordinatorProvider));
+  ref.onDispose(svc.dispose);
+  return svc;
 });
 
 // ==================== 局域网同步 ====================

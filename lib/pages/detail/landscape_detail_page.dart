@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_lyric/core/lyric_controller.dart';
+import 'package:flutter_lyric/core/lyric_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:bilimusic/core/app_providers.dart';
@@ -6,14 +8,12 @@ import 'package:bilimusic/models/play_mode.dart';
 import 'package:bilimusic/models/music.dart' as model;
 import 'package:bilimusic/models/player_state.dart';
 import 'package:bilimusic/utils/color_extractor.dart';
-import 'package:bilimusic/utils/lyric_parser.dart';
-import 'package:bilimusic/utils/netease_music_api.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/components/landscape/background.dart';
 import 'package:bilimusic/components/landscape/album_section.dart';
 import 'package:bilimusic/components/lyric/lyric_section.dart';
-import 'package:bilimusic/components/lyric/lyric_source.dart';
 import 'package:bilimusic/components/playlist/playlist_sheet.dart';
+import 'package:bilimusic/providers/lyrics_providers.dart';
 import 'package:bilimusic/providers/navigation_providers.dart';
 import 'package:bilimusic/providers/playback_providers.dart';
 import 'package:bilimusic/providers/playlist_providers.dart';
@@ -40,18 +40,15 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
   Color? _dominantColor;
   Color? _previousDominantColor;
 
-  // 歌词相关
-  List<LyricSource> _lyricSources = [];
-  String? _selectedLyricId;
-  LyricParser? _lyricParser;
-  bool _isLoadingLyrics = false;
+  // 歌词渲染
+  final LyricController _lyricController = LyricController();
+  LyricModel? _lastAppliedModel;
 
   @override
   void initState() {
     super.initState();
 
-    // 初始化音乐信息
-    final coordinator = _readCoordinator();
+    final coordinator = ref.read(playerCoordinatorProvider);
     final currentMusic =
         coordinator.currentMusic ??
         model.Music(
@@ -68,70 +65,32 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
     _duration = currentMusic.duration;
     _isFavorite = coordinator.isFavorite(_music);
 
-    // 提取背景颜色
     _extractBackgroundColor(_music.coverUrl);
-
-    // 初始化歌词选项
-    _initLyricOptions();
+    _lyricController.loadLyricModel(_placeholderModel(_music.title));
   }
 
-  Future<void> _initLyricOptions() async {
-    setState(() => _isLoadingLyrics = true);
-
-    try {
-      final localOption = LyricSource(id: 'local', name: _music.title);
-      final neteaseOptions = await NeteaseMusicApi.searchMusic(_music.title);
-
-      if (mounted) {
-        setState(() {
-          _lyricSources = [
-            localOption,
-            ...neteaseOptions.map(
-              (info) => LyricSource(id: info.id, name: info.name),
-            ),
-          ];
-          _isLoadingLyrics = false;
-        });
-
-        // 自动加载本地歌词
-        _loadLyric('local');
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _lyricSources = [LyricSource(id: 'local', name: _music.title)];
-          _isLoadingLyrics = false;
-        });
-      }
-    }
+  @override
+  void dispose() {
+    _lyricController.dispose();
+    super.dispose();
   }
 
-  void _loadLyric(String id) async {
-    setState(() {
-      _selectedLyricId = id;
-      _lyricParser = null;
-    });
-
-    try {
-      String? lyric;
-      if (id == 'local') {
-        lyric = '[00:00.00]暂无本地歌词\n[00:03.00]请从网易云音乐选择歌词';
-      } else {
-        lyric = await NeteaseMusicApi.getLyric(id);
-      }
-
-      if (mounted && lyric != null) {
-        setState(() {
-          _lyricParser = LyricParser.parse(lyric!);
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _lyricParser = LyricParser.parse('[00:00.00]加载歌词失败');
-        });
-      }
-    }
+  static LyricModel _placeholderModel(String title) {
+    return LyricModel(
+      tags: {'ti': title},
+      lines: [
+        LyricLine(
+          start: Duration.zero,
+          end: const Duration(seconds: 3),
+          text: '暂无本地歌词',
+        ),
+        LyricLine(
+          start: const Duration(seconds: 3),
+          end: const Duration(seconds: 6),
+          text: '请从歌词来源选择歌词',
+        ),
+      ],
+    );
   }
 
   void _extractBackgroundColor(String imageUrl) async {
@@ -193,7 +152,6 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
   }
 
   void _showPlaylist() {
-    // 显示播放列表
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -207,6 +165,10 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
     );
   }
 
+  void _loadLyric(String id) {
+    ref.read(selectedLyricSourceProvider.notifier).state = id;
+  }
+
   @override
   Widget build(BuildContext context) {
     final leftRatio = LandscapeBreakpoints.getLeftSectionRatio(context);
@@ -216,26 +178,44 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
     final ps = ref.watch(playerStateProvider);
     final mode = ref.watch(playModeProvider);
 
-    final liveMusic = _readCoordinator().currentMusic;
-    if (liveMusic != null && liveMusic.id != _previousMusicId) {
-      final musicChanged = _previousMusicId != liveMusic.id;
-      if (musicChanged) {
-        _previousMusicId = liveMusic.id;
-        _previousDominantColor = _dominantColor;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          _updateBackgroundColor(liveMusic.coverUrl);
-          _initLyricOptions();
-        });
-        _music = liveMusic;
-        _duration = liveMusic.duration;
-        _isFavorite = ref
-            .read(playbackCommandsProvider.notifier)
-            .isFavorite(_music);
-      }
+    final coordinator = ref.read(playerCoordinatorProvider);
+    final liveMusic = coordinator.currentMusic;
+    final musicChanged = liveMusic != null && liveMusic.id != _previousMusicId;
+    if (musicChanged) {
+      _previousMusicId = liveMusic.id;
+      _previousDominantColor = _dominantColor;
+      _music = liveMusic;
+      _duration = liveMusic.duration;
+      _isFavorite = ref
+          .read(playbackCommandsProvider.notifier)
+          .isFavorite(_music);
+      _lastAppliedModel = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _updateBackgroundColor(liveMusic.coverUrl);
+        _lyricController.loadLyricModel(_placeholderModel(_music.title));
+        _lyricController.setProgress(Duration.zero);
+      });
     }
 
     _position = position;
+
+    final lyricsAsync = ref.watch(currentMusicLyricsProvider);
+    final sources = ref.watch(currentMusicLyricSourcesProvider);
+    final selectedOverride = ref.watch(selectedLyricSourceProvider);
+    final selectedId = selectedOverride ?? lyricsAsync.value?.sourceId;
+    final isLoading =
+        lyricsAsync.isLoading || (sources.isEmpty && lyricsAsync.isLoading);
+
+    final payload = lyricsAsync.value;
+    if (payload != null && payload.mainModel != _lastAppliedModel) {
+      _lastAppliedModel = payload.mainModel;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _lyricController.loadLyricModel(payload.mainModel);
+        _lyricController.setProgress(_position);
+      });
+    }
 
     final isPlaying = ps is PlayerPlaying;
     final icon = switch (mode) {
@@ -244,7 +224,15 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
       PlayMode.shuffle => Icons.shuffle,
     };
 
-    return _buildScaffold(context, leftRatio, isPlaying, icon);
+    return _buildScaffold(
+      context,
+      leftRatio,
+      isPlaying,
+      icon,
+      sources,
+      selectedId,
+      isLoading,
+    );
   }
 
   Widget _buildScaffold(
@@ -252,6 +240,9 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
     double leftRatio,
     bool isPlaying,
     IconData icon,
+    List<dynamic> sources,
+    String? selectedId,
+    bool isLoading,
   ) {
     return Scaffold(
       backgroundColor: Colors.black,
@@ -282,7 +273,6 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
                         trackId: _music.id,
                         onFavoritePressed: _toggleFavorite,
                         onSharePressed: _shareMusic,
-                        // 播放控制（已迁移到左列）
                         isPlaying: isPlaying,
                         playModeIcon: icon,
                         onPlayPause: _togglePlay,
@@ -303,11 +293,11 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
                         title: _music.title,
                         artist: _music.artist,
                         album: _music.album,
-                        lyricParser: _lyricParser,
+                        lyricController: _lyricController,
                         position: _position,
-                        lyricSources: _lyricSources,
-                        selectedLyricId: _selectedLyricId,
-                        isLoadingLyrics: _isLoadingLyrics,
+                        lyricSources: sources.cast(),
+                        selectedLyricId: selectedId,
+                        isLoadingLyrics: isLoading,
                         showHeader: false,
                         onLyricSourceChanged: _loadLyric,
                         onLyricTap: (duration) {
@@ -335,7 +325,6 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(
           children: [
-            // 返回按钮
             IconButton(
               icon: Container(
                 padding: const EdgeInsets.all(8),
@@ -353,7 +342,6 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
                   ref.read(shellNavigationProvider.notifier).maybePop(context),
             ),
             const Spacer(),
-            // 标题
             Text(
               '正在播放',
               style: TextStyle(
@@ -363,7 +351,6 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
               ),
             ),
             const Spacer(),
-            // 更多按钮
             IconButton(
               icon: Container(
                 padding: const EdgeInsets.all(8),
@@ -371,11 +358,7 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
                   color: Colors.black.withValues(alpha: 0.3),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.more_horiz,
-                  color: Colors.white,
-                  size: 20,
-                ),
+                child: const Icon(Icons.more_horiz, color: Colors.white, size: 20),
               ),
               onPressed: () => _showOptionsSheet(context),
             ),
@@ -496,6 +479,4 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
     final seconds = twoDigits(duration.inSeconds.remainder(60));
     return '$minutes:$seconds';
   }
-
-  dynamic _readCoordinator() => ref.read(playerCoordinatorProvider);
 }

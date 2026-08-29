@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_lyric/core/lyric_controller.dart';
+import 'package:flutter_lyric/core/lyric_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:bilimusic/components/lyric/lyric_source.dart';
@@ -7,11 +9,11 @@ import 'package:bilimusic/core/app_providers.dart';
 import 'package:bilimusic/models/music.dart' as model;
 import 'package:bilimusic/models/player_state.dart';
 import 'package:bilimusic/models/play_mode.dart';
+import 'package:bilimusic/providers/lyrics_providers.dart';
 import 'package:bilimusic/providers/playback_providers.dart';
 import 'package:bilimusic/providers/playlist_providers.dart';
+import 'package:bilimusic/services/lyrics_service.dart';
 import 'package:bilimusic/utils/color_extractor.dart';
-import 'package:bilimusic/utils/lyric_parser.dart';
-import 'package:bilimusic/utils/netease_music_api.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/pages/detail/portrait_detail_page.dart';
 import 'package:bilimusic/pages/detail/landscape_detail_page.dart';
@@ -31,21 +33,23 @@ class _DetailPageState extends ConsumerState<DetailPage> {
   Duration _position = Duration.zero;
   Duration? _duration;
 
-  // 歌词相关变量
-  List<LyricSource> _lyricSources = [];
-  String? _selectedLyricId;
-  LyricParser? _lyricParser;
-  bool _isLoadingLyrics = false;
+  // 歌词渲染状态 (来自 LyricsService,本地只做驱动)
+  final LyricController _lyricController = LyricController();
   bool _showLyrics = false;
 
   // 背景颜色
   Color? _dominantColor;
 
   @override
+  void dispose() {
+    _lyricController.dispose();
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
 
-    // 初始化音乐信息
     final currentMusic =
         ref.read(playerCoordinatorProvider).currentMusic ??
         model.Music(
@@ -61,65 +65,26 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     _music = currentMusic;
     _duration = currentMusic.duration;
 
-    // 提取初始背景颜色
     _extractBackgroundColor(_music.coverUrl);
-
-    _initLyricOptions();
+    _lyricController.loadLyricModel(_placeholderModel(_music.title));
   }
 
-  void _initLyricOptions() async {
-    setState(() => _isLoadingLyrics = true);
-
-    try {
-      final localOption = LyricSource(id: 'local', name: _music.title);
-      final neteaseOptions = await NeteaseMusicApi.searchMusic(_music.title);
-
-      if (mounted) {
-        setState(() {
-          _lyricSources = [
-            localOption,
-            ...neteaseOptions.map(
-              (info) => LyricSource(id: info.id, name: info.name),
-            ),
-          ];
-          _isLoadingLyrics = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _lyricSources = [LyricSource(id: 'local', name: _music.title)];
-          _isLoadingLyrics = false;
-        });
-      }
-    }
-  }
-
-  void _loadLyric(String id) async {
-    setState(() {
-      _selectedLyricId = id;
-      _lyricParser = null;
-    });
-
-    try {
-      String? lyric;
-      if (id == 'local') {
-        lyric = '[00:00.00]暂无本地歌词\n[00:03.00]请从网易云音乐选择歌词';
-      } else {
-        lyric = await NeteaseMusicApi.getLyric(id);
-      }
-
-      if (mounted && lyric != null) {
-        final parser = LyricParser.parse(lyric);
-        if (mounted) {
-          setState(() => _lyricParser = parser);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _lyricParser = LyricParser.parse('[00:00.00]加载歌词失败'));
-      }
-    }
+  static LyricModel _placeholderModel(String title) {
+    return LyricModel(
+      tags: {'ti': title},
+      lines: [
+        LyricLine(
+          start: Duration.zero,
+          end: const Duration(seconds: 3),
+          text: '暂无本地歌词',
+        ),
+        LyricLine(
+          start: const Duration(seconds: 3),
+          end: const Duration(seconds: 6),
+          text: '请从歌词来源选择歌词',
+        ),
+      ],
+    );
   }
 
   void _extractBackgroundColor(String imageUrl) async {
@@ -202,6 +167,24 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     ref.read(playbackCommandsProvider.notifier).seek(duration);
   }
 
+  void _loadLyric(String id) {
+    // 切源 —— 由 currentMusicLyricsProvider 监听 selectedLyricSourceProvider 自动重取
+    ref.read(selectedLyricSourceProvider.notifier).state = id;
+  }
+
+  /// 根据当前 music + lyrics 状态推导出 (sources, selected, loading)。
+  ({List<LyricSource> sources, String? selected, bool loading}) _resolveLyrics(
+    AsyncValue<LyricsPayload?> lyricsAsync,
+    List<LyricSource> sources,
+  ) {
+    final selected = ref.watch(selectedLyricSourceProvider);
+    return (
+      sources: sources,
+      selected: selected ?? lyricsAsync.value?.sourceId,
+      loading: lyricsAsync.isLoading || (sources.isEmpty && lyricsAsync.isLoading),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLandscape = LandscapeBreakpoints.isLandscapeMode(context);
@@ -215,17 +198,38 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     final mode = ref.watch(playModeProvider);
 
     final liveMusic = ref.read(playerCoordinatorProvider).currentMusic;
-    if (liveMusic != null && liveMusic.id != _music.id) {
+    final musicChanged = liveMusic != null && liveMusic.id != _music.id;
+    if (musicChanged) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _updateBackgroundColor(liveMusic.coverUrl);
-        _initLyricOptions();
       });
       _music = liveMusic;
       _duration = liveMusic.duration;
+      _lastAppliedModel = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _lyricController.loadLyricModel(_placeholderModel(_music.title));
+        _lyricController.setProgress(Duration.zero);
+      });
     }
 
     _position = position;
+
+    final lyricsAsync = ref.watch(currentMusicLyricsProvider);
+    final sources = ref.watch(currentMusicLyricSourcesProvider);
+    final resolved = _resolveLyrics(lyricsAsync, sources);
+    final payload = lyricsAsync.value;
+
+    // 应用最新 payload 到 lyricController
+    if (payload != null && payload.mainModel != _lastAppliedModel) {
+      _lastAppliedModel = payload.mainModel;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _lyricController.loadLyricModel(payload.mainModel);
+        _lyricController.setProgress(_position);
+      });
+    }
 
     final isPlaying = ps is PlayerPlaying;
     final fading = ps is PlayerPlaying && ps.fadeCountdown != null;
@@ -246,10 +250,10 @@ class _DetailPageState extends ConsumerState<DetailPage> {
         duration: _duration,
         isPlaying: isPlaying,
         showLyrics: _showLyrics,
-        lyricSources: _lyricSources,
-        selectedLyricId: _selectedLyricId,
-        lyricParser: _lyricParser,
-        isLoadingLyrics: _isLoadingLyrics,
+        lyricSources: resolved.sources,
+        selectedLyricId: resolved.selected,
+        lyricController: _lyricController,
+        isLoadingLyrics: resolved.loading,
         dominantColor: _dominantColor,
         playModeIcon: icon,
         isTransitioning: fading,
@@ -269,10 +273,10 @@ class _DetailPageState extends ConsumerState<DetailPage> {
       duration: _duration,
       isPlaying: isPlaying,
       showLyrics: _showLyrics,
-      lyricSources: _lyricSources,
-      selectedLyricId: _selectedLyricId,
-      lyricParser: _lyricParser,
-      isLoadingLyrics: _isLoadingLyrics,
+      lyricSources: resolved.sources,
+      selectedLyricId: resolved.selected,
+      lyricController: _lyricController,
+      isLoadingLyrics: resolved.loading,
       dominantColor: _dominantColor,
       playModeIcon: icon,
       isTransitioning: fading,
@@ -286,4 +290,6 @@ class _DetailPageState extends ConsumerState<DetailPage> {
       onTogglePlayMode: togglePlayMode,
     );
   }
+
+  LyricModel? _lastAppliedModel;
 }
