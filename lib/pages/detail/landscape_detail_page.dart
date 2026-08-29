@@ -358,7 +358,11 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
                   color: Colors.black.withValues(alpha: 0.3),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.more_horiz, color: Colors.white, size: 20),
+                child: const Icon(
+                  Icons.more_horiz,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
               onPressed: () => _showOptionsSheet(context),
             ),

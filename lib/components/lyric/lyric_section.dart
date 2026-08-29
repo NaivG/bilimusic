@@ -285,10 +285,7 @@ class _LyricSectionState extends State<LyricSection> {
     }
 
     return RepaintBoundary(
-      child: LyricView(
-        controller: controller,
-        style: style,
-      ),
+      child: LyricView(controller: controller, style: style),
     );
   }
 

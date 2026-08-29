@@ -233,7 +233,10 @@ class LyricsService extends ChangeNotifier {
         firstPerSource.putIfAbsent(song.source, () => song);
         idx++;
         sources.add(
-          LyricSource(id: key, name: '${song.source.label} - ${song.artistTitle()}'),
+          LyricSource(
+            id: key,
+            name: '${song.source.label} - ${song.artistTitle()}',
+          ),
         );
       }
       debugPrint('[LyricsService] prefetched sources: ${sources.length}');
@@ -246,10 +249,7 @@ class LyricsService extends ChangeNotifier {
         final song = entry.value;
         Lyrics? lyrics;
         try {
-          lyrics = await finder.fetchLyrics(
-            song: song,
-            durationMs: durationMs,
-          );
+          lyrics = await finder.fetchLyrics(song: song, durationMs: durationMs);
         } catch (_) {
           continue;
         }
@@ -337,7 +337,10 @@ class LyricsService extends ChangeNotifier {
     }
   }
 
-  Future<void> _writeAutoPayloadCache(Music music, LyricsPayload payload) async {
+  Future<void> _writeAutoPayloadCache(
+    Music music,
+    LyricsPayload payload,
+  ) async {
     try {
       final raw = jsonEncode(_encodePayload(payload));
       final bytes = Uint8List.fromList(utf8.encode(raw));
@@ -351,9 +354,14 @@ class LyricsService extends ChangeNotifier {
     }
   }
 
-  Future<LyricsPayload?> _readPayloadCacheFile(Music music, String sourceId) async {
+  Future<LyricsPayload?> _readPayloadCacheFile(
+    Music music,
+    String sourceId,
+  ) async {
     try {
-      final info = await cache.getFileFromCache(_sourceCacheKey(music, sourceId));
+      final info = await cache.getFileFromCache(
+        _sourceCacheKey(music, sourceId),
+      );
       if (info == null) return null;
       final file = info.file;
       if (!await file.exists()) return null;
@@ -402,7 +410,10 @@ class LyricsService extends ChangeNotifier {
     }
   }
 
-  Future<void> _writeSourcesCache(Music music, List<LyricSource> sources) async {
+  Future<void> _writeSourcesCache(
+    Music music,
+    List<LyricSource> sources,
+  ) async {
     try {
       final raw = jsonEncode([
         for (final s in sources) {'id': s.id, 'name': s.name},
@@ -475,9 +486,7 @@ class LyricsService extends ChangeNotifier {
 
   LyricLine _decodeLine(Map<String, Object?> json) {
     return LyricLine(
-      start: Duration(
-        milliseconds: (json['start'] as num?)?.toInt() ?? 0,
-      ),
+      start: Duration(milliseconds: (json['start'] as num?)?.toInt() ?? 0),
       end: (json['end'] as num?) == null
           ? null
           : Duration(milliseconds: (json['end'] as num).toInt()),
@@ -501,9 +510,7 @@ class LyricsService extends ChangeNotifier {
   LyricWord _decodeWord(Map<String, Object?> json) {
     return LyricWord(
       text: json['text']?.toString() ?? '',
-      start: Duration(
-        milliseconds: (json['start'] as num?)?.toInt() ?? 0,
-      ),
+      start: Duration(milliseconds: (json['start'] as num?)?.toInt() ?? 0),
       end: (json['end'] as num?) == null
           ? null
           : Duration(milliseconds: (json['end'] as num).toInt()),

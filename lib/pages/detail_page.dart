@@ -181,7 +181,8 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     return (
       sources: sources,
       selected: selected ?? lyricsAsync.value?.sourceId,
-      loading: lyricsAsync.isLoading || (sources.isEmpty && lyricsAsync.isLoading),
+      loading:
+          lyricsAsync.isLoading || (sources.isEmpty && lyricsAsync.isLoading),
     );
   }
 
