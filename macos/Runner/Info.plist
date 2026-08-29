@@ -28,5 +28,13 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>用于在局域网内发现并同步其他 BiliMusic 设备</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_bilimusic-sync._tcp</string>
+	</array>
+	<key>NSAppSleepDisabled</key>
+	<true/>
 </dict>
 </plist>
