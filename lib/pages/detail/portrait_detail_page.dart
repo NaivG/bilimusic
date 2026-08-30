@@ -1,5 +1,3 @@
-import 'dart:ui';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_lyric/core/lyric_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +6,7 @@ import 'package:bilimusic/components/lyric/lyric_section.dart';
 import 'package:bilimusic/components/lyric/lyric_source.dart';
 import 'package:bilimusic/components/common/album_section.dart';
 import 'package:bilimusic/models/music.dart' as model;
+import 'package:bilimusic/pages/detail/detail_blur_background.dart';
 import 'package:bilimusic/providers/playback_providers.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
 import 'package:bilimusic/utils/dialog_helpers.dart';
@@ -19,6 +18,7 @@ class PortraitDetailPage extends ConsumerStatefulWidget {
   final Duration position;
   final Duration? duration;
   final bool isPlaying;
+  final bool isFavorite;
   final bool showLyrics;
   final List<LyricSource> lyricSources;
   final String? selectedLyricId;
@@ -41,6 +41,7 @@ class PortraitDetailPage extends ConsumerStatefulWidget {
     required this.position,
     required this.duration,
     required this.isPlaying,
+    required this.isFavorite,
     required this.showLyrics,
     required this.lyricSources,
     required this.selectedLyricId,
@@ -118,47 +119,9 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage> {
   }
 
   Widget _buildBackground() {
-    return Stack(
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                widget.dominantColor?.withValues(alpha: 0.8) ?? Colors.black,
-                widget.dominantColor?.withValues(alpha: 0.6) ??
-                    Colors.grey[900]!,
-                Colors.black,
-              ],
-              stops: const [0.0, 0.5, 1.0],
-            ),
-          ),
-        ),
-        if (widget.music.coverUrl.isNotEmpty)
-          Positioned.fill(
-            child: RepaintBoundary(
-              child: ImageFiltered(
-                imageFilter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
-                child: CachedNetworkImage(
-                  imageUrl: widget.music.coverUrl,
-                  fit: BoxFit.cover,
-                  color: Colors.black.withValues(alpha: 0.3),
-                  colorBlendMode: BlendMode.darken,
-                ),
-              ),
-            ),
-          ),
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Colors.transparent, Colors.black.withValues(alpha: 0.8)],
-            ),
-          ),
-        ),
-      ],
+    return DetailBlurBackground(
+      dominantColor: widget.dominantColor,
+      coverUrl: widget.music.coverUrl,
     );
   }
 
@@ -171,7 +134,7 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage> {
         artist: widget.music.artist,
         album: widget.music.album,
         dominantColor: widget.dominantColor,
-        isFavorite: _isFavorite(),
+        isFavorite: widget.isFavorite,
         trackId: widget.music.id,
         onFavoritePressed: widget.onToggleFavorite,
         onSharePressed: widget.onShare,
@@ -187,10 +150,6 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage> {
         onShowLyrics: widget.onToggleShowLyrics,
       ),
     );
-  }
-
-  bool _isFavorite() {
-    return ref.read(playbackCommandsProvider.notifier).isFavorite(widget.music);
   }
 
   Widget _buildLyricsView(BuildContext context) {
@@ -209,107 +168,37 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage> {
   }
 
   void _showOptionsSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.grey[900],
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 20),
-            ListTile(
-              leading: Icon(
-                _isFavorite() ? Icons.favorite : Icons.favorite_border,
-                color: _isFavorite() ? Colors.red : Colors.white,
-              ),
-              title: Text(
-                _isFavorite() ? '取消收藏' : '收藏',
-                style: const TextStyle(color: Colors.white),
-              ),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                widget.onToggleFavorite();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.share, color: Colors.white),
-              title: const Text('分享', style: TextStyle(color: Colors.white)),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                widget.onShare();
-              },
-            ),
-            ListTile(
-              leading: Icon(
-                widget.showLyrics ? Icons.lyrics : Icons.lyrics_outlined,
-                color: Colors.white,
-              ),
-              title: Text(
-                widget.showLyrics ? '隐藏歌词' : '显示歌词',
-                style: const TextStyle(color: Colors.white),
-              ),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                widget.onToggleShowLyrics();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.info_outline, color: Colors.white),
-              title: const Text('歌曲信息', style: TextStyle(color: Colors.white)),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                _showSongInfo(context);
-              },
-            ),
-          ],
+    showOptionsSheet(
+      context,
+      actions: [
+        SheetAction(
+          icon: widget.isFavorite ? Icons.favorite : Icons.favorite_border,
+          iconColor: widget.isFavorite ? Colors.red : null,
+          label: widget.isFavorite ? '取消收藏' : '收藏',
+          onTap: widget.onToggleFavorite,
         ),
-      ),
+        SheetAction(icon: Icons.share, label: '分享', onTap: widget.onShare),
+        SheetAction(
+          icon: widget.showLyrics ? Icons.lyrics : Icons.lyrics_outlined,
+          label: widget.showLyrics ? '隐藏歌词' : '显示歌词',
+          onTap: widget.onToggleShowLyrics,
+        ),
+        SheetAction(
+          icon: Icons.info_outline,
+          label: '歌曲信息',
+          onTap: () => _showSongInfo(context),
+        ),
+      ],
     );
   }
 
   void _showSongInfo(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: Colors.grey[900],
-        title: const Text('歌曲信息', style: TextStyle(color: Colors.white)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            infoRow('标题', widget.music.title),
-            infoRow('艺术家', widget.music.artist),
-            infoRow('专辑', widget.music.album),
-            infoRow('时长', _formatDuration(widget.duration ?? Duration.zero)),
-            infoRow('来源', 'Bilibili'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('关闭'),
-          ),
-        ],
-      ),
+    showSongInfoDialog(
+      context,
+      title: widget.music.title,
+      artist: widget.music.artist,
+      album: widget.music.album,
+      duration: widget.duration ?? Duration.zero,
     );
-  }
-
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final minutes = twoDigits(duration.inMinutes);
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
-    return '$minutes:$seconds';
   }
 }

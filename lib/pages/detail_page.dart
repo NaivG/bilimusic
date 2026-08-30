@@ -32,6 +32,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
   late model.Music _music;
   Duration _position = Duration.zero;
   Duration? _duration;
+  bool _isFavorite = false;
 
   // 歌词渲染状态 (来自 LyricsService,本地只做驱动)
   final LyricController _lyricController = LyricController();
@@ -39,6 +40,9 @@ class _DetailPageState extends ConsumerState<DetailPage> {
 
   // 背景颜色
   Color? _dominantColor;
+
+  // 上一首主导色 —— 横屏 AnimatedLandscapeBackground 切换渐变用
+  Color? _previousDominantColor;
 
   @override
   void dispose() {
@@ -50,8 +54,9 @@ class _DetailPageState extends ConsumerState<DetailPage> {
   void initState() {
     super.initState();
 
+    final coordinator = ref.read(playerCoordinatorProvider);
     final currentMusic =
-        ref.read(playerCoordinatorProvider).currentMusic ??
+        coordinator.currentMusic ??
         model.Music(
           id: '',
           title: '未知标题',
@@ -64,6 +69,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
         );
     _music = currentMusic;
     _duration = currentMusic.duration;
+    _isFavorite = coordinator.isFavorite(_music);
 
     _extractBackgroundColor(_music.coverUrl);
     _lyricController.loadLyricModel(_placeholderModel(_music.title));
@@ -114,8 +120,9 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     } else {
       await commands.addToFavorites(_music);
     }
+    if (!mounted) return;
     setState(() {
-      _music = _music.copyWith(isFavorite: !commands.isFavorite(_music));
+      _isFavorite = commands.isFavorite(_music);
     });
   }
 
@@ -188,11 +195,6 @@ class _DetailPageState extends ConsumerState<DetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isLandscape = LandscapeBreakpoints.isLandscapeMode(context);
-    if (isLandscape) {
-      return const LandscapeDetailPage();
-    }
-
     ref.watch(currentIndexProvider);
     final position = ref.watch(positionProvider);
     final ps = ref.watch(playerStateProvider);
@@ -201,15 +203,16 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     final liveMusic = ref.read(playerCoordinatorProvider).currentMusic;
     final musicChanged = liveMusic != null && liveMusic.id != _music.id;
     if (musicChanged) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _updateBackgroundColor(liveMusic.coverUrl);
-      });
+      _previousDominantColor = _dominantColor;
       _music = liveMusic;
       _duration = liveMusic.duration;
+      _isFavorite = ref
+          .read(playbackCommandsProvider.notifier)
+          .isFavorite(liveMusic);
       _lastAppliedModel = null;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
+        _updateBackgroundColor(liveMusic.coverUrl);
         _lyricController.loadLyricModel(_placeholderModel(_music.title));
         _lyricController.setProgress(Duration.zero);
       });
@@ -239,9 +242,34 @@ class _DetailPageState extends ConsumerState<DetailPage> {
       PlayMode.shuffle => Icons.shuffle,
     };
 
-    final isSquare = SquareBreakpoints.shouldUseSquareLayout(context);
     void togglePlayMode() =>
         ref.read(playbackCommandsProvider.notifier).togglePlayMode();
+
+    if (LandscapeBreakpoints.isLandscapeMode(context)) {
+      return LandscapeDetailPage(
+        music: _music,
+        position: _position,
+        duration: _duration,
+        isPlaying: isPlaying,
+        isFavorite: _isFavorite,
+        lyricSources: resolved.sources,
+        selectedLyricId: resolved.selected,
+        lyricController: _lyricController,
+        isLoadingLyrics: resolved.loading,
+        dominantColor: _dominantColor,
+        previousDominantColor: _previousDominantColor,
+        playModeIcon: icon,
+        onToggleFavorite: _toggleFavorite,
+        onShare: _shareMusic,
+        onTogglePlay: _togglePlay,
+        onPlaylist: _showPlaylist,
+        onLoadLyric: _loadLyric,
+        onSeek: _seek,
+        onTogglePlayMode: togglePlayMode,
+      );
+    }
+
+    final isSquare = SquareBreakpoints.shouldUseSquareLayout(context);
 
     if (isSquare) {
       return SquareDetailPage(
@@ -249,6 +277,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
         position: _position,
         duration: _duration,
         isPlaying: isPlaying,
+        isFavorite: _isFavorite,
         showLyrics: _showLyrics,
         lyricSources: resolved.sources,
         selectedLyricId: resolved.selected,
@@ -271,6 +300,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
       position: _position,
       duration: _duration,
       isPlaying: isPlaying,
+      isFavorite: _isFavorite,
       showLyrics: _showLyrics,
       lyricSources: resolved.sources,
       selectedLyricId: resolved.selected,

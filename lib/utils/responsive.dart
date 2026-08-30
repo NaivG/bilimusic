@@ -133,9 +133,9 @@ class LandscapeBreakpoints {
   /// 获取横屏左侧区域比例（左列已自包含控制条，可适度缩窄）
   static double getLeftSectionRatio(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width >= desktopMin) return 0.40;
-    if (width >= largeTabletMin) return 0.38;
-    return 0.36;
+    if (width >= desktopMin) return 0.38;
+    if (width >= largeTabletMin) return 0.36;
+    return 0.34;
   }
 
   /// 获取横屏边距
