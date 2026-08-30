@@ -10,7 +10,7 @@ import 'package:bilimusic/models/player_state.dart';
 import 'package:bilimusic/utils/color_extractor.dart';
 import 'package:bilimusic/utils/responsive.dart';
 import 'package:bilimusic/components/landscape/background.dart';
-import 'package:bilimusic/components/landscape/album_section.dart';
+import 'package:bilimusic/components/common/album_section.dart';
 import 'package:bilimusic/components/lyric/lyric_section.dart';
 import 'package:bilimusic/components/playlist/playlist_sheet.dart';
 import 'package:bilimusic/providers/lyrics_providers.dart';
@@ -263,7 +263,7 @@ class _LandscapeDetailPageState extends ConsumerState<LandscapeDetailPage>
                   children: [
                     SizedBox(
                       width: MediaQuery.of(context).size.width * leftRatio,
-                      child: LandscapeAlbumSection(
+                      child: AlbumSection(
                         coverUrl: _music.coverUrl,
                         title: _music.title,
                         artist: _music.artist,

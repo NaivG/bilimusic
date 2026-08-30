@@ -147,52 +147,6 @@ class LandscapeBreakpoints {
   }
 }
 
-/// 竖屏手机断点（详情页单面板布局）
-class PortraitBreakpoints {
-  /// 折叠/小平板/大屏手机的细分
-  static const double tabletPortraitMin = 600;
-  static const double largePhoneMin = 400;
-
-  /// 获取竖屏封面尺寸
-  static double getCoverSize(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    if (width >= tabletPortraitMin) return 320;
-    if (width >= largePhoneMin) return 280;
-    return 240;
-  }
-
-  /// 获取竖屏主播放按钮尺寸
-  static double getMainPlayButtonSize(BuildContext context) {
-    final shortestSide = MediaQuery.of(context).size.shortestSide;
-    if (shortestSide >= 700) return 80;
-    if (shortestSide >= 600) return 72;
-    return 64;
-  }
-
-  /// 获取竖屏副按钮尺寸（mode / prev / next / queue）
-  static double getSideButtonSize(BuildContext context) {
-    final shortestSide = MediaQuery.of(context).size.shortestSide;
-    if (shortestSide >= 700) return 48;
-    return 40;
-  }
-
-  /// 获取竖屏圆形操作按钮尺寸（收藏 / 分享）
-  static double getCircleActionSize(BuildContext context) {
-    final shortestSide = MediaQuery.of(context).size.shortestSide;
-    if (shortestSide >= 700) return 52;
-    if (shortestSide >= 600) return 48;
-    return 44;
-  }
-
-  /// 获取竖屏水平外边距
-  static double getHorizontalPadding(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    if (width >= tabletPortraitMin) return 32;
-    if (width >= largePhoneMin) return 24;
-    return 20;
-  }
-}
-
 /// 异形小屏（手表/折叠外屏/近正方形 PiP）断点
 class SquareBreakpoints {
   /// 最短边下界

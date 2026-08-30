@@ -6,14 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/components/auto_appbar.dart';
 import 'package:bilimusic/components/lyric/lyric_section.dart';
 import 'package:bilimusic/components/lyric/lyric_source.dart';
-import 'package:bilimusic/components/portrait/album_section.dart';
+import 'package:bilimusic/components/common/album_section.dart';
 import 'package:bilimusic/models/music.dart' as model;
 import 'package:bilimusic/providers/playback_providers.dart';
 import 'package:bilimusic/shells/shell_page_manager.dart';
 import 'package:bilimusic/utils/dialog_helpers.dart';
 
 /// 竖屏详情页 —— Apple Music 风格单面板布局
-/// （与横屏 `LandscapeAlbumSection` 思路一致：封面 + 信息 + 操作 + 进度 + 5 按钮 + 音量）
+/// （与 `AlbumSection` 思路一致：封面 + 信息 + 操作 + 进度 + 5 按钮 + 音量）
 class PortraitDetailPage extends ConsumerStatefulWidget {
   final model.Music music;
   final Duration position;
@@ -163,35 +163,28 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage> {
   }
 
   Widget _buildAlbumView(BuildContext context) {
+    // 高度有界交给 AlbumSection：内容放得下时富余高度分摊到封面上下，放不下自滚动。
     return SafeArea(
-      child: SingleChildScrollView(
-        child: Column(
-          children: [
-            const SizedBox(height: 8),
-            PortraitAlbumSection(
-              coverUrl: widget.music.coverUrl,
-              title: widget.music.title,
-              artist: widget.music.artist,
-              album: widget.music.album,
-              dominantColor: widget.dominantColor,
-              isFavorite: _isFavorite(),
-              trackId: widget.music.id,
-              onFavoritePressed: widget.onToggleFavorite,
-              onSharePressed: widget.onShare,
-              isPlaying: widget.isPlaying,
-              playModeIcon: widget.playModeIcon,
-              onPlayPause: widget.onTogglePlay,
-              onPrevious: () =>
-                  ref.read(playbackCommandsProvider.notifier).playPrevious(),
-              onNext: () =>
-                  ref.read(playbackCommandsProvider.notifier).playNext(),
-              onPlayModeToggle: widget.onTogglePlayMode,
-              onPlaylist: widget.onPlaylist,
-              onShowLyrics: widget.onToggleShowLyrics,
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
+      child: AlbumSection(
+        coverUrl: widget.music.coverUrl,
+        title: widget.music.title,
+        artist: widget.music.artist,
+        album: widget.music.album,
+        dominantColor: widget.dominantColor,
+        isFavorite: _isFavorite(),
+        trackId: widget.music.id,
+        onFavoritePressed: widget.onToggleFavorite,
+        onSharePressed: widget.onShare,
+        isPlaying: widget.isPlaying,
+        playModeIcon: widget.playModeIcon,
+        onPlayPause: widget.onTogglePlay,
+        onPrevious: () =>
+            ref.read(playbackCommandsProvider.notifier).playPrevious(),
+        onNext: () =>
+            ref.read(playbackCommandsProvider.notifier).playNext(),
+        onPlayModeToggle: widget.onTogglePlayMode,
+        onPlaylist: widget.onPlaylist,
+        onShowLyrics: widget.onToggleShowLyrics,
       ),
     );
   }
