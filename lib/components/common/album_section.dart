@@ -209,6 +209,7 @@ class _AlbumSectionState extends ConsumerState<AlbumSection>
         SizedBox(height: m.gapVolumeLyrics),
         _buildLyricsEntry(),
       ],
+      SizedBox(height: m.gapVolumeLyrics), // 这边直接复用，让底部留白更大一点，避免贴边
     ];
   }
 
