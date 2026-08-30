@@ -10,6 +10,9 @@ enum MusicRenderStyle {
   list,
 }
 
+/// B 站封面 CDN 缩略后缀：列表封面统一按此规格取图，省流量。
+const biliCoverThumbSuffix = '@672w_378h';
+
 class Music {
   final String id; // bvid
   final String cid; // 分P cid，音视频请求需要
@@ -90,6 +93,31 @@ class Music {
       'currentPageIndex': currentPageIndex,
       'renderStyle': renderStyle.name,
     };
+  }
+
+  /// 从 B 站稿件卡片 JSON 构造（`archive/related`、`region/feed/rcmd`
+  /// 等列表端点共用）。
+  ///
+  /// 完整详情（含分P列表）的 view 端点请走 `BiliItem.fromViewApi`：
+  /// 它逐分P构造（cid/title/duration 来自 pages 数组），album 语义为
+  /// 视频标题，与稿件卡片（分区名）不同，属有意区分。
+  factory Music.fromArchiveJson(Map<String, dynamic> json) {
+    final owner = json['owner'];
+    final author = json['author'];
+    final ownerName = owner is Map ? owner['name'] as String? : null;
+    final authorName = author is Map ? author['name'] as String? : null;
+    final cover = (json['pic'] ?? json['cover']) as String? ?? '';
+    return Music(
+      id: (json['bvid'] as String?) ?? json['aid']?.toString() ?? '',
+      title: json['title'] as String? ?? '',
+      artist: authorName ?? ownerName ?? '未知艺术家',
+      album: json['tname'] as String? ?? '未知专辑',
+      coverUrl: cover.isNotEmpty ? '$cover$biliCoverThumbSuffix' : '',
+      duration: json['duration'] is int
+          ? Duration(seconds: json['duration'] as int)
+          : null,
+      audioUrl: '',
+    );
   }
 
   /// 是否为系列（多P）视频

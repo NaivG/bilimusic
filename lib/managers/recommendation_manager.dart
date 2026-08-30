@@ -85,24 +85,15 @@ class RecommendationManager {
               // 检查是否属于音乐分区 (tid 为音乐主分区或其子分区)
               final tid = video['tid'] as int?;
               if (isMusicCategory(tid)) {
-                final id = video['bvid'] ?? video['aid'].toString();
+                final musicItem = Music.fromArchiveJson(
+                  Map<String, dynamic>.from(video),
+                );
 
                 // 避免重复
-                if (addedIds.contains(id)) continue;
-                addedIds.add(id);
-
-                final albumName = video['tname'] ?? '未知专辑';
-
-                final musicItem = Music(
-                  id: id,
-                  title: video['title'],
-                  artist: video['owner']?['name'] ?? '未知艺术家',
-                  album: albumName,
-                  coverUrl: (video['pic'] ?? '') + "@672w_378h",
-                  duration: null,
-                  audioUrl: '',
-                  pages: [],
-                );
+                if (musicItem.id.isEmpty || addedIds.contains(musicItem.id)) {
+                  continue;
+                }
+                addedIds.add(musicItem.id);
 
                 guessList.add(musicItem);
               }
@@ -146,22 +137,8 @@ class RecommendationManager {
           final List<Music> recommended = [];
 
           for (var item in archives) {
-            final albumName = item['tname'] ?? '未知专辑';
-
             recommended.add(
-              Music(
-                id: item['bvid'],
-                title: item['title'],
-                artist:
-                    item['author']?['name'] ??
-                    item['owner']?['name'] ??
-                    '未知艺术家',
-                album: albumName,
-                coverUrl: (item['cover'] ?? '') + "@672w_378h",
-                duration: null,
-                audioUrl: '',
-                pages: [],
-              ),
+              Music.fromArchiveJson(Map<String, dynamic>.from(item)),
             );
           }
 

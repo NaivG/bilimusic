@@ -212,7 +212,7 @@ class ApiService {
       id: bvid,
       title: biliItem.title,
       subtitle: biliItem.owner.name,
-      coverUrl: cover.isNotEmpty ? '$cover@672w_378h' : cover,
+      coverUrl: cover.isNotEmpty ? '$cover$biliCoverThumbSuffix' : cover,
       type: SearchResultType.video,
     );
     return SearchResponse(

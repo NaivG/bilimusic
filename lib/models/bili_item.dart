@@ -100,6 +100,7 @@ class BiliItem {
     final pagesData = (data['pages'] ?? []) as List;
     final ownerData = data['owner'] ?? {};
     final statData = data['stat'] ?? {};
+    final pic = data['pic'] as String? ?? '';
 
     final pages = pagesData.asMap().entries.map<Music>((entry) {
       final idx = entry.key;
@@ -113,9 +114,9 @@ class BiliItem {
         title: isSingle
             ? (data['title'] ?? '')
             : (pageJson['part'] ?? pageJson['title'] ?? ''),
-        artist: ownerData['name'] ?? '未知作者',
+        artist: ownerData['name'] ?? '未知艺术家',
         album: data['title'] ?? '未知专辑',
-        coverUrl: data['pic'] ?? '',
+        coverUrl: pic.isNotEmpty ? '$pic$biliCoverThumbSuffix' : '',
         duration: Duration(
           seconds: int.tryParse(pageJson['duration']?.toString() ?? '0') ?? 0,
         ),
@@ -129,7 +130,7 @@ class BiliItem {
     return BiliItem(
       bvid: data['bvid'] ?? '',
       title: data['title'] ?? '',
-      pic: data['pic'] ?? '',
+      pic: pic,
       owner: Owner(
         mid: ownerData['mid']?.toString() ?? '0',
         name: ownerData['name'] ?? '未知作者',

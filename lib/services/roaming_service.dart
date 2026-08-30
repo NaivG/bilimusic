@@ -50,23 +50,10 @@ class RoamingService {
         final tid = item['tid'] as int?;
         if (!isMusicCategory(tid)) continue;
 
-        final id = (item['bvid'] as String?) ?? (item['aid']?.toString() ?? '');
-        if (id.isEmpty) continue;
+        final music = Music.fromArchiveJson(Map<String, dynamic>.from(item));
+        if (music.id.isEmpty) continue;
 
-        candidates.add(
-          Music(
-            id: id,
-            title: (item['title'] as String?) ?? '',
-            artist: (item['owner']?['name'] as String?) ?? '未知艺术家',
-            album: (item['tname'] as String?) ?? '未知专辑',
-            coverUrl: '${item['pic'] ?? ''}@672w_378h',
-            duration: item['duration'] is int
-                ? Duration(seconds: item['duration'] as int)
-                : null,
-            audioUrl: '',
-            pages: const [],
-          ),
-        );
+        candidates.add(music);
       }
 
       return _pick(candidates, seed: seed, style: style, size: size);
