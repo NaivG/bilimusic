@@ -65,7 +65,6 @@ dependencies:
   restart_app: ^1.8.3
   flutter_native_splash: ^2.4.4
   super_context_menu: ^0.9.1
-  dio: ^5.9.2
   pretty_qr_code: ^3.6.0
   bonsoir: ^7.1.4
   device_info_plus: ^11.5.0

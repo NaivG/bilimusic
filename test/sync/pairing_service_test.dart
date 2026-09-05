@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:bilimusic/models/sync/sync_message.dart';
-import 'package:bilimusic/services/sync/pairing_service.dart';
-import 'package:bilimusic/services/sync/sync_protocol.dart';
+import 'package:bilimusic/features/lan_sync/models/sync_message.dart';
+import 'package:bilimusic/features/lan_sync/services/pairing_service.dart';
+import 'package:bilimusic/features/lan_sync/services/sync_protocol.dart';
 
 void main() {
   group('PairingService private topology', () {

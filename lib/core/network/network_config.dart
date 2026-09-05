@@ -1,0 +1,209 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+
+/// 统一网络请求配置
+
+class NetworkConfig {
+  /// 全应用唯一 User-Agent 字面量来源（B 站 API / 更新检查等所有出站请求共用）。
+  static const String userAgent =
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0';
+
+  static Map<String, String> _biliHeaders = {};
+  static Map<String, String> _cookies = {};
+
+  static Map<String, String> get biliHeaders {
+    // 创建 headers 副本
+    final headers = Map<String, String>.from(_biliHeaders);
+
+    // 将 cookies 转换为标准的字符串格式
+    if (_cookies.isNotEmpty) {
+      final cookieString = _cookies.entries
+          .map((e) => '${e.key}=${e.value}')
+          .join('; ');
+      headers['Cookie'] = cookieString;
+    }
+
+    return headers;
+  }
+
+  /// 设置B站请求头
+  static void setBiliHeaders(Map<String, String> headers) {
+    _biliHeaders = Map<String, String>.from(headers);
+  }
+
+  /// 更新B站请求头
+  static void updateBiliHeaders(Map<String, String> headers) {
+    _biliHeaders.addAll(headers);
+  }
+
+  static Map<String, String> get cookies {
+    return Map<String, String>.from(_cookies);
+  }
+
+  /// 设置Cookies
+  static void setCookies(Map<String, String> cookies) {
+    _cookies = Map<String, String>.from(cookies);
+    // 同时更新 SharedPreferences
+    _saveCookiesToPrefs();
+  }
+
+  /// 更新Cookies
+  static void updateCookies(Map<String, String> cookies) {
+    _cookies.addAll(cookies);
+    // 同时更新 SharedPreferences
+    _saveCookiesToPrefs();
+  }
+
+  /// 解析 Set-Cookie 响应头（支持单个 header 中合并的多个 cookie）
+  ///
+  /// `http` 包会把多个 Set-Cookie header 拼接成一个以 ", " 分隔的字符串；
+  /// 当 cookie 的 Expires 属性本身含逗号（如 `Expires=Sat, 04 Mar 2023 07:30:09 GMT`）时，
+  /// 简单的按 "," 切分会误切。识别规则：cookie 名以 RFC 6265 token 子集 `[A-Za-z0-9_.-]+`
+  /// 限定，且其前必须紧邻 `, ` 或字符串开头，紧跟 `=`，可以正确避开 Expires 日期里的逗号。
+  static Map<String, String> parseSetCookieHeaders(String headerValue) {
+    final result = <String, String>{};
+    if (headerValue.isEmpty) return result;
+    final pattern = RegExp(r'(?:^|,\s*)([A-Za-z0-9_.\-]+)=([^;,]*)');
+    for (final match in pattern.allMatches(headerValue)) {
+      final name = match.group(1);
+      final value = match.group(2);
+      if (name != null && value != null) {
+        result[name] = value;
+      }
+    }
+    return result;
+  }
+
+  static Future<void> _saveCookiesToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_cookies.isNotEmpty) {
+      final jsonString = json.encode(_cookies);
+      await prefs.setString('cookies', jsonString);
+    }
+  }
+
+  /// 从 HTTP 响应头捕获 Set-Cookie 并合入当前 cookie 表（为空则不动）。
+  ///
+  /// 登录 / 扫码登录成功的会话 cookie（SESSDATA 等）由此单点入库；
+  /// [PassportClient] 的每个已校验响应都会经过这里，调用方无需再自行解析。
+  static void captureFrom(Map<String, String> responseHeaders) {
+    final cookies = parseSetCookieHeaders(
+      responseHeaders['set-cookie'] ?? '',
+    );
+    if (cookies.isNotEmpty) {
+      updateCookies(cookies);
+    }
+  }
+
+  static Future<void> init() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    // 配置默认headers
+    _biliHeaders = {
+      'User-Agent': userAgent,
+      'Referer': 'https://www.bilibili.com',
+      'Access-Control-Allow-Origin': 'https://api.bilibili.com',
+    };
+
+    // 读取并解析 cookies
+    var cookiesJson = prefs.getString('cookies');
+    if (cookiesJson != null && cookiesJson.isNotEmpty) {
+      try {
+        // 尝试解析 JSON 格式的 cookies
+        final cookiesMap = json.decode(cookiesJson);
+        if (cookiesMap is Map) {
+          _cookies = Map<String, String>.from(
+            cookiesMap.map(
+              (key, value) => MapEntry(key.toString(), value.toString()),
+            ),
+          );
+        } else {
+          // 如果不是 JSON 格式，按照字符串处理
+          _parseCookiesString(cookiesJson);
+        }
+      } catch (e) {
+        // JSON 解析失败，按照字符串处理
+        _parseCookiesString(cookiesJson);
+      }
+    }
+
+    // 如果 cookies 为空，则获取 buvid3 和 buvid4
+    if (_cookies.isEmpty) {
+      final buvids = await _fetchBuvids();
+      _cookies['buvid3'] = buvids['b_3'] ?? '';
+      _cookies['buvid4'] = buvids['b_4'] ?? '';
+      await _saveCookiesToPrefs();
+    }
+  }
+
+  static void _parseCookiesString(String cookiesString) {
+    final cookies = <String, String>{};
+    final pairs = cookiesString.split(';');
+
+    for (var pair in pairs) {
+      final trimmed = pair.trim();
+      if (trimmed.isNotEmpty) {
+        final parts = trimmed.split('=');
+        if (parts.length == 2) {
+          cookies[parts[0].trim()] = parts[1].trim();
+        }
+      }
+    }
+
+    _cookies = cookies;
+  }
+
+  /// 拉取 buvid3/buvid4（init 引导调用）。
+  ///
+  /// 有意不走 [BiliClient]：这是配置层自身的引导请求，不宜反向依赖构建于
+  /// 其上的客户端实例；且带特有的 429 限流重试逻辑。UA 已收敛到
+  /// [userAgent] 常量，超时与其他请求一致（10s）。
+  static Future<Map<String, String>> _fetchBuvids() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('https://api.bilibili.com/x/frontend/finger/spi'),
+            headers: {
+              'User-Agent': userAgent,
+              'Referer': 'https://www.bilibili.com',
+              'Access-Control-Allow-Origin': 'https://api.bilibili.com',
+            },
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        if (json.containsKey('data') &&
+            json['data'] is Map &&
+            json['data'].containsKey('b_3') &&
+            json['data'].containsKey('b_4')) {
+          final buvid3 = json['data']['b_3'] as String?;
+          final buvid4 = json['data']['b_4'] as String?;
+          return {'b_3': buvid3 ?? '', 'b_4': buvid4 ?? ''};
+        } else {
+          throw const FormatException(
+            'Invalid response format: missing data, b_3 or b_4 field',
+          );
+        }
+      } else if (response.statusCode == 429) {
+        // 处理速率限制并返回重试的Future
+        return Future.delayed(const Duration(seconds: 5), _fetchBuvids);
+      } else {
+        throw HttpException(
+          'Request failed with status: ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      // 添加错误日志
+      if (kDebugMode) {
+        print('Failed to fetch buvids: $e');
+      }
+      return {'b_3': '', 'b_4': ''};
+    }
+  }
+}
