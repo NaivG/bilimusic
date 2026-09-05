@@ -481,10 +481,7 @@ class _SearchResultCard extends StatelessWidget {
   final SearchResult result;
   final VoidCallback? onTap;
 
-  const _SearchResultCard({
-    required this.result,
-    this.onTap,
-  });
+  const _SearchResultCard({required this.result, this.onTap});
 
   @override
   Widget build(BuildContext context) {

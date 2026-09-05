@@ -2,7 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:bilimusic/app/app_providers.dart';
-import 'package:bilimusic/features/fav_sync/fav_sync_manager.dart' show ImportResult;
+import 'package:bilimusic/features/fav_sync/fav_sync_manager.dart'
+    show ImportResult;
 import 'package:bilimusic/domain/bili_fav_folder.dart';
 import 'package:bilimusic/features/fav_sync/models/fav_import_record.dart';
 

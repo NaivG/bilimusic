@@ -44,10 +44,7 @@ class PassportClient {
   }
 
   /// GET 请求并返回响应中的 `data` 字段（已校验 `code == 0`）。
-  Future<Map<String, dynamic>> get(
-    String path, {
-    Map<String, String>? query,
-  }) {
+  Future<Map<String, dynamic>> get(String path, {Map<String, String>? query}) {
     return _send(_buildUri(path, query), form: false);
   }
 
@@ -68,7 +65,11 @@ class PassportClient {
     final http.Response response;
     try {
       final Future<http.Response> request = form
-          ? _httpClient.post(uri, headers: _buildHeaders(form: true), body: body)
+          ? _httpClient.post(
+              uri,
+              headers: _buildHeaders(form: true),
+              body: body,
+            )
           : _httpClient.get(uri, headers: _buildHeaders(form: false));
       response = await request.timeout(timeout);
     } on TimeoutException catch (e) {

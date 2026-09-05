@@ -34,9 +34,9 @@ FutureOr<Menu?> buildMusicContextMenu({
           try {
             await playerCoordinator.playMusic(music);
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('开始播放"${music.title}"')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('开始播放"${music.title}"')));
             }
           } catch (e) {
             if (context.mounted) {

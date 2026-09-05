@@ -133,9 +133,7 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
     if (_songs.isEmpty) return;
 
     await ref.read(playbackCommandsProvider.notifier).clearPlaylist();
-    await ref
-        .read(playlistCommandsProvider.notifier)
-        .addAllToPlaylist(_songs);
+    await ref.read(playlistCommandsProvider.notifier).addAllToPlaylist(_songs);
 
     if (_songs.isNotEmpty) {
       await ref.read(playbackCommandsProvider.notifier).playMusic(_songs.first);

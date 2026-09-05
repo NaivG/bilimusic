@@ -79,7 +79,8 @@ class BiliItem {
   }
 
   /// 安全封面
-  String get safeCoverUrl => Music.isValidImageUrl(pic) ? pic : fallbackCoverUrl;
+  String get safeCoverUrl =>
+      Music.isValidImageUrl(pic) ? pic : fallbackCoverUrl;
 
   /// 从 API x/web-interface/view 响应构造
   factory BiliItem.fromViewApi(Map<String, dynamic> data) {

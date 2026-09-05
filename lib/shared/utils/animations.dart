@@ -175,4 +175,3 @@ class _TapScaleWidgetState extends State<TapScaleWidget>
     );
   }
 }
-

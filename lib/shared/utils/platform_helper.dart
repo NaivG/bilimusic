@@ -59,5 +59,4 @@ class PlatformHelper {
 
   /// 判断是否为macOS平台
   static bool get isMacOS => !kIsWeb && Platform.isMacOS;
-
 }

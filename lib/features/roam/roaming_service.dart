@@ -80,9 +80,7 @@ class RoamingService {
       for (final m in _playlistService.currentPlaylist.value) m.key,
       for (final m in _playlistService.playHistorySnapshot) m.key,
     };
-    final fresh = candidates
-        .where((m) => !existing.contains(m.key))
-        .toList();
+    final fresh = candidates.where((m) => !existing.contains(m.key)).toList();
     if (fresh.isEmpty) return const [];
 
     // simhash 排序

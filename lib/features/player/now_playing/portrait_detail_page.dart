@@ -143,8 +143,7 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage> {
         onPlayPause: widget.onTogglePlay,
         onPrevious: () =>
             ref.read(playbackCommandsProvider.notifier).playPrevious(),
-        onNext: () =>
-            ref.read(playbackCommandsProvider.notifier).playNext(),
+        onNext: () => ref.read(playbackCommandsProvider.notifier).playNext(),
         onPlayModeToggle: widget.onTogglePlayMode,
         onPlaylist: widget.onPlaylist,
         onShowLyrics: widget.onToggleShowLyrics,

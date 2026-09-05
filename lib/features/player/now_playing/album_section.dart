@@ -139,7 +139,8 @@ class _AlbumSectionState extends ConsumerState<AlbumSection>
         );
 
         // 富余高度 ≥ 24（估算余量）才走填充模式，避免临界抖动。
-        final fill = constraints.maxHeight.isFinite &&
+        final fill =
+            constraints.maxHeight.isFinite &&
             constraints.maxHeight - metrics.estimatedContentHeight >= 24;
 
         if (!fill) {
@@ -176,8 +177,7 @@ class _AlbumSectionState extends ConsumerState<AlbumSection>
   List<Widget> _buildContent(_AlbumMetrics m, {required bool fillHeight}) {
     return [
       // 封面（带切歌过渡）；填充模式下上下各留一个弹性间距
-      if (fillHeight)
-        Flexible(child: SizedBox(height: m.coverSize * 0.5)),
+      if (fillHeight) Flexible(child: SizedBox(height: m.coverSize * 0.5)),
       _animated(
         AppleMusicCover(
           coverUrl: widget.coverUrl,
@@ -186,8 +186,7 @@ class _AlbumSectionState extends ConsumerState<AlbumSection>
           customSize: m.coverSize,
         ),
       ),
-      if (fillHeight)
-        Flexible(child: SizedBox(height: m.coverSize * 0.5)),
+      if (fillHeight) Flexible(child: SizedBox(height: m.coverSize * 0.5)),
       SizedBox(height: m.gapCoverInfo),
       // 歌曲信息 + 收藏/分享（带切歌过渡）
       _animated(_buildInfoRow(m)),
@@ -488,8 +487,10 @@ class _AlbumMetrics {
     final actionColumnHeight = actionSize * 2 + 10;
 
     // 封面宽度预算：≤ 内容宽的 80%，收在 200~320
-    final widthCover =
-        math.min(contentWidth, (contentWidth * 0.8).clamp(200.0, 320.0));
+    final widthCover = math.min(
+      contentWidth,
+      (contentWidth * 0.8).clamp(200.0, 320.0),
+    );
 
     // 封面高度预算：内容高 ≈ 固定件 + 系数 × cover
     //（cover + 55% 基础间距 + 24% 主按钮，有歌词入口再 +10% 间距），
@@ -498,7 +499,8 @@ class _AlbumMetrics {
       2 * 22.0 * 1.25 + 4 + 15.0 * 1.4 + 2 + 13.5 * 1.4, // 字号封顶时的文本列
       actionColumnHeight,
     );
-    final fixedHeight = 24.0 /*纵向 padding*/ +
+    final fixedHeight =
+        24.0 /*纵向 padding*/ +
         20.0 /*进度条*/ +
         32.0 /*音量行*/ +
         (hasLyricsEntry ? 48.0 * textScale : 0.0) /*歌词入口（文字随缩放）*/ +
@@ -506,8 +508,10 @@ class _AlbumMetrics {
         infoRowAtCap * textScale;
     final coverHeightFactor = hasLyricsEntry ? 1.9 : 1.8;
     final heightCover = maxHeight.isFinite
-        ? ((maxHeight * 0.95 - fixedHeight) / coverHeightFactor)
-            .clamp(160.0, 400.0)
+        ? ((maxHeight * 0.95 - fixedHeight) / coverHeightFactor).clamp(
+            160.0,
+            400.0,
+          )
         : double.infinity;
     final coverSize = math.min(widthCover, heightCover);
 
@@ -525,13 +529,14 @@ class _AlbumMetrics {
     // 信息行实测高度（字号/缩放就位后），供「填充 vs 滚动」判定
     final infoTextHeight =
         (2 * titleFontSize * 1.25 +
-                4 +
-                artistFontSize * 1.4 +
-                2 +
-                artistFontSize * 0.9 * 1.4) *
-            textScale;
+            4 +
+            artistFontSize * 1.4 +
+            2 +
+            artistFontSize * 0.9 * 1.4) *
+        textScale;
     final infoRowHeight = math.max(infoTextHeight, actionColumnHeight);
-    final estimatedContentHeight = 24.0 +
+    final estimatedContentHeight =
+        24.0 +
         coverSize +
         coverSize * 0.55 + // 封面→信息 / 信息→进度 / 进度→控制 / 控制→音量
         infoRowHeight +

@@ -54,7 +54,10 @@ void showOptionsSheet(
               ),
               title: Text(
                 action.label,
-                style: TextStyle(color: Colors.white, fontSize: dense ? 14 : null),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: dense ? 14 : null,
+                ),
               ),
               onTap: () {
                 Navigator.pop(sheetContext);

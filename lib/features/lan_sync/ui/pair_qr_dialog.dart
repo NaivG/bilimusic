@@ -47,9 +47,7 @@ class PairQrDialog extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              Center(
-                child: QrPanel(data: _qrPayload),
-              ),
+              Center(child: QrPanel(data: _qrPayload)),
               const SizedBox(height: 16),
               _LabeledLine(
                 label: '设备名',

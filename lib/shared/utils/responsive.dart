@@ -58,7 +58,6 @@ class ResponsiveHelper {
       desktop: 16.0,
     );
   }
-
 }
 
 /// 横屏布局断点定义

@@ -191,7 +191,8 @@ class Music {
     return Uri.tryParse(url)?.hasAbsolutePath == true;
   }
 
-  String get safeCoverUrl => isValidImageUrl(coverUrl) ? coverUrl : fallbackCoverUrl;
+  String get safeCoverUrl =>
+      isValidImageUrl(coverUrl) ? coverUrl : fallbackCoverUrl;
 }
 
 class Page {

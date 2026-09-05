@@ -92,9 +92,7 @@ class NetworkConfig {
   /// 登录 / 扫码登录成功的会话 cookie（SESSDATA 等）由此单点入库；
   /// [PassportClient] 的每个已校验响应都会经过这里，调用方无需再自行解析。
   static void captureFrom(Map<String, String> responseHeaders) {
-    final cookies = parseSetCookieHeaders(
-      responseHeaders['set-cookie'] ?? '',
-    );
+    final cookies = parseSetCookieHeaders(responseHeaders['set-cookie'] ?? '');
     if (cookies.isNotEmpty) {
       updateCookies(cookies);
     }

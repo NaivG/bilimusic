@@ -16,9 +16,7 @@ class QrLoginService {
   /// 申请二维码
   /// 返回 url（二维码内容）+ qrcode_key（轮询密钥，180 秒有效）
   Future<QrLoginInfo> generate() async {
-    final data = await _passport.get(
-      '/x/passport-login/web/qrcode/generate',
-    );
+    final data = await _passport.get('/x/passport-login/web/qrcode/generate');
     return QrLoginInfo(
       url: data['url'] as String,
       qrcodeKey: data['qrcode_key'] as String,

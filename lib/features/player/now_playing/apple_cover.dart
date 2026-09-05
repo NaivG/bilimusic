@@ -155,4 +155,3 @@ class _AppleMusicCoverState extends State<AppleMusicCover>
     );
   }
 }
-
