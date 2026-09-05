@@ -9,6 +9,10 @@ import 'package:http/http.dart' as http;
 /// 统一网络请求配置
 
 class NetworkConfig {
+  /// 全应用唯一 User-Agent 字面量来源（B 站 API / 更新检查等所有出站请求共用）。
+  static const String userAgent =
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0';
+
   static Map<String, String> _biliHeaders = {};
   static Map<String, String> _cookies = {};
 
@@ -83,13 +87,25 @@ class NetworkConfig {
     }
   }
 
+  /// 从 HTTP 响应头捕获 Set-Cookie 并合入当前 cookie 表（为空则不动）。
+  ///
+  /// 登录 / 扫码登录成功的会话 cookie（SESSDATA 等）由此单点入库；
+  /// [PassportClient] 的每个已校验响应都会经过这里，调用方无需再自行解析。
+  static void captureFrom(Map<String, String> responseHeaders) {
+    final cookies = parseSetCookieHeaders(
+      responseHeaders['set-cookie'] ?? '',
+    );
+    if (cookies.isNotEmpty) {
+      updateCookies(cookies);
+    }
+  }
+
   static Future<void> init() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
 
     // 配置默认headers
     _biliHeaders = {
-      'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0',
+      'User-Agent': userAgent,
       'Referer': 'https://www.bilibili.com',
       'Access-Control-Allow-Origin': 'https://api.bilibili.com',
     };
@@ -142,14 +158,18 @@ class NetworkConfig {
     _cookies = cookies;
   }
 
+  /// 拉取 buvid3/buvid4（init 引导调用）。
+  ///
+  /// 有意不走 [BiliClient]：这是配置层自身的引导请求，不宜反向依赖构建于
+  /// 其上的客户端实例；且带特有的 429 限流重试逻辑。UA 已收敛到
+  /// [userAgent] 常量，超时与其他请求一致（10s）。
   static Future<Map<String, String>> _fetchBuvids() async {
     try {
       final response = await http
           .get(
             Uri.parse('https://api.bilibili.com/x/frontend/finger/spi'),
             headers: {
-              'User-Agent':
-                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0',
+              'User-Agent': userAgent,
               'Referer': 'https://www.bilibili.com',
               'Access-Control-Allow-Origin': 'https://api.bilibili.com',
             },

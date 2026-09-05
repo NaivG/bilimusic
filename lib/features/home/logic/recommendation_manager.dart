@@ -1,10 +1,10 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/music_category.dart';
-import 'package:bilimusic/core/network/network_config.dart';
+import 'package:bilimusic/core/network/bili_client.dart';
+import 'package:bilimusic/core/network/bili_exception.dart';
 import 'package:bilimusic/features/playlist/playlist_service.dart';
 
 class RecommendationManager {
@@ -12,6 +12,8 @@ class RecommendationManager {
       RecommendationManager._internal();
   factory RecommendationManager() => _instance;
   RecommendationManager._internal();
+
+  final BiliClient _client = BiliClient();
 
   List<Music> _recommendedList = [];
   List<Music> _guessYouLikeList = [];
@@ -67,39 +69,35 @@ class RecommendationManager {
       if (guessList.length >= 20) break; // 最多20个推荐
 
       try {
-        final response = await http.get(
-          Uri.parse(
-            'https://api.bilibili.com/x/web-interface/archive/related?bvid=${music.id}',
-          ),
-          headers: NetworkConfig.biliHeaders,
+        final raw = await _client.get(
+          '/x/web-interface/archive/related',
+          query: {'bvid': music.id},
         );
+        if (raw is! List) continue;
 
-        if (response.statusCode == 200) {
-          final json = jsonDecode(response.body);
-          if (json['code'] == 0 && json['data'] != null) {
-            final List<dynamic> relatedVideos = json['data'];
+        for (final video in raw) {
+          if (guessList.length >= 20) break;
 
-            for (var video in relatedVideos) {
-              if (guessList.length >= 20) break;
+          if (video is! Map) continue;
 
-              // 检查是否属于音乐分区 (tid 为音乐主分区或其子分区)
-              final tid = video['tid'] as int?;
-              if (isMusicCategory(tid)) {
-                final musicItem = Music.fromArchiveJson(
-                  Map<String, dynamic>.from(video),
-                );
+          // 检查是否属于音乐分区 (tid 为音乐主分区或其子分区)
+          final tid = video['tid'] as int?;
+          if (!isMusicCategory(tid)) continue;
 
-                // 避免重复
-                if (musicItem.id.isEmpty || addedIds.contains(musicItem.id)) {
-                  continue;
-                }
-                addedIds.add(musicItem.id);
+          final musicItem = Music.fromArchiveJson(
+            Map<String, dynamic>.from(video),
+          );
 
-                guessList.add(musicItem);
-              }
-            }
+          // 避免重复
+          if (musicItem.id.isEmpty || addedIds.contains(musicItem.id)) {
+            continue;
           }
+          addedIds.add(musicItem.id);
+
+          guessList.add(musicItem);
         }
+      } on BiliException catch (e) {
+        debugPrint('获取相关推荐失败: $e');
       } catch (e) {
         debugPrint('获取相关推荐失败: $e');
       }
@@ -123,32 +121,36 @@ class RecommendationManager {
   /// 更新推荐列表
   Future<void> _updateRecommendations() async {
     try {
-      final response = await http.get(
-        Uri.parse(
-          'https://api.bilibili.com/x/web-interface/region/feed/rcmd?display_id=1&request_cnt=15&from_region=1003&device=web&plat=30',
-        ),
-        headers: NetworkConfig.biliHeaders,
+      final data = await _client.get(
+        '/x/web-interface/region/feed/rcmd',
+        query: {
+          'display_id': '1',
+          'request_cnt': '15',
+          'from_region': '1003',
+          'device': 'web',
+          'plat': '30',
+        },
       );
 
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        if (json['code'] == 0 && json['data']?['archives'] != null) {
-          final List<dynamic> archives = json['data']['archives'];
-          final List<Music> recommended = [];
+      final archives = (data as Map<String, dynamic>?)?['archives'];
+      if (archives is List) {
+        final List<Music> recommended = [];
 
-          for (var item in archives) {
-            recommended.add(
-              Music.fromArchiveJson(Map<String, dynamic>.from(item)),
-            );
-          }
-
-          _recommendedList = recommended;
-          _lastUpdated = DateTime.now();
-
-          // 保存到缓存
-          await _saveToCache();
+        for (final item in archives) {
+          if (item is! Map) continue;
+          recommended.add(
+            Music.fromArchiveJson(Map<String, dynamic>.from(item)),
+          );
         }
+
+        _recommendedList = recommended;
+        _lastUpdated = DateTime.now();
+
+        // 保存到缓存
+        await _saveToCache();
       }
+    } on BiliException catch (e) {
+      debugPrint('获取推荐音乐失败: $e');
     } catch (e) {
       debugPrint('获取推荐音乐失败: $e');
     }

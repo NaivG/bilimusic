@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/features/update/models/changelog_entry.dart';
 
 class UpdateChecker {
@@ -57,22 +58,21 @@ class UpdateChecker {
 
   Map<String, dynamic>? _cachedRemoteData;
 
-  Future<String?> _fetchRemoteVersion() async {
+  /// 拉取远端 version.json（UA / 超时 / 缓存写入单点实现，避免对同一
+  /// [_remoteUrl] 的 GET 写两遍）。
+  Future<Map<String, dynamic>?> _fetchRemoteJson() async {
     try {
       final response = await http
           .get(
             Uri.parse(_remoteUrl),
-            headers: {
-              'User-Agent':
-                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0',
-            },
+            headers: {'User-Agent': NetworkConfig.userAgent},
           )
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
         _cachedRemoteData = jsonData;
-        return jsonData['version'] as String;
+        return jsonData;
       }
     } catch (e) {
       debugPrint('Failed to fetch remote version: $e');
@@ -80,34 +80,16 @@ class UpdateChecker {
     return null;
   }
 
+  Future<String?> _fetchRemoteVersion() async {
+    final jsonData = await _fetchRemoteJson();
+    final version = jsonData?['version'];
+    return version is String ? version : null;
+  }
+
   Future<List<ChangelogEntry>> _loadChangelogEntries() async {
     // Use cached remote data if available, otherwise fetch from remote
-    Map<String, dynamic> jsonData;
-    if (_cachedRemoteData != null) {
-      jsonData = _cachedRemoteData!;
-    } else {
-      try {
-        final response = await http
-            .get(
-              Uri.parse(_remoteUrl),
-              headers: {
-                'User-Agent':
-                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0',
-              },
-            )
-            .timeout(const Duration(seconds: 10));
-
-        if (response.statusCode == 200) {
-          jsonData = json.decode(response.body);
-          _cachedRemoteData = jsonData;
-        } else {
-          return [];
-        }
-      } catch (e) {
-        debugPrint('Failed to fetch remote changelog: $e');
-        return [];
-      }
-    }
+    final jsonData = _cachedRemoteData ?? await _fetchRemoteJson();
+    if (jsonData == null) return [];
 
     final List<dynamic> changelogList = jsonData['changelog'];
     return changelogList

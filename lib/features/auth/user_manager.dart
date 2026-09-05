@@ -1,20 +1,25 @@
 import 'dart:convert';
 
 import 'package:flutter/cupertino.dart' show ChangeNotifier, debugPrint;
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:bilimusic/core/network/bili_client.dart';
+import 'package:bilimusic/core/network/bili_exception.dart';
 import 'package:bilimusic/features/auth/models/user_info.dart';
 import 'package:bilimusic/core/network/network_config.dart';
 
 /// 用户管理器
 /// 职责：
 ///   - 从 NetworkConfig 的 cookie 判断登录状态
-///   - 调用 /x/web-interface/nav 获取用户信息
+///   - 经 BiliClient 调用 /x/web-interface/nav 获取用户信息
 ///   - 内存缓存 + SharedPreferences 持久化，避免短时内重复请求
 class UserManager extends ChangeNotifier {
   static const String _prefsKey = 'cached_user_info';
   static const Duration _defaultTtl = Duration(minutes: 5);
+
+  final BiliClient _client;
+
+  UserManager({BiliClient? client}) : _client = client ?? BiliClient();
 
   UserInfo? _userInfo;
   bool _isLoggedIn = false;
@@ -92,23 +97,11 @@ class UserManager extends ChangeNotifier {
 
   Future<UserInfo?> _fetchFromApi() async {
     try {
-      final response = await http.get(
-        Uri.parse('https://api.bilibili.com/x/web-interface/nav'),
-        headers: NetworkConfig.biliHeaders,
-      );
-
-      if (response.statusCode != 200) {
-        debugPrint('[UserManager] API 请求失败: ${response.statusCode}');
+      final data = await _client.get('/x/web-interface/nav');
+      if (data is! Map<String, dynamic>) {
+        debugPrint('[UserManager] API 返回异常: data 非对象');
         return _userInfo;
       }
-
-      final json = jsonDecode(response.body);
-      if (json['code'] != 0 || json['data'] == null) {
-        debugPrint('[UserManager] API 返回异常: ${json['code']}');
-        return _userInfo;
-      }
-
-      final data = json['data'] as Map<String, dynamic>;
 
       // 确认登录有效
       if (data['isLogin'] != true) {
@@ -122,8 +115,11 @@ class UserManager extends ChangeNotifier {
       await _persist();
       notifyListeners();
       return _userInfo;
+    } on BiliException catch (e) {
+      debugPrint('[UserManager] 获取用户信息失败: $e');
+      return _userInfo;
     } catch (e) {
-      debugPrint('[UserManager] 获取用户信息网络异常: $e');
+      debugPrint('[UserManager] 获取用户信息异常: $e');
       return _userInfo;
     }
   }

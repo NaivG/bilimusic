@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:crypto/crypto.dart';
-import 'package:bilimusic/core/network/network_config.dart';
+import 'package:bilimusic/core/network/bili_exception.dart';
+import 'package:bilimusic/core/network/passport_client.dart';
 import 'package:bilimusic/features/auth/captcha_helper.dart';
 import 'package:bilimusic/shared/utils/platform_helper.dart';
 import 'package:bilimusic/features/auth/ui/qr_login_widget.dart';
@@ -39,11 +39,18 @@ class _LoginPageState extends State<LoginPage> {
   List<Map<String, dynamic>> _countries = [];
 
   final CaptchaHelper _captchaHelper = CaptchaHelper();
+  final PassportClient _passport = PassportClient();
 
   @override
   void initState() {
     super.initState();
     _loadCountries();
+  }
+
+  @override
+  void dispose() {
+    _passport.close();
+    super.dispose();
   }
 
   // 加载国家列表
@@ -53,44 +60,36 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      final response = await http.get(
-        Uri.parse('https://passport.bilibili.com/web/generic/country/list'),
-        headers: NetworkConfig.biliHeaders,
+      final data = await _passport.get('/web/generic/country/list');
+
+      final commonCountries = List<Map<String, dynamic>>.from(
+        data['common'].map(
+          (item) => {
+            'id': item['id'], // 数据库ID，用于提交到API
+            'cname': item['cname'],
+            'country_id': item['country_id'], // 国际冠字码，用于显示
+          },
+        ),
       );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['code'] == 0) {
-          final commonCountries = List<Map<String, dynamic>>.from(
-            data['data']['common'].map(
-              (item) => {
-                'id': item['id'], // 数据库ID，用于提交到API
-                'cname': item['cname'],
-                'country_id': item['country_id'], // 国际冠字码，用于显示
-              },
-            ),
-          );
+      final otherCountries = List<Map<String, dynamic>>.from(
+        data['others'].map(
+          (item) => {
+            'id': item['id'], // 数据库ID，用于提交到API
+            'cname': item['cname'],
+            'country_id': item['country_id'], // 国际冠字码，用于显示
+          },
+        ),
+      );
 
-          final otherCountries = List<Map<String, dynamic>>.from(
-            data['data']['others'].map(
-              (item) => {
-                'id': item['id'], // 数据库ID，用于提交到API
-                'cname': item['cname'],
-                'country_id': item['country_id'], // 国际冠字码，用于显示
-              },
-            ),
-          );
-
-          setState(() {
-            _countries = [...commonCountries, ...otherCountries];
-            if (_countries.isNotEmpty) {
-              _selectedCountry = _countries[0]['cname'];
-              _countryId = _countries[0]['country_id'];
-              _cid = _countries[0]['id']; // 设置数据库ID
-            }
-          });
+      setState(() {
+        _countries = [...commonCountries, ...otherCountries];
+        if (_countries.isNotEmpty) {
+          _selectedCountry = _countries[0]['cname'];
+          _countryId = _countries[0]['country_id'];
+          _cid = _countries[0]['id']; // 设置数据库ID
         }
-      }
+      });
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -173,44 +172,28 @@ class _LoginPageState extends State<LoginPage> {
         'tel': _phoneNumber,
         'source': 'main-fe-header',
         'token': _captchaToken,
-        'challenge': validateResult['geetest_challenge'],
+        'challenge': validateResult['geetest_challenge'] ?? '',
         'validate': validateResult['geetest_validate'] ?? '',
         'seccode': validateResult['geetest_seccode'] ?? '',
       };
       debugPrint(requester.toString());
-      final header = {
-        ...NetworkConfig.biliHeaders,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Host': 'passport.bilibili.com',
-      };
-      debugPrint(header.toString());
-      final response = await http.post(
-        Uri.parse(
-          'https://passport.bilibili.com/x/passport-login/web/sms/send',
-        ),
-        headers: header,
+      final data = await _passport.postForm(
+        '/x/passport-login/web/sms/send',
         body: requester,
       );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['code'] == 0) {
-          setState(() {
-            _isCaptchaSent = true;
-            _captchaKey = data['data']['captcha_key'];
-          });
+      setState(() {
+        _isCaptchaSent = true;
+        _captchaKey = data['captcha_key'];
+      });
 
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('短信验证码已发送')));
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('发送验证码失败: ${data['message']}(${data['code']})'),
-            ),
-          );
-        }
-      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('短信验证码已发送')));
+    } on BiliException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('发送验证码失败: ${e.message}(${e.code})')),
+      );
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -236,14 +219,8 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      final response = await http.post(
-        Uri.parse(
-          'https://passport.bilibili.com/x/passport-login/web/login/sms',
-        ),
-        headers: {
-          ...NetworkConfig.biliHeaders,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
+      await _passport.postForm(
+        '/x/passport-login/web/login/sms',
         body: {
           'cid': _countryId, // 使用数据库ID而不是国际冠字码
           'tel': _phoneNumber,
@@ -254,27 +231,15 @@ class _LoginPageState extends State<LoginPage> {
         },
       );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['code'] == 0) {
-          final cookies = NetworkConfig.parseSetCookieHeaders(
-            response.headers['set-cookie'] ?? '',
-          );
-          if (cookies.isNotEmpty) {
-            NetworkConfig.updateCookies(cookies);
-          }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('登录成功')));
 
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('登录成功')));
-
-          ShellPageManager.instance.pop(); // 返回上一页
-        } else {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('登录失败: ${data['message']}')));
-        }
-      }
+      ShellPageManager.instance.pop(); // 返回上一页
+    } on BiliException catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('登录失败: ${e.message}')));
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -289,17 +254,8 @@ class _LoginPageState extends State<LoginPage> {
   // 获取公钥和盐
   Future<Map<String, dynamic>?> _getPublicKey() async {
     try {
-      final response = await http.get(
-        Uri.parse('https://passport.bilibili.com/x/passport-login/web/key'),
-        headers: NetworkConfig.biliHeaders,
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['code'] == 0) {
-          return {'hash': data['data']['hash'], 'key': data['data']['key']};
-        }
-      }
+      final data = await _passport.get('/x/passport-login/web/key');
+      return {'hash': data['hash'], 'key': data['key']};
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -384,46 +340,29 @@ class _LoginPageState extends State<LoginPage> {
           .toString();
 
       // 4. 登录
-      final response = await http.post(
-        Uri.parse('https://passport.bilibili.com/x/passport-login/web/login'),
-        headers: {
-          ...NetworkConfig.biliHeaders,
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Host': 'passport.bilibili.com',
-        },
+      await _passport.postForm(
+        '/x/passport-login/web/login',
         body: {
           'username': _phoneNumber,
           'password': hashedPassword,
           'keep': '0',
           'token': _captchaToken,
-          'challenge': validateResult['geetest_challenge'],
+          'challenge': validateResult['geetest_challenge'] ?? '',
           'validate': validateResult['geetest_validate'] ?? '',
           'seccode': validateResult['geetest_seccode'] ?? '',
           'source': 'main-fe-header',
         },
       );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['code'] == 0) {
-          final cookies = NetworkConfig.parseSetCookieHeaders(
-            response.headers['set-cookie'] ?? '',
-          );
-          if (cookies.isNotEmpty) {
-            NetworkConfig.updateCookies(cookies);
-          }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('登录成功')));
 
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('登录成功')));
-
-          ShellPageManager.instance.pop(); // 返回上一页
-        } else {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('登录失败: ${data['message']}')));
-        }
-      }
+      ShellPageManager.instance.pop(); // 返回上一页
+    } on BiliException catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('登录失败: ${e.message}')));
     } catch (e) {
       ScaffoldMessenger.of(
         context,

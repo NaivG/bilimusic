@@ -1,11 +1,11 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:gt3_flutter_plugin/gt3_flutter_plugin.dart';
-import 'package:bilimusic/core/network/network_config.dart';
+import 'package:bilimusic/core/network/bili_exception.dart';
+import 'package:bilimusic/core/network/passport_client.dart';
 
 class CaptchaHelper {
   static final CaptchaHelper _instance = CaptchaHelper._internal();
+  final PassportClient _passport = PassportClient();
   Gt3FlutterPlugin? _captcha;
   CaptchaCallback? _callback;
 
@@ -52,26 +52,17 @@ class CaptchaHelper {
   }
 
   Future<Map<String, dynamic>?> getCaptchaData() async {
-    const String captchaUrl =
-        'https://passport.bilibili.com/x/passport-login/captcha?source=main_web';
-
     try {
-      final response = await http.get(
-        Uri.parse(captchaUrl),
-        headers: NetworkConfig.biliHeaders,
+      final data = await _passport.get(
+        '/x/passport-login/captcha',
+        query: {'source': 'main_web'},
       );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['code'] == 0) {
-          return {
-            'token': data['data']['token'],
-            'gt': data['data']['geetest']['gt'],
-            'challenge': data['data']['geetest']['challenge'],
-          };
-        }
-      }
-    } catch (e) {
+      return {
+        'token': data['token'],
+        'gt': data['geetest']['gt'],
+        'challenge': data['geetest']['challenge'],
+      };
+    } on BiliException catch (e) {
       debugPrint("获取验证码数据失败: $e");
     }
 

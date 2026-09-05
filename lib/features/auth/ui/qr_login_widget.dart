@@ -6,7 +6,6 @@ import 'package:pretty_qr_code/pretty_qr_code.dart';
 
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/features/auth/qr_login_service.dart';
-import 'package:bilimusic/core/network/network_config.dart';
 
 /// 扫码登录面板
 /// 展示二维码并轮询扫码状态；登录成功时写 cookie、刷新 UserManager 并回调 [onSuccess]。
@@ -102,9 +101,7 @@ class _QrLoginWidgetState extends ConsumerState<QrLoginWidget> {
       if (!mounted) return;
 
       if (result.status == QrPollStatus.success) {
-        if (result.cookies.isNotEmpty) {
-          NetworkConfig.updateCookies(result.cookies);
-        }
+        // Set-Cookie 已由 PassportClient 落地
         _stopTimers();
         setState(() => _status = QrPollStatus.success);
         // 通知 UserManager 刷新用户信息

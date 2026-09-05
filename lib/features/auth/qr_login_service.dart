@@ -1,35 +1,24 @@
-import 'dart:async';
-import 'dart:convert';
-
-import 'package:http/http.dart' as http;
-
-import 'package:bilimusic/core/network/network_config.dart';
+import 'package:bilimusic/core/network/passport_client.dart';
 
 /// 二维码登录服务
 /// 封装 B 站 web 端扫码登录的两个接口
 ///   - generate(): https://passport.bilibili.com/x/passport-login/web/qrcode/generate
 ///   - poll():    https://passport.bilibili.com/x/passport-login/web/qrcode/poll?qrcode_key=...
+///
+/// Set-Cookie 由 [PassportClient] 统一落地（登录成功即完成会话写入），
+/// 调用方无需再自行捕获；HTTP / 业务错误统一为 BiliException。
 class QrLoginService {
-  static const String _generateUrl =
-      'https://passport.bilibili.com/x/passport-login/web/qrcode/generate';
-  static const String _pollUrl =
-      'https://passport.bilibili.com/x/passport-login/web/qrcode/poll';
+  QrLoginService({PassportClient? client})
+    : _passport = client ?? PassportClient();
+
+  final PassportClient _passport;
 
   /// 申请二维码
   /// 返回 url（二维码内容）+ qrcode_key（轮询密钥，180 秒有效）
   Future<QrLoginInfo> generate() async {
-    final response = await http.get(
-      Uri.parse(_generateUrl),
-      headers: NetworkConfig.biliHeaders,
+    final data = await _passport.get(
+      '/x/passport-login/web/qrcode/generate',
     );
-    if (response.statusCode != 200) {
-      throw QrLoginException('申请二维码失败: HTTP ${response.statusCode}');
-    }
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    if (body['code'] != 0) {
-      throw QrLoginException('申请二维码失败: ${body['message']}');
-    }
-    final data = body['data'] as Map<String, dynamic>;
     return QrLoginInfo(
       url: data['url'] as String,
       qrcodeKey: data['qrcode_key'] as String,
@@ -37,28 +26,13 @@ class QrLoginService {
   }
 
   /// 轮询一次状态
-  /// 返回 QrPollResult 包含 status 和 Set-Cookie 头（登录成功时携带）
   Future<QrPollResult> poll(String qrcodeKey) async {
-    final response = await http.get(
-      Uri.parse('$_pollUrl?qrcode_key=$qrcodeKey'),
-      headers: NetworkConfig.biliHeaders,
+    final data = await _passport.get(
+      '/x/passport-login/web/qrcode/poll',
+      query: {'qrcode_key': qrcodeKey},
     );
-    if (response.statusCode != 200) {
-      throw QrLoginException('轮询失败: HTTP ${response.statusCode}');
-    }
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    if (body['code'] != 0) {
-      throw QrLoginException('轮询失败: ${body['message']}');
-    }
-    final data = (body['data'] as Map<String, dynamic>?) ?? <String, dynamic>{};
     final statusCode = (data['code'] as num?)?.toInt() ?? -1;
-    final status = QrPollStatus.fromCode(statusCode);
-    return QrPollResult(
-      status: status,
-      cookies: NetworkConfig.parseSetCookieHeaders(
-        response.headers['set-cookie'] ?? '',
-      ),
-    );
+    return QrPollResult(status: QrPollStatus.fromCode(statusCode));
   }
 }
 
@@ -102,13 +76,5 @@ enum QrPollStatus {
 
 class QrPollResult {
   final QrPollStatus status;
-  final Map<String, String> cookies;
-  const QrPollResult({required this.status, required this.cookies});
-}
-
-class QrLoginException implements Exception {
-  final String message;
-  QrLoginException(this.message);
-  @override
-  String toString() => message;
+  const QrPollResult({required this.status});
 }

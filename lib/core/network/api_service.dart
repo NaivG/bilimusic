@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart' show debugPrint;
 
 import 'package:bilimusic/core/network/bili_client.dart';
 import 'package:bilimusic/core/network/bili_exception.dart';
+import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/domain/bili_fav_folder.dart';
 import 'package:bilimusic/domain/bili_fav_resource.dart';
@@ -156,8 +157,7 @@ class ApiService {
         audioUrl,
         key: '${music.id}_$cid',
         authHeaders: {
-          'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
+          'User-Agent': NetworkConfig.userAgent,
           'Referer': 'https://www.bilibili.com',
         },
       );
