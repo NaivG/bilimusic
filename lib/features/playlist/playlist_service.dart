@@ -18,7 +18,7 @@ import 'package:bilimusic/domain/playlist_tag.dart';
 ///
 /// - 当前播放队列（被 PlayerCoordinator 写入）
 /// - 收藏列表 + 播放历史（被 UI + 协调器写入）
-/// - 用户歌单元数据 + 歌曲列表（被 PlaylistManager / FavSyncManager 写入）
+/// - 用户歌单元数据 + 歌曲列表（被 FavSyncManager / UI 写入）
 /// - 自定义标签
 ///
 /// 底层是 `AppDatabase`（`playlist.db`）。每次写操作落盘后立刻重新加载该集合的内存镜像

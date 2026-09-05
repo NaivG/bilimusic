@@ -1,13 +1,15 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:bilimusic/features/player/models/player_state.dart';
 import 'package:bilimusic/features/player/logic/player_coordinator.dart';
+import 'package:bilimusic/features/playlist/playlist_service.dart';
 
 /// 音频处理器
 /// 适配 audio_service 接口
 class AudioHandlerConnector extends BaseAudioHandler {
   final PlayerCoordinator playerCoordinator;
+  final PlaylistService playlistService;
 
-  AudioHandlerConnector(this.playerCoordinator);
+  AudioHandlerConnector(this.playerCoordinator, this.playlistService);
 
   @override
   Future<void> play() async {
@@ -63,11 +65,8 @@ class AudioHandlerConnector extends BaseAudioHandler {
       case 'favorite':
         final currentMusic = playerCoordinator.currentMusic;
         if (currentMusic != null) {
-          if (playerCoordinator.isFavorite(currentMusic)) {
-            await playerCoordinator.removeFromFavorites(currentMusic);
-          } else {
-            await playerCoordinator.addToFavorites(currentMusic);
-          }
+          // 通知栏的收藏态由 PlayerCoordinator 监听 favorites 变化刷新
+          await playlistService.toggleFavorite(currentMusic);
         }
         break;
       default:

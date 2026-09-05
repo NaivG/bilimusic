@@ -142,12 +142,17 @@ final isFavoriteProvider = Provider.family<bool, Music>((ref, music) {
   return favorites.any((m) => m.id == music.id && m.cid == music.cid);
 });
 
-/// 播放列表命令 - 暴露给 UI 的方法面（替代 UI 直调 sl.playerCoordinator）。
+/// 播放列表命令 - 收藏/队列等纯数据操作的单一 UI 门面（直连 PlaylistService）。
+///
+/// 播放控制（playMusic/pause/…）与清空队列（需停播放器）走 `playbackCommandsProvider`；
+/// 通知栏的收藏态由 PlayerCoordinator 监听 favorites 变化刷新，本门面无需回调。
 class PlaylistCommands extends Notifier<void> {
   PlaylistService get _ps => ref.read(_playlistServiceProvider);
 
   @override
   void build() {}
+
+  // ---- 当前播放队列（纯数据操作，通知由 Coordinator 监听 currentPlaylist 刷新） ----
 
   Future<void> addToPlaylist(Music music) => _ps.addToPlaylist(music);
 
@@ -156,23 +161,23 @@ class PlaylistCommands extends Notifier<void> {
 
   Future<void> removeFromPlaylist(Music music) => _ps.removeFromPlaylist(music);
 
-  Future<void> clearPlaylist() => _ps.clearPlaylist();
-
-  Future<void> deletePlaylist(String playlistId) =>
-      _ps.deletePlaylist(playlistId);
-
   Future<void> moveInPlaylist(int from, int to) => _ps.moveInPlaylist(from, to);
+
+  // ---- 收藏 ----
+
+  bool isFavorite(Music music) => _ps.isFavorite(music);
+
+  Future<bool> toggleFavorite(Music music) => _ps.toggleFavorite(music);
 
   Future<void> addToFavorites(Music music) => _ps.addToFavorites(music);
 
   Future<void> removeFromFavorites(Music music) =>
       _ps.removeFromFavorites(music);
 
-  bool isFavorite(Music music) => _ps.isFavorite(music);
+  // ---- 用户歌单 ----
 
-  Future<void> toggleFavorite(Music music) => _ps.toggleFavorite(music);
-
-  Future<void> addToPlayHistory(Music music) => _ps.addToPlayHistory(music);
+  Future<void> deletePlaylist(String playlistId) =>
+      _ps.deletePlaylist(playlistId);
 }
 
 final playlistCommandsProvider = NotifierProvider<PlaylistCommands, void>(

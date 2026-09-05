@@ -18,7 +18,6 @@ import 'package:bilimusic/features/home/logic/recommendation_manager.dart';
 import 'package:bilimusic/features/settings/settings_manager.dart';
 import 'package:bilimusic/features/auth/user_manager.dart';
 import 'package:bilimusic/features/fav_sync/fav_sync_manager.dart';
-import 'package:bilimusic/features/playlist/playlist_manager.dart';
 
 /// 应用级服务 / 管理器的依赖容器。
 ///
@@ -59,13 +58,6 @@ final playlistServiceProvider = Provider<PlaylistService>((ref) {
   return svc;
 });
 
-final playlistManagerProvider = Provider<PlaylistManager>((ref) {
-  final mgr = PlaylistManager();
-  // 复用上面的 playlistService 实例，保持单一真理源。
-  mgr.initialize(service: ref.watch(playlistServiceProvider));
-  return mgr;
-});
-
 // ==================== 设置 / 用户 / 收藏同步 ====================
 
 final settingsManagerProvider = Provider<SettingsManager>((ref) {
@@ -83,7 +75,7 @@ final userManagerProvider = Provider<UserManager>((ref) {
 final favSyncManagerProvider = Provider<FavSyncManager>((ref) {
   final mgr = FavSyncManager(
     api: ref.watch(apiServiceProvider),
-    playlistManager: ref.watch(playlistManagerProvider),
+    playlistService: ref.watch(playlistServiceProvider),
   );
   mgr.initialize();
   return mgr;

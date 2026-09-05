@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/domain/search_result.dart';
 import 'package:bilimusic/features/player/logic/player_coordinator.dart';
-import 'package:bilimusic/features/playlist/playlist_manager.dart';
+import 'package:bilimusic/features/playlist/playlist_providers.dart';
+import 'package:bilimusic/features/playlist/playlist_service.dart';
 import 'package:bilimusic/shared/widgets/long_press_menu.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
 import 'package:super_context_menu/super_context_menu.dart';
@@ -13,7 +14,8 @@ import 'package:bilimusic/core/network/network_config.dart';
 class SearchResultCard extends StatefulWidget {
   final SearchResult result;
   final PlayerCoordinator playerCoordinator;
-  final PlaylistManager? playlistManager;
+  final PlaylistCommands commands;
+  final PlaylistService playlistService;
   final VoidCallback? onTap;
   final double? width;
 
@@ -21,7 +23,8 @@ class SearchResultCard extends StatefulWidget {
     super.key,
     required this.result,
     required this.playerCoordinator,
-    this.playlistManager,
+    required this.commands,
+    required this.playlistService,
     this.onTap,
     this.width,
   });
@@ -87,7 +90,8 @@ class _SearchResultCardState extends State<SearchResultCard>
               context: context,
               music: music,
               playerCoordinator: widget.playerCoordinator,
-              playlistManager: widget.playlistManager,
+              commands: widget.commands,
+              playlistService: widget.playlistService,
             );
           },
           child: GestureDetector(
@@ -355,7 +359,8 @@ class _SearchResultCardState extends State<SearchResultCard>
 class SearchResultsGrid extends StatelessWidget {
   final List<SearchResult> results;
   final PlayerCoordinator playerCoordinator;
-  final PlaylistManager? playlistManager;
+  final PlaylistCommands commands;
+  final PlaylistService playlistService;
   final Function(SearchResult) onResultTap;
   final double? itemWidth;
 
@@ -363,7 +368,8 @@ class SearchResultsGrid extends StatelessWidget {
     super.key,
     required this.results,
     required this.playerCoordinator,
-    this.playlistManager,
+    required this.commands,
+    required this.playlistService,
     required this.onResultTap,
     this.itemWidth,
   });
@@ -388,7 +394,8 @@ class SearchResultsGrid extends StatelessWidget {
         return SearchResultCard(
           result: result,
           playerCoordinator: playerCoordinator,
-          playlistManager: playlistManager,
+          commands: commands,
+          playlistService: playlistService,
           onTap: () => onResultTap(result),
           width: itemWidth,
         );

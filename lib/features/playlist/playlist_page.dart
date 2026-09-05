@@ -64,9 +64,9 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
           );
         }
       } else if (widget.playlistId != null) {
-        // 从管理器加载歌单详情
+        // 从服务加载歌单详情
         final detail = await ref
-            .read(playlistManagerProvider)
+            .read(playlistServiceProvider)
             .getPlaylistDetail(widget.playlistId!);
         if (detail != null) {
           _currentPlaylist = detail;
@@ -77,7 +77,7 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
       // 检查是否已收藏
       if (_songs.isNotEmpty) {
         _isFavorited = ref
-            .read(playlistManagerProvider)
+            .read(playlistServiceProvider)
             .isFavorite(_songs.first);
       }
     } catch (e) {
@@ -132,12 +132,13 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
   Future<void> _playAll() async {
     if (_songs.isEmpty) return;
 
-    final commands = ref.read(playbackCommandsProvider.notifier);
-    await commands.clearPlaylist();
-    await commands.addAllToPlaylist(_songs);
+    await ref.read(playbackCommandsProvider.notifier).clearPlaylist();
+    await ref
+        .read(playlistCommandsProvider.notifier)
+        .addAllToPlaylist(_songs);
 
     if (_songs.isNotEmpty) {
-      await commands.playMusic(_songs.first);
+      await ref.read(playbackCommandsProvider.notifier).playMusic(_songs.first);
     }
   }
 
@@ -146,13 +147,16 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
     if (_songs.isEmpty) return;
 
     final shuffledSongs = List<Music>.from(_songs)..shuffle(Random());
-    final commands = ref.read(playbackCommandsProvider.notifier);
 
-    await commands.clearPlaylist();
-    await commands.addAllToPlaylist(shuffledSongs);
+    await ref.read(playbackCommandsProvider.notifier).clearPlaylist();
+    await ref
+        .read(playlistCommandsProvider.notifier)
+        .addAllToPlaylist(shuffledSongs);
 
     if (shuffledSongs.isNotEmpty) {
-      await commands.playMusic(shuffledSongs.first);
+      await ref
+          .read(playbackCommandsProvider.notifier)
+          .playMusic(shuffledSongs.first);
     }
   }
 
@@ -162,7 +166,7 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
 
     final music = _songs.first;
     final newState = await ref
-        .read(playlistManagerProvider)
+        .read(playlistCommandsProvider.notifier)
         .toggleFavorite(music);
 
     setState(() {
@@ -181,9 +185,8 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
 
   /// 播放歌曲
   Future<void> _playSong(Music music) async {
-    final commands = ref.read(playbackCommandsProvider.notifier);
-    await commands.addToPlaylist(music);
-    await commands.playMusic(music);
+    await ref.read(playlistCommandsProvider.notifier).addToPlaylist(music);
+    await ref.read(playbackCommandsProvider.notifier).playMusic(music);
   }
 
   /// 从歌单移除歌曲
@@ -209,7 +212,7 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
     );
 
     if (confirm == true) {
-      await ref.read(playlistManagerProvider).removeSongsFromPlaylist(
+      await ref.read(playlistServiceProvider).removeSongsFromPlaylist(
         widget.playlistId!,
         [music],
       );

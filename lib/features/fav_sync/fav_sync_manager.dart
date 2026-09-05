@@ -7,7 +7,7 @@ import 'package:bilimusic/domain/bili_fav_folder.dart';
 import 'package:bilimusic/domain/bili_fav_resource.dart';
 import 'package:bilimusic/features/fav_sync/models/fav_import_record.dart';
 import 'package:bilimusic/core/network/api_service.dart';
-import 'package:bilimusic/features/playlist/playlist_manager.dart';
+import 'package:bilimusic/features/playlist/playlist_service.dart';
 
 /// Bilibili 收藏夹同步管理器
 /// 职责：
@@ -19,16 +19,16 @@ class FavSyncManager extends ChangeNotifier {
   static const String _recordsKey = 'fav_import_records';
 
   final ApiService _api;
-  final PlaylistManager _playlistManager;
+  final PlaylistService _playlistService;
 
   List<FavImportRecord> _records = [];
   bool _isLoading = false;
 
   FavSyncManager({
     required ApiService api,
-    required PlaylistManager playlistManager,
+    required PlaylistService playlistService,
   }) : _api = api,
-       _playlistManager = playlistManager;
+       _playlistService = playlistService;
 
   /// 当前导入记录
   List<FavImportRecord> get records => List.unmodifiable(_records);
@@ -107,8 +107,8 @@ class FavSyncManager extends ChangeNotifier {
   }) async {
     // 1. 创建本地歌单
     final playlistName = folder.title;
-    final playlist = await _playlistManager.createPlaylist(
-      playlistName,
+    final playlist = await _playlistService.createPlaylist(
+      name: playlistName,
       source: PlaylistSource.imported,
       description:
           '从 Bilibili 收藏夹导入 · ${folder.folderType == BiliFavFolderType.created ? "创建的" : "收藏的"}',
@@ -166,9 +166,9 @@ class FavSyncManager extends ChangeNotifier {
     }
 
     // 清空旧歌曲
-    await _playlistManager.removeSongsFromPlaylist(
+    await _playlistService.removeSongsFromPlaylist(
       record.playlistId,
-      await _playlistManager.loadPlaylistSongs(record.playlistId),
+      await _playlistService.loadPlaylistSongs(record.playlistId),
     );
 
     // 重新导入
@@ -188,9 +188,9 @@ class FavSyncManager extends ChangeNotifier {
       if (record.status != ImportStatus.synced) continue;
 
       // 清空并重新导入
-      await _playlistManager.removeSongsFromPlaylist(
+      await _playlistService.removeSongsFromPlaylist(
         record.playlistId,
-        await _playlistManager.loadPlaylistSongs(record.playlistId),
+        await _playlistService.loadPlaylistSongs(record.playlistId),
       );
 
       final result = await _collectAndImportSongs(
@@ -266,7 +266,7 @@ class FavSyncManager extends ChangeNotifier {
 
       // 批量添加到歌单
       if (songs.isNotEmpty) {
-        await _playlistManager.addSongsToPlaylist(playlistId, songs);
+        await _playlistService.addSongsToPlaylist(playlistId, songs);
       }
 
       onProgress?.call(successCount + failedCount, totalEstimated, failedCount);

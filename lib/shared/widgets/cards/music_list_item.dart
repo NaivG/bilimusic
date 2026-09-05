@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/player/logic/player_coordinator.dart';
-import 'package:bilimusic/features/playlist/playlist_manager.dart';
+import 'package:bilimusic/features/playlist/playlist_providers.dart';
+import 'package:bilimusic/features/playlist/playlist_service.dart';
 import 'package:bilimusic/shared/widgets/cards/common_music_list_tile.dart';
 
 /// 列表样式组件
@@ -12,7 +13,8 @@ class MusicListItem extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onFavoriteToggle;
   final PlayerCoordinator playerCoordinator;
-  final PlaylistManager? playlistManager;
+  final PlaylistCommands commands;
+  final PlaylistService playlistService;
   final bool showCover;
   final bool showDetails;
   final bool showPageIndicator;
@@ -21,7 +23,8 @@ class MusicListItem extends StatelessWidget {
     super.key,
     required this.music,
     required this.playerCoordinator,
-    this.playlistManager,
+    required this.commands,
+    required this.playlistService,
     this.index,
     this.onTap,
     this.onFavoriteToggle,
@@ -35,7 +38,8 @@ class MusicListItem extends StatelessWidget {
     return CommonMusicListTile(
       music: music,
       playerCoordinator: playerCoordinator,
-      playlistManager: playlistManager,
+      commands: commands,
+      playlistService: playlistService,
       index: index,
       onTap: onTap,
       onFavoriteToggle: onFavoriteToggle,

@@ -5,6 +5,7 @@ import 'package:bilimusic/domain/music.dart' as music_model;
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/features/search/ui/search_type_tabs.dart';
 import 'package:bilimusic/features/search/ui/search_empty_state.dart';
+import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/shared/widgets/cards/music_list_item.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
@@ -394,8 +395,6 @@ class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
         padding: const EdgeInsets.only(bottom: _cardSpacing),
         child: _SearchResultCard(
           result: result,
-          playerCoordinator: ref.read(playerCoordinatorProvider),
-          playlistManager: ref.read(playlistManagerProvider),
           onTap: () => _playResult(result),
         ),
       );
@@ -417,7 +416,8 @@ class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
     return MusicListItem(
       music: music,
       playerCoordinator: ref.read(playerCoordinatorProvider),
-      playlistManager: ref.read(playlistManagerProvider),
+      commands: ref.read(playlistCommandsProvider.notifier),
+      playlistService: ref.read(playlistServiceProvider),
       onTap: () => _navigateToPlaylist(result, pages),
       showCover: true,
       showDetails: true,
@@ -429,7 +429,8 @@ class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
     return MusicListItem(
       music: result.toMusic(pages: _pagesCache[result.id]),
       playerCoordinator: ref.read(playerCoordinatorProvider),
-      playlistManager: ref.read(playlistManagerProvider),
+      commands: ref.read(playlistCommandsProvider.notifier),
+      playlistService: ref.read(playlistServiceProvider),
       onTap: () => _playResult(result),
     );
   }
@@ -478,14 +479,10 @@ class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
 /// 简化版搜索结果卡片（用于搜索结果页）
 class _SearchResultCard extends StatelessWidget {
   final SearchResult result;
-  final dynamic playerCoordinator;
-  final dynamic playlistManager;
   final VoidCallback? onTap;
 
   const _SearchResultCard({
     required this.result,
-    required this.playerCoordinator,
-    required this.playlistManager,
     this.onTap,
   });
 

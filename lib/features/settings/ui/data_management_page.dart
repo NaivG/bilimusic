@@ -44,9 +44,9 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
   Future<void> _loadAppData() async {
     final prefs = await SharedPreferences.getInstance();
 
-    final historyCount = ref.read(playlistManagerProvider).historyCount;
-    final favCount = ref.read(playlistManagerProvider).favoritesCount;
-    final playlistCount = ref.read(playlistManagerProvider).userPlaylistsCount;
+    final historyCount = ref.read(playlistServiceProvider).historyCount;
+    final favCount = ref.read(playlistServiceProvider).favoritesCount;
+    final playlistCount = ref.read(playlistServiceProvider).userPlaylistsCount;
 
     // 登录状态
     final cookies = prefs.getString('cookies');
@@ -369,7 +369,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
 
     if (confirm == true) {
       try {
-        await ref.read(playlistManagerProvider).clearAllUserData();
+        await ref.read(playlistServiceProvider).clearAllUserData();
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.remove('cookies');

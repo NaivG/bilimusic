@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/player/logic/player_coordinator.dart';
-import 'package:bilimusic/features/playlist/playlist_manager.dart';
+import 'package:bilimusic/features/playlist/playlist_providers.dart';
+import 'package:bilimusic/features/playlist/playlist_service.dart';
 import 'package:bilimusic/shared/widgets/long_press_menu.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
@@ -15,7 +16,8 @@ import 'package:bilimusic/shared/theme/app_tokens.dart';
 class CommonMusicListTile extends StatefulWidget {
   final Music music;
   final PlayerCoordinator playerCoordinator;
-  final PlaylistManager? playlistManager;
+  final PlaylistCommands commands;
+  final PlaylistService playlistService;
   final int? index;
   final VoidCallback? onTap;
   final VoidCallback? onFavoriteToggle;
@@ -28,7 +30,8 @@ class CommonMusicListTile extends StatefulWidget {
     super.key,
     required this.music,
     required this.playerCoordinator,
-    this.playlistManager,
+    required this.commands,
+    required this.playlistService,
     this.index,
     this.onTap,
     this.onFavoriteToggle,
@@ -66,7 +69,8 @@ class _CommonMusicListTileState extends State<CommonMusicListTile> {
             context: context,
             music: widget.music,
             playerCoordinator: widget.playerCoordinator,
-            playlistManager: widget.playlistManager,
+            commands: widget.commands,
+            playlistService: widget.playlistService,
           ),
           child: Material(
             color: Colors.transparent,

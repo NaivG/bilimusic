@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/shared/widgets/long_press_menu.dart';
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/features/auth/user_manager.dart';
-import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/domain/playlist.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/core/network/network_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -63,7 +63,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   Future<void> _loadData() async {
     final playHistory = ref.read(playHistoryProvider);
     final favorites = ref.read(favoritesProvider);
-    final playlists = ref.read(playlistManagerProvider).getAllPlaylists();
+    final playlists = ref.read(userPlaylistsProvider);
 
     setState(() {
       _playHistoryCount = playHistory.length;
@@ -399,7 +399,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   }
 
   void _showPlaylists() {
-    final playlists = ref.read(playlistManagerProvider).getAllPlaylists();
+    final playlists = ref.read(userPlaylistsProvider);
 
     showModalBottomSheet(
       context: context,
@@ -464,12 +464,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                         itemCount: playlists.length,
                         itemBuilder: (context, index) {
                           final playlist = playlists[index];
-                          return FutureBuilder<List<Music>>(
+                          return FutureBuilder<Playlist?>(
                             future: ref
-                                .read(playlistManagerProvider)
-                                .getPlaylistSongs(playlist.id),
+                                .read(playlistServiceProvider)
+                                .getPlaylistDetail(playlist.id),
                             builder: (context, snapshot) {
-                              final songCount = snapshot.data?.length ?? 0;
+                              final songCount =
+                                  snapshot.data?.songs.length ?? 0;
                               final tile = ListTile(
                                 leading: const Icon(Icons.queue_music),
                                 title: Text(playlist.name),
@@ -536,8 +537,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               onPressed: () async {
                 if (controller.text.trim().isNotEmpty) {
                   await ref
-                      .read(playlistManagerProvider)
-                      .createPlaylist(controller.text.trim());
+                      .read(playlistServiceProvider)
+                      .createPlaylist(name: controller.text.trim());
                   Navigator.pop(context);
                   _loadData();
                   if (mounted) {

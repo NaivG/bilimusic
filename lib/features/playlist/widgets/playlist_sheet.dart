@@ -59,7 +59,7 @@ class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
       newIndex -= 1;
     }
     await ref
-        .read(playbackCommandsProvider.notifier)
+        .read(playlistCommandsProvider.notifier)
         .moveInPlaylist(oldIndex, newIndex);
     // moveInPlaylist 会触发通知，无需手动 setState
   }
@@ -295,7 +295,7 @@ class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
           ),
           onDismissed: (_) {
             ref
-                .read(playbackCommandsProvider.notifier)
+                .read(playlistCommandsProvider.notifier)
                 .removeFromPlaylist(music);
           },
           child: PlaylistItem(
@@ -304,13 +304,13 @@ class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
             index: index,
             isPlaying: isPlaying,
             isFavorite: ref
-                .read(playbackCommandsProvider.notifier)
+                .read(playlistCommandsProvider.notifier)
                 .isFavorite(music),
             onTap: () {
               widget.onTrackSelect(index);
             },
             onFavoriteToggle: () async {
-              final commands = ref.read(playbackCommandsProvider.notifier);
+              final commands = ref.read(playlistCommandsProvider.notifier);
               if (commands.isFavorite(music)) {
                 await commands.removeFromFavorites(music);
               } else {

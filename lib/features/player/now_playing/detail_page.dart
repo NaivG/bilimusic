@@ -69,7 +69,9 @@ class _DetailPageState extends ConsumerState<DetailPage> {
         );
     _music = currentMusic;
     _duration = currentMusic.duration;
-    _isFavorite = coordinator.isFavorite(_music);
+    _isFavorite = ref
+        .read(playlistCommandsProvider.notifier)
+        .isFavorite(_music);
 
     _extractBackgroundColor(_music.coverUrl);
     _lyricController.loadLyricModel(_placeholderModel(_music.title));
@@ -114,7 +116,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
   }
 
   void _toggleFavorite() async {
-    final commands = ref.read(playbackCommandsProvider.notifier);
+    final commands = ref.read(playlistCommandsProvider.notifier);
     if (commands.isFavorite(_music)) {
       await commands.removeFromFavorites(_music);
     } else {
@@ -207,7 +209,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
       _music = liveMusic;
       _duration = liveMusic.duration;
       _isFavorite = ref
-          .read(playbackCommandsProvider.notifier)
+          .read(playlistCommandsProvider.notifier)
           .isFavorite(liveMusic);
       _lastAppliedModel = null;
       WidgetsBinding.instance.addPostFrameCallback((_) {

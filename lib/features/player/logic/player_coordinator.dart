@@ -81,6 +81,9 @@ class PlayerCoordinator {
     // 监听播放列表变化
     _playlistService.currentPlaylist.addListener(_onPlaylistChanged);
     _playlistService.currentIndex.addListener(_onCurrentIndexChanged);
+    // 监听收藏变化：收藏/取消收藏后刷新通知栏的收藏按钮状态
+    //（收藏操作已收敛到 PlaylistCommands 直连 Service，副作用由本监听统一承担）
+    _playlistService.favorites.addListener(_onFavoritesChanged);
   }
 
   /// 初始化协调器
@@ -322,49 +325,12 @@ class PlayerCoordinator {
     await _playlistService.moveInPlaylist(newIndex, currentIndex + 1);
   }
 
-  /// 添加到播放列表
-  Future<void> addToPlaylist(Music music) async {
-    await _playlistService.addToPlaylist(music);
-  }
-
-  /// 批量添加到播放列表
-  Future<void> addAllToPlaylist(List<Music> musics) async {
-    await _playlistService.addAllToPlaylist(musics);
-  }
-
-  /// 从播放列表移除音乐
-  Future<void> removeFromPlaylist(Music music) async {
-    await _playlistService.removeFromPlaylist(music);
-  }
-
-  /// 清空播放列表
+  /// 清空播放列表（带停播放器副作用；纯数据操作由 UI 经 playlistCommands 直连 Service）
   Future<void> clearPlaylist() async {
     await _playlistService.clearPlaylist();
     await _audioService.stop();
     _preloadedMusic = null;
     _preloadedIndex = null;
-  }
-
-  /// 在播放列表中移动音乐位置(用于拖拽排序)
-  Future<void> moveInPlaylist(int fromIndex, int toIndex) async {
-    await _playlistService.moveInPlaylist(fromIndex, toIndex);
-  }
-
-  /// 添加到收藏
-  Future<void> addToFavorites(Music music) async {
-    await _playlistService.addToFavorites(music);
-    _updateNotificationControls();
-  }
-
-  /// 从收藏移除
-  Future<void> removeFromFavorites(Music music) async {
-    await _playlistService.removeFromFavorites(music);
-    _updateNotificationControls();
-  }
-
-  /// 检查是否已收藏
-  bool isFavorite(Music music) {
-    return _playlistService.isFavorite(music);
   }
 
   // ============ Crossfade相关方法 ============
@@ -805,6 +771,11 @@ class PlayerCoordinator {
     _updateNotificationControls();
   }
 
+  /// 收藏列表变化处理
+  void _onFavoritesChanged() {
+    _updateNotificationControls();
+  }
+
   /// 当前索引变化处理
   void _onCurrentIndexChanged() {
     _updateNotificationControls();
@@ -899,6 +870,7 @@ class PlayerCoordinator {
     _audioService.playMode.removeListener(_onPlayModeChanged);
     _playlistService.currentPlaylist.removeListener(_onPlaylistChanged);
     _playlistService.currentIndex.removeListener(_onCurrentIndexChanged);
+    _playlistService.favorites.removeListener(_onFavoritesChanged);
 
     _debounceTimer?.cancel();
     _countdownTimer?.cancel();

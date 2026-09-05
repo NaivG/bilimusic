@@ -236,7 +236,7 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
 
       // 列表/歌单/收藏/历史数据由 PlaylistService 从 sqflite 给出
       final listExport = await ref
-          .read(playlistManagerProvider)
+          .read(playlistServiceProvider)
           .exportForBackup();
 
       final Map<String, dynamic> exportData = {
@@ -473,7 +473,7 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
         }
 
         // 列表数据统一交给 PlaylistService 处理
-        await ref.read(playlistManagerProvider).importFromBackup(importData);
+        await ref.read(playlistServiceProvider).importFromBackup(importData);
 
         // 导入Cookie信息
         if (importData['cookies'] != null) {

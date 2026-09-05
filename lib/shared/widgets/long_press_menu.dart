@@ -6,7 +6,7 @@ import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/domain/lan_sync_mode.dart';
 import 'package:bilimusic/domain/peer_device.dart';
 import 'package:bilimusic/features/player/logic/player_coordinator.dart';
-import 'package:bilimusic/features/playlist/playlist_manager.dart';
+import 'package:bilimusic/features/playlist/playlist_service.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/playlist.dart';
 import 'package:bilimusic/features/lan_sync/lan_sync_providers.dart';
@@ -19,10 +19,11 @@ FutureOr<Menu?> buildMusicContextMenu({
   required BuildContext context,
   required Music music,
   required PlayerCoordinator playerCoordinator,
-  PlaylistManager? playlistManager,
+  required PlaylistCommands commands,
+  PlaylistService? playlistService,
   VoidCallback? onRemoveFromPlaylist,
 }) {
-  final isFav = playerCoordinator.isFavorite(music);
+  final isFav = commands.isFavorite(music);
 
   return Menu(
     children: [
@@ -72,14 +73,14 @@ FutureOr<Menu?> buildMusicContextMenu({
         callback: () async {
           try {
             if (isFav) {
-              await playerCoordinator.removeFromFavorites(music);
+              await commands.removeFromFavorites(music);
               if (context.mounted) {
                 ScaffoldMessenger.of(
                   context,
                 ).showSnackBar(const SnackBar(content: Text('已取消收藏')));
               }
             } else {
-              await playerCoordinator.addToFavorites(music);
+              await commands.addToFavorites(music);
               if (context.mounted) {
                 ScaffoldMessenger.of(
                   context,
@@ -95,9 +96,9 @@ FutureOr<Menu?> buildMusicContextMenu({
           }
         },
       ),
-      if (playlistManager != null) ...[
+      if (playlistService != null) ...[
         MenuSeparator(),
-        _buildAddToPlaylistSubmenu(context, music, playlistManager),
+        _buildAddToPlaylistSubmenu(context, music, playlistService),
       ],
       if (onRemoveFromPlaylist != null) ...[
         MenuSeparator(),
@@ -137,11 +138,11 @@ FutureOr<Menu?> buildMusicContextMenu({
 Menu _buildAddToPlaylistSubmenu(
   BuildContext context,
   Music music,
-  PlaylistManager playlistManager,
+  PlaylistService playlistService,
 ) {
   List<Playlist> userPlaylists = [];
   try {
-    userPlaylists = playlistManager.getAllPlaylists();
+    userPlaylists = playlistService.userPlaylistsSnapshot;
   } catch (e) {
     debugPrint('Failed to load user playlists: $e');
   }
@@ -153,7 +154,7 @@ Menu _buildAddToPlaylistSubmenu(
       MenuAction(
         title: '新建歌单',
         image: MenuImage.icon(Icons.add),
-        callback: () => _createNewPlaylist(context, playlistManager),
+        callback: () => _createNewPlaylist(context, playlistService),
       ),
       if (userPlaylists.isNotEmpty) MenuSeparator(),
       ...userPlaylists.map(
@@ -161,7 +162,7 @@ Menu _buildAddToPlaylistSubmenu(
           title: playlist.name,
           callback: () async {
             try {
-              await playlistManager.addSongToPlaylist(playlist.id, music);
+              await playlistService.addSongToUserPlaylist(playlist.id, music);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('已添加到歌单"${playlist.name}"')),
@@ -269,7 +270,7 @@ IconData _platformIcon(String platform) {
   }
 }
 
-void _createNewPlaylist(BuildContext context, PlaylistManager playlistManager) {
+void _createNewPlaylist(BuildContext context, PlaylistService playlistService) {
   final controller = TextEditingController();
   final formKey = GlobalKey<FormState>();
 
@@ -304,7 +305,7 @@ void _createNewPlaylist(BuildContext context, PlaylistManager playlistManager) {
               if (formKey.currentState!.validate()) {
                 final playlistName = controller.text.trim();
                 try {
-                  await playlistManager.createPlaylist(playlistName);
+                  await playlistService.createPlaylist(name: playlistName);
                   Navigator.of(context).pop();
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(

@@ -71,13 +71,10 @@ void main() async {
   // 读取 playerCoordinator（首次读取会触发依赖图所有服务初始化）
   final coordinator = container.read(playerCoordinatorProvider);
 
-  // 等待播放列表服务与管理器初始化完成，
-  // 否则 UI 在 build 阶段同步读取 .favorites / .userPlaylists 等会抛 StateError
+  // 等待播放列表服务初始化完成，
+  // 否则 UI 在 build 阶段同步读取 .favorites / .userPlaylistsSnapshot 等会抛 StateError
   final playlistService = container.read(playlistServiceProvider);
   await playlistService.initialize();
-  await container
-      .read(playlistManagerProvider)
-      .initialize(service: playlistService);
 
   // 后台回填历史/收藏/当前列表中 cid 缺失的 item（不阻塞初始化）
   unawaited(
@@ -86,7 +83,7 @@ void main() async {
 
   // 初始化音频服务并保存实例
   final audioHandler = await AudioService.init(
-    builder: () => AudioHandlerConnector(coordinator),
+    builder: () => AudioHandlerConnector(coordinator, playlistService),
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'github.naivg.bilimusic.channel.audio',
       androidNotificationChannelName: 'BiliMusic Playback',

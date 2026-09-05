@@ -137,18 +137,9 @@ class PlaybackCommands extends Notifier<void> {
   Future<void> playPrevious() => _pc.playPrevious();
   Future<void> playAtIndex(int index) => _pc.playAtIndex(index);
 
-  Future<void> addToPlaylist(Music music) => _pc.addToPlaylist(music);
-  Future<void> addAllToPlaylist(List<Music> musics) =>
-      _pc.addAllToPlaylist(musics);
-  Future<void> removeFromPlaylist(Music music) => _pc.removeFromPlaylist(music);
+  // 清空队列带停播放器副作用，留在 Coordinator（纯数据操作见 playlistCommandsProvider）。
   Future<void> clearPlaylist() => _pc.clearPlaylist();
-  Future<void> moveInPlaylist(int from, int to) => _pc.moveInPlaylist(from, to);
   Future<void> playNextFromIndex(Music music) => _pc.playNextFromIndex(music);
-
-  Future<void> addToFavorites(Music music) => _pc.addToFavorites(music);
-  Future<void> removeFromFavorites(Music music) =>
-      _pc.removeFromFavorites(music);
-  bool isFavorite(Music music) => _pc.isFavorite(music);
 
   Future<void> setVolume(double value) => _dual.setVolume(value);
   Future<void> toggleMute() => _dual.toggleMute();

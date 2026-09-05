@@ -105,7 +105,8 @@ class _HomeContentState extends ConsumerState<HomeContent> {
     return MusicListItem(
       music: music,
       playerCoordinator: ref.read(playerCoordinatorProvider),
-      playlistManager: ref.read(playlistManagerProvider),
+      commands: ref.read(playlistCommandsProvider.notifier),
+      playlistService: ref.read(playlistServiceProvider),
       onTap: () => _playMusic(music),
       showCover: showCover,
       showDetails: true,
@@ -263,10 +264,10 @@ class _HomeContentState extends ConsumerState<HomeContent> {
                   children: [
                     PlaylistCard(
                       playlist: DefaultPlaylists.favorites
-                        ..songs = ref.read(playlistManagerProvider).favorites,
+                        ..songs = ref.read(favoritesProvider),
                       onTap: () => ShellPageManager.instance.goToPlaylist(
                         playlistId: 'favorites',
-                        songs: ref.read(playlistManagerProvider).favorites,
+                        songs: ref.read(favoritesProvider),
                       ),
                     ),
                     const SizedBox(width: 12),
