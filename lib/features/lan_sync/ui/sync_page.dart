@@ -3,18 +3,18 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:bilimusic/core/app_providers.dart';
-import 'package:bilimusic/models/sync/lan_sync_mode.dart';
-import 'package:bilimusic/models/sync/peer_device.dart';
-import 'package:bilimusic/providers/lan_sync_providers.dart';
-import 'package:bilimusic/providers/settings_provider.dart';
-import 'package:bilimusic/services/sync/device_identity.dart';
-import 'package:bilimusic/services/sync/lan_sync_service.dart';
-import 'package:bilimusic/services/sync/pairing_service.dart';
-import 'package:bilimusic/shells/shell_page_manager.dart';
-import 'package:bilimusic/pages/sync/device_tile.dart';
-import 'package:bilimusic/pages/sync/pair_qr_dialog.dart';
-import 'package:bilimusic/pages/sync/pair_request_dialog.dart';
+import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/domain/lan_sync_mode.dart';
+import 'package:bilimusic/domain/peer_device.dart';
+import 'package:bilimusic/features/lan_sync/lan_sync_providers.dart';
+import 'package:bilimusic/features/settings/settings_provider.dart';
+import 'package:bilimusic/features/lan_sync/services/device_identity.dart';
+import 'package:bilimusic/features/lan_sync/services/lan_sync_service.dart';
+import 'package:bilimusic/features/lan_sync/services/pairing_service.dart';
+import 'package:bilimusic/app/shells/shell_page_manager.dart';
+import 'package:bilimusic/features/lan_sync/ui/device_tile.dart';
+import 'package:bilimusic/features/lan_sync/ui/pair_qr_dialog.dart';
+import 'package:bilimusic/features/lan_sync/ui/pair_request_dialog.dart';
 
 /// 局域网同步设备管理页。
 ///

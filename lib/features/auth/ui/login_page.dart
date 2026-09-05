@@ -1,12 +1,12 @@
 import 'dart:convert';
-import 'package:bilimusic/shells/shell_page_manager.dart';
+import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:crypto/crypto.dart';
-import 'package:bilimusic/utils/network_config.dart';
-import 'package:bilimusic/utils/captcha_helper.dart';
-import 'package:bilimusic/utils/platform_helper.dart';
-import 'package:bilimusic/pages/qr_login_widget.dart';
+import 'package:bilimusic/core/network/network_config.dart';
+import 'package:bilimusic/features/auth/captcha_helper.dart';
+import 'package:bilimusic/shared/utils/platform_helper.dart';
+import 'package:bilimusic/features/auth/ui/qr_login_widget.dart';
 
 enum _LoginMode { sms, password, qr }
 

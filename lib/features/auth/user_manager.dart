@@ -4,8 +4,8 @@ import 'package:flutter/cupertino.dart' show ChangeNotifier, debugPrint;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:bilimusic/models/user_info.dart';
-import 'package:bilimusic/utils/network_config.dart';
+import 'package:bilimusic/features/auth/models/user_info.dart';
+import 'package:bilimusic/core/network/network_config.dart';
 
 /// 用户管理器
 /// 职责：

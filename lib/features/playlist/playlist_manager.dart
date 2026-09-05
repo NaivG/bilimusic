@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
 
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/models/playlist_tag.dart';
-import 'package:bilimusic/services/playlist_service.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/domain/playlist.dart';
+import 'package:bilimusic/domain/playlist_tag.dart';
+import 'package:bilimusic/features/playlist/playlist_service.dart';
 
 /// 歌单管理器的 UI 门面。
 ///

@@ -3,7 +3,7 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 
-import 'package:bilimusic/models/music.dart';
+import 'package:bilimusic/domain/music.dart';
 
 /// 轻量文本相似度：3-Gram + 128 位 SimHash + SWAR popcount。
 ///

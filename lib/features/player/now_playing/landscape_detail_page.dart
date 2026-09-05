@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_lyric/core/lyric_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/components/landscape/background.dart';
-import 'package:bilimusic/components/common/album_section.dart';
-import 'package:bilimusic/components/lyric/lyric_section.dart';
-import 'package:bilimusic/components/lyric/lyric_source.dart';
-import 'package:bilimusic/models/music.dart' as model;
-import 'package:bilimusic/providers/navigation_providers.dart';
-import 'package:bilimusic/providers/playback_providers.dart';
-import 'package:bilimusic/utils/dialog_helpers.dart';
-import 'package:bilimusic/utils/responsive.dart';
+import 'package:bilimusic/features/player/now_playing/background.dart';
+import 'package:bilimusic/features/player/now_playing/album_section.dart';
+import 'package:bilimusic/features/lyrics/widgets/lyric_section.dart';
+import 'package:bilimusic/features/lyrics/lyric_source.dart';
+import 'package:bilimusic/domain/music.dart' as model;
+import 'package:bilimusic/app/shells/navigation_providers.dart';
+import 'package:bilimusic/features/player/playback_providers.dart';
+import 'package:bilimusic/shared/utils/dialog_helpers.dart';
+import 'package:bilimusic/shared/utils/responsive.dart';
 
 /// 横屏详情页 —— 纯视图：左侧专辑区 + 右侧歌词面板（Apple Music 左右分栏布局）。
 /// 状态与业务回调由 [DetailPage] 宿主下发，与 Portrait/Square 同一套 props 模式。

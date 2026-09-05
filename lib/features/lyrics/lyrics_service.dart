@@ -7,9 +7,9 @@ import 'package:flutter_lyric/core/lyric_model.dart';
 
 import 'package:lyrics_now/lyrics_now.dart';
 
-import 'package:bilimusic/components/lyric/lyric_source.dart';
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/services/player_coordinator.dart';
+import 'package:bilimusic/features/lyrics/lyric_source.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/features/player/logic/player_coordinator.dart';
 
 /// 已解析的歌词载荷 —— 直接喂给 [LyricController.loadLyricModel]。
 class LyricsPayload {

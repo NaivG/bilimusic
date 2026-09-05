@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:bilimusic/utils/animations.dart';
+import 'package:bilimusic/shared/utils/animations.dart';
 
 /// 半透明白底圆形图标按钮 —— 收藏 / 分享 / 任意迷你按钮。
 /// 带按压缩放反馈。

@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:bilimusic/core/app_providers.dart';
-import 'package:bilimusic/models/user_info.dart';
+import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/features/auth/models/user_info.dart';
 
 final _userManagerProvider = userManagerProvider;
 

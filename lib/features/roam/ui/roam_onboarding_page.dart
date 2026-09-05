@@ -2,15 +2,15 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:bilimusic/components/common/roam_style_segmented.dart';
-import 'package:bilimusic/models/roam_style.dart';
-import 'package:bilimusic/pages/roam_onboarding/widgets/import_config_dialog.dart';
-import 'package:bilimusic/pages/roam_onboarding/widgets/roam_playlist_picker.dart';
-import 'package:bilimusic/pages/roam_onboarding/widgets/seed_card.dart';
-import 'package:bilimusic/providers/roam_onboarding_provider.dart';
-import 'package:bilimusic/shells/shell_page_manager.dart';
-import 'package:bilimusic/theme/app_palette.dart';
-import 'package:bilimusic/theme/app_tokens.dart';
+import 'package:bilimusic/features/roam/ui/roam_style_segmented.dart';
+import 'package:bilimusic/features/roam/models/roam_style.dart';
+import 'package:bilimusic/features/roam/ui/import_config_dialog.dart';
+import 'package:bilimusic/features/roam/ui/roam_playlist_picker.dart';
+import 'package:bilimusic/features/roam/ui/seed_card.dart';
+import 'package:bilimusic/features/roam/roam_onboarding_provider.dart';
+import 'package:bilimusic/app/shells/shell_page_manager.dart';
+import 'package:bilimusic/shared/theme/app_palette.dart';
+import 'package:bilimusic/shared/theme/app_tokens.dart';
 
 /// 漫游引导主页（Apple 风格多步状态机）。
 ///

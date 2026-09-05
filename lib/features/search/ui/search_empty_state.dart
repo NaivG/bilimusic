@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:bilimusic/utils/animations.dart';
+import 'package:bilimusic/shared/utils/animations.dart';
 
 /// 空状态类型
 enum EmptyStateType {

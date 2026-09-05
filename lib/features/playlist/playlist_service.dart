@@ -5,11 +5,11 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
-import 'package:bilimusic/core/database.dart';
-import 'package:bilimusic/models/play_mode.dart';
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/models/playlist_tag.dart';
+import 'package:bilimusic/core/storage/database.dart';
+import 'package:bilimusic/domain/play_mode.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/domain/playlist.dart';
+import 'package:bilimusic/domain/playlist_tag.dart';
 
 /// 唯一一份播放列表数据层。
 ///

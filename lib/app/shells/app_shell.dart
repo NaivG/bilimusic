@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/providers/settings_provider.dart';
-import 'package:bilimusic/providers/playback_providers.dart';
-import 'package:bilimusic/utils/responsive.dart';
-import 'package:bilimusic/utils/platform_helper.dart';
-import 'package:bilimusic/components/playlist/playlist_sheet.dart';
-import 'package:bilimusic/components/pip/pip_overlay.dart';
-import 'package:bilimusic/services/pip_service.dart';
-import 'package:bilimusic/shells/landscape_shell.dart';
-import 'package:bilimusic/shells/portrait_shell.dart';
-import 'package:bilimusic/shells/shell_page_manager.dart';
+import 'package:bilimusic/features/settings/settings_provider.dart';
+import 'package:bilimusic/features/player/playback_providers.dart';
+import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/shared/utils/platform_helper.dart';
+import 'package:bilimusic/features/playlist/widgets/playlist_sheet.dart';
+import 'package:bilimusic/features/player/pip/pip_overlay.dart';
+import 'package:bilimusic/features/player/pip/pip_service.dart';
+import 'package:bilimusic/app/shells/landscape_shell.dart';
+import 'package:bilimusic/app/shells/portrait_shell.dart';
+import 'package:bilimusic/app/shells/shell_page_manager.dart';
 
 /// 统一入口Shell - 根据屏幕方向路由到对应的Shell
 class AppShell extends ConsumerStatefulWidget {

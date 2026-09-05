@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:bilimusic/core/app_providers.dart';
-import 'package:bilimusic/pages/profile/widgets/roam_info_dialog.dart';
-import 'package:bilimusic/shells/shell_page_manager.dart';
+import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/features/roam/ui/roam_info_dialog.dart';
+import 'package:bilimusic/app/shells/shell_page_manager.dart';
 
 /// profile_page 上的"漫游模式"行。
 ///

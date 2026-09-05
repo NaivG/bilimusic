@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import 'package:bilimusic/utils/network_config.dart';
+import 'package:bilimusic/core/network/network_config.dart';
 
 /// 二维码登录服务
 /// 封装 B 站 web 端扫码登录的两个接口

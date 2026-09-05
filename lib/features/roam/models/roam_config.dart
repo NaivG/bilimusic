@@ -1,5 +1,5 @@
-import 'package:bilimusic/models/roam_style.dart';
-import 'package:bilimusic/services/player_coordinator.dart';
+import 'package:bilimusic/features/roam/models/roam_style.dart';
+import 'package:bilimusic/features/player/logic/player_coordinator.dart';
 
 /// 漫游会话的紧凑可序列化配置（v2，plain text）。
 ///

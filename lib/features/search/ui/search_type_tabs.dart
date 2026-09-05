@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:bilimusic/models/search_result.dart';
+import 'package:bilimusic/domain/search_result.dart';
 
 /// 搜索类型Tab组件
 class SearchTypeTabs extends StatelessWidget {

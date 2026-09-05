@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:bilimusic/models/sync/lan_sync_mode.dart';
-import 'package:bilimusic/models/sync/peer_device.dart';
+import 'package:bilimusic/domain/lan_sync_mode.dart';
+import 'package:bilimusic/domain/peer_device.dart';
 
 /// 设备列表中按"已配对 × 已连接"划分的 4 种状态。
 enum _TileState {

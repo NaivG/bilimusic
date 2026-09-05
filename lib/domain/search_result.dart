@@ -1,4 +1,4 @@
-import 'package:bilimusic/models/music.dart';
+import 'package:bilimusic/domain/music.dart';
 
 /// 搜索结果类型枚举
 enum SearchResultType {

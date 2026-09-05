@@ -3,9 +3,9 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
-import 'package:bilimusic/models/sync/peer_device.dart';
-import 'package:bilimusic/models/sync/sync_message.dart';
-import 'package:bilimusic/services/sync/sync_protocol.dart';
+import 'package:bilimusic/domain/peer_device.dart';
+import 'package:bilimusic/features/lan_sync/models/sync_message.dart';
+import 'package:bilimusic/features/lan_sync/services/sync_protocol.dart';
 
 /// 单 peer TCP 会话状态。
 enum LanSessionState {

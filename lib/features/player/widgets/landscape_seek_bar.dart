@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/components/common/playback_buttons.dart';
-import 'package:bilimusic/core/app_providers.dart';
-import 'package:bilimusic/providers/playback_providers.dart';
+import 'package:bilimusic/features/player/widgets/playback_buttons.dart';
+import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/features/player/playback_providers.dart';
 
 /// 横屏模式进度条组件
 /// 基于ParticleMusic的SeekBar适配bilimusic的PlayerManager

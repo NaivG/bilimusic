@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/core/app_providers.dart';
-import 'package:bilimusic/models/bili_fav_folder.dart';
-import 'package:bilimusic/models/fav_import_record.dart';
-import 'package:bilimusic/managers/fav_sync_manager.dart';
-import 'package:bilimusic/components/import_progress_dialog.dart';
-import 'package:bilimusic/shells/shell_page_manager.dart';
+import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/domain/bili_fav_folder.dart';
+import 'package:bilimusic/features/fav_sync/models/fav_import_record.dart';
+import 'package:bilimusic/features/fav_sync/fav_sync_manager.dart';
+import 'package:bilimusic/features/fav_sync/ui/import_progress_dialog.dart';
+import 'package:bilimusic/app/shells/shell_page_manager.dart';
 
 /// Bilibili 收藏夹导入页面
 /// 列出用户的 Bilibili 收藏夹，支持导入到本地歌单

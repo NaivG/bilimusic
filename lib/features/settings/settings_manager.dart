@@ -4,7 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:bilimusic/models/roam_style.dart';
+import 'package:bilimusic/features/roam/models/roam_style.dart';
 
 /// 设置管理器
 class SettingsManager extends ChangeNotifier {

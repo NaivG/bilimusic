@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:bilimusic/utils/platform_helper.dart';
+import 'package:bilimusic/shared/utils/platform_helper.dart';
 
 class _WindowButtons extends StatelessWidget {
   final bool isDark;

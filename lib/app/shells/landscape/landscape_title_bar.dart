@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:bilimusic/services/pip_service.dart';
-import 'package:bilimusic/theme/app_palette.dart';
-import 'package:bilimusic/utils/platform_helper.dart';
+import 'package:bilimusic/features/player/pip/pip_service.dart';
+import 'package:bilimusic/shared/theme/app_palette.dart';
+import 'package:bilimusic/shared/utils/platform_helper.dart';
 import 'package:window_manager/window_manager.dart';
 
 /// 横屏模式标题栏 - 基于ParticleMusic风格

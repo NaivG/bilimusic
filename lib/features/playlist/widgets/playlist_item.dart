@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/theme/app_palette.dart';
-import 'package:bilimusic/theme/app_tokens.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/shared/theme/app_palette.dart';
+import 'package:bilimusic/shared/theme/app_tokens.dart';
 
 /// 播放列表中的歌曲项组件
 class PlaylistItem extends StatefulWidget {

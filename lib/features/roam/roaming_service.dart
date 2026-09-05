@@ -2,14 +2,14 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
-import 'package:bilimusic/api/bili_client.dart';
-import 'package:bilimusic/api/bili_exception.dart';
-import 'package:bilimusic/models/bili_item.dart';
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/models/roam_style.dart';
-import 'package:bilimusic/services/playlist_service.dart';
-import 'package:bilimusic/utils/music_category.dart';
-import 'package:bilimusic/utils/text_simhash.dart';
+import 'package:bilimusic/core/network/bili_client.dart';
+import 'package:bilimusic/core/network/bili_exception.dart';
+import 'package:bilimusic/domain/bili_item.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/features/roam/models/roam_style.dart';
+import 'package:bilimusic/features/playlist/playlist_service.dart';
+import 'package:bilimusic/domain/music_category.dart';
+import 'package:bilimusic/features/roam/logic/text_simhash.dart';
 
 /// 漫游服务：根据 seed 歌拉相关音乐、按 simhash 排序、按 RoamStyle 挑选。
 ///

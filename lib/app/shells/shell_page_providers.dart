@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/shells/shell_page_manager.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/app/shells/shell_page_manager.dart';
 
 class ShellPageState {
   final List<ShellPage> pageStack;

@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
-import 'package:bilimusic/components/lyric/lyric_source.dart';
-import 'package:bilimusic/core/app_providers.dart';
-import 'package:bilimusic/providers/playlist_providers.dart';
-import 'package:bilimusic/services/lyrics_service.dart';
+import 'package:bilimusic/features/lyrics/lyric_source.dart';
+import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/features/playlist/playlist_providers.dart';
+import 'package:bilimusic/features/lyrics/lyrics_service.dart';
 
 /// 把 `LyricsService` 重新以 `ChangeNotifierProvider` 暴露,使 UI providers
 /// 在歌词缓存更新时自动重建(预热 / 切源完成都会触发 [ChangeNotifier.notifyListeners])。

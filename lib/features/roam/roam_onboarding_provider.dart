@@ -3,15 +3,15 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:bilimusic/core/app_providers.dart';
-import 'package:bilimusic/managers/settings_manager.dart';
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/models/roam_config.dart';
-import 'package:bilimusic/models/roam_style.dart';
-import 'package:bilimusic/services/player_coordinator.dart';
-import 'package:bilimusic/services/playlist_service.dart';
-import 'package:bilimusic/services/roaming_service.dart';
-import 'package:bilimusic/utils/seed_diversity.dart';
+import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/features/settings/settings_manager.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/features/roam/models/roam_config.dart';
+import 'package:bilimusic/features/roam/models/roam_style.dart';
+import 'package:bilimusic/features/player/logic/player_coordinator.dart';
+import 'package:bilimusic/features/playlist/playlist_service.dart';
+import 'package:bilimusic/features/roam/roaming_service.dart';
+import 'package:bilimusic/features/roam/logic/seed_diversity.dart';
 
 /// 漫游引导步骤枚举。
 enum OnboardingStep {

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/utils/responsive.dart';
-import 'package:bilimusic/utils/network_config.dart';
-import 'package:bilimusic/managers/cache_manager.dart';
-import 'package:bilimusic/theme/app_tokens.dart';
+import 'package:bilimusic/domain/playlist.dart';
+import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/core/network/network_config.dart';
+import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/shared/theme/app_tokens.dart';
 
 /// 歌单卡片组件 - Apple Music 样式
 /// 设计:

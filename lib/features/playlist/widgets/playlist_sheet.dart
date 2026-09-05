@@ -1,11 +1,11 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/providers/playlist_providers.dart';
-import 'package:bilimusic/providers/playback_providers.dart';
-import 'package:bilimusic/components/playlist/playlist_item.dart';
-import 'package:bilimusic/theme/app_palette.dart';
-import 'package:bilimusic/theme/app_tokens.dart';
+import 'package:bilimusic/features/playlist/playlist_providers.dart';
+import 'package:bilimusic/features/player/playback_providers.dart';
+import 'package:bilimusic/features/playlist/widgets/playlist_item.dart';
+import 'package:bilimusic/shared/theme/app_palette.dart';
+import 'package:bilimusic/shared/theme/app_tokens.dart';
 
 /// 播放列表弹出组件
 /// 支持可调整高度的底部弹窗、拖拽排序和流畅动画

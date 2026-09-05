@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/pages/search/widgets/search_bar_widget.dart';
-import 'package:bilimusic/pages/search/widgets/search_empty_state.dart';
-import 'package:bilimusic/providers/search_providers.dart';
-import 'package:bilimusic/utils/responsive.dart';
-import 'package:bilimusic/shells/shell_page_manager.dart';
+import 'package:bilimusic/features/search/ui/search_bar_widget.dart';
+import 'package:bilimusic/features/search/ui/search_empty_state.dart';
+import 'package:bilimusic/features/search/search_providers.dart';
+import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/app/shells/shell_page_manager.dart';
 
 /// 搜索Overlay - 只负责渲染搜索栏
 /// 用户输入关键词提交后，推送 SearchResultsOverlay 展示结果

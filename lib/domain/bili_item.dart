@@ -1,4 +1,4 @@
-import 'package:bilimusic/models/music.dart';
+import 'package:bilimusic/domain/music.dart';
 
 /// BiliItem - 视频级模型，用于卡片展示
 /// 每个视频（bvid）对应一个 BiliItem，包含视频基础信息和分P列表 List<Music>

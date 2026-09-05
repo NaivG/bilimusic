@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:bilimusic/components/auto_appbar.dart';
+import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,9 +7,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, Uint8List;
 import 'dart:io' show File;
 import 'package:restart_app/restart_app.dart';
-import '../core/app_providers.dart';
-import '../managers/settings_manager.dart';
-import '../utils/platform_helper.dart';
+import '../../../app/app_providers.dart';
+import '../settings_manager.dart';
+import '../../../shared/utils/platform_helper.dart';
 
 class DataMigrationPage extends ConsumerStatefulWidget {
   const DataMigrationPage({super.key});

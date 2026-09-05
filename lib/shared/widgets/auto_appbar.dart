@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:bilimusic/utils/platform_helper.dart';
-import 'package:bilimusic/shells/shell_page_manager.dart';
+import 'package:bilimusic/shared/utils/platform_helper.dart';
+import 'package:bilimusic/app/shells/shell_page_manager.dart';
 
 /// 自动适配的 AppBar
 /// 在桌面平台使用 GestureDetector 包裹，支持窗口拖动

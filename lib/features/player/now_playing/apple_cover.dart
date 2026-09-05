@@ -1,7 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:bilimusic/utils/responsive.dart';
-import 'package:bilimusic/theme/app_tokens.dart';
+import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/shared/theme/app_tokens.dart';
 
 /// Apple Music 风格的专辑封面组件
 /// 大圆角 + 双色阴影效果

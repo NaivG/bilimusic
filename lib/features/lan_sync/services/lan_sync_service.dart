@@ -3,17 +3,17 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
-import 'package:bilimusic/managers/settings_manager.dart';
-import 'package:bilimusic/models/sync/lan_sync_mode.dart';
-import 'package:bilimusic/models/sync/peer_device.dart';
-import 'package:bilimusic/models/sync/sync_message.dart';
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/services/sync/device_identity.dart';
-import 'package:bilimusic/services/sync/lan_session.dart';
-import 'package:bilimusic/services/sync/mdns_service.dart';
-import 'package:bilimusic/services/sync/pairing_service.dart';
-import 'package:bilimusic/services/player_coordinator.dart';
-import 'package:bilimusic/utils/platform_helper.dart';
+import 'package:bilimusic/features/settings/settings_manager.dart';
+import 'package:bilimusic/domain/lan_sync_mode.dart';
+import 'package:bilimusic/domain/peer_device.dart';
+import 'package:bilimusic/features/lan_sync/models/sync_message.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/features/lan_sync/services/device_identity.dart';
+import 'package:bilimusic/features/lan_sync/services/lan_session.dart';
+import 'package:bilimusic/features/lan_sync/services/mdns_service.dart';
+import 'package:bilimusic/features/lan_sync/services/pairing_service.dart';
+import 'package:bilimusic/features/player/logic/player_coordinator.dart';
+import 'package:bilimusic/shared/utils/platform_helper.dart';
 
 /// 远端对端推过来的"现在播放"快照。
 class RemoteNowPlaying {

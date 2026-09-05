@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:bilimusic/managers/fav_sync_manager.dart';
+import 'package:bilimusic/features/fav_sync/fav_sync_manager.dart';
 
 /// 导入进度对话框
 /// 展示导入 Bilibili 收藏夹时的实时进度

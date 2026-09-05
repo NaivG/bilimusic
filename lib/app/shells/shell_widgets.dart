@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/providers/playlist_providers.dart';
-import 'package:bilimusic/providers/settings_provider.dart';
-import 'package:bilimusic/components/common/background_blur_widget.dart';
-import 'package:bilimusic/shells/shell_page_manager.dart';
-import 'package:bilimusic/pages/playlist_page.dart';
-import 'package:bilimusic/pages/search/search_overlay.dart';
-import 'package:bilimusic/pages/search/search_results_overlay.dart';
-import 'package:bilimusic/pages/profile_page.dart';
-import 'package:bilimusic/pages/settings_page.dart';
-import 'package:bilimusic/pages/detail_page.dart';
-import 'package:bilimusic/pages/changelog_page.dart';
-import 'package:bilimusic/pages/cookie_page.dart';
-import 'package:bilimusic/pages/data_management_page.dart';
-import 'package:bilimusic/pages/data_migration_page.dart';
-import 'package:bilimusic/pages/login_page.dart';
-import 'package:bilimusic/pages/fav_import_page.dart';
-import 'package:bilimusic/pages/roam_onboarding/roam_onboarding_page.dart';
-import 'package:bilimusic/pages/sync_page.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/features/playlist/playlist_providers.dart';
+import 'package:bilimusic/features/settings/settings_provider.dart';
+import 'package:bilimusic/shared/widgets/background_blur_widget.dart';
+import 'package:bilimusic/app/shells/shell_page_manager.dart';
+import 'package:bilimusic/features/playlist/playlist_page.dart';
+import 'package:bilimusic/features/search/ui/search_overlay.dart';
+import 'package:bilimusic/features/search/ui/search_results_overlay.dart';
+import 'package:bilimusic/features/profile/profile_page.dart';
+import 'package:bilimusic/features/settings/ui/settings_page.dart';
+import 'package:bilimusic/features/player/now_playing/detail_page.dart';
+import 'package:bilimusic/features/update/ui/changelog_page.dart';
+import 'package:bilimusic/features/auth/ui/cookie_page.dart';
+import 'package:bilimusic/features/settings/ui/data_management_page.dart';
+import 'package:bilimusic/features/settings/ui/data_migration_page.dart';
+import 'package:bilimusic/features/auth/ui/login_page.dart';
+import 'package:bilimusic/features/fav_sync/ui/fav_import_page.dart';
+import 'package:bilimusic/features/roam/ui/roam_onboarding_page.dart';
+import 'package:bilimusic/features/lan_sync/ui/sync_page.dart';
 
 /// 竖屏与横屏两个壳共享的页面渲染逻辑。
 ///

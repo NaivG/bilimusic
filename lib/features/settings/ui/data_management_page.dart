@@ -1,12 +1,12 @@
 import 'dart:math';
-import 'package:bilimusic/components/auto_appbar.dart';
+import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:bilimusic/core/app_providers.dart';
-import 'package:bilimusic/managers/cache_manager.dart';
+import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:restart_app/restart_app.dart';
-import 'package:bilimusic/shells/shell_page_manager.dart';
+import 'package:bilimusic/app/shells/shell_page_manager.dart';
 
 class DataManagementPage extends ConsumerStatefulWidget {
   const DataManagementPage({super.key});

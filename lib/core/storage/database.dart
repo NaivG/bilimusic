@@ -4,9 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/models/playlist_tag.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/domain/playlist.dart';
+import 'package:bilimusic/domain/playlist_tag.dart';
 
 /// sqflite 单例
 /// 文件名: playlist.db

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/core/app_providers.dart';
-import 'package:bilimusic/providers/settings_provider.dart';
-import 'package:bilimusic/theme/app_tokens.dart';
-import 'package:bilimusic/theme/theme_registry.dart';
-import 'package:bilimusic/utils/platform_helper.dart';
-import 'package:bilimusic/shells/shell_page_manager.dart';
-import 'package:bilimusic/pages/sync_page.dart';
+import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/features/settings/settings_provider.dart';
+import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/theme/theme_registry.dart';
+import 'package:bilimusic/shared/utils/platform_helper.dart';
+import 'package:bilimusic/app/shells/shell_page_manager.dart';
+import 'package:bilimusic/features/lan_sync/ui/sync_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {

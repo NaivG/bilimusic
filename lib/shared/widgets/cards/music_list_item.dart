@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/services/player_coordinator.dart';
-import 'package:bilimusic/managers/playlist_manager.dart';
-import 'package:bilimusic/components/common/cards/common_music_list_tile.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/features/player/logic/player_coordinator.dart';
+import 'package:bilimusic/features/playlist/playlist_manager.dart';
+import 'package:bilimusic/shared/widgets/cards/common_music_list_tile.dart';
 
 /// 列表样式组件
 /// 类似于PlaylistItem，用于单page或单个id-cid实例

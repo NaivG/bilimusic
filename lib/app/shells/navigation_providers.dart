@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/models/music.dart';
+import 'package:bilimusic/domain/music.dart';
 
 enum ShellContentType { home, search, profile, settings, playlist }
 

@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/models/search_result.dart';
-import 'package:bilimusic/models/music.dart' as music_model;
-import 'package:bilimusic/core/app_providers.dart';
-import 'package:bilimusic/pages/search/widgets/search_type_tabs.dart';
-import 'package:bilimusic/pages/search/widgets/search_empty_state.dart';
-import 'package:bilimusic/components/common/cards/music_list_item.dart';
-import 'package:bilimusic/utils/responsive.dart';
-import 'package:bilimusic/utils/animations.dart';
-import 'package:bilimusic/shells/shell_page_manager.dart';
+import 'package:bilimusic/domain/search_result.dart';
+import 'package:bilimusic/domain/music.dart' as music_model;
+import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/features/search/ui/search_type_tabs.dart';
+import 'package:bilimusic/features/search/ui/search_empty_state.dart';
+import 'package:bilimusic/shared/widgets/cards/music_list_item.dart';
+import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/shared/utils/animations.dart';
+import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:rxdart/rxdart.dart';
-import 'package:bilimusic/providers/playback_providers.dart';
+import 'package:bilimusic/features/player/playback_providers.dart';
 
 /// 搜索结果Overlay - 接收搜索关键词，展示搜索结果
 class SearchResultsOverlay extends ConsumerStatefulWidget {

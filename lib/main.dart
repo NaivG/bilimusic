@@ -2,28 +2,28 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
-import 'package:bilimusic/utils/platform_helper.dart';
+import 'package:bilimusic/shared/utils/platform_helper.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:bilimusic/utils/window_listener.dart';
+import 'package:bilimusic/app/window_listener.dart';
 import 'package:flutter/material.dart';
 
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 
-import 'package:bilimusic/core/database.dart';
-import 'package:bilimusic/core/app_providers.dart';
-import 'package:bilimusic/managers/audio_handler.dart';
+import 'package:bilimusic/core/storage/database.dart';
+import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/features/player/logic/audio_handler.dart';
 
-import 'package:bilimusic/utils/network_config.dart';
+import 'package:bilimusic/core/network/network_config.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 
-import 'package:bilimusic/utils/update_checker.dart';
-import 'package:bilimusic/components/dialogs/update_dialog.dart';
-import 'package:bilimusic/shells/app_shell.dart';
-import 'package:bilimusic/theme/theme_registry.dart';
-import 'package:bilimusic/providers/settings_provider.dart';
+import 'package:bilimusic/features/update/update_checker.dart';
+import 'package:bilimusic/features/update/ui/update_dialog.dart';
+import 'package:bilimusic/app/shells/app_shell.dart';
+import 'package:bilimusic/shared/theme/theme_registry.dart';
+import 'package:bilimusic/features/settings/settings_provider.dart';
 
 Future<void> _setupMainWindow() async {
   await windowManager.ensureInitialized();

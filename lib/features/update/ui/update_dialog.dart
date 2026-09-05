@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:bilimusic/models/changelog_entry.dart';
-import 'package:bilimusic/theme/app_tokens.dart';
+import 'package:bilimusic/features/update/models/changelog_entry.dart';
+import 'package:bilimusic/shared/theme/app_tokens.dart';
 
 class UpdateAvailableDialog extends StatelessWidget {
   final String newVersion;

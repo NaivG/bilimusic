@@ -1,6 +1,6 @@
-import 'package:bilimusic/components/auto_appbar.dart';
+import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 import 'package:flutter/material.dart';
-import 'package:bilimusic/utils/network_config.dart';
+import 'package:bilimusic/core/network/network_config.dart';
 
 class CookiePage extends StatelessWidget {
   const CookiePage({super.key});

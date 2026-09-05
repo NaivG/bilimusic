@@ -2,15 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/core/app_providers.dart';
-import 'package:bilimusic/models/sync/lan_sync_mode.dart';
-import 'package:bilimusic/models/sync/peer_device.dart';
-import 'package:bilimusic/services/player_coordinator.dart';
-import 'package:bilimusic/managers/playlist_manager.dart';
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/providers/lan_sync_providers.dart';
-import 'package:bilimusic/providers/playlist_providers.dart';
+import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/domain/lan_sync_mode.dart';
+import 'package:bilimusic/domain/peer_device.dart';
+import 'package:bilimusic/features/player/logic/player_coordinator.dart';
+import 'package:bilimusic/features/playlist/playlist_manager.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/domain/playlist.dart';
+import 'package:bilimusic/features/lan_sync/lan_sync_providers.dart';
+import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 

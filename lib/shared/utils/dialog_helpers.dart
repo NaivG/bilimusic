@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:bilimusic/utils/formatters.dart';
+import 'package:bilimusic/shared/utils/formatters.dart';
 
 /// 底部操作单条目 —— icon/label/iconColor 由调用方解析好再传入。
 class SheetAction {

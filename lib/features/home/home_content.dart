@@ -1,17 +1,17 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/core/app_providers.dart';
-import 'package:bilimusic/managers/recommendation_manager.dart';
-import 'package:bilimusic/components/common/cards/playlist_card.dart';
-import 'package:bilimusic/components/common/cards/music_list_item.dart';
-import 'package:bilimusic/utils/responsive.dart';
-import 'package:bilimusic/theme/app_palette.dart';
-import 'package:bilimusic/shells/shell_page_manager.dart';
-import 'package:bilimusic/providers/playback_providers.dart';
-import 'package:bilimusic/providers/playlist_providers.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/domain/playlist.dart';
+import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/features/home/logic/recommendation_manager.dart';
+import 'package:bilimusic/features/home/widgets/playlist_card.dart';
+import 'package:bilimusic/shared/widgets/cards/music_list_item.dart';
+import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/shared/theme/app_palette.dart';
+import 'package:bilimusic/app/shells/shell_page_manager.dart';
+import 'package:bilimusic/features/player/playback_providers.dart';
+import 'package:bilimusic/features/playlist/playlist_providers.dart';
 
 class HomeContent extends ConsumerStatefulWidget {
   final bool showAppBar;

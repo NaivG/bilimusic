@@ -1,13 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/models/bili_fav_folder.dart';
-import 'package:bilimusic/models/bili_fav_resource.dart';
-import 'package:bilimusic/models/fav_import_record.dart';
-import 'package:bilimusic/services/api_service.dart';
-import 'package:bilimusic/managers/playlist_manager.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/domain/playlist.dart';
+import 'package:bilimusic/domain/bili_fav_folder.dart';
+import 'package:bilimusic/domain/bili_fav_resource.dart';
+import 'package:bilimusic/features/fav_sync/models/fav_import_record.dart';
+import 'package:bilimusic/core/network/api_service.dart';
+import 'package:bilimusic/features/playlist/playlist_manager.dart';
 
 /// Bilibili 收藏夹同步管理器
 /// 职责：

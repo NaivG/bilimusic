@@ -3,21 +3,21 @@ import 'package:flutter_lyric/core/lyric_controller.dart';
 import 'package:flutter_lyric/core/lyric_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:bilimusic/components/lyric/lyric_source.dart';
-import 'package:bilimusic/components/playlist/playlist_sheet.dart';
-import 'package:bilimusic/core/app_providers.dart';
-import 'package:bilimusic/models/music.dart' as model;
-import 'package:bilimusic/models/player_state.dart';
-import 'package:bilimusic/models/play_mode.dart';
-import 'package:bilimusic/providers/lyrics_providers.dart';
-import 'package:bilimusic/providers/playback_providers.dart';
-import 'package:bilimusic/providers/playlist_providers.dart';
-import 'package:bilimusic/services/lyrics_service.dart';
-import 'package:bilimusic/utils/color_extractor.dart';
-import 'package:bilimusic/utils/responsive.dart';
-import 'package:bilimusic/pages/detail/portrait_detail_page.dart';
-import 'package:bilimusic/pages/detail/landscape_detail_page.dart';
-import 'package:bilimusic/pages/detail/square_detail_page.dart';
+import 'package:bilimusic/features/lyrics/lyric_source.dart';
+import 'package:bilimusic/features/playlist/widgets/playlist_sheet.dart';
+import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/domain/music.dart' as model;
+import 'package:bilimusic/features/player/models/player_state.dart';
+import 'package:bilimusic/domain/play_mode.dart';
+import 'package:bilimusic/features/lyrics/lyrics_providers.dart';
+import 'package:bilimusic/features/player/playback_providers.dart';
+import 'package:bilimusic/features/playlist/playlist_providers.dart';
+import 'package:bilimusic/features/lyrics/lyrics_service.dart';
+import 'package:bilimusic/features/player/now_playing/color_extractor.dart';
+import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/features/player/now_playing/portrait_detail_page.dart';
+import 'package:bilimusic/features/player/now_playing/landscape_detail_page.dart';
+import 'package:bilimusic/features/player/now_playing/square_detail_page.dart';
 
 /// 详情页面
 /// 根据屏幕方向路由到竖屏或横屏布局

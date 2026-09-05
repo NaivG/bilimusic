@@ -2,11 +2,11 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/components/common/landscape_seek_bar.dart';
-import 'package:bilimusic/components/common/playback_buttons.dart';
-import 'package:bilimusic/components/landscape/apple_cover.dart';
-import 'package:bilimusic/providers/playback_providers.dart';
-import 'package:bilimusic/utils/animations.dart';
+import 'package:bilimusic/features/player/widgets/landscape_seek_bar.dart';
+import 'package:bilimusic/features/player/widgets/playback_buttons.dart';
+import 'package:bilimusic/features/player/now_playing/apple_cover.dart';
+import 'package:bilimusic/features/player/playback_providers.dart';
+import 'package:bilimusic/shared/utils/animations.dart';
 
 /// 详情页单面板
 /// 这回切成自适应应该好一点

@@ -1,4 +1,4 @@
-import 'package:bilimusic/models/music.dart';
+import 'package:bilimusic/domain/music.dart';
 
 /// LAN 同步协议消息密封类。
 ///

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:bilimusic/models/roam_style.dart';
+import 'package:bilimusic/features/roam/models/roam_style.dart';
 
 /// 共享 RoamStyle 三档选择器（相似 / 平衡 / 探索）。
 ///

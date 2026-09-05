@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:bilimusic/core/app_providers.dart';
+import 'package:bilimusic/app/app_providers.dart';
 
 /// 被动方收到对方 hello 时弹的"输入对端 PIN + 接受或拒绝"弹窗。
 ///

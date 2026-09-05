@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:bilimusic/providers/playlist_providers.dart';
-import 'package:bilimusic/providers/search_providers.dart';
-import 'package:bilimusic/shells/landscape/landscape_sidebar.dart';
-import 'package:bilimusic/shells/landscape/landscape_bottom_control.dart';
-import 'package:bilimusic/shells/landscape/landscape_title_bar.dart';
-import 'package:bilimusic/shells/shell_page_manager.dart';
-import 'package:bilimusic/shells/shell_widgets.dart';
-import 'package:bilimusic/pages/home_content.dart';
-import 'package:bilimusic/theme/app_palette.dart';
+import 'package:bilimusic/features/playlist/playlist_providers.dart';
+import 'package:bilimusic/features/search/search_providers.dart';
+import 'package:bilimusic/app/shells/landscape/landscape_sidebar.dart';
+import 'package:bilimusic/app/shells/landscape/landscape_bottom_control.dart';
+import 'package:bilimusic/app/shells/landscape/landscape_title_bar.dart';
+import 'package:bilimusic/app/shells/shell_page_manager.dart';
+import 'package:bilimusic/app/shells/shell_widgets.dart';
+import 'package:bilimusic/features/home/home_content.dart';
+import 'package:bilimusic/shared/theme/app_palette.dart';
 
 /// 横屏模式外壳 - 基于ParticleMusic风格
 /// 布局：标题栏 + 侧边栏 + 主内容区 + 底部播放器栏

@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:bilimusic/core/app_providers.dart';
-import 'package:bilimusic/managers/cache_manager.dart';
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/models/roam_config.dart';
-import 'package:bilimusic/models/roam_style.dart';
+import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/features/roam/models/roam_config.dart';
+import 'package:bilimusic/features/roam/models/roam_style.dart';
 
 /// 显示漫游模式详情对话框。
 ///

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:bilimusic/models/playlist_tag.dart';
-import 'package:bilimusic/models/playlist.dart';
+import 'package:bilimusic/domain/playlist_tag.dart';
+import 'package:bilimusic/domain/playlist.dart';
 
 /// 左侧分类导航抽屉组件
 class PlaylistSidebar extends StatelessWidget {

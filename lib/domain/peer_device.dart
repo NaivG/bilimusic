@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:bilimusic/models/sync/lan_sync_mode.dart';
+import 'package:bilimusic/domain/lan_sync_mode.dart';
 
 /// 局域网内一个对端设备的快照。
 ///

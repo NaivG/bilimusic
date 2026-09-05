@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_lyric/core/lyric_controller.dart';
 import 'package:flutter_lyric/core/lyric_style.dart';
 import 'package:flutter_lyric/widgets/lyric_view.dart';
-import 'package:bilimusic/components/lyric/lyric_source.dart';
-import 'package:bilimusic/utils/responsive.dart';
+import 'package:bilimusic/features/lyrics/lyric_source.dart';
+import 'package:bilimusic/shared/utils/responsive.dart';
 
 /// 统一歌词区域组件 —— 内部使用 [LyricController]/[LyricView] 完成渲染。
 ///

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/providers/playlist_providers.dart';
+import 'package:bilimusic/domain/playlist.dart';
+import 'package:bilimusic/features/playlist/playlist_providers.dart';
 
 /// 共享漫游歌单选择器。
 ///

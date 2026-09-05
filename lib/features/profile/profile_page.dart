@@ -1,17 +1,17 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/components/long_press_menu.dart';
-import 'package:bilimusic/core/app_providers.dart';
-import 'package:bilimusic/managers/user_manager.dart';
-import 'package:bilimusic/models/music.dart';
+import 'package:bilimusic/shared/widgets/long_press_menu.dart';
+import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/features/auth/user_manager.dart';
+import 'package:bilimusic/domain/music.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:bilimusic/utils/network_config.dart';
+import 'package:bilimusic/core/network/network_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:bilimusic/shells/shell_page_manager.dart';
-import 'package:bilimusic/providers/playlist_providers.dart';
-import 'package:bilimusic/pages/profile/widgets/roam_section.dart';
-import 'package:bilimusic/pages/profile/widgets/lansync_section.dart';
+import 'package:bilimusic/app/shells/shell_page_manager.dart';
+import 'package:bilimusic/features/playlist/playlist_providers.dart';
+import 'package:bilimusic/features/roam/ui/roam_section.dart';
+import 'package:bilimusic/features/lan_sync/ui/lansync_section.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {

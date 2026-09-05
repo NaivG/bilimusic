@@ -1,14 +1,14 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/core/app_providers.dart';
-import 'package:bilimusic/utils/responsive.dart';
-import 'package:bilimusic/pages/playlist/portrait_playlist_page.dart';
-import 'package:bilimusic/pages/playlist/landscape_playlist_page.dart';
-import 'package:bilimusic/providers/playback_providers.dart';
-import 'package:bilimusic/providers/playlist_providers.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/domain/playlist.dart';
+import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/features/playlist/ui/portrait_playlist_page.dart';
+import 'package:bilimusic/features/playlist/ui/landscape_playlist_page.dart';
+import 'package:bilimusic/features/player/playback_providers.dart';
+import 'package:bilimusic/features/playlist/playlist_providers.dart';
 
 /// 播放列表页面
 /// 根据屏幕方向路由到竖屏或横屏布局

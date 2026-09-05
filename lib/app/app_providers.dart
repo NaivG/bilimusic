@@ -1,24 +1,24 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lyrics_now/lyrics_now.dart';
 
-import 'package:bilimusic/api/bili_client.dart';
-import 'package:bilimusic/managers/cache_manager.dart';
-import 'package:bilimusic/services/api_service.dart';
-import 'package:bilimusic/services/dual_audio_service.dart';
-import 'package:bilimusic/services/lyrics_service.dart';
-import 'package:bilimusic/services/notification_service.dart';
-import 'package:bilimusic/services/player_coordinator.dart';
-import 'package:bilimusic/services/playlist_service.dart';
-import 'package:bilimusic/services/pip_service.dart';
-import 'package:bilimusic/services/roaming_service.dart';
-import 'package:bilimusic/services/sync/device_identity.dart';
-import 'package:bilimusic/services/sync/lan_sync_service.dart';
-import 'package:bilimusic/services/sync/pairing_service.dart';
-import 'package:bilimusic/managers/recommendation_manager.dart';
-import 'package:bilimusic/managers/settings_manager.dart';
-import 'package:bilimusic/managers/user_manager.dart';
-import 'package:bilimusic/managers/fav_sync_manager.dart';
-import 'package:bilimusic/managers/playlist_manager.dart';
+import 'package:bilimusic/core/network/bili_client.dart';
+import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/core/network/api_service.dart';
+import 'package:bilimusic/features/player/logic/dual_audio_service.dart';
+import 'package:bilimusic/features/lyrics/lyrics_service.dart';
+import 'package:bilimusic/features/player/logic/notification_service.dart';
+import 'package:bilimusic/features/player/logic/player_coordinator.dart';
+import 'package:bilimusic/features/playlist/playlist_service.dart';
+import 'package:bilimusic/features/player/pip/pip_service.dart';
+import 'package:bilimusic/features/roam/roaming_service.dart';
+import 'package:bilimusic/features/lan_sync/services/device_identity.dart';
+import 'package:bilimusic/features/lan_sync/services/lan_sync_service.dart';
+import 'package:bilimusic/features/lan_sync/services/pairing_service.dart';
+import 'package:bilimusic/features/home/logic/recommendation_manager.dart';
+import 'package:bilimusic/features/settings/settings_manager.dart';
+import 'package:bilimusic/features/auth/user_manager.dart';
+import 'package:bilimusic/features/fav_sync/fav_sync_manager.dart';
+import 'package:bilimusic/features/playlist/playlist_manager.dart';
 
 /// 应用级服务 / 管理器的依赖容器。
 ///

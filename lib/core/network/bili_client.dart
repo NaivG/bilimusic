@@ -3,8 +3,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import 'package:bilimusic/api/bili_exception.dart';
-import 'package:bilimusic/utils/network_config.dart';
+import 'package:bilimusic/core/network/bili_exception.dart';
+import 'package:bilimusic/core/network/network_config.dart';
 
 /// 统一的 B 站 HTTP 客户端。
 ///

@@ -3,16 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_lyric/core/lyric_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:bilimusic/components/auto_appbar.dart';
-import 'package:bilimusic/components/lyric/lyric_section.dart';
-import 'package:bilimusic/components/lyric/lyric_source.dart';
-import 'package:bilimusic/models/music.dart' as model;
-import 'package:bilimusic/pages/detail/detail_blur_background.dart';
-import 'package:bilimusic/providers/playback_providers.dart';
-import 'package:bilimusic/shells/shell_page_manager.dart';
-import 'package:bilimusic/utils/dialog_helpers.dart';
-import 'package:bilimusic/utils/formatters.dart';
-import 'package:bilimusic/utils/responsive.dart';
+import 'package:bilimusic/shared/widgets/auto_appbar.dart';
+import 'package:bilimusic/features/lyrics/widgets/lyric_section.dart';
+import 'package:bilimusic/features/lyrics/lyric_source.dart';
+import 'package:bilimusic/domain/music.dart' as model;
+import 'package:bilimusic/features/player/now_playing/detail_blur_background.dart';
+import 'package:bilimusic/features/player/playback_providers.dart';
+import 'package:bilimusic/app/shells/shell_page_manager.dart';
+import 'package:bilimusic/shared/utils/dialog_helpers.dart';
+import 'package:bilimusic/shared/utils/formatters.dart';
+import 'package:bilimusic/shared/utils/responsive.dart';
 
 /// 方屏详情页（手表/折叠外屏/近正方形 PiP）
 /// 顶部：横向封面 + 信息（miniplayer 风格）

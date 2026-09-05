@@ -1,6 +1,6 @@
 import 'package:audio_service/audio_service.dart';
-import 'package:bilimusic/models/player_state.dart';
-import 'package:bilimusic/services/player_coordinator.dart';
+import 'package:bilimusic/features/player/models/player_state.dart';
+import 'package:bilimusic/features/player/logic/player_coordinator.dart';
 
 /// 音频处理器
 /// 适配 audio_service 接口

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/providers/playlist_providers.dart';
-import 'package:bilimusic/pages/playlist/widgets/playlist_hero.dart';
-import 'package:bilimusic/pages/playlist/widgets/playlist_song_list.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/domain/playlist.dart';
+import 'package:bilimusic/features/playlist/playlist_providers.dart';
+import 'package:bilimusic/features/playlist/widgets/playlist_hero.dart';
+import 'package:bilimusic/features/playlist/widgets/playlist_song_list.dart';
 
 /// Landscape playlist page with hero Row + track list in a single scroll.
 class LandscapePlaylistPage extends ConsumerWidget {

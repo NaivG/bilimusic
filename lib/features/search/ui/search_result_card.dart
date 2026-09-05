@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:bilimusic/models/search_result.dart';
-import 'package:bilimusic/services/player_coordinator.dart';
-import 'package:bilimusic/managers/playlist_manager.dart';
-import 'package:bilimusic/components/long_press_menu.dart';
-import 'package:bilimusic/utils/responsive.dart';
+import 'package:bilimusic/domain/search_result.dart';
+import 'package:bilimusic/features/player/logic/player_coordinator.dart';
+import 'package:bilimusic/features/playlist/playlist_manager.dart';
+import 'package:bilimusic/shared/widgets/long_press_menu.dart';
+import 'package:bilimusic/shared/utils/responsive.dart';
 import 'package:super_context_menu/super_context_menu.dart';
-import 'package:bilimusic/managers/cache_manager.dart';
-import 'package:bilimusic/utils/network_config.dart';
+import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/core/network/network_config.dart';
 
 /// 搜索结果卡片组件 - 用于展示非Music类型的搜索结果
 class SearchResultCard extends StatefulWidget {

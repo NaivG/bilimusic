@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:bilimusic/utils/responsive.dart';
+import 'package:bilimusic/shared/utils/responsive.dart';
 
 /// 搜索栏组件
 class SearchBarWidget extends StatefulWidget {

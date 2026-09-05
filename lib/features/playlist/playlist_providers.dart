@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:bilimusic/core/app_providers.dart';
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/models/playlist_tag.dart';
-import 'package:bilimusic/services/playlist_service.dart';
+import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/domain/playlist.dart';
+import 'package:bilimusic/domain/playlist_tag.dart';
+import 'package:bilimusic/features/playlist/playlist_service.dart';
 
 /// 单一播放列表数据源（provider 内缓存服务实例）。
 final _playlistServiceProvider = playlistServiceProvider;

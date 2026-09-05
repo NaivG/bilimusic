@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:bilimusic/models/music.dart';
+import 'package:bilimusic/domain/music.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 /// 横屏模式封面组件

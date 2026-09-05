@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:bilimusic/providers/playlist_providers.dart';
-import 'package:bilimusic/providers/playback_providers.dart';
-import 'package:bilimusic/components/mini_player_bar.dart';
-import 'package:bilimusic/components/desktop_window_controls.dart';
-import 'package:bilimusic/shells/shell_page_manager.dart';
-import 'package:bilimusic/shells/shell_widgets.dart';
-import 'package:bilimusic/pages/home_page.dart';
+import 'package:bilimusic/features/playlist/playlist_providers.dart';
+import 'package:bilimusic/features/player/playback_providers.dart';
+import 'package:bilimusic/features/player/widgets/mini_player_bar.dart';
+import 'package:bilimusic/app/shells/widgets/desktop_window_controls.dart';
+import 'package:bilimusic/app/shells/shell_page_manager.dart';
+import 'package:bilimusic/app/shells/shell_widgets.dart';
+import 'package:bilimusic/features/home/home_page.dart';
 
 /// 竖屏模式外壳 - 包含平板模式和手机模式布局
 /// 平板：NavigationRail + 主内容 + 迷你播放器

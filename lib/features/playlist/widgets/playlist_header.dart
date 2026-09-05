@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/models/playlist.dart';
-import 'package:bilimusic/utils/network_config.dart';
-import 'package:bilimusic/managers/cache_manager.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/domain/playlist.dart';
+import 'package:bilimusic/core/network/network_config.dart';
+import 'package:bilimusic/core/storage/cache_manager.dart';
 
 /// 歌单头部组件
 /// 水平布局：左侧封面 + 右侧信息 + 下方控制按钮

@@ -1,8 +1,8 @@
 import 'dart:ui';
-import 'package:bilimusic/managers/cache_manager.dart';
+import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:bilimusic/theme/app_tokens.dart';
+import 'package:bilimusic/shared/theme/app_tokens.dart';
 
 /// 带颜色动画的横屏背景组件
 class AnimatedLandscapeBackground extends StatefulWidget {

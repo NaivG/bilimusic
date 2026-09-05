@@ -4,10 +4,10 @@ import 'dart:io';
 import 'package:bonsoir/bonsoir.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:bilimusic/models/sync/lan_sync_mode.dart';
-import 'package:bilimusic/models/sync/peer_device.dart';
-import 'package:bilimusic/services/sync/device_identity.dart';
-import 'package:bilimusic/utils/platform_helper.dart';
+import 'package:bilimusic/domain/lan_sync_mode.dart';
+import 'package:bilimusic/domain/peer_device.dart';
+import 'package:bilimusic/features/lan_sync/services/device_identity.dart';
+import 'package:bilimusic/shared/utils/platform_helper.dart';
 
 /// Bonsoir 包装：mDNS 广播 + 浏览。
 ///

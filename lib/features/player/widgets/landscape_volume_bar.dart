@@ -1,7 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/providers/playback_providers.dart';
+import 'package:bilimusic/features/player/playback_providers.dart';
 
 /// 横屏模式音量条组件
 /// 接入 PlayerCoordinator 的音量控制，状态来自 volumeProvider

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:gt3_flutter_plugin/gt3_flutter_plugin.dart';
-import 'package:bilimusic/utils/network_config.dart';
+import 'package:bilimusic/core/network/network_config.dart';
 
 class CaptchaHelper {
   static final CaptchaHelper _instance = CaptchaHelper._internal();

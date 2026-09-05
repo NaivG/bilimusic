@@ -1,16 +1,16 @@
 import 'dart:async';
 import 'dart:math';
-import 'package:bilimusic/models/play_mode.dart';
-import 'package:bilimusic/models/roam_style.dart';
+import 'package:bilimusic/domain/play_mode.dart';
+import 'package:bilimusic/features/roam/models/roam_style.dart';
 import 'package:flutter/foundation.dart';
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/models/player_state.dart';
-import 'package:bilimusic/services/dual_audio_service.dart';
-import 'package:bilimusic/services/playlist_service.dart';
-import 'package:bilimusic/services/notification_service.dart';
-import 'package:bilimusic/services/api_service.dart';
-import 'package:bilimusic/services/roaming_service.dart';
-import 'package:bilimusic/managers/settings_manager.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/features/player/models/player_state.dart';
+import 'package:bilimusic/features/player/logic/dual_audio_service.dart';
+import 'package:bilimusic/features/playlist/playlist_service.dart';
+import 'package:bilimusic/features/player/logic/notification_service.dart';
+import 'package:bilimusic/core/network/api_service.dart';
+import 'package:bilimusic/features/roam/roaming_service.dart';
+import 'package:bilimusic/features/settings/settings_manager.dart';
 
 /// 漫游会话：进入 roam 时创建，退出 roam 时置 null。
 ///

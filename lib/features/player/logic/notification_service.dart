@@ -1,5 +1,5 @@
 import 'package:audio_service/audio_service.dart';
-import 'package:bilimusic/models/music.dart';
+import 'package:bilimusic/domain/music.dart';
 
 /// 通知管理服务
 /// 职责：管理音频通知的更新和显示

@@ -1,14 +1,14 @@
 import 'package:flutter/cupertino.dart' show debugPrint;
 
-import 'package:bilimusic/api/bili_client.dart';
-import 'package:bilimusic/api/bili_exception.dart';
-import 'package:bilimusic/managers/cache_manager.dart';
-import 'package:bilimusic/models/bili_fav_folder.dart';
-import 'package:bilimusic/models/bili_fav_resource.dart';
-import 'package:bilimusic/models/bili_item.dart';
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/models/search_result.dart';
-import 'package:bilimusic/utils/av_bv.dart';
+import 'package:bilimusic/core/network/bili_client.dart';
+import 'package:bilimusic/core/network/bili_exception.dart';
+import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/domain/bili_fav_folder.dart';
+import 'package:bilimusic/domain/bili_fav_resource.dart';
+import 'package:bilimusic/domain/bili_item.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/domain/search_result.dart';
+import 'package:bilimusic/core/network/av_bv.dart';
 
 /// B 站 API 服务。所有 HTTP 请求统一走 [BiliClient]。
 class ApiService {

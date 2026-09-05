@@ -1,16 +1,16 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:bilimusic/core/app_providers.dart';
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/models/player_state.dart';
-import 'package:bilimusic/models/play_mode.dart';
-import 'package:bilimusic/services/dual_audio_service.dart';
-import 'package:bilimusic/services/player_coordinator.dart';
+import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/features/player/models/player_state.dart';
+import 'package:bilimusic/domain/play_mode.dart';
+import 'package:bilimusic/features/player/logic/dual_audio_service.dart';
+import 'package:bilimusic/features/player/logic/player_coordinator.dart';
 
 // 引入 playlist providers 的 currentPlaylistProvider / currentIndexProvider，
 // 供本文件的派生 provider 监听 playlist 变化。
-import 'package:bilimusic/providers/playlist_providers.dart'
+import 'package:bilimusic/features/playlist/playlist_providers.dart'
     show currentPlaylistProvider, currentIndexProvider;
 
 final _dualAudioServiceProvider = dualAudioServiceProvider;

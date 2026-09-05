@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:bilimusic/models/roam_config.dart';
+import 'package:bilimusic/features/roam/models/roam_config.dart';
 
 /// 显示导入漫游配置对话框。
 ///

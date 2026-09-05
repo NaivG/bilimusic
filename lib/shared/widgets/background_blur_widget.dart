@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:bilimusic/theme/app_tokens.dart';
+import 'package:bilimusic/shared/theme/app_tokens.dart';
 
 /// 背景模糊组件 - 从封面图片生成模糊背景效果
 class BackgroundBlurWidget extends StatelessWidget {

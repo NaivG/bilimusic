@@ -2,20 +2,20 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/models/play_mode.dart';
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/models/player_state.dart';
-import 'package:bilimusic/providers/playback_providers.dart';
-import 'package:bilimusic/providers/playlist_providers.dart';
-import 'package:bilimusic/providers/settings_provider.dart';
-import 'package:bilimusic/theme/app_palette.dart';
-import 'package:bilimusic/theme/app_tokens.dart';
-import 'package:bilimusic/utils/animations.dart';
-import 'package:bilimusic/utils/responsive.dart';
-import 'package:bilimusic/utils/platform_helper.dart';
-import 'package:bilimusic/components/common/landscape_cover_art.dart';
-import 'package:bilimusic/components/common/landscape_seek_bar.dart';
-import 'package:bilimusic/components/common/landscape_volume_bar.dart';
+import 'package:bilimusic/domain/play_mode.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/features/player/models/player_state.dart';
+import 'package:bilimusic/features/player/playback_providers.dart';
+import 'package:bilimusic/features/playlist/playlist_providers.dart';
+import 'package:bilimusic/features/settings/settings_provider.dart';
+import 'package:bilimusic/shared/theme/app_palette.dart';
+import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/utils/animations.dart';
+import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/shared/utils/platform_helper.dart';
+import 'package:bilimusic/features/player/widgets/landscape_cover_art.dart';
+import 'package:bilimusic/features/player/widgets/landscape_seek_bar.dart';
+import 'package:bilimusic/features/player/widgets/landscape_volume_bar.dart';
 
 /// 横屏模式底部播放器控制栏 - Lucent设计语言
 class LandscapeBottomControl extends ConsumerWidget {

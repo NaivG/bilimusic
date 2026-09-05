@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:bilimusic/core/app_providers.dart';
+import 'package:bilimusic/app/app_providers.dart';
 
 final _settingsManagerProvider = settingsManagerProvider;
 

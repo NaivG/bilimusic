@@ -1,9 +1,9 @@
 import 'dart:convert';
-import 'package:bilimusic/components/auto_appbar.dart';
+import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:bilimusic/models/changelog_entry.dart';
+import 'package:bilimusic/features/update/models/changelog_entry.dart';
 
 class ChangelogPage extends StatelessWidget {
   const ChangelogPage({super.key});

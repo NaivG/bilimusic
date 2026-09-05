@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:bilimusic/utils/platform_helper.dart';
+import 'package:bilimusic/shared/utils/platform_helper.dart';
 
 /// 本机设备身份：UUID + 显示名 + 平台。
 ///

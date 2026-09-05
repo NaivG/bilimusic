@@ -1,7 +1,7 @@
 import 'dart:math';
 
-import 'package:bilimusic/models/music.dart';
-import 'package:bilimusic/utils/text_simhash.dart';
+import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/features/roam/logic/text_simhash.dart';
 
 /// Greedy max-min diversity: 从 [pool] 中挑 [count] 个元素，使其与 [existing] 集合
 /// 的最小 simhash 汉明距离最大化。

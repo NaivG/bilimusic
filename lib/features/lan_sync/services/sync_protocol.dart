@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:bilimusic/models/sync/sync_message.dart';
-import 'package:bilimusic/models/music.dart';
+import 'package:bilimusic/features/lan_sync/models/sync_message.dart';
+import 'package:bilimusic/domain/music.dart';
 
 /// LAN 同步协议帧编解码。
 ///
