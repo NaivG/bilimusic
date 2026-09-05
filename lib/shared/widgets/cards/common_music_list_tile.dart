@@ -171,7 +171,7 @@ class _CommonMusicListTileState extends State<CommonMusicListTile> {
         ),
         const SizedBox(height: 4),
         Text(
-          '${widget.music.artist} - ${widget.music.album}',
+          widget.music.subtitleText,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(fontSize: 13, color: Colors.grey[600]),

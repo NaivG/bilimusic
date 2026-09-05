@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import 'package:bilimusic/domain/lan_sync_mode.dart';
 import 'package:bilimusic/domain/peer_device.dart';
@@ -218,13 +217,4 @@ Color _platformColor(String platform) {
     'linux' => Colors.orange,
     _ => Colors.grey,
   };
-}
-
-/// 把一段字符串复制到剪贴板。
-Future<void> copyToClipboard(BuildContext context, String value) async {
-  await Clipboard.setData(ClipboardData(text: value));
-  if (!context.mounted) return;
-  ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(const SnackBar(content: Text('已复制到剪贴板')));
 }

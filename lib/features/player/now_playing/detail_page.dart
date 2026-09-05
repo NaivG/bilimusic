@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_lyric/core/lyric_controller.dart';
 import 'package:flutter_lyric/core/lyric_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:bilimusic/features/lyrics/lyric_source.dart';
 import 'package:bilimusic/features/playlist/widgets/playlist_sheet.dart';
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/domain/music.dart' as model;
 import 'package:bilimusic/features/player/models/player_state.dart';
-import 'package:bilimusic/domain/play_mode.dart';
 import 'package:bilimusic/features/lyrics/lyrics_providers.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/lyrics/lyrics_service.dart';
 import 'package:bilimusic/features/player/now_playing/color_extractor.dart';
+import 'package:bilimusic/shared/utils/play_mode_icon.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/shared/utils/share_helpers.dart';
 import 'package:bilimusic/features/player/now_playing/portrait_detail_page.dart';
 import 'package:bilimusic/features/player/now_playing/landscape_detail_page.dart';
 import 'package:bilimusic/features/player/now_playing/square_detail_page.dart';
@@ -128,22 +128,6 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     });
   }
 
-  void _shareMusic() {
-    final String shareText =
-        '由 BiliMusic 分享：${_music.title}\n'
-        'https://b23.tv/${_music.id}';
-    SharePlus.instance.share(
-      ShareParams(
-        text: shareText,
-        sharePositionOrigin: Rect.fromCenter(
-          center: Offset.zero,
-          width: 100,
-          height: 100,
-        ),
-      ),
-    );
-  }
-
   void _togglePlay() {
     final commands = ref.read(playbackCommandsProvider.notifier);
     final ps = ref.read(playerStateProvider);
@@ -238,11 +222,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     }
 
     final isPlaying = ps is PlayerPlaying;
-    final icon = switch (mode) {
-      PlayMode.sequential => Icons.repeat,
-      PlayMode.loop => Icons.repeat_one,
-      PlayMode.shuffle => Icons.shuffle,
-    };
+    final icon = mode.icon;
 
     void togglePlayMode() =>
         ref.read(playbackCommandsProvider.notifier).togglePlayMode();
@@ -262,7 +242,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
         previousDominantColor: _previousDominantColor,
         playModeIcon: icon,
         onToggleFavorite: _toggleFavorite,
-        onShare: _shareMusic,
+        onShare: () => shareMusic(_music),
         onTogglePlay: _togglePlay,
         onPlaylist: _showPlaylist,
         onLoadLyric: _loadLyric,
@@ -288,7 +268,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
         dominantColor: _dominantColor,
         playModeIcon: icon,
         onToggleFavorite: _toggleFavorite,
-        onShare: _shareMusic,
+        onShare: () => shareMusic(_music),
         onTogglePlay: _togglePlay,
         onToggleShowLyrics: _toggleShowLyrics,
         onLoadLyric: _loadLyric,
@@ -311,7 +291,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
       dominantColor: _dominantColor,
       playModeIcon: icon,
       onToggleFavorite: _toggleFavorite,
-      onShare: _shareMusic,
+      onShare: () => shareMusic(_music),
       onTogglePlay: _togglePlay,
       onToggleShowLyrics: _toggleShowLyrics,
       onPlaylist: _showPlaylist,

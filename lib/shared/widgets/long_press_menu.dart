@@ -11,7 +11,7 @@ import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/playlist.dart';
 import 'package:bilimusic/features/lan_sync/lan_sync_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:bilimusic/shared/utils/share_helpers.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 
 /// Builds a context menu for the given music.
@@ -115,21 +115,7 @@ FutureOr<Menu?> buildMusicContextMenu({
       MenuAction(
         title: '分享',
         image: MenuImage.icon(Icons.share),
-        callback: () {
-          final String shareText =
-              '由 BiliMusic 分享：${music.title}\n'
-              'https://b23.tv/${music.id}';
-          SharePlus.instance.share(
-            ShareParams(
-              text: shareText,
-              sharePositionOrigin: Rect.fromCenter(
-                center: Offset.zero,
-                width: 100,
-                height: 100,
-              ),
-            ),
-          );
-        },
+        callback: () => shareMusic(music),
       ),
     ],
   );

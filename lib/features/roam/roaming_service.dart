@@ -77,12 +77,11 @@ class RoamingService {
 
     // dedup: 排除当前队列和播放历史
     final existing = <String>{
-      for (final m in _playlistService.currentPlaylist.value)
-        '${m.id}_${m.cid}',
-      for (final m in _playlistService.playHistorySnapshot) '${m.id}_${m.cid}',
+      for (final m in _playlistService.currentPlaylist.value) m.key,
+      for (final m in _playlistService.playHistorySnapshot) m.key,
     };
     final fresh = candidates
-        .where((m) => !existing.contains('${m.id}_${m.cid}'))
+        .where((m) => !existing.contains(m.key))
         .toList();
     if (fresh.isEmpty) return const [];
 
@@ -183,8 +182,7 @@ class RoamingService {
     final seen = <String>{};
     final out = <Music>[];
     for (final m in list) {
-      final key = '${m.id}_${m.cid}';
-      if (seen.add(key)) out.add(m);
+      if (seen.add(m.key)) out.add(m);
     }
     return out;
   }

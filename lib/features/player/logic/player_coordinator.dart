@@ -108,13 +108,13 @@ class PlayerCoordinator {
           : music;
 
       var idx = _playlistService.currentPlaylist.value.indexWhere(
-        (m) => m.id == candidate.id && m.cid == candidate.cid,
+        (m) => m.key == candidate.key,
       );
 
       if (idx == -1) {
         await _playlistService.addToPlaylist(candidate);
         idx = _playlistService.currentPlaylist.value.indexWhere(
-          (m) => m.id == candidate.id && m.cid == candidate.cid,
+          (m) => m.key == candidate.key,
         );
         if (idx == -1) return;
       }
@@ -317,9 +317,7 @@ class PlayerCoordinator {
     await _playlistService.addToPlaylist(music);
 
     final playlist = _playlistService.currentPlaylist.value;
-    final newIndex = playlist.indexWhere(
-      (m) => m.id == music.id && m.cid == music.cid,
-    );
+    final newIndex = playlist.indexWhere((m) => m.key == music.key);
     if (newIndex == -1) return;
 
     await _playlistService.moveInPlaylist(newIndex, currentIndex + 1);
@@ -740,8 +738,7 @@ class PlayerCoordinator {
     final seen = <String>{};
     final out = <Music>[];
     for (final m in list) {
-      final key = '${m.id}_${m.cid}';
-      if (seen.add(key)) out.add(m);
+      if (seen.add(m.key)) out.add(m);
     }
     return out;
   }

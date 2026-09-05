@@ -79,21 +79,7 @@ class BiliItem {
   }
 
   /// 安全封面
-  String get safeCoverUrl => Music.isValidImageUrl(pic)
-      ? pic
-      : 'https://i0.hdslb.com/bfs/static/jinkela/video/asserts/no_video.png';
-
-  /// 格式化总时长
-  String get formattedDuration {
-    final d = Duration(seconds: duration);
-    final h = d.inHours;
-    final m = d.inMinutes % 60;
-    final s = d.inSeconds % 60;
-    if (h > 0) {
-      return '$h:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-    }
-    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-  }
+  String get safeCoverUrl => Music.isValidImageUrl(pic) ? pic : fallbackCoverUrl;
 
   /// 从 API x/web-interface/view 响应构造
   factory BiliItem.fromViewApi(Map<String, dynamic> data) {

@@ -6,14 +6,16 @@ import 'package:bilimusic/domain/play_mode.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/player/models/player_state.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
+import 'package:bilimusic/features/player/widgets/crossfade_indicator.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
-import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/shared/utils/play_mode_icon.dart';
 import 'package:bilimusic/shared/utils/platform_helper.dart';
-import 'package:bilimusic/features/player/widgets/landscape_cover_art.dart';
+import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/shared/widgets/music_cover.dart';
 import 'package:bilimusic/features/player/widgets/landscape_seek_bar.dart';
 import 'package:bilimusic/features/player/widgets/landscape_volume_bar.dart';
 
@@ -126,18 +128,13 @@ class LandscapeBottomControl extends ConsumerWidget {
     Music? music,
     PlayerState playerState,
   ) {
-    final fading =
-        playerState is PlayerPlaying && playerState.fadeCountdown != null;
+    final fading = isCrossfading(playerState);
     return GestureDetector(
       onTap: onExpand,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          LandscapeCoverArt(
-            size: 48,
-            borderRadius: AppTokens.radiusSm,
-            song: music,
-          ),
+          MusicCover(music: music, size: 48, radius: AppTokens.radiusSm),
           const SizedBox(width: 12),
           Flexible(
             child: Column(
@@ -159,7 +156,7 @@ class LandscapeBottomControl extends ConsumerWidget {
                     ? AnimatedSwitcher(
                         duration: AppTokens.standardDuration,
                         child: fading
-                            ? _buildCrossfadeIndicator(context)
+                            ? const CrossfadeIndicator()
                             : Text(
                                 music?.artist ?? 'Unknown Artist',
                                 key: const ValueKey('artist'),
@@ -177,31 +174,6 @@ class LandscapeBottomControl extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildCrossfadeIndicator(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Row(
-      key: const ValueKey('transition'),
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          width: 10,
-          height: 10,
-          child: CircularProgressIndicator(
-            strokeWidth: 1.5,
-            valueColor: AlwaysStoppedAnimation<Color>(
-              accent.withValues(alpha: 0.8),
-            ),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          '过渡中',
-          style: TextStyle(color: accent.withValues(alpha: 0.8), fontSize: 12),
-        ),
-      ],
     );
   }
 
@@ -265,7 +237,7 @@ class LandscapeBottomControl extends ConsumerWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         _buildSmallButton(
-          icon: _playModeIcon(playMode),
+          icon: playMode.icon,
           size: smallSize,
           iconSize: smallSize * 0.55,
           color: iconColor.withValues(alpha: 0.7),
@@ -368,17 +340,6 @@ class LandscapeBottomControl extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  IconData _playModeIcon(PlayMode mode) {
-    switch (mode) {
-      case PlayMode.sequential:
-        return Icons.repeat_rounded;
-      case PlayMode.loop:
-        return Icons.repeat_one_rounded;
-      case PlayMode.shuffle:
-        return Icons.shuffle_rounded;
-    }
   }
 
   // ==================== Right Section ====================

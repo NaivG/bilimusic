@@ -13,6 +13,10 @@ enum MusicRenderStyle {
 /// B 站封面 CDN 缩略后缀：列表封面统一按此规格取图，省流量。
 const biliCoverThumbSuffix = '@672w_378h';
 
+/// 封面缺失 / 非法时的 fallback 占位图（唯一来源，勿再内联 URL 字面量）。
+const fallbackCoverUrl =
+    'https://i0.hdslb.com/bfs/static/jinkela/video/asserts/no_video.png';
+
 class Music {
   final String id; // bvid
   final String cid; // 分P cid，音视频请求需要
@@ -60,7 +64,7 @@ class Music {
       artist: json['artist'] ?? '',
       album: json['album']?.toString() ?? '未知专辑',
       coverUrl: json['coverUrl']?.toString().trim().isEmpty ?? true
-          ? 'https://i0.hdslb.com/bfs/static/jinkela/video/asserts/no_video.png'
+          ? fallbackCoverUrl
           : json['coverUrl'],
       duration: json['duration'] != null
           ? Duration(seconds: int.parse(json['duration']))
@@ -123,6 +127,13 @@ class Music {
   /// 是否为系列（多P）视频
   bool get isSeries => pages.length > 1;
 
+  /// 队列 / 收藏域的唯一标识（bvid + 分P cid）。
+  /// 注意与 [uniqueKey] 不同：那个支持精确到分P对象，这个是 (id, cid) 判等键。
+  String get key => '${id}_$cid';
+
+  /// 「artist - album」副标题行（列表项通用，分隔符统一为 ` - `）。
+  String get subtitleText => '$artist - $album';
+
   /// 获取当前分P
   Page? get currentPage {
     if (pages.isEmpty || currentPageIndex >= pages.length) return null;
@@ -180,9 +191,7 @@ class Music {
     return Uri.tryParse(url)?.hasAbsolutePath == true;
   }
 
-  String get safeCoverUrl => isValidImageUrl(coverUrl)
-      ? coverUrl
-      : 'https://i0.hdslb.com/bfs/static/jinkela/video/asserts/no_video.png';
+  String get safeCoverUrl => isValidImageUrl(coverUrl) ? coverUrl : fallbackCoverUrl;
 }
 
 class Page {
@@ -247,12 +256,6 @@ class Page {
 
   /// 获取分P时长 (Duration类型)
   Duration get durationValue => Duration(seconds: int.tryParse(duration) ?? 0);
-
-  /// 格式化时长字符串 MM:SS
-  String get formattedDuration {
-    final d = durationValue;
-    return '${d.inMinutes.toString().padLeft(2, '0')}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
-  }
 
   /// 获取分辨率字符串
   String? get resolution {

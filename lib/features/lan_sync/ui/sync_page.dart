@@ -15,6 +15,7 @@ import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/features/lan_sync/ui/device_tile.dart';
 import 'package:bilimusic/features/lan_sync/ui/pair_qr_dialog.dart';
 import 'package:bilimusic/features/lan_sync/ui/pair_request_dialog.dart';
+import 'package:bilimusic/shared/utils/clipboard_helpers.dart';
 
 /// 局域网同步设备管理页。
 ///

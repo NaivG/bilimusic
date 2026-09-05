@@ -246,7 +246,7 @@ class PlaylistService {
       jsonEncode(musics.map((m) => m.toJson()).toList());
 
   int _findMusicIndex(List<Music> list, Music music) =>
-      list.indexWhere((m) => m.id == music.id && m.cid == music.cid);
+      list.indexWhere((m) => m.key == music.key);
 
   Map<String, Object?> _playlistRow(Playlist p) => {
     'id': p.id,
@@ -439,13 +439,11 @@ class PlaylistService {
   }
 
   Future<void> _addUniqueToCurrentPlaylist(List<Music> musics) async {
-    final existing = _currentPlaylist.value
-        .map((m) => '${m.id}_${m.cid}')
-        .toSet();
+    final existing = _currentPlaylist.value.map((m) => m.key).toSet();
     final fresh = <Music>[];
     for (final m in musics) {
-      if (!existing.contains('${m.id}_${m.cid}')) {
-        existing.add('${m.id}_${m.cid}');
+      if (!existing.contains(m.key)) {
+        existing.add(m.key);
         fresh.add(m);
       }
     }
@@ -716,7 +714,7 @@ class PlaylistService {
       whereArgs: [music.id, music.cid],
     );
     final newFavs = List<Music>.from(_favorites.value)
-      ..removeWhere((m) => m.id == music.id && m.cid == music.cid);
+      ..removeWhere((m) => m.key == music.key);
     _favorites.value = newFavs;
     await _propagateFavoriteFlag(unfavorited, false);
   }
@@ -726,7 +724,7 @@ class PlaylistService {
   Future<void> _propagateFavoriteFlag(Music updated, bool isFavorite) async {
     final list = _currentPlaylist.value;
     for (var i = 0; i < list.length; i++) {
-      if (list[i].id == updated.id && list[i].cid == updated.cid) {
+      if (list[i].key == updated.key) {
         final newList = List<Music>.from(list);
         newList[i] = updated;
         _currentPlaylist.value = newList;
@@ -737,7 +735,7 @@ class PlaylistService {
 
     final history = _playHistory.value;
     for (var i = 0; i < history.length; i++) {
-      if (history[i].id == updated.id && history[i].cid == updated.cid) {
+      if (history[i].key == updated.key) {
         final newHistory = List<Music>.from(history);
         newHistory[i] = updated;
         _playHistory.value = newHistory;
@@ -950,7 +948,7 @@ class PlaylistService {
       var pos = (maxPosRow.first['mx'] as int?) ?? -1;
 
       for (final m in newSongs) {
-        final key = '${m.id}_${m.cid}';
+        final key = m.key;
         if (existingKeys.contains(key)) continue;
         existingKeys.add(key);
         pos += 1;

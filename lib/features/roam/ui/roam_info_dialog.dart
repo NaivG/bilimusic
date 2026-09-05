@@ -1,13 +1,12 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:bilimusic/app/app_providers.dart';
-import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/roam/models/roam_config.dart';
 import 'package:bilimusic/features/roam/models/roam_style.dart';
+import 'package:bilimusic/shared/utils/clipboard_helpers.dart';
+import 'package:bilimusic/shared/widgets/music_cover.dart';
 
 /// 显示漫游模式详情对话框。
 ///
@@ -90,29 +89,7 @@ class _RoamInfoDialog extends ConsumerWidget {
       return;
     }
     final text = config.toPlainText();
-    await Clipboard.setData(ClipboardData(text: text));
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        duration: const Duration(seconds: 4),
-        content: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('已复制到剪贴板'),
-            const SizedBox(height: 2),
-            Text(
-              text,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onInverseSurface,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    await copyToClipboard(context, text, preview: text);
   }
 
   void _onStop(BuildContext context, WidgetRef ref) {
@@ -163,22 +140,7 @@ class _SeedTile extends StatelessWidget {
     final theme = Theme.of(context);
     return Row(
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: SizedBox(
-            width: 44,
-            height: 44,
-            child: music.coverUrl.isEmpty
-                ? _placeholder(theme)
-                : CachedNetworkImage(
-                    imageUrl: music.coverUrl,
-                    cacheManager: imageCacheManager,
-                    fit: BoxFit.cover,
-                    placeholder: (_, _) => _placeholder(theme),
-                    errorWidget: (_, _, _) => _placeholder(theme),
-                  ),
-          ),
-        ),
+        MusicCover(music: music, size: 44, radius: 6),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
@@ -206,18 +168,6 @@ class _SeedTile extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _placeholder(ThemeData theme) {
-    return Container(
-      color: theme.colorScheme.surfaceContainerHighest,
-      alignment: Alignment.center,
-      child: Icon(
-        Icons.music_note,
-        color: theme.colorScheme.onSurfaceVariant,
-        size: 20,
-      ),
     );
   }
 }

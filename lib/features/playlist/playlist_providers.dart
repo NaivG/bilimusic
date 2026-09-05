@@ -139,7 +139,7 @@ final currentPlaylistDetailProvider =
 
 final isFavoriteProvider = Provider.family<bool, Music>((ref, music) {
   final favorites = ref.watch(favoritesProvider);
-  return favorites.any((m) => m.id == music.id && m.cid == music.cid);
+  return favorites.any((m) => m.key == music.key);
 });
 
 /// 播放列表命令 - 收藏/队列等纯数据操作的单一 UI 门面（直连 PlaylistService）。

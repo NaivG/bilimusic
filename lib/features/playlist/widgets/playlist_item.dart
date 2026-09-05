@@ -126,7 +126,7 @@ class _PlaylistItemState extends State<PlaylistItem> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${widget.music.artist} · ${widget.music.album}',
+                          widget.music.subtitleText,
                           style: TextStyle(
                             fontSize: 12,
                             color: widget.isPlaying || _isHovered

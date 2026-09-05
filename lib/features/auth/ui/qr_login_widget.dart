@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pretty_qr_code/pretty_qr_code.dart';
 
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/features/auth/qr_login_service.dart';
+import 'package:bilimusic/shared/widgets/qr_panel.dart';
 
 /// 扫码登录面板
 /// 展示二维码并轮询扫码状态；登录成功时写 cookie、刷新 UserManager 并回调 [onSuccess]。
@@ -175,36 +175,7 @@ class _QrLoginWidgetState extends ConsumerState<QrLoginWidget> {
         ),
         const SizedBox(height: 24),
         Center(
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: _isGenerating || info == null
-                ? const SizedBox(
-                    width: 220,
-                    height: 220,
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                : SizedBox(
-                    width: 220,
-                    height: 220,
-                    child: PrettyQrView.data(
-                      data: info.url,
-                      decoration: const PrettyQrDecoration(
-                        shape: PrettyQrSquaresSymbol(),
-                      ),
-                    ),
-                  ),
-          ),
+          child: QrPanel(data: _isGenerating || info == null ? null : info.url),
         ),
         const SizedBox(height: 16),
         Text(

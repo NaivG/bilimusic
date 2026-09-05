@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:pretty_qr_code/pretty_qr_code.dart';
+
+import 'package:bilimusic/shared/utils/clipboard_helpers.dart';
+import 'package:bilimusic/shared/widgets/qr_panel.dart';
 
 /// 显示本机的"配对二维码"——内容为 `{id}|{name}|{pin}`，供对方扫码后用。
 ///
@@ -47,35 +48,19 @@ class PairQrDialog extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Center(
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: SizedBox(
-                    width: 220,
-                    height: 220,
-                    child: PrettyQrView.data(
-                      data: _qrPayload,
-                      decoration: const PrettyQrDecoration(
-                        shape: PrettyQrSquaresSymbol(),
-                      ),
-                    ),
-                  ),
-                ),
+                child: QrPanel(data: _qrPayload),
               ),
               const SizedBox(height: 16),
               _LabeledLine(
                 label: '设备名',
                 value: deviceName,
-                onCopy: () => _copy(context, deviceName),
+                onCopy: () => copyToClipboard(context, deviceName),
               ),
               const SizedBox(height: 8),
               _LabeledLine(
                 label: '6 位 PIN',
                 value: pin,
-                onCopy: () => _copy(context, pin),
+                onCopy: () => copyToClipboard(context, pin),
                 monospace: true,
               ),
               const SizedBox(height: 12),
@@ -100,14 +85,6 @@ class PairQrDialog extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  void _copy(BuildContext context, String value) async {
-    await Clipboard.setData(ClipboardData(text: value));
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('已复制到剪贴板')));
   }
 }
 

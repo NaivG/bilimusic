@@ -5,6 +5,7 @@ import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/utils/formatters.dart';
 import 'package:bilimusic/shared/widgets/long_press_menu.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 
@@ -243,13 +244,11 @@ class PlaylistTrackRow extends ConsumerStatefulWidget {
 class _PlaylistTrackRowState extends ConsumerState<PlaylistTrackRow> {
   bool _isHovered = false;
 
+  /// 时长兜底链：总时长 → 首分P时长 → `--:--`（格式化统一走 [formatDuration]）。
   String _formatDuration(Music music) {
-    if (music.duration != null) {
-      final d = music.duration!;
-      return '${d.inMinutes.toString().padLeft(2, '0')}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
-    }
+    if (music.duration != null) return formatDuration(music.duration!);
     if (music.pages.isNotEmpty) {
-      return music.pages[0].formattedDuration;
+      return formatDuration(music.pages.first.durationValue);
     }
     return '--:--';
   }
@@ -323,7 +322,7 @@ class _PlaylistTrackRowState extends ConsumerState<PlaylistTrackRow> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${widget.music.artist} - ${widget.music.album}',
+                          widget.music.subtitleText,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(

@@ -3,15 +3,15 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/app/app_providers.dart';
-import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/player/models/player_state.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
-import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/player/pip/pip_service.dart';
+import 'package:bilimusic/features/player/widgets/crossfade_indicator.dart';
+import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:bilimusic/shared/widgets/music_cover.dart';
 import 'package:window_manager/window_manager.dart';
 
 /// 桌面端画中画覆盖层
@@ -92,7 +92,7 @@ class PipOverlay extends ConsumerWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-            child: _buildCover(context, currentMusic),
+            child: MusicCover(music: currentMusic, size: 52),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -118,20 +118,6 @@ class PipOverlay extends ConsumerWidget {
     );
   }
 
-  Widget _buildCover(BuildContext context, Music? music) {
-    if (music == null) return _buildCoverPlaceholder(context);
-    return CachedNetworkImage(
-      imageUrl: music.safeCoverUrl,
-      width: 52,
-      height: 52,
-      fit: BoxFit.cover,
-      placeholder: (context, url) => _buildCoverPlaceholder(context),
-      errorWidget: (context, url, error) => _buildCoverPlaceholder(context),
-      cacheManager: imageCacheManager,
-      cacheKey: music.id,
-    );
-  }
-
   Widget _buildSongInfo(
     BuildContext context,
     Color textPrimary,
@@ -139,8 +125,7 @@ class PipOverlay extends ConsumerWidget {
     Music? music,
     PlayerState playerState,
   ) {
-    final fading =
-        playerState is PlayerPlaying && playerState.fadeCountdown != null;
+    final fading = isCrossfading(playerState);
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -160,7 +145,7 @@ class PipOverlay extends ConsumerWidget {
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
             child: fading
-                ? _buildTransitionText(context)
+                ? const CrossfadeIndicator()
                 : Text(
                     music.artist,
                     key: const ValueKey('artist'),
@@ -252,48 +237,6 @@ class PipOverlay extends ConsumerWidget {
           },
         ),
       ),
-    );
-  }
-
-  Widget _buildCoverPlaceholder(BuildContext context) {
-    final palette = context.appPalette;
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTertiary = colorScheme.onSurfaceVariant;
-    final surfaceHover = palette.surfaceHover;
-
-    return Container(
-      width: 52,
-      height: 52,
-      color: surfaceHover,
-      child: Icon(Icons.music_note_rounded, color: textTertiary, size: 28),
-    );
-  }
-
-  Widget _buildTransitionText(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    final transitionColor = accent.withValues(alpha: 0.8);
-
-    return Row(
-      key: const ValueKey('transition'),
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          width: 10,
-          height: 10,
-          child: CircularProgressIndicator(
-            strokeWidth: 1.5,
-            valueColor: AlwaysStoppedAnimation<Color>(transitionColor),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            '过渡中',
-            maxLines: 1,
-            style: TextStyle(color: transitionColor, fontSize: 12),
-          ),
-        ),
-      ],
     );
   }
 }

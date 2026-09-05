@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/search_result.dart';
 import 'package:bilimusic/features/player/logic/player_coordinator.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
@@ -285,7 +286,7 @@ class _SearchResultCardState extends State<SearchResultCard>
       child: CachedNetworkImage(
         imageUrl: widget.result.coverUrl.isNotEmpty
             ? widget.result.coverUrl
-            : 'https://i0.hdslb.com/bfs/static/jinkela/video/asserts/no_video.png',
+            : fallbackCoverUrl,
         httpHeaders: Map<String, String>.from(NetworkConfig.biliHeaders),
         placeholder: (context, url) => Container(
           color: Colors.grey[200],

@@ -494,7 +494,7 @@ class _SearchResultCard extends StatelessWidget {
         child: Image.network(
           result.coverUrl.isNotEmpty
               ? result.coverUrl
-              : 'https://i0.hdslb.com/bfs/static/jinkela/video/asserts/no_video.png',
+              : music_model.fallbackCoverUrl,
           width: 56,
           height: 56,
           fit: BoxFit.cover,

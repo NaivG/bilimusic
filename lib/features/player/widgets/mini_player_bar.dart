@@ -6,12 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/features/player/models/player_state.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
+import 'package:bilimusic/features/player/widgets/crossfade_indicator.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/widgets/music_cover.dart';
 
 /// Mini Player Bar
 /// 应用Lucent主题下的迷你播放器
@@ -355,11 +355,12 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
                           // 专辑封面
                           GestureDetector(
                             onTap: widget.onExpand,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(
-                                AppTokens.radiusMd,
-                              ),
-                              child: _buildCover(context),
+                            child: MusicCover(
+                              music: ref
+                                  .read(playerCoordinatorProvider)
+                                  .currentMusic,
+                              size: 44,
+                              radius: AppTokens.radiusMd,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -404,29 +405,13 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
     );
   }
 
-  Widget _buildCover(BuildContext context) {
-    final music = ref.read(playerCoordinatorProvider).currentMusic;
-    if (music == null) return _buildCoverPlaceholder();
-    return CachedNetworkImage(
-      imageUrl: music.safeCoverUrl,
-      width: 44,
-      height: 44,
-      fit: BoxFit.cover,
-      placeholder: (context, url) => _buildCoverPlaceholder(),
-      errorWidget: (context, url, error) => _buildCoverPlaceholder(),
-      cacheManager: imageCacheManager,
-      cacheKey: music.id,
-    );
-  }
-
   Widget _buildSongInfo(
     Color textPrimary,
     Color textSecondary,
     PlayerState playerState,
   ) {
     final music = ref.read(playerCoordinatorProvider).currentMusic;
-    final fading =
-        playerState is PlayerPlaying && playerState.fadeCountdown != null;
+    final fading = isCrossfading(playerState);
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -446,7 +431,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
             child: fading
-                ? _buildTransitionText()
+                ? const CrossfadeIndicator()
                 : Text(
                     music.artist,
                     key: const ValueKey('artist'),
@@ -498,48 +483,6 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
           size: 28,
         ),
       ),
-    );
-  }
-
-  Widget _buildCoverPlaceholder() {
-    final palette = context.appPalette;
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTertiary = colorScheme.onSurfaceVariant;
-    final surfaceHover = palette.surfaceHover;
-
-    return Container(
-      width: 44,
-      height: 44,
-      color: surfaceHover,
-      child: Icon(Icons.music_note_rounded, color: textTertiary, size: 24),
-    );
-  }
-
-  Widget _buildTransitionText() {
-    final accent = Theme.of(context).colorScheme.primary;
-    final transitionColor = accent.withValues(alpha: 0.8);
-
-    return Row(
-      key: const ValueKey('transition'),
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          width: 10, // 略小于字体高度，保持视觉平衡
-          height: 10,
-          child: CircularProgressIndicator(
-            strokeWidth: 1.5,
-            valueColor: AlwaysStoppedAnimation<Color>(transitionColor),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            '过渡中',
-            maxLines: 1,
-            style: TextStyle(color: transitionColor, fontSize: 12),
-          ),
-        ),
-      ],
     );
   }
 }

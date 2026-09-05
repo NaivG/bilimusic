@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/features/player/widgets/playback_buttons.dart';
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
+import 'package:bilimusic/shared/utils/formatters.dart';
 
 /// 横屏模式进度条组件
 /// 基于ParticleMusic的SeekBar适配bilimusic的PlayerManager
@@ -57,7 +58,7 @@ class _LandscapeSeekBarState extends ConsumerState<LandscapeSeekBar> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          _formatDuration(
+                          formatDuration(
                             Duration(milliseconds: sliderValue.toInt()),
                           ),
                           style: TextStyle(
@@ -66,7 +67,7 @@ class _LandscapeSeekBarState extends ConsumerState<LandscapeSeekBar> {
                           ),
                         ),
                         Text(
-                          _formatDuration(duration),
+                          formatDuration(duration),
                           style: TextStyle(
                             color: widget.color ?? Colors.grey,
                             fontSize: 12.5,
@@ -168,11 +169,5 @@ class _LandscapeSeekBarState extends ConsumerState<LandscapeSeekBar> {
         (dx - horizontalPadding) / (box.size.width - horizontalPadding * 2);
     relative = relative.clamp(0.0, 1.0);
     dragValue = relative * durationMs;
-  }
-
-  String _formatDuration(Duration duration) {
-    final minutes = duration.inMinutes;
-    final seconds = duration.inSeconds % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 }
