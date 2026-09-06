@@ -61,6 +61,8 @@ dependencies:
   rxdart: ^0.28.0
   flutter_lyric: ^3.0.2
   file_picker: ^10.3.3
+  dart_tui: ^2.0.0 # TUI 客户端,不参与 App UI
+  ffi: ^2.2.0 # TUI 的 libmpv FFI 封装使用
   window_manager: ^0.4.3
   restart_app: ^1.8.3
   flutter_native_splash: ^2.4.4

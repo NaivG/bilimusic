@@ -2,8 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
 /// 统一网络请求配置
@@ -12,6 +10,13 @@ class NetworkConfig {
   /// 全应用唯一 User-Agent 字面量来源（B 站 API / 更新检查等所有出站请求共用）。
   static const String userAgent =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0';
+
+  /// Cookie 持久化钩子，由 App 宿主（main.dart）注入 SharedPreferences 实现。
+  ///
+  /// 本类保持纯 Dart（不 import 任何 Flutter 插件），使 core 层可被
+  /// CLI/TUI 等纯 Dart 宿主复用；未注入钩子时持久化自然跳过。
+  static Future<String?> Function()? cookieLoader;
+  static Future<void> Function(String cookiesJson)? cookieSaver;
 
   static Map<String, String> _biliHeaders = {};
   static Map<String, String> _cookies = {};
@@ -80,11 +85,10 @@ class NetworkConfig {
   }
 
   static Future<void> _saveCookiesToPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (_cookies.isNotEmpty) {
-      final jsonString = json.encode(_cookies);
-      await prefs.setString('cookies', jsonString);
-    }
+    final saver = cookieSaver;
+    if (saver == null || _cookies.isEmpty) return;
+    final jsonString = json.encode(_cookies);
+    await saver(jsonString);
   }
 
   /// 从 HTTP 响应头捕获 Set-Cookie 并合入当前 cookie 表（为空则不动）。
@@ -99,8 +103,6 @@ class NetworkConfig {
   }
 
   static Future<void> init() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
     // 配置默认headers
     _biliHeaders = {
       'User-Agent': userAgent,
@@ -108,8 +110,8 @@ class NetworkConfig {
       'Access-Control-Allow-Origin': 'https://api.bilibili.com',
     };
 
-    // 读取并解析 cookies
-    var cookiesJson = prefs.getString('cookies');
+    // 读取并解析 cookies（宿主未注入 loader 时为 null,跳过）
+    var cookiesJson = await cookieLoader?.call();
     if (cookiesJson != null && cookiesJson.isNotEmpty) {
       try {
         // 尝试解析 JSON 格式的 cookies
@@ -197,10 +199,11 @@ class NetworkConfig {
         );
       }
     } catch (e) {
-      // 添加错误日志
-      if (kDebugMode) {
-        print('Failed to fetch buvids: $e');
-      }
+      // 添加错误日志(仅 debug;不依赖 Flutter foundation,便于纯 Dart 宿主复用)
+      assert(() {
+        stdout.writeln('Failed to fetch buvids: $e');
+        return true;
+      }());
       return {'b_3': '', 'b_4': ''};
     }
   }

@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:bilimusic/core/storage/database.dart';
 import 'package:bilimusic/app/app_providers.dart';
@@ -53,6 +54,12 @@ void main() async {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }
+
+  // 注入 Cookie 持久化(NetworkConfig 保持纯 Dart,便于 CLI/TUI 宿主复用)
+  NetworkConfig.cookieLoader = () async =>
+      (await SharedPreferences.getInstance()).getString('cookies');
+  NetworkConfig.cookieSaver = (json) async =>
+      (await SharedPreferences.getInstance()).setString('cookies', json);
 
   // 初始化网络配置
   await NetworkConfig.init();

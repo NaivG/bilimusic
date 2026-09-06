@@ -273,6 +273,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.9"
+  dart_tui:
+    dependency: "direct main"
+    description:
+      name: dart_tui
+      sha256: ff256bc7f60ce4d061fb2cc14b3f82afe721cf99fdc8d60cb8a3f6298c76da32
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.0"
   dbus:
     dependency: transitive
     description:
@@ -322,7 +330,7 @@ packages:
     source: hosted
     version: "1.3.3"
   ffi:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: ffi
       sha256: "6d7fd89431262d8f3125e81b50d3847a091d846eafcd4fdb88dd06f36d705a45"
