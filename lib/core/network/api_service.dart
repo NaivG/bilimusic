@@ -111,16 +111,22 @@ class ApiService {
 
   /// 获取可播放的音频 URL（命中本地缓存则返回本地路径，否则走 `/x/player/playurl` 后下载）。
   ///
+  /// [qualityId] 为 B 站音质代码：30216=64K / 30232=132K / 30280=192K /
+  /// 30250=杜比全景声 / 30251=Hi-Res 无损（后两者需大会员账号）。
+  /// 请求的音质在当前视频不可用时，回退到标准音质中最高的一档。
+  ///
   /// 失败返回 `''` —— 该方法历史上是「尽力而为」语义，未改为抛异常以避免
   /// 破坏 [PlayerCoordinator] 的 fallback 逻辑（无 URL 即停在 stopped 态）。
-  Future<String> getAudioUrl(Music music) async {
+  Future<String> getAudioUrl(Music music, {String qualityId = '30280'}) async {
     try {
       String cid = music.cid;
       if (cid.isEmpty && music.pages.isNotEmpty) {
         cid = music.pages[0].cid;
       }
 
-      final cacheKey = cid.isNotEmpty ? '${music.id}_$cid' : music.id;
+      final cacheKey = cid.isNotEmpty
+          ? '${music.id}_${cid}_q$qualityId'
+          : '${music.id}_q$qualityId';
       final cached = await musicCacheManager.getFileFromCache(cacheKey);
       if (cached != null) {
         return cached.file.path;
@@ -137,25 +143,39 @@ class ApiService {
         return '';
       }
 
+      // fnval=4048 一次性返回全部 DASH 流（含 Hi-Res/杜比位，无大会员时字段为空）。
       final data = await _client.get(
         '/x/player/playurl',
-        query: {'bvid': music.id, 'cid': cid, 'fnval': '16'},
+        query: {'bvid': music.id, 'cid': cid, 'fnval': '4048'},
       );
 
       final dash = (data as Map<String, dynamic>?)?['dash'];
-      final audios = dash is Map ? dash['audio'] as List? : null;
-      if (audios == null || audios.isEmpty) {
+      if (dash is! Map) {
         debugPrint('[ApiService] getAudioUrl(${music.id}): no dash audio');
         return '';
       }
-      final audioUrl = audios.first['baseUrl']?.toString() ?? '';
+      // 标准三档在 dash.audio；Hi-Res 单流在 dash.flac、杜比在 dash.dolby
+      // （内层字段名历史上有 dash / audio 两种，都兼容）。
+      final flac = dash['flac'];
+      final dolby = dash['dolby'];
+      final candidates = [
+        ..._streamList(dash['audio']),
+        ..._streamList(flac is Map ? (flac['dash'] ?? flac['audio']) : null),
+        ..._streamList(dolby is Map ? (dolby['audio'] ?? dolby['dash']) : null),
+      ];
+
+      final picked = _pickAudioStream(candidates, qualityId);
+      final audioUrl = picked == null ? '' : _baseUrlOf(picked);
       if (audioUrl.isEmpty) {
+        debugPrint('[ApiService] getAudioUrl(${music.id}): no usable audio');
         return '';
       }
 
+      // 缓存 key 按请求的音质区分：回退下载的流也存同一 key，
+      // 保证同一设置下重复播放稳定命中缓存。
       final file = await musicCacheManager.downloadFile(
         audioUrl,
-        key: '${music.id}_$cid',
+        key: cacheKey,
         authHeaders: {
           'User-Agent': NetworkConfig.userAgent,
           'Referer': 'https://www.bilibili.com',
@@ -170,6 +190,35 @@ class ApiService {
       debugPrint('Stack trace: $st');
       return '';
     }
+  }
+
+  /// 把 DASH 流字段统一成 String-key 的 map 列表（兼容单对象与数组两种形态）。
+  List<Map<String, dynamic>> _streamList(dynamic raw) {
+    if (raw is Map) return [_stringKeys(raw)];
+    if (raw is List) {
+      return raw.whereType<Map>().map(_stringKeys).toList();
+    }
+    return const [];
+  }
+
+  String _baseUrlOf(Map<String, dynamic> stream) =>
+      stream['baseUrl']?.toString() ?? stream['base_url']?.toString() ?? '';
+
+  /// 从候选流里挑流：先精确匹配 [qualityId]，匹配不到回退标准音质最高档
+  /// （30280 > 30232 > 30216；杜比/Hi-Res 仅在明确请求且可用时使用）。
+  /// 注：dash.audio 的数组顺序不保证，不能按下标取。
+  Map<String, dynamic>? _pickAudioStream(
+    List<Map<String, dynamic>> candidates,
+    String qualityId,
+  ) {
+    for (final quality in [qualityId, '30280', '30232', '30216']) {
+      for (final c in candidates) {
+        if (c['id']?.toString() == quality && _baseUrlOf(c).isNotEmpty) {
+          return c;
+        }
+      }
+    }
+    return null;
   }
 
   // ====================================================================

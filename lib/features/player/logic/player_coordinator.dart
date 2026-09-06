@@ -160,7 +160,10 @@ class PlayerCoordinator {
       _notificationService.updateMediaInfo(detailedMusic);
 
       // 获取音频URL
-      final audioUrl = await _apiService.getAudioUrl(detailedMusic);
+      final audioUrl = await _apiService.getAudioUrl(
+        detailedMusic,
+        qualityId: _settingsManager.audioQuality,
+      );
       if (audioUrl.isEmpty) {
         throw Exception('Failed to get audio URL');
       }
@@ -492,7 +495,10 @@ class PlayerCoordinator {
         detailedMusic = await _apiService.getVideoDetails(nextMusic.id);
       }
 
-      final audioUrl = await _apiService.getAudioUrl(detailedMusic);
+      final audioUrl = await _apiService.getAudioUrl(
+        detailedMusic,
+        qualityId: _settingsManager.audioQuality,
+      );
       if (audioUrl.isEmpty) {
         throw Exception('Failed to get audio URL');
       }

@@ -192,11 +192,20 @@ class TuiApi {
     if (audios == null || audios.isEmpty) {
       throw Exception('playurl 未返回 DASH 音频');
     }
-    final url = audios.first['baseUrl']?.toString() ?? '';
-    if (url.isEmpty) {
-      throw Exception('音频 URL 为空');
+    // dash.audio 的数组顺序不保证，按 id 取标准音质最高档
+    // （30280=192K > 30232=132K > 30216=64K）。
+    for (final q in const ['30280', '30232', '30216']) {
+      final stream = audios.whereType<Map>().firstWhere(
+        (a) => a['id']?.toString() == q,
+        orElse: () => const {},
+      );
+      final u =
+          stream['baseUrl']?.toString() ?? stream['base_url']?.toString() ?? '';
+      if (u.isNotEmpty) {
+        return m.copyWith(audioUrl: u);
+      }
     }
-    return m.copyWith(audioUrl: url);
+    throw Exception('音频 URL 为空');
   }
 
   static String _fmtCount(Object? count) {

@@ -10,7 +10,6 @@ import 'package:bilimusic/features/roam/models/roam_style.dart';
 class SettingsManager extends ChangeNotifier {
   // 设置键名常量
   static const String KEY_NOTIFICATIONS_ENABLED = 'notifications_enabled';
-  static const String KEY_DOWNLOAD_QUALITY_HIGH = 'download_quality_high';
   static const String KEY_APPEARANCE = 'appearance';
   static const String KEY_THEME = 'theme';
   static const String KEY_AUTO_PLAY_NEXT = 'auto_play_next';
@@ -19,6 +18,7 @@ class SettingsManager extends ChangeNotifier {
   static const String KEY_FLUID_BACKGROUND = 'fluid_background';
   static const String KEY_BLUR_EFFECT = 'blur_effect'; // 新增毛玻璃取色效果设置项
   static const String KEY_AUDIO_OUTPUT_MODE = 'audio_output_mode'; // 音频输出模式设置项
+  static const String KEY_AUDIO_QUALITY = 'audio_quality'; // 播放音质设置项
   static const String KEY_VERSION_CODE = 'version_code';
 
   // Crossfade相关设置键名
@@ -36,7 +36,6 @@ class SettingsManager extends ChangeNotifier {
 
   // 默认值
   static const bool DEFAULT_NOTIFICATIONS_ENABLED = true;
-  static const bool DEFAULT_DOWNLOAD_QUALITY_HIGH = true;
   static const String DEFAULT_APPEARANCE = 'system';
   static const String DEFAULT_THEME = 'lucent';
   static const bool DEFAULT_AUTO_PLAY_NEXT = true;
@@ -46,6 +45,7 @@ class SettingsManager extends ChangeNotifier {
   static const bool DEFAULT_BLUR_EFFECT = true;
   static const String DEFAULT_AUDIO_OUTPUT_MODE =
       'audiotrack'; // 默认使用AudioTrack
+  static const String DEFAULT_AUDIO_QUALITY = '30280'; // 默认 192K 高品
   static const int DEFAULT_VERSION_CODE = 80;
   static const bool DEFAULT_PC_MODE = false;
 
@@ -112,9 +112,6 @@ class SettingsManager extends ChangeNotifier {
     _cache[KEY_NOTIFICATIONS_ENABLED] =
         prefs.getBool(KEY_NOTIFICATIONS_ENABLED) ??
         DEFAULT_NOTIFICATIONS_ENABLED;
-    _cache[KEY_DOWNLOAD_QUALITY_HIGH] =
-        prefs.getBool(KEY_DOWNLOAD_QUALITY_HIGH) ??
-        DEFAULT_DOWNLOAD_QUALITY_HIGH;
     _cache[KEY_APPEARANCE] =
         prefs.getString(KEY_APPEARANCE) ?? DEFAULT_APPEARANCE;
     _cache[KEY_THEME] = prefs.getString(KEY_THEME) ?? DEFAULT_THEME;
@@ -132,6 +129,8 @@ class SettingsManager extends ChangeNotifier {
     _cache[KEY_AUDIO_OUTPUT_MODE] =
         prefs.getString(KEY_AUDIO_OUTPUT_MODE) ??
         DEFAULT_AUDIO_OUTPUT_MODE; // 加载音频输出模式
+    _cache[KEY_AUDIO_QUALITY] =
+        prefs.getString(KEY_AUDIO_QUALITY) ?? DEFAULT_AUDIO_QUALITY; // 加载播放音质
     _cache[KEY_VERSION_CODE] = DEFAULT_VERSION_CODE;
 
     // 加载Crossfade相关设置
@@ -165,16 +164,6 @@ class SettingsManager extends ChangeNotifier {
   Future<void> setNotificationsEnabled(bool value) async {
     await _saveSetting(KEY_NOTIFICATIONS_ENABLED, value);
     _cache[KEY_NOTIFICATIONS_ENABLED] = value;
-  }
-
-  /// 获取下载音质设置
-  bool get downloadQualityHigh =>
-      _cache[KEY_DOWNLOAD_QUALITY_HIGH] ?? DEFAULT_DOWNLOAD_QUALITY_HIGH;
-
-  /// 设置下载音质设置
-  Future<void> setDownloadQualityHigh(bool value) async {
-    await _saveSetting(KEY_DOWNLOAD_QUALITY_HIGH, value);
-    _cache[KEY_DOWNLOAD_QUALITY_HIGH] = value;
   }
 
   /// 获取外观设置 (system / light / dark)
@@ -249,6 +238,15 @@ class SettingsManager extends ChangeNotifier {
   Future<void> setAudioOutputMode(String value) async {
     await _saveSetting(KEY_AUDIO_OUTPUT_MODE, value);
     _cache[KEY_AUDIO_OUTPUT_MODE] = value;
+  }
+
+  /// 获取播放音质设置 (30216=64K / 30232=132K / 30280=192K / 30250=杜比 / 30251=Hi-Res)
+  String get audioQuality => _cache[KEY_AUDIO_QUALITY] ?? DEFAULT_AUDIO_QUALITY;
+
+  /// 设置播放音质
+  Future<void> setAudioQuality(String value) async {
+    await _saveSetting(KEY_AUDIO_QUALITY, value);
+    _cache[KEY_AUDIO_QUALITY] = value;
   }
 
   /// 通用设置保存方法
@@ -406,6 +404,24 @@ class SettingsManager extends ChangeNotifier {
         return 'AudioTrack';
       default:
         return 'AudioTrack';
+    }
+  }
+
+  /// 获取播放音质的文本描述
+  String getAudioQualityText(String qualityId) {
+    switch (qualityId) {
+      case '30251':
+        return 'Hi-Res 无损 (需大会员)';
+      case '30250':
+        return '杜比全景声 (需大会员)';
+      case '30280':
+        return '192K HQ';
+      case '30232':
+        return '132K SQ';
+      case '30216':
+        return '64K AAC-HE';
+      default:
+        return '192K HQ';
     }
   }
 }

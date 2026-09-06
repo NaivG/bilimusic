@@ -9,7 +9,6 @@ final _settingsManagerProvider = settingsManagerProvider;
 @immutable
 class SettingsState {
   final bool notificationsEnabled;
-  final bool downloadQualityHigh;
   final String appearance;
   final String theme;
   final bool autoPlayNext;
@@ -18,6 +17,7 @@ class SettingsState {
   final bool fluidBackground;
   final bool blurEffect;
   final String audioOutputMode;
+  final String audioQuality;
   final bool crossfadeEnabled;
   final int crossfadeDuration;
   final int preloadSeconds;
@@ -26,7 +26,6 @@ class SettingsState {
 
   const SettingsState({
     this.notificationsEnabled = true,
-    this.downloadQualityHigh = true,
     this.appearance = 'system',
     this.theme = 'lucent',
     this.autoPlayNext = true,
@@ -35,6 +34,7 @@ class SettingsState {
     this.fluidBackground = true,
     this.blurEffect = true,
     this.audioOutputMode = 'audiotrack',
+    this.audioQuality = '30280',
     this.crossfadeEnabled = false,
     this.crossfadeDuration = 3000,
     this.preloadSeconds = 10,
@@ -44,7 +44,6 @@ class SettingsState {
 
   SettingsState copyWith({
     bool? notificationsEnabled,
-    bool? downloadQualityHigh,
     String? appearance,
     String? theme,
     bool? autoPlayNext,
@@ -53,6 +52,7 @@ class SettingsState {
     bool? fluidBackground,
     bool? blurEffect,
     String? audioOutputMode,
+    String? audioQuality,
     bool? crossfadeEnabled,
     int? crossfadeDuration,
     int? preloadSeconds,
@@ -61,7 +61,6 @@ class SettingsState {
   }) {
     return SettingsState(
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
-      downloadQualityHigh: downloadQualityHigh ?? this.downloadQualityHigh,
       appearance: appearance ?? this.appearance,
       theme: theme ?? this.theme,
       autoPlayNext: autoPlayNext ?? this.autoPlayNext,
@@ -70,6 +69,7 @@ class SettingsState {
       fluidBackground: fluidBackground ?? this.fluidBackground,
       blurEffect: blurEffect ?? this.blurEffect,
       audioOutputMode: audioOutputMode ?? this.audioOutputMode,
+      audioQuality: audioQuality ?? this.audioQuality,
       crossfadeEnabled: crossfadeEnabled ?? this.crossfadeEnabled,
       crossfadeDuration: crossfadeDuration ?? this.crossfadeDuration,
       preloadSeconds: preloadSeconds ?? this.preloadSeconds,
@@ -87,7 +87,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
     ref.onDispose(() => s.removeListener(_onManagerChanged));
     return SettingsState(
       notificationsEnabled: s.notificationsEnabled,
-      downloadQualityHigh: s.downloadQualityHigh,
       appearance: s.appearance,
       theme: s.theme,
       autoPlayNext: s.autoPlayNext,
@@ -96,6 +95,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       fluidBackground: s.fluidBackground,
       blurEffect: s.blurEffect,
       audioOutputMode: s.audioOutputMode,
+      audioQuality: s.audioQuality,
       crossfadeEnabled: s.crossfadeEnabled,
       crossfadeDuration: s.crossfadeDuration,
       preloadSeconds: s.preloadSeconds,
@@ -108,7 +108,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
     final s = ref.read(_settingsManagerProvider);
     state = SettingsState(
       notificationsEnabled: s.notificationsEnabled,
-      downloadQualityHigh: s.downloadQualityHigh,
       appearance: s.appearance,
       theme: s.theme,
       autoPlayNext: s.autoPlayNext,
@@ -117,6 +116,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       fluidBackground: s.fluidBackground,
       blurEffect: s.blurEffect,
       audioOutputMode: s.audioOutputMode,
+      audioQuality: s.audioQuality,
       crossfadeEnabled: s.crossfadeEnabled,
       crossfadeDuration: s.crossfadeDuration,
       preloadSeconds: s.preloadSeconds,
@@ -130,12 +130,12 @@ class SettingsNotifier extends Notifier<SettingsState> {
     await _save('notifications_enabled', value);
   }
 
-  Future<void> setDownloadQualityHigh(bool value) async {
-    state = state.copyWith(downloadQualityHigh: value);
-    await _save('download_quality_high', value);
-  }
-
-  Future<void> setAppearance(String? value) async {
+  /// 委托给 SettingsManager 落盘并刷新其内存缓存：
+  /// PlayerCoordinator 每次播放都读 manager.audioQuality，必须保证最新。
+  Future<void> setAudioQuality(String? value) async {
+    if (value == null) return;
+    await ref.read(_settingsManagerProvider).setAudioQuality(value);
+  }  Future<void> setAppearance(String? value) async {
     if (value == null) return;
     state = state.copyWith(appearance: value);
     await _save('appearance', value);
