@@ -110,7 +110,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             // 音质设置
             _buildSectionTitle('音质'),
             ListTile(
-              leading: Icon(Icons.high_quality, color: _getPrimaryColor(context)),
+              leading: Icon(
+                Icons.high_quality,
+                color: _getPrimaryColor(context),
+              ),
               title: Text('播放音质'),
               subtitle: Text(
                 '${ref.read(settingsManagerProvider).getAudioQualityText(settings.audioQuality)} · 不可用时自动选最高可用音质',
@@ -118,7 +121,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               trailing: DropdownButton<String>(
                 value: settings.audioQuality,
                 items: const [
-                  DropdownMenuItem(value: '30251', child: Text('Hi-Res 无损 (需大会员)')),
+                  DropdownMenuItem(
+                    value: '30251',
+                    child: Text('Hi-Res 无损 (需大会员)'),
+                  ),
                   DropdownMenuItem(value: '30250', child: Text('杜比全景声 (需大会员)')),
                   DropdownMenuItem(value: '30280', child: Text('192K HQ')),
                   DropdownMenuItem(value: '30232', child: Text('132K SQ')),

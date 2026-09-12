@@ -135,7 +135,9 @@ class SettingsNotifier extends Notifier<SettingsState> {
   Future<void> setAudioQuality(String? value) async {
     if (value == null) return;
     await ref.read(_settingsManagerProvider).setAudioQuality(value);
-  }  Future<void> setAppearance(String? value) async {
+  }
+
+  Future<void> setAppearance(String? value) async {
     if (value == null) return;
     state = state.copyWith(appearance: value);
     await _save('appearance', value);

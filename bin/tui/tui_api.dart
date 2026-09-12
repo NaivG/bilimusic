@@ -209,9 +209,7 @@ class TuiApi {
   }
 
   static String _fmtCount(Object? count) {
-    final n = count is num
-        ? count.toDouble()
-        : double.tryParse('$count') ?? 0;
+    final n = count is num ? count.toDouble() : double.tryParse('$count') ?? 0;
     if (n >= 100000000) return '${(n / 100000000).toStringAsFixed(1)}亿';
     if (n >= 10000) return '${(n / 10000).toStringAsFixed(1)}万';
     return n.toStringAsFixed(0);

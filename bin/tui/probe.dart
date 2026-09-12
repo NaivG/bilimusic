@@ -81,8 +81,10 @@ Future<void> runProbe() async {
   );
 
   if (st.position > 1) {
-    stdout.writeln('[✓] probe 通过:API 复用层、推荐、取流、libmpv FFI 均可用。'
-        '交互 TUI 请在真实终端运行 dart run bin/bilimusic_tui.dart 人工验证。');
+    stdout.writeln(
+      '[✓] probe 通过:API 复用层、推荐、取流、libmpv FFI 均可用。'
+      '交互 TUI 请在真实终端运行 dart run bin/bilimusic_tui.dart 人工验证。',
+    );
   } else {
     stderr.writeln('[✗] probe 未推进:音频流未开始解码(检查网络/URL 有效期)');
     exitCode = 1;
@@ -197,8 +199,7 @@ Future<void> runSmoke() async {
   final body = render();
   mpvDispose(model);
 
-  final times =
-      RegExp(r'\d+:\d+').allMatches(stripAnsi(body)).toList();
+  final times = RegExp(r'\d+:\d+').allMatches(stripAnsi(body)).toList();
   if (times.length < 2) {
     stderr.writeln('[✗] smoke 失败:播放面板未渲染出 进度/时长');
     exitCode = 1;

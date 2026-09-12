@@ -122,9 +122,7 @@ final class AppModel extends Model {
 
   @override
   Cmd? init() {
-    _status = api.hasLoginCookies
-        ? '就绪 · 已从桌面 App 导入登录态'
-        : '就绪 · 未登录(部分内容不可搜)';
+    _status = api.hasLoginCookies ? '就绪 · 已从桌面 App 导入登录态' : '就绪 · 未登录(部分内容不可搜)';
     try {
       mpv.load();
     } catch (e) {
@@ -400,11 +398,7 @@ final class AppModel extends Model {
     return (this, null);
   }
 
-  (Model, Cmd?) _playAt(
-    int index, {
-    required TuiPage page,
-    String hint = '',
-  }) {
+  (Model, Cmd?) _playAt(int index, {required TuiPage page, String hint = ''}) {
     final queue = page == TuiPage.home ? _recs : _results;
     if (index < 0 || index >= queue.length) return (this, null);
     final r = queue[index];
@@ -471,8 +465,7 @@ final class AppModel extends Model {
 
   // ── 状态辅助 ────────────────────────────────────────────────────────────
 
-  ListModel get _activeList =>
-      _page == TuiPage.home ? _homeList : _searchList;
+  ListModel get _activeList => _page == TuiPage.home ? _homeList : _searchList;
 
   List<ListItem> get _activeItems =>
       _page == TuiPage.home ? _homeItems : _searchItems;
@@ -554,15 +547,15 @@ final class AppModel extends Model {
   int get _listOffsetY => 6;
 
   ListModel _reheight(ListModel l) => ListModel(
-        items: l.items,
-        cursor: l.selectedIndex,
-        height: _listRows(),
-        filter: l.filter,
-        filterMode: l.filterMode,
-        styles: l.styles,
-        showStatusBar: false,
-        viewOffsetY: _listOffsetY,
-      );
+    items: l.items,
+    cursor: l.selectedIndex,
+    height: _listRows(),
+    filter: l.filter,
+    filterMode: l.filterMode,
+    styles: l.styles,
+    showStatusBar: false,
+    viewOffsetY: _listOffsetY,
+  );
 
   // ── view ────────────────────────────────────────────────────────────────
 
@@ -611,8 +604,8 @@ final class AppModel extends Model {
     final color = _isError
         ? Palette.red
         : busy
-            ? Palette.text
-            : Palette.overlay;
+        ? Palette.text
+        : Palette.overlay;
     final body =
         ' ${Style(foregroundRgb: color).render(truncate(_status, _w - 5))}';
     // spinner 自带样式,与正文并列拼接,避免 ANSI 状态互相覆盖
@@ -629,7 +622,8 @@ final class AppModel extends Model {
     if (_recsLoading && _recs.isEmpty) {
       body = '  ${Style(foregroundRgb: Palette.overlay).render('正在加载官方推荐…')}';
     } else if (_recs.isEmpty) {
-      body = '  ${Style(foregroundRgb: Palette.surface).render('暂无推荐 · 按 r 刷新')}';
+      body =
+          '  ${Style(foregroundRgb: Palette.surface).render('暂无推荐 · 按 r 刷新')}';
     } else {
       body = _homeList.view().content;
     }
@@ -660,8 +654,8 @@ final class AppModel extends Model {
     final (icon, iconColor) = _player.ended
         ? ('⏹', Palette.surface)
         : paused
-            ? ('⏸', Palette.yellow)
-            : ('▶', Palette.green);
+        ? ('⏸', Palette.yellow)
+        : ('▶', Palette.green);
     final artist = m.artist.isEmpty ? '' : ' — ${m.artist}';
     final head =
         '${Style(foregroundRgb: iconColor).render(icon)} ${m.title}$artist';
@@ -671,8 +665,7 @@ final class AppModel extends Model {
     final vol = 'vol ${_player.volume.round()}%';
     // 行结构: 2缩进 + cur + 2 + [barW + 1空格 + 4百分比] + 2 + dur + 2 + vol,
     // 加左右边框共 _w 列 → barW = _w - 15 - 三段文本宽
-    final barW = (_w - 15 - cur.length - dur.length - vol.length)
-        .clamp(8, 64);
+    final barW = (_w - 15 - cur.length - dur.length - vol.length).clamp(8, 64);
     final frac = _player.duration > 0
         ? (_player.position / _player.duration).clamp(0.0, 1.0)
         : 0.0;
@@ -695,7 +688,12 @@ final class AppModel extends Model {
     if (_pane == Pane.search) {
       keys = _page == TuiPage.home
           ? const [('enter', '搜索'), ('tab/esc', '推荐'), ('ctrl+c', '退出')]
-          : const [('enter', '搜索'), ('tab', '结果'), ('esc', '主页'), ('ctrl+c', '退出')];
+          : const [
+              ('enter', '搜索'),
+              ('tab', '结果'),
+              ('esc', '主页'),
+              ('ctrl+c', '退出'),
+            ];
     } else if (_page == TuiPage.home) {
       keys = _w >= 100
           ? const [
@@ -756,58 +754,57 @@ final class AppModel extends Model {
 
   /// 伪造一帧界面,供 `--preview` 设计审阅:无网络、无 mpv、无终端。
   static List<SearchResult> _seedRecs() => [
-        for (final (t, a) in const [
-          ('晴天', '周杰伦 - 音乐 · 525.1万 播放'),
-          ('【4K】久石让《天空之城》', '久石让 - 音乐 · 312.6万 播放'),
-          ('《Bad Apple!!》钢琴版', '触手猴 - 音乐 · 180.2万 播放'),
-          ('夜空中最亮的星 (Live)', '逃跑计划 - 音乐 · 96.8万 播放'),
-          ('【治愈钢琴】告白之夜', 'Ayasa - 音乐 · 88.3万 播放'),
-          ('王菲《如愿》完整版', '王菲 - 音乐 · 71.5万 播放'),
-          ('少女与战车 めぐみん Ver.', 'Rina - 音乐 · 55.0万 播放'),
-          ('《孤勇者》翻唱', '小石头 - 音乐 · 42.7万 播放'),
-        ])
-          SearchResult(
-            id: 'BV1xx411c7mD',
-            title: t,
-            subtitle: a,
-            coverUrl: '',
-            type: SearchResultType.video,
-          ),
-      ];
+    for (final (t, a) in const [
+      ('晴天', '周杰伦 - 音乐 · 525.1万 播放'),
+      ('【4K】久石让《天空之城》', '久石让 - 音乐 · 312.6万 播放'),
+      ('《Bad Apple!!》钢琴版', '触手猴 - 音乐 · 180.2万 播放'),
+      ('夜空中最亮的星 (Live)', '逃跑计划 - 音乐 · 96.8万 播放'),
+      ('【治愈钢琴】告白之夜', 'Ayasa - 音乐 · 88.3万 播放'),
+      ('王菲《如愿》完整版', '王菲 - 音乐 · 71.5万 播放'),
+      ('少女与战车 めぐみん Ver.', 'Rina - 音乐 · 55.0万 播放'),
+      ('《孤勇者》翻唱', '小石头 - 音乐 · 42.7万 播放'),
+    ])
+      SearchResult(
+        id: 'BV1xx411c7mD',
+        title: t,
+        subtitle: a,
+        coverUrl: '',
+        type: SearchResultType.video,
+      ),
+  ];
 
   static List<SearchResult> _seedResults() => [
-        for (final (t, a) in const [
-          ('晴天', '周杰伦 - 华语 流行'),
-          ('晴天 (Live 版)', '周杰伦 - 演唱会'),
-          ('晴天 · 钢琴独奏', 'Piano Covers - 钢琴'),
-          ('晴天 吉他指弹', '指弹中国 - 指弹 吉他'),
-          ('【治愈钢琴】晴天', 'pure music - 轻音乐'),
-          ('晴天 合唱版', '校园之声 - 合唱'),
-          ('晴天 (Remix)', 'DJ Wet - 电子'),
-          ('双簧管版晴天', '管乐团 - 古典'),
-        ])
-          SearchResult(
-            id: 'BV1xx411c7mD',
-            title: t,
-            subtitle: a,
-            coverUrl: '',
-            type: SearchResultType.video,
-          ),
-      ];
+    for (final (t, a) in const [
+      ('晴天', '周杰伦 - 华语 流行'),
+      ('晴天 (Live 版)', '周杰伦 - 演唱会'),
+      ('晴天 · 钢琴独奏', 'Piano Covers - 钢琴'),
+      ('晴天 吉他指弹', '指弹中国 - 指弹 吉他'),
+      ('【治愈钢琴】晴天', 'pure music - 轻音乐'),
+      ('晴天 合唱版', '校园之声 - 合唱'),
+      ('晴天 (Remix)', 'DJ Wet - 电子'),
+      ('双簧管版晴天', '管乐团 - 古典'),
+    ])
+      SearchResult(
+        id: 'BV1xx411c7mD',
+        title: t,
+        subtitle: a,
+        coverUrl: '',
+        type: SearchResultType.video,
+      ),
+  ];
 
   static Music _seedPlaying() => Music(
-        id: 'BV1xx411c7mD',
-        cid: '1',
-        title: '晴天',
-        artist: '周杰伦',
-        album: '叶惠美',
-        coverUrl: '',
-        duration: const Duration(seconds: 269),
-        audioUrl: '',
-      );
+    id: 'BV1xx411c7mD',
+    cid: '1',
+    title: '晴天',
+    artist: '周杰伦',
+    album: '叶惠美',
+    coverUrl: '',
+    duration: const Duration(seconds: 269),
+    audioUrl: '',
+  );
 
-  static const _seedPlayer =
-      MpvState(position: 83, duration: 269, volume: 80);
+  static const _seedPlayer = MpvState(position: 83, duration: 269, volume: 80);
 
   /// 主页 · 空态(官方推荐加载中)。
   static String previewHomeEmpty({int width = 100, int height = 26}) {

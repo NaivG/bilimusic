@@ -26,14 +26,13 @@ final class MpvState {
     bool? paused,
     bool? ended,
     double? volume,
-  }) =>
-      MpvState(
-        position: position ?? this.position,
-        duration: duration ?? this.duration,
-        paused: paused ?? this.paused,
-        ended: ended ?? this.ended,
-        volume: volume ?? this.volume,
-      );
+  }) => MpvState(
+    position: position ?? this.position,
+    duration: duration ?? this.duration,
+    paused: paused ?? this.paused,
+    ended: ended ?? this.ended,
+    volume: volume ?? this.volume,
+  );
 }
 
 /// 纯 Dart 的 libmpv FFI 封装(Windows,spike 用)。
@@ -50,11 +49,11 @@ class MpvPlayer {
   late final int Function(Pointer<Void>) _mpvInitialize;
   late final int Function(Pointer<Void>, Pointer<Pointer<Utf8>>) _mpvCommand;
   late final int Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>)
-      _mpvSetPropertyString;
+  _mpvSetPropertyString;
   late final int Function(Pointer<Void>, Pointer<Utf8>, int, Pointer<Void>)
-      _mpvSetProperty;
+  _mpvSetProperty;
   late final int Function(Pointer<Void>, Pointer<Utf8>, int, Pointer<Void>)
-      _mpvGetProperty;
+  _mpvGetProperty;
   late final void Function(Pointer<Void>) _mpvTerminateDestroy;
 
   static const int _formatFlag = 3; // MPV_FORMAT_FLAG
@@ -70,9 +69,11 @@ class MpvPlayer {
     final absDir = Directory(dir).absolute.path;
 
     final kernel32 = DynamicLibrary.open('kernel32.dll');
-    final setDllDirectory = kernel32.lookupFunction<
-        Int32 Function(Pointer<Utf16>),
-        int Function(Pointer<Utf16>)>('SetDllDirectoryW');
+    final setDllDirectory = kernel32
+        .lookupFunction<
+          Int32 Function(Pointer<Utf16>),
+          int Function(Pointer<Utf16>)
+        >('SetDllDirectoryW');
     final dirPtr = absDir.toNativeUtf16();
     setDllDirectory(dirPtr);
     calloc.free(dirPtr);
@@ -80,28 +81,38 @@ class MpvPlayer {
     _lib = DynamicLibrary.open('$absDir\\libmpv-2.dll');
     _mpvCreate = _lib
         .lookupFunction<Pointer<Void> Function(), Pointer<Void> Function()>(
-            'mpv_create');
+          'mpv_create',
+        );
     _mpvInitialize = _lib
-        .lookupFunction<Int32 Function(Pointer<Void>), int Function(
-            Pointer<Void>)>('mpv_initialize');
-    _mpvCommand = _lib.lookupFunction<
-        Int32 Function(Pointer<Void>, Pointer<Pointer<Utf8>>),
-        int Function(
-            Pointer<Void>, Pointer<Pointer<Utf8>>)>('mpv_command');
-    _mpvSetPropertyString = _lib.lookupFunction<
-        Int32 Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>),
-        int Function(Pointer<Void>, Pointer<Utf8>,
-            Pointer<Utf8>)>('mpv_set_property_string');
-    _mpvSetProperty = _lib.lookupFunction<
-        Int32 Function(Pointer<Void>, Pointer<Utf8>, Int32, Pointer<Void>),
-        int Function(
-            Pointer<Void>, Pointer<Utf8>, int, Pointer<Void>)>('mpv_set_property');
-    _mpvGetProperty = _lib.lookupFunction<
-        Int32 Function(Pointer<Void>, Pointer<Utf8>, Int32, Pointer<Void>),
-        int Function(Pointer<Void>, Pointer<Utf8>, int,
-            Pointer<Void>)>('mpv_get_property');
-    _mpvTerminateDestroy = _lib.lookupFunction<Void Function(Pointer<Void>),
-        void Function(Pointer<Void>)>('mpv_terminate_destroy');
+        .lookupFunction<
+          Int32 Function(Pointer<Void>),
+          int Function(Pointer<Void>)
+        >('mpv_initialize');
+    _mpvCommand = _lib
+        .lookupFunction<
+          Int32 Function(Pointer<Void>, Pointer<Pointer<Utf8>>),
+          int Function(Pointer<Void>, Pointer<Pointer<Utf8>>)
+        >('mpv_command');
+    _mpvSetPropertyString = _lib
+        .lookupFunction<
+          Int32 Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>),
+          int Function(Pointer<Void>, Pointer<Utf8>, Pointer<Utf8>)
+        >('mpv_set_property_string');
+    _mpvSetProperty = _lib
+        .lookupFunction<
+          Int32 Function(Pointer<Void>, Pointer<Utf8>, Int32, Pointer<Void>),
+          int Function(Pointer<Void>, Pointer<Utf8>, int, Pointer<Void>)
+        >('mpv_set_property');
+    _mpvGetProperty = _lib
+        .lookupFunction<
+          Int32 Function(Pointer<Void>, Pointer<Utf8>, Int32, Pointer<Void>),
+          int Function(Pointer<Void>, Pointer<Utf8>, int, Pointer<Void>)
+        >('mpv_get_property');
+    _mpvTerminateDestroy = _lib
+        .lookupFunction<
+          Void Function(Pointer<Void>),
+          void Function(Pointer<Void>)
+        >('mpv_terminate_destroy');
 
     _ctx = _mpvCreate();
     if (_ctx == nullptr) {
