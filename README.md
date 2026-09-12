@@ -2,7 +2,7 @@
   <img src="./assets/ic_launcher.png" alt="BiliMusic logo" width="120" />
   <h1>BiliMusic</h1>
   <p><strong>把哔哩哔哩里的声音，整理成一张属于你的播放桌面。</strong></p>
-  <p>基于 Flutter 的 B 站音乐播放器 · 跨平台 · 漫游发现 · 局域网同步</p>
+  <p>基于 Flutter 的 B 站音乐播放器 · 跨平台 · GUI/TUI · 漫游发现 · 局域网同步</p>
 
   <p>
     <a href="https://github.com/NaivG/bilimusic/releases"><img src="https://img.shields.io/github/v/release/NaivG/bilimusic?label=release&sort=semver" alt="Latest release"></a>
@@ -39,6 +39,7 @@
   - [方式一：直接安装](#方式一直接安装)
   - [方式二：从源码运行](#方式二从源码运行)
   - [构建发布版本](#构建发布版本)
+  - [终端客户端(TUI)](#终端客户端tui)
 - [使用路径](#使用路径)
 - [登录与数据](#登录与数据)
 - [技术架构](#技术架构)
@@ -98,6 +99,14 @@ BiliMusic 是一个基于 Flutter 的哔哩哔哩音乐播放器，面向 Window
 - 支持手表、折叠屏外屏与近方形 PiP 窗口布局
 </details>
 
+<details>
+<summary><strong>终端客户端(TUI)</strong></summary>
+
+- 主页(搜索框 + 官方推荐)与搜索结果页两页布局，关键词 / `BV` / `AV` 搜索、播放、暂停与切歌，支持键盘与鼠标
+- FFI 直驱 libmpv（复用 media_kit 的 Windows 库产物），与 App 共享登录态与网络层
+- 附带 `--probe` / `--preview` 分层自检与静态设计预览
+</details>
+
 ---
 
 ## 平台支持
@@ -107,7 +116,7 @@ BiliMusic 是一个基于 Flutter 的哔哩哔哩音乐播放器，面向 Window
 | **Windows** 10+ | ✅ 稳定 | 解压即用 |
 | **Linux** | ✅ 稳定 | Ubuntu 20.04+ 或主流发行版；需要 `libmpv-dev` |
 | **Android** 8.0+ | ✅ 稳定 | 按设备架构选择 APK（`arm64-v8a` / `armeabi-v7a` / `x86_64`） |
-| **macOS 10.15+** | 🧪 测试中 | 可从源码构建 |
+| **macOS 10.15+, with Metal Support** | 🧪 测试中 | 可从源码构建 |
 | **iOS 13+** | 🧪 测试中 | 可从源码构建无签名版本 |
 | **Web** | ⚠️ 实验性 | 解压后部署到 Web 服务器，需配置 CORS |
 
@@ -145,6 +154,16 @@ flutter build apk
 flutter build web
 flutter build macos
 flutter build ios
+```
+
+### 终端客户端(TUI)
+
+仓库附带一个实验性的终端客户端，与 App 共享登录状态（当前基于 Windows 下的 libmpv）：
+界面分主页（搜索框 + 官方推荐）与搜索结果页两页，搜索与推荐共用播放队列。
+
+```bash
+dart run bin/bilimusic_tui.dart            # 交互式 TUI
+dart run bin/bilimusic_tui.dart --probe    # 网络与解码分层自检
 ```
 
 ---
@@ -209,14 +228,15 @@ BiliClient  ─── Bilibili API
 
 | 层 | 目录 | 职责 |
 | --- | --- | --- |
-| **UI** | `pages/` · `components/` · `shells/` | 页面、组件、横竖屏与方屏布局 |
-| **状态** | `providers/` | Riverpod 状态、命令与页面导航 |
-| **编排** | `services/` | 播放流程、网络业务、漫游、同步、系统集成 |
-| **管理** | `managers/` | 设置、用户、缓存、歌单、推荐、收藏夹同步 |
-| **基础设施** | `core/` · `api/` | Provider 容器、数据库、HTTP 客户端、异常体系 |
-| **视觉系统** | `theme/` | Palette、Token、主题注册切换 |
+| **UI** | `features/*/ui/` · `widgets/` · `app/shells/` | 页面、组件、横竖屏与方屏布局 |
+| **状态** | `features/*/*_providers.dart` · `app/shells/` | Riverpod 状态、命令与页面导航 |
+| **编排** | `features/*/logic/` · `services/` | 播放编排、漫游、局域网同步、登录等业务流程 |
+| **领域模型** | `domain/` | 纯共享数据模型 |
+| **基础设施** | `core/` | HTTP 客户端、异常体系、SQLite 与缓存 |
+| **视觉系统** | `shared/theme/` | Palette、Token、主题注册切换 |
+| **组合根** | `app/app_providers.dart` | 长生命周期服务的创建与释放 |
 
-> 长生命周期服务统一在 `lib/core/app_providers.dart` 中创建与释放；UI 只消费 Provider，不直接实例化业务管理器。
+> 长生命周期服务统一在 `lib/app/app_providers.dart` 中创建与释放；UI 只消费 Provider，不直接实例化业务管理器。
 
 ---
 
@@ -224,18 +244,26 @@ BiliClient  ─── Bilibili API
 
 ```text
 lib/
-├── main.dart                 # 应用入口
-├── api/                      # Bilibili HTTP 客户端与异常
-├── core/                     # Provider 容器与 SQLite 数据库
-├── managers/                 # 设置、用户、歌单、缓存、推荐、同步管理
-├── models/                   # 音乐、歌单、播放、漫游、同步等模型
-├── providers/                # Riverpod 状态与依赖入口
-├── services/                 # API、播放器、漫游、登录、通知、PiP、局域网同步
-├── components/               # 可复用 UI、歌词、播放器与播放列表组件
-├── pages/                    # 首页、搜索、歌单、详情、设置、个人中心
-├── shells/                   # 应用外壳与横竖屏导航布局
-├── theme/                    # AppTokens、AppPalette 与主题变体
-└── utils/                    # 歌词、颜色、响应式、相似度与平台工具
+├── main.dart                  # 应用入口：窗口、数据库、audio_service 初始化
+├── app/                       # app_providers.dart 组合根 + shells/ 应用外壳与导航
+├── core/                      # 无 UI 基础设施
+│   ├── network/               # BiliClient、ApiService、PassportClient 与异常体系
+│   └── storage/               # AppDatabase(SQLite) 与 CacheManager
+├── domain/                    # 纯共享模型：Music、Playlist、BiliItem、PeerDevice 等
+├── features/                  # 功能模块，内部按 logic/ models/ ui/ 分层
+│   ├── player/                # PlayerCoordinator、DualAudioService、通知、PiP、正在播放页
+│   ├── lyrics/                # 歌词检索、多源匹配与逐字渲染
+│   ├── playlist/              # 歌单 / 收藏 / 历史的单一数据源
+│   ├── roam/                  # 漫游模式：simhash 排序、种子多样性与风格策略
+│   ├── lan_sync/              # 局域网同步：mDNS 发现、二维码配对、远程控制
+│   ├── auth/                  # 扫码登录、验证码与 Cookie 管理
+│   ├── fav_sync/              # B 站收藏夹导入与同步状态跟踪
+│   ├── home/ search/ profile/ # 首页推荐、搜索、个人中心
+│   └── settings/ update/      # 设置、数据迁移与检查更新
+└── shared/                    # 跨模块共享：widgets/、theme/(Lucent/Nocturne/Verdant)、utils/
+
+bin/
+└── bilimusic_tui.dart         # 终端客户端入口（dart_tui + libmpv FFI）
 ```
 
 ### 主要依赖
@@ -245,12 +273,17 @@ lib/
 | [Flutter](https://flutter.dev/) | 跨平台 UI 框架 |
 | [Riverpod](https://riverpod.dev/) | 状态管理与依赖注入 |
 | [just_audio](https://pub.dev/packages/just_audio) · [audio_service](https://pub.dev/packages/audio_service) | 音频播放 + 后台与系统媒体控制 |
-| [dio](https://pub.dev/packages/dio) · [http](https://pub.dev/packages/http) | 视频详情、音频 URL 与统一 HTTP 客户端 |
+| [just_audio_media_kit](https://pub.dev/packages/just_audio_media_kit) | 桌面端 libmpv 音频后端 |
+| [http](https://pub.dev/packages/http) | 统一 HTTP 客户端 |
 | [bonsoir](https://pub.dev/packages/bonsoir) | mDNS 局域网设备发现 |
-| [sqflite](https://pub.dev/packages/sqflite) | 本地 SQLite 数据存储 |
-| [flutter_lyric](https://pub.dev/packages/flutter_lyric) | 歌词渲染 |
+| [sqflite](https://pub.dev/packages/sqflite)（含 ffi / ffi_web 实现） | 本地 SQLite 数据存储 |
+| [flutter_lyric](https://pub.dev/packages/flutter_lyric) · [lyrics_now](https://github.com/NaivG/lyrics_now) | 歌词渲染与歌词源检索 |
 | [color_thief_dart](https://pub.dev/packages/color_thief_dart) | 封面主色提取 |
+| [gt3_flutter_plugin](https://pub.dev/packages/gt3_flutter_plugin) | 登录极验验证码 |
 | [window_manager](https://pub.dev/packages/window_manager) | 桌面窗口管理 |
+| [cache_manager](https://pub.dev/packages/cache_manager) | 缓存管理 |
+| [shared_preferences](https://pub.dev/packages/shared_preferences) | 跨平台本地存储 |
+| [dart_tui](https://pub.dev/packages/dart_tui) | 终端 UI 框架 |
 
 ---
 
@@ -299,9 +332,9 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 ## 致谢
 
-- UI 设计灵感：Apple Music、某云音乐、[ParticleMusic](https://github.com/AfalpHy/ParticleMusic)
-- 歌词获取：[LDDC](https://github.com/chenmozhijin/LDDC)
-- 歌词渲染：[coriander_player](https://github.com/Ferry-200/coriander_player)
+- UI 设计灵感：Apple Music, 某云音乐, [ParticleMusic](https://github.com/AfalpHy/ParticleMusic)
+- 歌词获取：[lyrics_now](https://github.com/NaivG/lyrics_now)
+- 歌词渲染：[coriander_player](https://github.com/Ferry-200/coriander_player), [flutter_lyric](https://pub.dev/packages/flutter_lyric)
 - GitHub Actions：[FlutterHub](https://github.com/xmaihh/FlutterHub)
 
 ---
