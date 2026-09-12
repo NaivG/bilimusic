@@ -2,10 +2,13 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/features/player/widgets/landscape_seek_bar.dart';
 import 'package:bilimusic/features/player/widgets/playback_buttons.dart';
+import 'package:bilimusic/features/player/widgets/crossfade_indicator.dart';
 import 'package:bilimusic/features/player/now_playing/apple_cover.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
+import 'package:bilimusic/features/settings/settings_provider.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
 
 /// 详情页单面板
@@ -191,6 +194,9 @@ class _AlbumSectionState extends ConsumerState<AlbumSection>
       // 歌曲信息 + 收藏/分享（带切歌过渡）
       _animated(_buildInfoRow(m)),
       SizedBox(height: m.gapInfoSeek),
+      // 音质徽标位：默认显示当前音质，crossfade 过渡时切换为「过渡中」动画
+      _buildQualityBadge(),
+      const SizedBox(height: 6),
       // 进度条（无 thumb，可拖拽，带时长标签）
       const LandscapeSeekBar(
         color: Colors.white,
@@ -210,6 +216,47 @@ class _AlbumSectionState extends ConsumerState<AlbumSection>
       ],
       SizedBox(height: m.gapVolumeLyrics), // 这边直接复用，让底部留白更大一点，避免贴边
     ];
+  }
+
+  /// 音质徽标位：显示实时音质（实际命中的流，由取流结果更新；尚未取流时回退设置值），
+  /// crossfade 过渡时切换为「过渡中」动画。
+  /// 复用共享的 [CrossfadeIndicator]，与 mini bar / PiP / 横屏底栏保持一致。
+  Widget _buildQualityBadge() {
+    final fading = isCrossfading(ref.watch(playerStateProvider));
+    final actualQualityId = ref.watch(actualQualityProvider);
+    final qualityId = actualQualityId.isEmpty
+        ? ref.watch(settingsProvider).audioQuality
+        : actualQualityId;
+    final qualityText = ref
+        .read(settingsManagerProvider)
+        .getAudioQualityText(qualityId);
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      child: Container(
+        key: ValueKey('quality-badge-${fading ? 'transition' : 'quality'}'),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.12),
+            width: 1,
+          ),
+        ),
+        child: fading
+            ? const CrossfadeIndicator()
+            : Text(
+                qualityText,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.2,
+                ),
+              ),
+      ),
+    );
   }
 
   Widget _buildVolumeControl(_AlbumMetrics m) {
@@ -502,6 +549,7 @@ class _AlbumMetrics {
     final fixedHeight =
         24.0 /*纵向 padding*/ +
         20.0 /*进度条*/ +
+        32.0 /*音质徽标 + 与进度条间距*/ +
         32.0 /*音量行*/ +
         (hasLyricsEntry ? 48.0 * textScale : 0.0) /*歌词入口（文字随缩放）*/ +
         24.0 /*估算余量*/ +
@@ -541,6 +589,7 @@ class _AlbumMetrics {
         coverSize * 0.55 + // 封面→信息 / 信息→进度 / 进度→控制 / 控制→音量
         infoRowHeight +
         20.0 +
+        32.0 + // 音质徽标 + 与进度条间距
         mainButtonSize +
         32.0 +
         (hasLyricsEntry ? coverSize * 0.1 + 48.0 * textScale : 0.0);

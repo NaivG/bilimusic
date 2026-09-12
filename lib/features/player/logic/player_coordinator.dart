@@ -47,6 +47,7 @@ class PlayerCoordinator {
   bool _isPreloading = false; // 预加载中（coordinator 侧）
   Music? _preloadedMusic; // 记录已预加载的音乐
   int? _preloadedIndex; // 记录已预加载的音乐索引
+  String? _standbyQualityId; // 已预加载待命流的实际音质，crossfade 切换后生效
 
   // 漫游状态机：与 PlayMode 正交，由 profile_page 单独控制进入/退出
   _RoamSession? _roamSession;
@@ -160,16 +161,18 @@ class PlayerCoordinator {
       _notificationService.updateMediaInfo(detailedMusic);
 
       // 获取音频URL
-      final audioUrl = await _apiService.getAudioUrl(
+      final audio = await _apiService.getAudioUrl(
         detailedMusic,
         qualityId: _settingsManager.audioQuality,
       );
-      if (audioUrl.isEmpty) {
+      if (audio.path.isEmpty) {
         throw Exception('Failed to get audio URL');
       }
+      // 实时音质：记录实际命中的流音质（回退后可能与请求的不同）
+      _audioService.setActualQuality(audio.qualityId);
 
       // 使用DualAudioService播放
-      await _audioService.playActive(audioUrl);
+      await _audioService.playActive(audio.path);
 
       // 添加到播放历史
       await _playlistService.addToPlayHistory(detailedMusic);
@@ -416,9 +419,14 @@ class PlayerCoordinator {
       // 立即执行crossfade
       await _audioService.executeCrossfade(_settingsManager.crossfadeDuration);
 
-      // crossfade完成后清理
+      // crossfade完成后清理；听感已切换为预加载流，实时音质随之更新
+      final standbyQuality = _standbyQualityId;
+      if (standbyQuality != null) {
+        _audioService.setActualQuality(standbyQuality);
+      }
       _preloadedMusic = null;
       _preloadedIndex = null;
+      _standbyQualityId = null;
       final currentMusic = _playlistService.currentMusic;
       if (currentMusic != null) {
         _notificationService.updateMediaInfo(currentMusic);
@@ -495,18 +503,19 @@ class PlayerCoordinator {
         detailedMusic = await _apiService.getVideoDetails(nextMusic.id);
       }
 
-      final audioUrl = await _apiService.getAudioUrl(
+      final audio = await _apiService.getAudioUrl(
         detailedMusic,
         qualityId: _settingsManager.audioQuality,
       );
-      if (audioUrl.isEmpty) {
+      if (audio.path.isEmpty) {
         throw Exception('Failed to get audio URL');
       }
 
       // 预加载到待命播放器
-      await _audioService.preloadToStandby(audioUrl);
+      await _audioService.preloadToStandby(audio.path);
       _preloadedMusic = detailedMusic;
       _preloadedIndex = nextIndex;
+      _standbyQualityId = audio.qualityId;
 
       debugPrint('[PlayerCoordinator] 预加载成功');
     } catch (e) {
@@ -562,9 +571,14 @@ class PlayerCoordinator {
           _settingsManager.crossfadeDuration,
         );
 
-        // 更新预加载状态
+        // 更新预加载状态；听感已切换为预加载流，实时音质随之更新
+        final standbyQuality = _standbyQualityId;
+        if (standbyQuality != null) {
+          _audioService.setActualQuality(standbyQuality);
+        }
         _preloadedMusic = null;
         _preloadedIndex = null;
+        _standbyQualityId = null;
 
         // 更新媒体信息
         final currentMusic = _playlistService.currentMusic;

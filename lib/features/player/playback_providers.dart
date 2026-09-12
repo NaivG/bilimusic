@@ -104,6 +104,24 @@ final volumeProvider = NotifierProvider<_VolumeWatcher, double>(
   _VolumeWatcher.new,
 );
 
+class _ActualQualityWatcher extends Notifier<String> {
+  @override
+  String build() {
+    final vn = ref.read(_dualAudioServiceProvider).actualQualityId;
+    vn.addListener(_onChanged);
+    ref.onDispose(() => vn.removeListener(_onChanged));
+    return vn.value;
+  }
+
+  void _onChanged() =>
+      state = ref.read(_dualAudioServiceProvider).actualQualityId.value;
+}
+
+/// 当前实际播放流的音质代码（30xxx）；空串表示尚未取流。
+final actualQualityProvider = NotifierProvider<_ActualQualityWatcher, String>(
+  _ActualQualityWatcher.new,
+);
+
 /// 派生：当前正在播放的音乐（来自 PlayerCoordinator 内部的 playlist+index 组合）
 final currentMusicFromCoordinatorProvider = Provider<Music?>((ref) {
   final pc = ref.read(_playerCoordinatorProvider);

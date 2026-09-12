@@ -411,9 +411,9 @@ class SettingsManager extends ChangeNotifier {
   String getAudioQualityText(String qualityId) {
     switch (qualityId) {
       case '30251':
-        return 'Hi-Res 无损 (需大会员)';
+        return 'Hi-Res 无损';
       case '30250':
-        return '杜比全景声 (需大会员)';
+        return '杜比全景声';
       case '30280':
         return '192K HQ';
       case '30232':

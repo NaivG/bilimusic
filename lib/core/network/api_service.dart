@@ -115,9 +115,16 @@ class ApiService {
   /// 30250=杜比全景声 / 30251=Hi-Res 无损（后两者需大会员账号）。
   /// 请求的音质在当前视频不可用时，回退到标准音质中最高的一档。
   ///
-  /// 失败返回 `''` —— 该方法历史上是「尽力而为」语义，未改为抛异常以避免
+  /// 返回 `(path, qualityId)`：qualityId 为实际命中的流音质代码——
+  /// 在线挑选时是回退后真正命中的那一档，缓存命中时即请求音质（缓存 key 按请求音质区分），
+  /// 失败时为空串。
+  ///
+  /// 失败返回 `path: ''` —— 该方法历史上是「尽力而为」语义，未改为抛异常以避免
   /// 破坏 [PlayerCoordinator] 的 fallback 逻辑（无 URL 即停在 stopped 态）。
-  Future<String> getAudioUrl(Music music, {String qualityId = '30280'}) async {
+  Future<({String path, String qualityId})> getAudioUrl(
+    Music music, {
+    String qualityId = '30280',
+  }) async {
     try {
       String cid = music.cid;
       if (cid.isEmpty && music.pages.isNotEmpty) {
@@ -129,7 +136,8 @@ class ApiService {
           : '${music.id}_q$qualityId';
       final cached = await musicCacheManager.getFileFromCache(cacheKey);
       if (cached != null) {
-        return cached.file.path;
+        // 缓存 key 按请求音质区分，命中即视为该音质
+        return (path: cached.file.path, qualityId: qualityId);
       }
 
       if (cid.isEmpty) {
@@ -140,7 +148,7 @@ class ApiService {
       }
       if (cid.isEmpty) {
         debugPrint('[ApiService] getAudioUrl(${music.id}): no cid');
-        return '';
+        return (path: '', qualityId: '');
       }
 
       // fnval=4048 一次性返回全部 DASH 流（含 Hi-Res/杜比位，无大会员时字段为空）。
@@ -152,7 +160,7 @@ class ApiService {
       final dash = (data as Map<String, dynamic>?)?['dash'];
       if (dash is! Map) {
         debugPrint('[ApiService] getAudioUrl(${music.id}): no dash audio');
-        return '';
+        return (path: '', qualityId: '');
       }
       // 标准三档在 dash.audio；Hi-Res 单流在 dash.flac、杜比在 dash.dolby
       // （内层字段名历史上有 dash / audio 两种，都兼容）。
@@ -168,8 +176,10 @@ class ApiService {
       final audioUrl = picked == null ? '' : _baseUrlOf(picked);
       if (audioUrl.isEmpty) {
         debugPrint('[ApiService] getAudioUrl(${music.id}): no usable audio');
-        return '';
+        return (path: '', qualityId: '');
       }
+      // picked 命中流的 id 即实际音质代码（可能是回退档位）
+      final actualQualityId = picked!['id']?.toString() ?? qualityId;
 
       // 缓存 key 按请求的音质区分：回退下载的流也存同一 key，
       // 保证同一设置下重复播放稳定命中缓存。
@@ -181,14 +191,14 @@ class ApiService {
           'Referer': 'https://www.bilibili.com',
         },
       );
-      return file.file.path;
+      return (path: file.file.path, qualityId: actualQualityId);
     } on BiliException catch (e) {
       debugPrint('[ApiService] getAudioUrl(${music.id}): $e');
-      return '';
+      return (path: '', qualityId: '');
     } catch (e, st) {
       debugPrint('[ApiService] getAudioUrl(${music.id}) crash: $e');
       debugPrint('Stack trace: $st');
-      return '';
+      return (path: '', qualityId: '');
     }
   }
 

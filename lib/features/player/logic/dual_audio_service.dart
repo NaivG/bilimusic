@@ -51,6 +51,9 @@ class DualAudioService {
   final ValueNotifier<Duration> _position = ValueNotifier(Duration.zero);
   final ValueNotifier<Duration> _duration = ValueNotifier(Duration.zero);
   final ValueNotifier<PlayMode> _playMode = ValueNotifier(PlayMode.sequential);
+  // 实时音质：实际命中的流音质代码（30xxx），由 PlayerCoordinator 取流后写入；
+  // 空串表示尚未取流（UI 回退显示设置里的请求音质）。
+  final ValueNotifier<String> _actualQualityId = ValueNotifier('');
 
   // 待命播放器的初始音量种子。equal-power 曲线从 0 起，AudioTrack 长时静音会卡顿，
   // 所以保留一个极小非零值让 AudioTrack 持续激活；0.01 听感上无影响。
@@ -257,6 +260,9 @@ class DualAudioService {
   /// 获取当前播放模式
   ValueNotifier<PlayMode> get playMode => _playMode;
 
+  /// 当前实际播放流的音质代码（30xxx）；空串表示尚未取流。
+  ValueListenable<String> get actualQualityId => _actualQualityId;
+
   /// 获取是否正在播放
   bool get isPlaying => _activePlayer.player.playing;
 
@@ -293,6 +299,11 @@ class DualAudioService {
   /// 写状态机：替代 setPreloading + 直接赋值 crossfadeState/_isCrossfading
   void setPlayerState(PlayerState state) {
     _playerState.value = state;
+  }
+
+  /// 写入实际命中的流音质代码（PlayerCoordinator 在取流成功后调用）
+  void setActualQuality(String qualityId) {
+    _actualQualityId.value = qualityId;
   }
 
   // ============ 音量控制 ============
@@ -599,6 +610,7 @@ class DualAudioService {
     _standbyPlayer.reset();
     _relativeVolume.value = 1.0;
     _playerState.value = PlayerIdle();
+    _actualQualityId.value = '';
     onStateChanged?.call(AudioState.stopped);
   }
 
