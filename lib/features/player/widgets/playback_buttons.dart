@@ -157,6 +157,7 @@ class PlaybackPlayPauseButton extends StatelessWidget {
         child: Center(
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
+            transitionBuilder: switcherFadeTransition,
             child: Icon(
               isPlaying ? Icons.pause : Icons.play_arrow,
               key: ValueKey(isPlaying),

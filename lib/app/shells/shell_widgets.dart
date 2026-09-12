@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
+import 'package:bilimusic/shared/utils/animations.dart';
 import 'package:bilimusic/shared/widgets/background_blur_widget.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/features/playlist/playlist_page.dart';
@@ -84,6 +85,8 @@ Widget buildShellBackground(BuildContext context, WidgetRef ref) {
     switchInCurve: Curves.linearToEaseOut,
     switchOutCurve: Curves.easeInToLinear,
     duration: const Duration(milliseconds: 400),
+    // coverUrl 在快速切歌时可能重复，防止过渡条目产生重复 key
+    transitionBuilder: switcherFadeTransition,
     child: BackgroundBlurWidget(
       key: ValueKey(currentMusic?.coverUrl),
       coverUrl: currentMusic?.coverUrl,

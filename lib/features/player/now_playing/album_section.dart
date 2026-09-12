@@ -233,6 +233,7 @@ class _AlbumSectionState extends ConsumerState<AlbumSection>
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 250),
+      transitionBuilder: switcherFadeTransition,
       child: Container(
         key: ValueKey('quality-badge-${fading ? 'transition' : 'quality'}'),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),

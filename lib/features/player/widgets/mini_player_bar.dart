@@ -11,6 +11,7 @@ import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/utils/animations.dart';
 import 'package:bilimusic/shared/widgets/music_cover.dart';
 
 /// Mini Player Bar
@@ -430,6 +431,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
           const SizedBox(height: 2),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
+            transitionBuilder: switcherFadeTransition,
             child: fading
                 ? const CrossfadeIndicator()
                 : Text(

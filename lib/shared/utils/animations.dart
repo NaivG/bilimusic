@@ -1,5 +1,22 @@
 import 'package:flutter/material.dart';
 
+/// AnimatedSwitcher 专用的防重复 key 过渡构建器。
+///
+/// AnimatedSwitcher 默认 transitionBuilder 会给 FadeTransition 挂上
+/// `ValueKey(child.key)`，而 KeyedSubtree.wrap 会把「builder 产物的 key」
+/// （非空时）直接用作过渡条目的顶层 key，导致 `_childNumber` 序号失效：
+/// key 固定（或为 null）的分支在淡出窗口期内再次切入时，Stack 会同时出现
+/// 两个相同顶层 key 的条目，触发 "Duplicate keys found" 断言
+/// （典型 key 形如 `[<[<null>]>]`，常见于 crossfade 指示器快速闪烁、
+/// 连点播放/暂停、快速切回同一封面等场景）。
+///
+/// 这里返回不带 key 的 FadeTransition，让 AnimatedSwitcher 回退到按
+/// `_childNumber` 生成的唯一 slot key，从根本上消除重复 key；
+/// 渲染效果与默认行为一致。
+Widget switcherFadeTransition(Widget child, Animation<double> animation) {
+  return FadeTransition(opacity: animation, child: child);
+}
+
 /// 通用淡入动画组件
 class FadeInWidget extends StatefulWidget {
   final Widget child;

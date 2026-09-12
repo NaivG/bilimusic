@@ -11,6 +11,7 @@ import 'package:bilimusic/features/player/widgets/crossfade_indicator.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/utils/animations.dart';
 import 'package:bilimusic/shared/widgets/music_cover.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -144,6 +145,7 @@ class PipOverlay extends ConsumerWidget {
           const SizedBox(height: 2),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
+            transitionBuilder: switcherFadeTransition,
             child: fading
                 ? const CrossfadeIndicator()
                 : Text(

@@ -8,8 +8,12 @@ bool isCrossfading(PlayerState state) =>
 
 /// crossfade 过渡指示器 —— 10×10 spinner + 「过渡中」。
 ///
-/// 与艺术家文本一起放进 [AnimatedSwitcher] 时，用 [isCrossfading] 选分支即可；
-/// ValueKey('transition') 已内置，保证切换动画正确触发。
+/// 与艺术家文本一起放进 [AnimatedSwitcher] 时，用 [isCrossfading] 选分支即可。
+/// 注意：本组件自身的 key 为 null（ValueKey('transition') 只在内部 Row 上），
+/// 若配合 AnimatedSwitcher 默认 transitionBuilder，所有 CrossfadeIndicator
+/// 过渡条目的顶层 key 都相同（`[<[<null>]>]`），快速闪烁会触发
+/// "Duplicate keys found" 断言。所在 AnimatedSwitcher 必须使用
+/// `transitionBuilder: switcherFadeTransition`（见 shared/utils/animations.dart）。
 class CrossfadeIndicator extends StatelessWidget {
   const CrossfadeIndicator({super.key});
 

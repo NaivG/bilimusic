@@ -155,6 +155,7 @@ class LandscapeBottomControl extends ConsumerWidget {
                 music?.artist != null
                     ? AnimatedSwitcher(
                         duration: AppTokens.standardDuration,
+                        transitionBuilder: switcherFadeTransition,
                         child: fading
                             ? const CrossfadeIndicator()
                             : Text(
@@ -282,6 +283,7 @@ class LandscapeBottomControl extends ConsumerWidget {
                 duration: AppTokens.standardDuration,
                 switchInCurve: AppTokens.standardEasing,
                 switchOutCurve: AppTokens.standardEasing,
+                transitionBuilder: switcherFadeTransition,
                 child: Icon(
                   isPlaying ? Icons.pause : Icons.play_arrow,
                   key: ValueKey(isPlaying),

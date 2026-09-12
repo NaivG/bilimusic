@@ -12,6 +12,7 @@ import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/player/widgets/sleep_timer_sheet.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/shared/utils/animations.dart';
 import 'package:bilimusic/shared/utils/dialog_helpers.dart';
 import 'package:bilimusic/shared/utils/formatters.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
@@ -441,6 +442,7 @@ class _MainPlayButton extends StatelessWidget {
         child: Center(
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 180),
+            transitionBuilder: switcherFadeTransition,
             child: Icon(
               isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
               key: ValueKey(isPlaying),
