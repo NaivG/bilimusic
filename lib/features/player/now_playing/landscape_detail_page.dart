@@ -8,8 +8,10 @@ import 'package:bilimusic/features/lyrics/lyric_source.dart';
 import 'package:bilimusic/domain/music.dart' as model;
 import 'package:bilimusic/app/shells/navigation_providers.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
+import 'package:bilimusic/features/player/widgets/sleep_timer_sheet.dart';
 import 'package:bilimusic/shared/utils/dialog_helpers.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/app/app_providers.dart';
 
 /// 横屏详情页 —— 纯视图：左侧专辑区 + 右侧歌词面板（Apple Music 左右分栏布局）。
 /// 状态与业务回调由 [DetailPage] 宿主下发，与 Portrait/Square 同一套 props 模式。
@@ -177,7 +179,7 @@ class LandscapeDetailPage extends ConsumerWidget {
                   size: 20,
                 ),
               ),
-              onPressed: () => _showOptionsSheet(context),
+              onPressed: () => _showOptionsSheet(context, ref),
             ),
           ],
         ),
@@ -185,7 +187,7 @@ class LandscapeDetailPage extends ConsumerWidget {
     );
   }
 
-  void _showOptionsSheet(BuildContext context) {
+  void _showOptionsSheet(BuildContext context, WidgetRef ref) {
     showOptionsSheet(
       context,
       actions: [
@@ -196,6 +198,12 @@ class LandscapeDetailPage extends ConsumerWidget {
           onTap: onToggleFavorite,
         ),
         SheetAction(icon: Icons.share, label: '分享', onTap: onShare),
+        SheetAction(
+          icon: Icons.timer_outlined,
+          // 实时文案：倒计时进行中随剩余时间刷新。
+          labelListenable: ref.read(sleepTimerServiceProvider).menuLabel,
+          onTap: () => showSleepTimerSheet(context),
+        ),
         SheetAction(
           icon: Icons.info_outline,
           label: '歌曲信息',

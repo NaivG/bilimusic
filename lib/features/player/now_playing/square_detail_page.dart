@@ -9,7 +9,9 @@ import 'package:bilimusic/features/lyrics/lyric_source.dart';
 import 'package:bilimusic/domain/music.dart' as model;
 import 'package:bilimusic/features/player/now_playing/detail_blur_background.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
+import 'package:bilimusic/features/player/widgets/sleep_timer_sheet.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
+import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/shared/utils/dialog_helpers.dart';
 import 'package:bilimusic/shared/utils/formatters.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
@@ -64,12 +66,12 @@ class SquareDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (showLyrics) return _buildLyricsView(context);
+    if (showLyrics) return _buildLyricsView(context, ref);
 
     return Scaffold(
       backgroundColor: dominantColor?.withValues(alpha: 0.4) ?? Colors.black,
       extendBodyBehindAppBar: true,
-      appBar: _buildAppBar(context),
+      appBar: _buildAppBar(context, ref),
       body: Stack(
         children: [
           _buildBackground(),
@@ -98,7 +100,7 @@ class SquareDetailPage extends ConsumerWidget {
     );
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
+  PreferredSizeWidget _buildAppBar(BuildContext context, WidgetRef ref) {
     return AutoAppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -130,7 +132,7 @@ class SquareDetailPage extends ConsumerWidget {
             ),
             child: const Icon(Icons.more_horiz, color: Colors.white, size: 22),
           ),
-          onPressed: () => _showOptionsSheet(context),
+          onPressed: () => _showOptionsSheet(context, ref),
         ),
         const SizedBox(width: 8),
       ],
@@ -303,10 +305,10 @@ class SquareDetailPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildLyricsView(BuildContext context) {
+  Widget _buildLyricsView(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: _buildAppBar(context),
+      appBar: _buildAppBar(context, ref),
       body: LyricSection(
         lyricController: lyricController,
         position: position,
@@ -319,7 +321,7 @@ class SquareDetailPage extends ConsumerWidget {
     );
   }
 
-  void _showOptionsSheet(BuildContext context) {
+  void _showOptionsSheet(BuildContext context, WidgetRef ref) {
     showOptionsSheet(
       context,
       dense: true,
@@ -331,6 +333,12 @@ class SquareDetailPage extends ConsumerWidget {
           onTap: onToggleFavorite,
         ),
         SheetAction(icon: Icons.share, label: '分享', onTap: onShare),
+        SheetAction(
+          icon: Icons.timer_outlined,
+          // 实时文案：倒计时进行中随剩余时间刷新。
+          labelListenable: ref.read(sleepTimerServiceProvider).menuLabel,
+          onTap: () => showSleepTimerSheet(context),
+        ),
         SheetAction(
           icon: showLyrics ? Icons.lyrics : Icons.lyrics_outlined,
           label: showLyrics ? '隐藏歌词' : '显示歌词',

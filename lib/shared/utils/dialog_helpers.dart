@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:bilimusic/shared/utils/formatters.dart';
@@ -5,16 +6,27 @@ import 'package:bilimusic/shared/utils/formatters.dart';
 /// 底部操作单条目 —— icon/label/iconColor 由调用方解析好再传入。
 class SheetAction {
   final IconData icon;
-  final String label;
+
+  /// 静态文案；提供 [labelListenable] 时不参与渲染。
+  final String? label;
+
+  /// 可选实时文案 listenable：提供时条目文案跟随其变化实时刷新
+  /// （如定时关闭的剩余时间倒计时）。
+  final ValueListenable<String>? labelListenable;
+
   final Color? iconColor;
   final VoidCallback onTap;
 
   const SheetAction({
     required this.icon,
-    required this.label,
+    this.label,
+    this.labelListenable,
     this.iconColor,
     required this.onTap,
-  });
+  }) : assert(
+         label != null || labelListenable != null,
+         'label 与 labelListenable 至少提供一个',
+       );
 }
 
 /// 详情页「更多」底部操作单骨架 —— 拖动条 + ListTile 列表（先关单再回调）。
@@ -52,13 +64,7 @@ void showOptionsSheet(
                 color: action.iconColor ?? Colors.white,
                 size: dense ? 22 : null,
               ),
-              title: Text(
-                action.label,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: dense ? 14 : null,
-                ),
-              ),
+              title: _actionTitle(action, dense),
               onTap: () {
                 Navigator.pop(sheetContext);
                 action.onTap();
@@ -68,6 +74,20 @@ void showOptionsSheet(
         ],
       ),
     ),
+  );
+}
+
+/// 条目标题：带实时标签时用 [ValueListenableBuilder] 跟随刷新，
+/// 否则渲染静态 [SheetAction.label]。
+Widget _actionTitle(SheetAction action, bool dense) {
+  final style = TextStyle(color: Colors.white, fontSize: dense ? 14 : null);
+  final listenable = action.labelListenable;
+  if (listenable == null) {
+    return Text(action.label!, style: style);
+  }
+  return ValueListenableBuilder<String>(
+    valueListenable: listenable,
+    builder: (context, value, _) => Text(value, style: style),
   );
 }
 

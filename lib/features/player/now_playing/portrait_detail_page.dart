@@ -8,6 +8,8 @@ import 'package:bilimusic/features/player/now_playing/album_section.dart';
 import 'package:bilimusic/domain/music.dart' as model;
 import 'package:bilimusic/features/player/now_playing/detail_blur_background.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
+import 'package:bilimusic/features/player/widgets/sleep_timer_sheet.dart';
+import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/shared/utils/dialog_helpers.dart';
 
@@ -177,6 +179,12 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage> {
           onTap: widget.onToggleFavorite,
         ),
         SheetAction(icon: Icons.share, label: '分享', onTap: widget.onShare),
+        SheetAction(
+          icon: Icons.timer_outlined,
+          // 实时文案：倒计时进行中随剩余时间刷新。
+          labelListenable: ref.read(sleepTimerServiceProvider).menuLabel,
+          onTap: () => showSleepTimerSheet(context),
+        ),
         SheetAction(
           icon: widget.showLyrics ? Icons.lyrics : Icons.lyrics_outlined,
           label: widget.showLyrics ? '隐藏歌词' : '显示歌词',

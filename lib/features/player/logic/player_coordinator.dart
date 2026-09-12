@@ -49,6 +49,14 @@ class PlayerCoordinator {
   int? _preloadedIndex; // 记录已预加载的音乐索引
   String? _standbyQualityId; // 已预加载待命流的实际音质，crossfade 切换后生效
 
+  // 定时关闭（播完整首再停止）：到点后不立即暂停，等当前曲目自然播完再暂停。
+  // 由 SleepTimerService 经 armPauseAfterCurrentTrack 置位；
+  // 手动切歌 / 恢复播放 / 取消定时都会清除。
+  final ValueNotifier<bool> pauseAfterCurrentTrack = ValueNotifier(false);
+  // 最近一次「播完暂停」生效时间 —— pause() 在 completed 状态下可能再次
+  // 触发完成事件（media_kit 后端），用时间窗吞掉这类重复回调。
+  DateTime? _sleepPauseAppliedAt;
+
   // 漫游状态机：与 PlayMode 正交，由 profile_page 单独控制进入/退出
   _RoamSession? _roamSession;
   bool _roamFetchInFlight = false;
@@ -138,6 +146,10 @@ class PlayerCoordinator {
 
   /// 播放当前曲目
   Future<void> _playCurrentTrack() async {
+    // 任何一次实际切歌（手动/漫游等）都视为用户接管，
+    // 清除定时关闭的「播完暂停」等待。
+    pauseAfterCurrentTrack.value = false;
+
     Music? music = _playlistService.currentMusic;
     if (music == null) {
       await _audioService.stop();
@@ -197,8 +209,21 @@ class PlayerCoordinator {
 
   /// 恢复播放
   Future<void> resume() async {
+    // 手动恢复播放视为用户接管，清除定时关闭的「播完暂停」等待。
+    pauseAfterCurrentTrack.value = false;
     await _audioService.resume();
     _updateNotificationControls();
+  }
+
+  /// 定时关闭：等待当前歌曲播完后暂停（不打断正在播放的这首歌）。
+  void armPauseAfterCurrentTrack() {
+    debugPrint('[PlayerCoordinator] 定时关闭：等待当前歌曲播放完毕后暂停');
+    pauseAfterCurrentTrack.value = true;
+  }
+
+  /// 取消「播完暂停」等待。
+  void cancelPauseAfterCurrentTrack() {
+    pauseAfterCurrentTrack.value = false;
   }
 
   /// 停止播放
@@ -341,6 +366,9 @@ class PlayerCoordinator {
 
   /// 检查预加载触发条件
   void _checkPreloadTrigger() {
+    // 定时关闭（播完整首）：不让 crossfade 抢先切歌，等本曲自然播完
+    if (pauseAfterCurrentTrack.value) return;
+
     // 基础检查
     if (!_settingsManager.crossfadeEnabled) return;
     if (_audioService.isFading) return;
@@ -390,6 +418,9 @@ class PlayerCoordinator {
 
   /// 启动基于时间的Crossfade切换
   Future<void> _startTimeBasedCrossfade() async {
+    // 定时关闭（播完整首）：抑制自动切换，等本曲自然播完
+    if (pauseAfterCurrentTrack.value) return;
+
     if (_isCountdownActive) return;
 
     debugPrint('[PlayerCoordinator] 启动基于时间的Crossfade');
@@ -540,6 +571,25 @@ class PlayerCoordinator {
     }
 
     try {
+      // 吞掉「播完暂停」后 pause() 在 completed 状态下触发的重复完成事件
+      final appliedAt = _sleepPauseAppliedAt;
+      if (appliedAt != null &&
+          DateTime.now().difference(appliedAt) <
+              const Duration(milliseconds: 800)) {
+        debugPrint('[PlayerCoordinator] 忽略定时暂停后的重复完成事件');
+        return;
+      }
+
+      // 定时关闭（播完整首）：当前曲目播完即暂停，不再自动切歌
+      if (pauseAfterCurrentTrack.value) {
+        debugPrint('[PlayerCoordinator] 定时关闭：当前歌曲播放完毕，暂停播放');
+        pauseAfterCurrentTrack.value = false;
+        _sleepPauseAppliedAt = DateTime.now();
+        await _audioService.pause();
+        _updateNotificationControls();
+        return;
+      }
+
       // 检查播放列表是否为空
       final playlist = _playlistService.currentPlaylist.value;
       if (playlist.isEmpty) {
@@ -891,6 +941,7 @@ class PlayerCoordinator {
 
     _debounceTimer?.cancel();
     _countdownTimer?.cancel();
+    pauseAfterCurrentTrack.dispose();
     await _audioService.dispose();
     await _playlistService.dispose();
   }

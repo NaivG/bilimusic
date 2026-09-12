@@ -5,6 +5,7 @@ import 'package:bilimusic/core/network/bili_client.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/core/network/api_service.dart';
 import 'package:bilimusic/features/player/logic/dual_audio_service.dart';
+import 'package:bilimusic/features/player/logic/sleep_timer_service.dart';
 import 'package:bilimusic/features/lyrics/lyrics_service.dart';
 import 'package:bilimusic/features/player/logic/notification_service.dart';
 import 'package:bilimusic/features/player/logic/player_coordinator.dart';
@@ -110,6 +111,16 @@ final playerCoordinatorProvider = Provider<PlayerCoordinator>((ref) {
   pc.initialize();
   ref.onDispose(pc.dispose);
   return pc;
+});
+
+// ==================== 定时关闭 ====================
+
+final sleepTimerServiceProvider = Provider<SleepTimerService>((ref) {
+  final svc = SleepTimerService(
+    coordinator: ref.watch(playerCoordinatorProvider),
+  );
+  ref.onDispose(svc.dispose);
+  return svc;
 });
 
 // ==================== 歌词 ====================
