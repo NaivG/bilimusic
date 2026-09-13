@@ -75,6 +75,8 @@ dependencies:
     git:
       url: https://github.com/NaivG/lyrics_now.git
   stop_watch_timer: ^3.2.2
+  archive: ^4.2.0
+  flutter_app_update: ^3.2.4
 #  just_aaudio:
 #    path: ../just_aaudio
 
