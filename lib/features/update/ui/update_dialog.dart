@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:bilimusic/features/update/models/changelog_entry.dart';
 import 'package:bilimusic/features/update/update_installer.dart';
+import 'package:bilimusic/features/update/ui/notification_permission.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 
 /// 更新弹窗：展示更新日志，并在"立即更新"时执行应用内更新
@@ -44,6 +45,10 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
   int? _totalBytes;
   String? _errorText;
 
+  /// 通知权限是否可用（Android 更新前检查的结果），
+  /// 决定“已开始后台下载”提示里要不要提通知栏
+  bool _notificationPermissionGranted = true;
+
   bool get _installing => _stage == _InstallStage.installing;
 
   Future<void> _launchUpdateUrl() async {
@@ -59,12 +64,18 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
       await _launchUpdateUrl();
       return;
     }
+    // Android 13+ 的下载进度走系统通知，更新前先确认通知权限
+    final decision = await checkNotificationPermissionBeforeUpdate(context);
+    if (!mounted) return;
+    if (decision == UpdateNotificationDecision.aborted) return;
     setState(() {
       _stage = _InstallStage.installing;
       _errorText = null;
       _phase = null;
       _receivedBytes = 0;
       _totalBytes = null;
+      _notificationPermissionGranted =
+          decision == UpdateNotificationDecision.granted;
     });
     try {
       await UpdateInstaller.instance.install(
@@ -221,7 +232,9 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                '已开始后台下载更新，完成后将自动弹出安装界面，可在通知栏查看进度。',
+                _notificationPermissionGranted
+                    ? '已开始后台下载更新，完成后将自动弹出安装界面，可在通知栏查看进度。'
+                    : '已开始后台下载更新，完成后将自动弹出安装界面。',
                 style: TextStyle(
                   fontSize: 12,
                   color: colorScheme.onSurfaceVariant,

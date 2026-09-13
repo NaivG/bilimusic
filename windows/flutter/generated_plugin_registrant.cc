@@ -10,6 +10,7 @@
 #include <bonsoir_windows/bonsoir_windows_plugin_c_api.h>
 #include <irondash_engine_context/irondash_engine_context_plugin_c_api.h>
 #include <media_kit_libs_windows_audio/media_kit_libs_windows_audio_plugin_c_api.h>
+#include <permission_handler_windows/permission_handler_windows_plugin.h>
 #include <restart_app/restart_app_plugin_c_api.h>
 #include <screen_retriever_windows/screen_retriever_windows_plugin_c_api.h>
 #include <share_plus/share_plus_windows_plugin_c_api.h>
@@ -26,6 +27,8 @@ void RegisterPlugins(flutter::PluginRegistry* registry) {
       registry->GetRegistrarForPlugin("IrondashEngineContextPluginCApi"));
   MediaKitLibsWindowsAudioPluginCApiRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("MediaKitLibsWindowsAudioPluginCApi"));
+  PermissionHandlerWindowsPluginRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("PermissionHandlerWindowsPlugin"));
   RestartAppPluginCApiRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("RestartAppPluginCApi"));
   ScreenRetrieverWindowsPluginCApiRegisterWithRegistrar(

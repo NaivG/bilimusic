@@ -7,6 +7,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   bonsoir_windows
   irondash_engine_context
   media_kit_libs_windows_audio
+  permission_handler_windows
   restart_app
   screen_retriever_windows
   share_plus
