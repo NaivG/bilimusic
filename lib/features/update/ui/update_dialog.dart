@@ -141,8 +141,19 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
                 style: TextStyle(color: colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 12),
-              ...widget.changelog.map(
-                (entry) => _buildChangelogItem(entry, colorScheme),
+              // 更新日志条目可能很多，包一层可滚动容器避免撑爆弹窗高度；
+              // Flexible 限定日志区域最多占弹窗剩余高度，内容少时仍自适应
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: widget.changelog
+                        .map(
+                          (entry) => _buildChangelogItem(entry, colorScheme),
+                        )
+                        .toList(),
+                  ),
+                ),
               ),
               if (_stage != _InstallStage.idle) ...[
                 const Divider(height: 24),
