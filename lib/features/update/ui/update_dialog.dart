@@ -126,7 +126,9 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
   String _bytesLabel(int? bytes) {
     if (bytes == null) return '';
     final mb = bytes / 1024 / 1024;
-    return mb >= 1 ? '${mb.toStringAsFixed(1)} MB' : '${(bytes / 1024).toStringAsFixed(0)} KB';
+    return mb >= 1
+        ? '${mb.toStringAsFixed(1)} MB'
+        : '${(bytes / 1024).toStringAsFixed(0)} KB';
   }
 
   @override
@@ -159,9 +161,7 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: widget.changelog
-                        .map(
-                          (entry) => _buildChangelogItem(entry, colorScheme),
-                        )
+                        .map((entry) => _buildChangelogItem(entry, colorScheme))
                         .toList(),
                   ),
                 ),

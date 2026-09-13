@@ -44,8 +44,7 @@ class UpdateInstaller {
 
   /// 当前平台是否支持应用内更新
   bool get isSupported =>
-      !kIsWeb &&
-      (Platform.isAndroid || Platform.isWindows || Platform.isLinux);
+      !kIsWeb && (Platform.isAndroid || Platform.isWindows || Platform.isLinux);
 
   /// 解析当前平台应下载的资产（按 CI 产物命名规则匹配）
   Future<ReleaseAsset> resolveCurrentPlatformAsset() async {
@@ -174,7 +173,8 @@ class UpdateInstaller {
       if (response.statusCode != 200) {
         throw HttpException('下载更新失败: HTTP ${response.statusCode}');
       }
-      final total = response.contentLength ?? (asset.size > 0 ? asset.size : null);
+      final total =
+          response.contentLength ?? (asset.size > 0 ? asset.size : null);
       final sink = file.openWrite();
       var received = 0;
       var lastNotified = 0;
@@ -182,7 +182,8 @@ class UpdateInstaller {
         await for (final chunk in response.stream) {
           sink.add(chunk);
           received += chunk.length;
-          if (total == null || received - lastNotified >= (total / 100).ceil()) {
+          if (total == null ||
+              received - lastNotified >= (total / 100).ceil()) {
             lastNotified = received;
             _notify(
               onProgress,
@@ -276,8 +277,7 @@ class UpdateInstaller {
   Future<void> _cleanupStaleTempDirs(Directory appDir) async {
     try {
       for (final child in appDir.listSync()) {
-        if (child is Directory &&
-            p.basename(child.path).startsWith('_tmp')) {
+        if (child is Directory && p.basename(child.path).startsWith('_tmp')) {
           try {
             await child.delete(recursive: true);
           } catch (_) {}
@@ -323,8 +323,10 @@ class UpdateInstaller {
     UpdateProgressCallback? onProgress,
   ) async {
     final appDir = _appDir;
-    final (payload, tempRoot) =
-        await _downloadExtractToAppDir(asset, onProgress);
+    final (payload, tempRoot) = await _downloadExtractToAppDir(
+      asset,
+      onProgress,
+    );
     final exeName = p.basename(Platform.resolvedExecutable);
 
     // 释放自动更新脚本：杀掉进程 → 等待句柄释放 → 换血 → 清理临时目录 →
@@ -350,11 +352,14 @@ start "" "%~3"
 ''', flush: true);
 
     _notify(onProgress, const UpdateProgress(UpdatePhase.restarting));
-    await Process.start(
-      'cmd.exe',
-      ['/c', script.path, payload.path, appDir.path, exeName, tempRoot.path],
-      mode: ProcessStartMode.detached,
-    );
+    await Process.start('cmd.exe', [
+      '/c',
+      script.path,
+      payload.path,
+      appDir.path,
+      exeName,
+      tempRoot.path,
+    ], mode: ProcessStartMode.detached);
     exit(0);
   }
 
@@ -371,7 +376,10 @@ start "" "%~3"
     // 进程继续持有，进程退出后自动释放
     final files = payload.listSync(recursive: true).whereType<File>().toList();
     for (final file in files) {
-      final target = p.join(appDir.path, p.relative(file.path, from: payload.path));
+      final target = p.join(
+        appDir.path,
+        p.relative(file.path, from: payload.path),
+      );
       await Directory(p.dirname(target)).create(recursive: true);
       await file.rename(target);
     }
