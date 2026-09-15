@@ -229,10 +229,8 @@ class _HomeContentState extends ConsumerState<HomeContent> {
           const SizedBox(width: 8),
           Text(
             title,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.5,
-            ),
+            style: Theme.of(context).textTheme.titleLarge
+                ?.copyWith(fontWeight: FontWeight.w600, letterSpacing: 0.5),
           ),
         ],
       ),

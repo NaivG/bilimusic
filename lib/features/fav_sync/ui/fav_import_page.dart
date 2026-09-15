@@ -116,9 +116,8 @@ class _FavImportPageState extends ConsumerState<FavImportPage> {
     ];
 
     if (folders.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('请先选择要导入的收藏夹')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('请先选择要导入的收藏夹')));
       return;
     }
 
@@ -250,9 +249,8 @@ class _FavImportPageState extends ConsumerState<FavImportPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Theme.of(
-          context,
-        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest
+            .withValues(alpha: 0.3),
         border: Border(
           bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
         ),

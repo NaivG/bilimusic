@@ -311,9 +311,8 @@ class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
                 children: [
                   Text(
                     '找到 ${_filteredResults.length} 个结果',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
                   ),
                   if (!isDesktop && _availableTypes.length > 1)
                     Text(

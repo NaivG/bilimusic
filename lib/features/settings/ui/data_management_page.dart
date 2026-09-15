@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -282,17 +283,15 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
         await imageCacheManager.emptyCache();
         await musicCacheManager.emptyCache();
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('缓存清除成功')));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('缓存清除成功')));
           // 刷新缓存大小显示
           _loadCacheSize();
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('缓存清除失败: $e')));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('缓存清除失败: $e')));
         }
       }
     }
@@ -383,9 +382,8 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
         await Restart.restartApp(mode: RestartMode.process);
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('清除数据失败: $e')));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('清除数据失败: $e')));
         }
       }
     }

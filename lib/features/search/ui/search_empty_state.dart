@@ -151,9 +151,9 @@ class SearchEmptyState extends StatelessWidget {
                 onPressed: () {
                   // 外部处理搜索建议点击
                 },
-                backgroundColor: Theme.of(
-                  context,
-                ).colorScheme.surfaceContainerHighest,
+                backgroundColor: Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHighest,
               );
             }).toList(),
           ),
@@ -186,9 +186,8 @@ class HotSearchSuggestions extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
               '热门搜索',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
           const SizedBox(height: 12),

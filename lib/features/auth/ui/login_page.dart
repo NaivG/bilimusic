@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:crypto/crypto.dart';
@@ -91,9 +92,8 @@ class _LoginPageState extends State<LoginPage> {
         }
       });
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('加载国家列表失败: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('加载国家列表失败: $e')));
     } finally {
       setState(() {
         _isLoading = false;
@@ -136,17 +136,15 @@ class _LoginPageState extends State<LoginPage> {
           ),
         );
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('获取验证码失败')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('获取验证码失败')));
         setState(() {
           _isLoading = false;
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('获取验证码失败: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('获取验证码失败: $e')));
       setState(() {
         _isLoading = false;
       });
@@ -156,9 +154,8 @@ class _LoginPageState extends State<LoginPage> {
   // 发送短信验证码
   Future<void> _sendSmsCode(Map<String, String> validateResult) async {
     if (_phoneNumber.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('请输入手机号')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('请输入手机号')));
       setState(() {
         _isLoading = false;
       });
@@ -187,17 +184,15 @@ class _LoginPageState extends State<LoginPage> {
         _captchaKey = data['captcha_key'];
       });
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('短信验证码已发送')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('短信验证码已发送')));
     } on BiliException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('发送验证码失败: ${e.message}(${e.code})')),
       );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('发送验证码失败: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('发送验证码失败: $e')));
     } finally {
       setState(() {
         _isLoading = false;
@@ -208,9 +203,8 @@ class _LoginPageState extends State<LoginPage> {
   // 短信登录
   Future<void> _smsLogin() async {
     if (_phoneNumber.isEmpty || _captcha.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('请输入手机号和验证码')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('请输入手机号和验证码')));
       return;
     }
 
@@ -231,19 +225,16 @@ class _LoginPageState extends State<LoginPage> {
         },
       );
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('登录成功')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('登录成功')));
 
       ShellPageManager.instance.pop(); // 返回上一页
     } on BiliException catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('登录失败: ${e.message}')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('登录失败: ${e.message}')));
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('登录失败: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('登录失败: $e')));
     } finally {
       setState(() {
         _isLoading = false;
@@ -257,9 +248,8 @@ class _LoginPageState extends State<LoginPage> {
       final data = await _passport.get('/x/passport-login/web/key');
       return {'hash': data['hash'], 'key': data['key']};
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('获取公钥失败: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('获取公钥失败: $e')));
     }
     return null;
   }
@@ -267,9 +257,8 @@ class _LoginPageState extends State<LoginPage> {
   // 密码登录
   Future<void> _passwordLogin() async {
     if (_phoneNumber.isEmpty || _password.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('请输入账号和密码')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('请输入账号和密码')));
       return;
     }
 
@@ -313,9 +302,8 @@ class _LoginPageState extends State<LoginPage> {
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('登录失败: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('登录失败: $e')));
       setState(() {
         _isLoading = false;
       });
@@ -354,19 +342,16 @@ class _LoginPageState extends State<LoginPage> {
         },
       );
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('登录成功')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('登录成功')));
 
       ShellPageManager.instance.pop(); // 返回上一页
     } on BiliException catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('登录失败: ${e.message}')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('登录失败: ${e.message}')));
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('登录失败: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('登录失败: $e')));
     } finally {
       setState(() {
         _isLoading = false;
@@ -421,9 +406,8 @@ class _LoginPageState extends State<LoginPage> {
     return QrLoginWidget(
       onSuccess: () {
         if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('登录成功')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('登录成功')));
         ShellPageManager.instance.pop();
       },
     );

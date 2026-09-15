@@ -83,9 +83,8 @@ class _RoamInfoDialog extends ConsumerWidget {
       ref.read(playerCoordinatorProvider),
     );
     if (config == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('无法导出：当前无活跃漫游会话')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('无法导出：当前无活跃漫游会话')));
       return;
     }
     final text = config.toPlainText();

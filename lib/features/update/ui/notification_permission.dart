@@ -65,18 +65,18 @@ Future<UpdateNotificationDecision> checkNotificationPermissionBeforeUpdate(
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(
-              dialogContext,
-            ).pop(_PermissionDialogAction.updateAnyway),
+            onPressed: () =>
+                Navigator.of(dialogContext)
+                    .pop(_PermissionDialogAction.updateAnyway),
             child: Text(
               '仍然更新',
               style: TextStyle(color: colorScheme.onSurfaceVariant),
             ),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.of(
-              dialogContext,
-            ).pop(_PermissionDialogAction.openSettings),
+            onPressed: () =>
+                Navigator.of(dialogContext)
+                    .pop(_PermissionDialogAction.openSettings),
             style: ElevatedButton.styleFrom(
               backgroundColor: colorScheme.primary,
               foregroundColor: colorScheme.onPrimary,

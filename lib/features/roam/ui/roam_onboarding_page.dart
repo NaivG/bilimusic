@@ -295,9 +295,8 @@ class _SeedStepState extends ConsumerState<_SeedStep> {
             children: [
               Text(
                 '选 ${state.roundsCount} 颗你想漫游的种子',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(context).textTheme.headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 4),
               Text(
@@ -545,9 +544,8 @@ class _StyleStep extends ConsumerWidget {
         children: [
           Text(
             '选漫游风格',
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
+            style: Theme.of(context).textTheme.headlineSmall
+                ?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           Text(

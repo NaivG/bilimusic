@@ -162,18 +162,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               title: Text('主题'),
               subtitle: Text(ThemeRegistry.resolve(settings.theme).label),
               trailing: _PalettePreview(
-                lightAccent: ThemeRegistry.resolve(
-                  settings.theme,
-                ).paletteAccent(Brightness.light),
-                lightSurface: ThemeRegistry.resolve(
-                  settings.theme,
-                ).paletteSurface(Brightness.light),
-                darkAccent: ThemeRegistry.resolve(
-                  settings.theme,
-                ).paletteAccent(Brightness.dark),
-                darkSurface: ThemeRegistry.resolve(
-                  settings.theme,
-                ).paletteSurface(Brightness.dark),
+                lightAccent: ThemeRegistry.resolve(settings.theme)
+                    .paletteAccent(Brightness.light),
+                lightSurface: ThemeRegistry.resolve(settings.theme)
+                    .paletteSurface(Brightness.light),
+                darkAccent: ThemeRegistry.resolve(settings.theme)
+                    .paletteAccent(Brightness.dark),
+                darkSurface: ThemeRegistry.resolve(settings.theme)
+                    .paletteSurface(Brightness.dark),
               ),
               onTap: () => _showThemePickerDialog(context, settings, notifier),
             ),

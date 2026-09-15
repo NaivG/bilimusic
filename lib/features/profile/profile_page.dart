@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/shared/widgets/long_press_menu.dart';
@@ -106,16 +107,14 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         await ref.read(userManagerProvider).clear();
 
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('已退出登录')));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('已退出登录')));
         }
       } catch (e) {
         debugPrint('退出登录失败: $e');
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('退出登录失败: $e')));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('退出登录失败: $e')));
         }
       }
     }
@@ -542,9 +541,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   Navigator.pop(context);
                   _loadData();
                   if (mounted) {
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(const SnackBar(content: Text('歌单创建成功')));
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(const SnackBar(content: Text('歌单创建成功')));
                   }
                 }
               },

@@ -1,12 +1,16 @@
 import 'dart:convert';
+
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, Uint8List;
+
 import 'dart:io' show File;
+
 import 'package:restart_app/restart_app.dart';
+
 import '../../../app/app_providers.dart';
 import '../settings_manager.dart';
 import '../../../shared/utils/platform_helper.dart';
@@ -37,16 +41,14 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
             children: [
               Text(
                 '数据迁移向导',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(context).textTheme.headlineMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 8),
               Text(
                 '导出或导入您的应用数据',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).hintColor,
-                ),
+                style: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(color: Theme.of(context).hintColor),
               ),
               SizedBox(height: 32),
 
@@ -178,18 +180,18 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
                         children: [
                           Icon(
                             Icons.info,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onPrimaryContainer,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onPrimaryContainer,
                           ),
                           SizedBox(width: 8),
                           Text(
                             '注意事项',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onPrimaryContainer,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onPrimaryContainer,
                             ),
                           ),
                         ],
@@ -197,21 +199,21 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
                       SizedBox(height: 8),
                       BulletPoint(
                         text: '导入数据将覆盖当前应用数据',
-                        textColor: Theme.of(
-                          context,
-                        ).colorScheme.onPrimaryContainer,
+                        textColor: Theme.of(context)
+                            .colorScheme
+                            .onPrimaryContainer,
                       ),
                       BulletPoint(
                         text: '导入完成后建议重启应用以确保所有设置生效',
-                        textColor: Theme.of(
-                          context,
-                        ).colorScheme.onPrimaryContainer,
+                        textColor: Theme.of(context)
+                            .colorScheme
+                            .onPrimaryContainer,
                       ),
                       BulletPoint(
                         text: '请妥善保管导出的数据文件',
-                        textColor: Theme.of(
-                          context,
-                        ).colorScheme.onPrimaryContainer,
+                        textColor: Theme.of(context)
+                            .colorScheme
+                            .onPrimaryContainer,
                       ),
                     ],
                   ),
@@ -298,9 +300,8 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
 
     // TODO: 实现Web端文件下载
     // 这里需要使用js包来实现浏览器下载
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Web端文件下载功能待完善')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('Web端文件下载功能待完善')));
   }
 
   // 保存到文件（移动端/桌面端）
@@ -526,9 +527,8 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('导入失败: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('导入失败: $e')));
       }
     }
   }

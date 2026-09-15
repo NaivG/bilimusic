@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/domain/music.dart';
@@ -219,9 +220,8 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('已从歌单中移除"${music.title}"')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('已从歌单中移除"${music.title}"')));
       }
     }
   }
