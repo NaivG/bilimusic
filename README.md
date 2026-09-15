@@ -10,7 +10,7 @@
     <a href="https://github.com/NaivG/bilimusic/network/members"><img src="https://img.shields.io/github/forks/NaivG/bilimusic?style=flat" alt="Forks"></a>
     <a href="https://github.com/NaivG/bilimusic/issues"><img src="https://img.shields.io/github/issues/NaivG/bilimusic" alt="Issues"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue" alt="License"></a>
-    <a href="https://flutter.dev/"><img src="https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white" alt="Flutter"></a>
+    <a href="https://flutter.dev/"><img src="https://img.shields.io/badge/Flutter-3.47.x-02569B?logo=flutter&logoColor=white" alt="Flutter"></a>
     <a href="https://riverpod.dev/"><img src="https://img.shields.io/badge/State-Riverpod-3D5AFE?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0NSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSI4Ii8+PC9zdmc+" alt="Riverpod"></a>
   </p>
 </div>
@@ -41,6 +41,7 @@
   - [构建发布版本](#构建发布版本)
   - [终端客户端(TUI)](#终端客户端tui)
 - [使用路径](#使用路径)
+- [更新与版本](#更新与版本)
 - [登录与数据](#登录与数据)
 - [技术架构](#技术架构)
   - [一次播放请求的路径](#一次播放请求的路径)
@@ -58,7 +59,7 @@
 
 ## 项目速览
 
-BiliMusic 是一个基于 Flutter 的哔哩哔哩音乐播放器，面向 Windows、Linux、Android、macOS 以及实验性的 Web 平台。它不试图复制一个内容平台，而是专注于三件事：
+BiliMusic 是一个基于 Flutter 的哔哩哔哩音乐播放器，面向 Windows、Linux、Android 以及实验性的 macOS 和 Web 平台。它不试图复制一个内容平台，而是专注于三件事：
 
 | | |
 | --- | --- |
@@ -82,9 +83,10 @@ BiliMusic 是一个基于 Flutter 的哔哩哔哩音乐播放器，面向 Window
 <details>
 <summary><strong>播放体验</strong></summary>
 
-- 播放 / 暂停 / 上一首 / 下一首 / 进度跳转
+- 播放 / 暂停 / 上一首 / 下一首 / 进度跳转；定时关闭
 - 多 P 视频切换、顺序 / 随机 / 单曲循环
 - A/B 双播放器 + equal-power 曲线的交叉淡入淡出
+- 多档音质选择，DASH 音频流按选择取流并回显实际生效音质
 - 后台播放、系统媒体通知、音量持久化
 - 动态歌词：自动匹配、逐字点亮、辉光效果
 - 主题系统：Lucent / Nocturne / Verdant，运行时切换并按封面主色适配
@@ -104,21 +106,26 @@ BiliMusic 是一个基于 Flutter 的哔哩哔哩音乐播放器，面向 Window
 
 - 主页(搜索框 + 官方推荐)与搜索结果页两页布局，关键词 / `BV` / `AV` 搜索、播放、暂停与切歌，支持键盘与鼠标
 - FFI 直驱 libmpv（复用 media_kit 的 Windows 库产物），与 App 共享登录态与网络层
-- 附带 `--probe` / `--preview` 分层自检与静态设计预览
+- 附带 `--probe` / `--smoke` / `--preview` 分层自检、无终端驱动与静态设计预览
 </details>
 
 ---
 
 ## 平台支持
 
+> [!IMPORTANT]
+> 从 v2.0 开始，BiliMusic 将迁移至 AGP 9.0，这会升级 Android-SDK 版本至 Android 14，请自行留意兼容性。
+
 | 平台 | 状态 | 备注 |
 | --- | --- | --- |
 | **Windows** 10+ | ✅ 稳定 | 解压即用 |
 | **Linux** | ✅ 稳定 | Ubuntu 20.04+ 或主流发行版；需要 `libmpv-dev` |
-| **Android** 8.0+ | ✅ 稳定 | 按设备架构选择 APK（`arm64-v8a` / `armeabi-v7a` / `x86_64`） |
-| **macOS 10.15+, with Metal Support** | 🧪 测试中 | 可从源码构建 |
-| **iOS 13+** | 🧪 测试中 | 可从源码构建无签名版本 |
+| **Android** 12+ | ✅ 稳定 | 按设备架构选择 APK（`arm64-v8a` / `armeabi-v7a` / `x86_64`） |
+| **macOS 10.15+, with Metal Support** | ⚠️ 实验性 | CI 产出 ad-hoc 签名的未公证 `.app`（实验性），也可从源码构建 |
+| **iOS 13+** | ❓ 未经测试 | 可从源码构建无签名版本 |
 | **Web** | ⚠️ 实验性 | 解压后部署到 Web 服务器，需配置 CORS |
+
+关于应用内更新: Android / Windows / Linux 支持；Web 与 macOS 跳转 Releases（见[更新与版本](#更新与版本)）
 
 ---
 
@@ -128,6 +135,8 @@ BiliMusic 是一个基于 Flutter 的哔哩哔哩音乐播放器，面向 Window
 
 前往 [Releases](https://github.com/NaivG/bilimusic/releases) 下载对应平台的最新版本，解压运行即可。
 
+后续升级：Android / Windows / Linux 可在应用内完成（启动时自动检查），macOS 与 Web 需手动重新下载。
+
 ```bash
 # Linux 用户需要先安装依赖
 sudo apt install libmpv-dev
@@ -135,7 +144,7 @@ sudo apt install libmpv-dev
 
 ### 方式二：从源码运行
 
-**环境要求：** Flutter 3.x · Dart SDK ^3.8.1
+**环境要求：** Flutter 3.47+ · Dart SDK ^3.13.0
 
 ```bash
 git clone https://github.com/NaivG/bilimusic.git
@@ -151,10 +160,13 @@ flutter run -d <device-id> # 指定设备
 flutter build windows
 flutter build linux
 flutter build apk
+dart run sqflite_common_ffi_web:setup --force   # Web 需先生成 sqlite 的 wasm/setup 资源
 flutter build web
 flutter build macos
 flutter build ios
 ```
+
+> Web 端 sqlite 资源（`web/sqlite3.wasm`、`web/sqflite_sw.js`）不入库，必须由上面的 `setup` 命令生成，否则构建产物无法初始化本地数据库。
 
 ### 终端客户端(TUI)
 
@@ -164,6 +176,8 @@ flutter build ios
 ```bash
 dart run bin/bilimusic_tui.dart            # 交互式 TUI
 dart run bin/bilimusic_tui.dart --probe    # 网络与解码分层自检
+dart run bin/bilimusic_tui.dart --smoke    # 无终端驱动完整循环
+dart run bin/bilimusic_tui.dart --preview  # 静态设计预览（假数据，无网络无声）
 ```
 
 ---
@@ -205,6 +219,24 @@ dart run bin/bilimusic_tui.dart --probe    # 网络与解码分层自检
 - **数据迁移**：可在数据管理中将移动端数据迁移到桌面端。
 
 > **数据存储**：歌单、收藏和历史保存在本地 SQLite；设置使用 `shared_preferences`；网络资源与歌词进入本地缓存。迁移或清理前请做好备份。
+
+---
+
+## 更新与版本
+
+应用启动后会自动检查一次新版本，发现更新时弹出更新日志与「立即更新」按钮。检查更新与下载更新是两套独立操作：
+
+| 环节 | 来源 | 说明 |
+| --- | --- | --- |
+| 检测 | 仓库 `assets/version.json` | 只比较 `major.minor.patch`，忽略 `+build` 号 |
+| 更新日志 | `assets/version.json` 的 `changelog` | 应用内「设置 → 更新日志」读取随包内置的同一份数据 |
+| 下载 | GitHub Releases API | 点击更新时实时取下载地址与 sha256 摘要 |
+
+各平台行为：
+
+- **Android**：经 `flutter_app_update` 下载 APK 并拉起系统安装页；Android 13+ 会先申请通知权限以展示下载进度。
+- **Windows / Linux**：下载便携版 zip，校验 sha256 后原地替换文件并重启。
+- **Web / macOS**：不支持应用内更新，点击后跳转 Releases 页面手动下载。
 
 ---
 
@@ -259,11 +291,12 @@ lib/
 │   ├── auth/                  # 扫码登录、验证码与 Cookie 管理
 │   ├── fav_sync/              # B 站收藏夹导入与同步状态跟踪
 │   ├── home/ search/ profile/ # 首页推荐、搜索、个人中心
-│   └── settings/ update/      # 设置、数据迁移与检查更新
+│   └── settings/ update/      # 设置、数据迁移；更新检查、Release 解析、应用内更新与更新日志
 └── shared/                    # 跨模块共享：widgets/、theme/(Lucent/Nocturne/Verdant)、utils/
 
 bin/
-└── bilimusic_tui.dart         # 终端客户端入口（dart_tui + libmpv FFI）
+├── bilimusic_tui.dart         # 终端客户端入口（dart_tui + libmpv FFI）
+└── tui/                       # TUI 内部实现：mpv_player(FFI)、tui_api、app_model、probe
 ```
 
 ### 主要依赖
@@ -274,6 +307,7 @@ bin/
 | [Riverpod](https://riverpod.dev/) | 状态管理与依赖注入 |
 | [just_audio](https://pub.dev/packages/just_audio) · [audio_service](https://pub.dev/packages/audio_service) | 音频播放 + 后台与系统媒体控制 |
 | [just_audio_media_kit](https://pub.dev/packages/just_audio_media_kit) | 桌面端 libmpv 音频后端 |
+| [media_kit_libs_audio](https://pub.dev/packages/media_kit_libs_audio) | 桌面端 libmpv 原生库（TUI 亦复用其 libmpv 产物） |
 | [http](https://pub.dev/packages/http) | 统一 HTTP 客户端 |
 | [bonsoir](https://pub.dev/packages/bonsoir) | mDNS 局域网设备发现 |
 | [sqflite](https://pub.dev/packages/sqflite)（含 ffi / ffi_web 实现） | 本地 SQLite 数据存储 |
@@ -281,6 +315,7 @@ bin/
 | [color_thief_dart](https://pub.dev/packages/color_thief_dart) | 封面主色提取 |
 | [gt3_flutter_plugin](https://pub.dev/packages/gt3_flutter_plugin) | 登录极验验证码 |
 | [window_manager](https://pub.dev/packages/window_manager) | 桌面窗口管理 |
+| [flutter_app_update](https://pub.dev/packages/flutter_app_update) · [permission_handler](https://pub.dev/packages/permission_handler) | Android 应用内更新与通知权限检查 |
 | [cache_manager](https://pub.dev/packages/cache_manager) | 缓存管理 |
 | [shared_preferences](https://pub.dev/packages/shared_preferences) | 跨平台本地存储 |
 | [dart_tui](https://pub.dev/packages/dart_tui) | 终端 UI 框架 |
@@ -291,12 +326,13 @@ bin/
 
 ```bash
 flutter pub get       # 安装依赖
-flutter analyze       # 静态分析
+flutter analyze       # 静态分析（CI 使用 dart analyze --no-fatal-warnings）
+dart format .         # 提交前必须执行，避免 CI 产生格式化噪声提交
 flutter test          # 运行测试
 flutter run           # 调试运行
 ```
 
-> 提交改动前建议至少执行 `flutter analyze`，并在目标平台完成一次构建验证。
+> 提交改动前建议至少执行 `flutter analyze` 与 `dart format .`，并在目标平台完成一次构建验证。
 
 ---
 

@@ -371,7 +371,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     showAboutDialog(
       context: context,
       applicationName: 'BiliMusic',
-      applicationVersion: '1.8.0',
+      applicationVersion: '1.9.0.preview',
       applicationIcon: Image.asset(
         "assets/ic_launcher.png",
         width: 84,
@@ -403,7 +403,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               '2. 收藏列表\n'
               '3. 用户设置\n\n'
               '这些信息仅用于提供更好的用户体验，不会上传到任何服务器。\n\n'
-              '如果您有任何疑问，请通过设置中的意见反馈联系我们。',
+              '如果您有任何疑问，请通过 Github Issues 联系我们。',
             ),
           ),
           actions: [
