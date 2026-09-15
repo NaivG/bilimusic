@@ -108,6 +108,10 @@ jobs:
             os: ubuntu-latest
           - name: windows
             os: windows-latest
+          # 实验性 macos 构建
+          # macOS 需要在 Apple 主机上编译（Xcode），runner 为 Apple Silicon(arm64)
+          - name: macos
+            os: macos-latest
 
     steps:
       # 检出代码
@@ -198,6 +202,41 @@ jobs:
         if: matrix.name == 'windows'
         run: flutter build windows
 
+      # macOS 构建：runner 自带 Xcode + CocoaPods，无需再装 brew/gem（本地虚拟机才需要）
+      - name: Build macOS
+        if: matrix.name == 'macos'
+        env:
+          # CocoaPods 统计上报会同步阻塞构建；SSL_CERT_FILE 规避 pod 拉取时的证书校验失败
+          COCOAPODS_DISABLE_STATS: '1'
+          SSL_CERT_FILE: /etc/ssl/cert.pem
+          # 无签名证书：命令行临时签名(ad-hoc)替代自动签名，避免 "No signing certificate" 失败。
+          # 注意不能改成 CODE_SIGNING_ALLOWED=NO：Apple Silicon 上完全未签名的二进制无法运行。
+          FLUTTER_XCODE_CODE_SIGN_STYLE: Manual
+          FLUTTER_XCODE_CODE_SIGN_IDENTITY: '-'
+          FLUTTER_XCODE_CODE_SIGNING_REQUIRED: 'YES'
+          FLUTTER_XCODE_CODE_SIGNING_ALLOWED: 'YES'
+        run: |
+          sw_vers
+          xcodebuild -version
+          pod --version
+          flutter doctor -v
+          # macos/Podfile 未入库，Flutter 会在 Apple 主机上按模板自动生成并执行 pod install
+          flutter build macos --release
+
+          APP_PATH="build/macos/Build/Products/Release/bilimusic.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "未找到构建产物，实际目录内容："
+            ls -la build/macos/Build/Products/Release || true
+            exit 1
+          fi
+
+          # 校验签名状态与架构（arm64 必须至少是 ad-hoc 签名才能运行）
+          codesign -dv --verbose=4 "$APP_PATH" 2>&1 || true
+          lipo -archs "$APP_PATH/Contents/MacOS/bilimusic"
+          # 校验版本号确实来自 CI 改写后的 pubspec
+          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP_PATH/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP_PATH/Contents/Info.plist"
+
       # 根据平台压缩构建产物，为上传做准备
       # 使用不同的命令和文件路径根据平台进行压缩
       # 这里使用了不同的shell命令和条件判断来处理不同的操作系统和构建产物
@@ -215,6 +254,11 @@ jobs:
             zip -r bilimusic_linux-x64-${{ steps.read_build_env.outputs.FULL_VERSION }}.zip build/linux/x64/release/bundle
           elif [ "${{ matrix.name }}" = "windows" ]; then
             powershell Compress-Archive build/windows/x64/runner/Release bilimusic_win32_x64-${{ steps.read_build_env.outputs.FULL_VERSION }}.zip
+          elif [ "${{ matrix.name }}" = "macos" ]; then
+            # 必须用 ditto：zip 会丢失 .app 内的符号链接与扩展属性，破坏包的代码签名
+            ditto -c -k --sequesterRsrc --keepParent \
+              build/macos/Build/Products/Release/bilimusic.app \
+              bilimusic_macos-$(uname -m)-${{ steps.read_build_env.outputs.FULL_VERSION }}.zip
           fi
         shell: bash
 

@@ -1,29 +1,31 @@
 import 'dart:async';
 import 'dart:io';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 
-import 'package:bilimusic/utils/platform_helper.dart';
+import 'package:bilimusic/shared/utils/platform_helper.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:bilimusic/utils/window_listener.dart';
+import 'package:bilimusic/app/window_listener.dart';
 import 'package:flutter/material.dart';
 
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:bilimusic/core/database.dart';
-import 'package:bilimusic/core/app_providers.dart';
-import 'package:bilimusic/managers/audio_handler.dart';
+import 'package:bilimusic/core/storage/database.dart';
+import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/features/player/logic/audio_handler.dart';
 
-import 'package:bilimusic/utils/network_config.dart';
+import 'package:bilimusic/core/network/network_config.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 
-import 'package:bilimusic/utils/update_checker.dart';
-import 'package:bilimusic/components/dialogs/update_dialog.dart';
-import 'package:bilimusic/shells/app_shell.dart';
-import 'package:bilimusic/theme/theme_registry.dart';
-import 'package:bilimusic/providers/settings_provider.dart';
+import 'package:bilimusic/features/update/update_checker.dart';
+import 'package:bilimusic/features/update/ui/update_dialog.dart';
+import 'package:bilimusic/app/shells/app_shell.dart';
+import 'package:bilimusic/shared/theme/theme_registry.dart';
+import 'package:bilimusic/features/settings/settings_provider.dart';
 
 Future<void> _setupMainWindow() async {
   await windowManager.ensureInitialized();
@@ -54,6 +56,12 @@ void main() async {
     databaseFactory = databaseFactoryFfi;
   }
 
+  // 注入 Cookie 持久化(NetworkConfig 保持纯 Dart,便于 CLI/TUI 宿主复用)
+  NetworkConfig.cookieLoader = () async =>
+      (await SharedPreferences.getInstance()).getString('cookies');
+  NetworkConfig.cookieSaver = (json) async =>
+      (await SharedPreferences.getInstance()).setString('cookies', json);
+
   // 初始化网络配置
   await NetworkConfig.init();
 
@@ -71,13 +79,10 @@ void main() async {
   // 读取 playerCoordinator（首次读取会触发依赖图所有服务初始化）
   final coordinator = container.read(playerCoordinatorProvider);
 
-  // 等待播放列表服务与管理器初始化完成，
-  // 否则 UI 在 build 阶段同步读取 .favorites / .userPlaylists 等会抛 StateError
+  // 等待播放列表服务初始化完成，
+  // 否则 UI 在 build 阶段同步读取 .favorites / .userPlaylistsSnapshot 等会抛 StateError
   final playlistService = container.read(playlistServiceProvider);
   await playlistService.initialize();
-  await container
-      .read(playlistManagerProvider)
-      .initialize(service: playlistService);
 
   // 后台回填历史/收藏/当前列表中 cid 缺失的 item（不阻塞初始化）
   unawaited(
@@ -86,7 +91,7 @@ void main() async {
 
   // 初始化音频服务并保存实例
   final audioHandler = await AudioService.init(
-    builder: () => AudioHandlerConnector(coordinator),
+    builder: () => AudioHandlerConnector(coordinator, playlistService),
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'github.naivg.bilimusic.channel.audio',
       androidNotificationChannelName: 'BiliMusic Playback',
@@ -133,8 +138,6 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    // 确保playerManager已设置audioHandler
-    // 重构后的播放器管理器不需要设置audioHandler
     WidgetsBinding.instance.addObserver(this);
 
     // 启动时检查更新
@@ -147,7 +150,6 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     final updateChecker = UpdateChecker();
     final result = await updateChecker.compareVersions();
     if (result != null && mounted) {
-      // 使用navigatorKey的context来显示对话框
       final navigatorContext = _navigatorKey.currentContext;
       debugPrint(
         'Update available: ${result.remoteVersion}\nChangelog:\n${result.newEntries.map((entry) => entry.toString()).join('\n')}',
@@ -164,18 +166,13 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    // 播放器资源由 ProviderContainer.onDispose 释放，无需手动 dispose
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // 可以在这里处理应用生命周期变化
-    // 例如，在暂停时释放一些资源
-  }
+  void didChangeAppLifecycleState(AppLifecycleState state) {}
 
-  // 根据设置解析 ThemeMode
   ThemeMode _parseAppearance(String mode) {
     switch (mode) {
       case 'light':

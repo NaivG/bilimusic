@@ -16,10 +16,10 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.8.0+120
+version: 1.9.0+150
 
 environment:
-  sdk: ^3.8.1
+  sdk: ^3.13.0
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -46,7 +46,7 @@ dependencies:
   http: ^1.5.0
   just_audio: ^0.10.5
   audio_service: ^0.18.18
-  audio_service_win: ^0.0.2
+  audio_service_win: ^0.0.3 # Windows implementation of audio_service
   cached_network_image: ^3.4.1
   share_plus: ^12.0.2
   crypto: ^3.0.6
@@ -55,21 +55,28 @@ dependencies:
   gt3_flutter_plugin: ^0.1.1
   color_thief_dart: ^0.1.0
   just_audio_media_kit: ^2.1.0
-  media_kit_libs_windows_audio: ^1.0.9
-  media_kit_libs_linux: ^1.2.1
+  media_kit_libs_audio: ^1.0.7 # use universal audio backend for media_kit
   audio_session: ^0.2.2
   rxdart: ^0.28.0
   flutter_lyric: ^3.0.2
   file_picker: ^10.3.3
+  dart_tui: ^2.0.0 # TUI 客户端,不参与 App UI
+  ffi: ^2.2.0 # TUI 的 libmpv FFI 封装使用
   window_manager: ^0.4.3
   restart_app: ^1.8.3
-  flutter_native_splash: ^2.4.7
+  flutter_native_splash: ^2.4.4
   super_context_menu: ^0.9.1
-  dio: ^5.9.2
   pretty_qr_code: ^3.6.0
   bonsoir: ^7.1.4
   device_info_plus: ^11.5.0
   uuid: 4.5.1
+  lyrics_now:
+    git:
+      url: https://github.com/NaivG/lyrics_now.git
+  stop_watch_timer: ^3.2.2
+  archive: ^4.2.0
+  flutter_app_update: ^3.2.4
+  permission_handler: ^11.4.0
 #  just_aaudio:
 #    path: ../just_aaudio
 
