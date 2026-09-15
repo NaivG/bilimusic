@@ -46,12 +46,10 @@ class PortraitShell extends ConsumerWidget {
         currentPage == ShellPage.settings;
   }
 
-  ShellPage get _basePage => pageManager.basePage;
-
-  Widget _buildPageContent(ShellPage page) {
+  Widget _buildPageContent(ShellPageEntry entry) {
     return buildShellPageContent(
-      page: page,
-      pageManager: pageManager,
+      page: entry.page,
+      args: entry.args,
       homePage: const HomePage(),
     );
   }
@@ -82,8 +80,8 @@ class PortraitShell extends ConsumerWidget {
                 child: Stack(
                   children: [
                     shellPageSwitcher(
-                      key: ValueKey(_basePage),
-                      child: _buildPageContent(_basePage),
+                      key: pageManager.basePageKey,
+                      child: _buildPageContent(pageManager.baseEntry),
                     ),
                     // 详情页独立动画层（与底层切换完全解耦）
                     buildShellDetailLayer(currentPage: currentPage),
@@ -134,8 +132,8 @@ class PortraitShell extends ConsumerWidget {
         children: [
           buildShellBackground(context, ref),
           shellPageSwitcher(
-            key: ValueKey(_basePage),
-            child: _buildPageContent(_basePage),
+            key: pageManager.basePageKey,
+            child: _buildPageContent(pageManager.baseEntry),
           ),
           // 详情页独立动画层（与底层切换完全解耦）
           buildShellDetailLayer(currentPage: currentPage),
