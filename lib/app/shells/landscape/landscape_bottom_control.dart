@@ -121,6 +121,7 @@ class LandscapeBottomControl extends ConsumerWidget {
 
   // ==================== Left Section ====================
 
+  /// 左侧当前歌曲卡片：圆角卡片 + 悬停高亮/放大 + 按压水波纹反馈。
   Widget _buildSongTile(
     BuildContext context,
     Color textPrimary,
@@ -129,51 +130,77 @@ class LandscapeBottomControl extends ConsumerWidget {
     PlayerState playerState,
   ) {
     final fading = isCrossfading(playerState);
-    return GestureDetector(
-      onTap: onExpand,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          MusicCover(music: music, size: 48, radius: AppTokens.radiusSm),
-          const SizedBox(width: 12),
-          Flexible(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  music?.title ?? 'Not Playing',
-                  style: TextStyle(
-                    color: textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+    final palette = context.appPalette;
+    final radius = BorderRadius.circular(AppTokens.radiusMd);
+
+    return ScaleOnHover(
+      hoverScale: 1.02,
+      child: ClipRRect(
+        borderRadius: radius,
+        child: Material(
+          // 静置时的卡片底色和底栏颜色一致以保持协调
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onExpand,
+            borderRadius: radius,
+            // hover 相当于玻璃条上压出一层轻浮雕
+            // 你别管写得怎么样，你就说好不好看吧
+            hoverColor: palette.surfaceHover.withValues(alpha: 0.55),
+            highlightColor: palette.surfacePressed.withValues(alpha: 0.65),
+            splashColor: palette.surfacePressed.withValues(alpha: 0.45),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Row(
+                children: [
+                  MusicCover(
+                    music: music,
+                    size: 48,
+                    radius: AppTokens.radiusSm,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                music?.artist != null
-                    ? AnimatedSwitcher(
-                        duration: AppTokens.standardDuration,
-                        transitionBuilder: switcherFadeTransition,
-                        child: fading
-                            ? const CrossfadeIndicator()
-                            : Text(
-                                music?.artist ?? 'Unknown Artist',
-                                key: const ValueKey('artist'),
-                                style: TextStyle(
-                                  color: textSecondary,
-                                  fontSize: 12,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                      )
-                    : const SizedBox.shrink(),
-              ],
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          music?.title ?? 'Not Playing',
+                          style: TextStyle(
+                            color: textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        music?.artist != null
+                            ? AnimatedSwitcher(
+                                duration: AppTokens.standardDuration,
+                                transitionBuilder: switcherFadeTransition,
+                                child: fading
+                                    ? const CrossfadeIndicator()
+                                    : Text(
+                                        music?.artist ?? 'Unknown Artist',
+                                        key: const ValueKey('artist'),
+                                        style: TextStyle(
+                                          color: textSecondary,
+                                          fontSize: 12,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                              )
+                            : const SizedBox.shrink(),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
