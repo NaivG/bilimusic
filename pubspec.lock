@@ -645,7 +645,7 @@ packages:
     description:
       path: "."
       ref: HEAD
-      resolved-ref: "66d1f5244380c956ca6fe1cfde343b5a368ae8f4"
+      resolved-ref: a719d2aa6ee2b0238781021518f17a1737364155
       url: "https://github.com/NaivG/lyrics_now.git"
     source: git
     version: "0.3.0"

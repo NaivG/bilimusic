@@ -8,6 +8,7 @@ import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/features/offline/offline_providers.dart';
 import 'package:bilimusic/features/offline/services/offline_cache_service.dart';
+import 'package:bilimusic/features/lyrics/lyrics_providers.dart';
 import 'package:restart_app/restart_app.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 
@@ -35,7 +36,11 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
   // 存储占用
   String _musicCacheSize = '计算中...';
   String _imageCacheSize = '计算中...';
+  String _lyricsCacheSize = '计算中...';
   String _totalCacheSize = '计算中...';
+
+  /// 清空歌词缓存进行中（避免连点重复清空 + 重新搜索）。
+  bool _lyricsBusy = false;
 
   // 离线缓存
   int _offlineCount = 0;
@@ -114,12 +119,14 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     debugPrint('Cache sizes: $sizes');
     final musicSize = int.tryParse(sizes['music'] ?? '0') ?? 0;
     final imageSize = int.tryParse(sizes['image'] ?? '0') ?? 0;
-    final totalSize = musicSize + imageSize;
+    final lyricsSize = int.tryParse(sizes['lyrics'] ?? '0') ?? 0;
+    final totalSize = musicSize + imageSize + lyricsSize;
 
     if (mounted) {
       setState(() {
         _musicCacheSize = _formatBytes(musicSize, 2);
         _imageCacheSize = _formatBytes(imageSize, 2);
+        _lyricsCacheSize = _formatBytes(lyricsSize, 2);
         _totalCacheSize = _formatBytes(totalSize, 2);
       });
     }
@@ -224,6 +231,8 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
                       _buildDivider(),
                       _buildInfoRow('图片缓存', _imageCacheSize),
                       _buildDivider(),
+                      _buildInfoRow('歌词缓存', _lyricsCacheSize),
+                      _buildDivider(),
                       _buildInfoRow(
                         '合计',
                         _totalCacheSize,
@@ -316,11 +325,25 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
                         _buildDivider(),
                         ListTile(
                           leading: Icon(
+                            Icons.lyrics_outlined,
+                            color: _getPrimaryColor(context),
+                          ),
+                          title: const Text('清空歌词缓存'),
+                          subtitle: Text('当前 $_lyricsCacheSize · 清空后当前曲目重新搜索'),
+                          trailing: const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                          ),
+                          onTap: _lyricsBusy ? null : _clearLyricsCache,
+                        ),
+                        _buildDivider(),
+                        ListTile(
+                          leading: Icon(
                             Icons.cleaning_services,
                             color: _getPrimaryColor(context),
                           ),
                           title: const Text('清除缓存数据'),
-                          subtitle: const Text('清除图片和音乐缓存文件'),
+                          subtitle: const Text('清除图片、音乐和歌词缓存文件'),
                           trailing: const Icon(
                             Icons.arrow_forward_ios,
                             size: 16,
@@ -355,13 +378,14 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     );
   }
 
-  void _clearCache() async {
-    final confirm = await showDialog<bool>(
+  /// 统一的二次确认弹窗：标题 + 纯文本说明 + 取消 / 确定。
+  Future<bool> _confirm(String title, String message) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('清除缓存'),
-          content: const Text('确定要清除所有缓存吗？这将包括图片缓存和音乐缓存数据。'),
+          title: Text(title),
+          content: Text(message),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -375,11 +399,19 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
         );
       },
     );
+    return confirmed ?? false;
+  }
 
-    if (confirm == true) {
+  void _clearCache() async {
+    final confirm = await _confirm('清除缓存', '确定要清除所有缓存吗？这将包括图片、音乐与歌词缓存数据。');
+
+    if (confirm) {
       try {
         await imageCacheManager.emptyCache();
         await musicCacheManager.emptyCache();
+        // 歌词多一层内存缓存（LyricsService 的 payload/sources/失败冷却），
+        // 只清磁盘的话当前会话仍会用旧载荷，必须整体走服务清空。
+        await ref.read(lyricsServiceProvider).clearCache();
         if (mounted) {
           ScaffoldMessenger.of(context)
               .showSnackBar(const SnackBar(content: Text('缓存清除成功')));
@@ -392,6 +424,40 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
               .showSnackBar(SnackBar(content: Text('缓存清除失败: $e')));
         }
       }
+    }
+  }
+
+  /// 清空歌词缓存（磁盘 + 内存），用于歌词搜不到 / 搜错时强制重搜。
+  ///
+  /// 走 [LyricsService.clearCache] 而不是直接 emptyCache：内存层清掉后
+  /// 服务会通知 UI 重建，当前曲目立刻重新搜索，入口点下去能马上看到效果。
+  Future<void> _clearLyricsCache() async {
+    final confirm = await _confirm(
+      '清空歌词缓存',
+      '将删除已缓存的歌词与候选来源记录（不含已下载的离线音频），'
+          '当前曲目会立即重新联网搜索。',
+    );
+    if (!confirm) return;
+
+    setState(() => _lyricsBusy = true);
+    try {
+      // 先复位手动选的歌词源：它是上一轮搜索的产物（`${source.name}:$id`），
+      // 缓存清空后候选要重新搜，旧 id 大概率已失效 —— 不复位就会拿着失效 id
+      // 去取歌词，表现为「清完缓存歌词反而不见了」。复位后走自动选源。
+      ref.read(selectedLyricSourceProvider.notifier).clear();
+      await ref.read(lyricsServiceProvider).clearCache();
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('歌词缓存已清空')));
+        await _loadCacheSize();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('清空歌词缓存失败: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _lyricsBusy = false);
     }
   }
 
@@ -425,29 +491,11 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
           .showSnackBar(const SnackBar(content: Text('当前没有离线缓存')));
       return;
     }
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('清空离线缓存'),
-          content: Text(
-            '将删除已下载的 $_offlineCount 首曲子（$_offlineSize）及其记录，'
-            '该操作不可恢复。',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('取消'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('确定'),
-            ),
-          ],
-        );
-      },
+    final confirm = await _confirm(
+      '清空离线缓存',
+      '将删除已下载的 $_offlineCount 首曲子（$_offlineSize）及其记录，该操作不可恢复。',
     );
-    if (confirm != true) return;
+    if (!confirm) return;
 
     setState(() => _offlineBusy = true);
     try {
@@ -491,7 +539,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
               const Text('• 自定义标签'),
               const Text('• 登录信息'),
               const Text('• 推荐缓存'),
-              const Text('• 文件系统缓存'),
+              const Text('• 文件系统缓存（含歌词缓存）'),
               const Text('• 离线缓存（已下载的音频文件）'),
               const SizedBox(height: 16),
               Container(
@@ -549,6 +597,8 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
 
         await musicCacheManager.emptyCache();
         await imageCacheManager.emptyCache();
+        // 只清磁盘层即可：这里马上要重启进程，内存层随进程一起没了。
+        await lyricsCacheManager.emptyCache();
         // 离线缓存是用户主动下载的文件，清理时一并删掉（上面已明示）。
         await ref.read(offlineCacheServiceProvider).clearAll();
 

@@ -161,8 +161,10 @@ class _DetailPageState extends ConsumerState<DetailPage> {
   }
 
   void _loadLyric(String id) {
-    // 切源 —— 由 currentMusicLyricsProvider 监听 selectedLyricSourceProvider 自动重取
-    ref.read(selectedLyricSourceProvider.notifier).state = id;
+    // 切源 —— 由 currentMusicLyricsProvider 监听选择自动重取。
+    // 选择绑定到「选中它的那首曲子」：切歌后自动失效，不会漏到下一首。
+    final music = ref.read(playerCoordinatorProvider).currentMusic ?? _music;
+    ref.read(selectedLyricSourceProvider.notifier).select(music, id);
   }
 
   /// 根据当前 music + lyrics 状态推导出 (sources, selected, loading)。
@@ -170,7 +172,9 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     AsyncValue<LyricsPayload?> lyricsAsync,
     List<LyricSource> sources,
   ) {
-    final selected = ref.watch(selectedLyricSourceProvider);
+    // 手动来源要按曲目过滤（属于上一首的会被当作没选），载荷自带的 sourceId
+    // 是自动选源的结果，作为兜底。
+    final selected = ref.watch(currentMusicSelectedLyricSourceProvider);
     return (
       sources: sources,
       selected: selected ?? lyricsAsync.value?.sourceId,
@@ -196,6 +200,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
           .read(playlistCommandsProvider.notifier)
           .isFavorite(liveMusic);
       _lastAppliedModel = null;
+      _placeholderTitle = _music.title;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _updateBackgroundColor(liveMusic.coverUrl);
@@ -211,12 +216,43 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     final resolved = _resolveLyrics(lyricsAsync, sources);
     final payload = lyricsAsync.value;
 
-    // 应用最新 payload 到 lyricController
-    if (payload != null && payload.mainModel != _lastAppliedModel) {
+    // 应用最新 payload 到 lyricController。
+    //
+    // 切歌瞬间 currentMusicLyricsProvider 正在 rebuild，Riverpod 的
+    // AsyncValue.value 在 loading 期间返回上一首的旧载荷；且本帧注册的
+    // post-frame 回调晚于 musicChanged 的占位词回调，不校验归属就会把
+    // 上一首的歌词覆盖掉占位词。
+    // 因此：loading 中不应用；payload 必须属于当前曲目（songKey 校验）。
+    // 用 liveMusic 而非 _music 取 key：曲中 ensureCid 回填 cid 只改对象
+    // 不改 id，_music 靠 id 比对感知不到，liveMusic 始终是最新队列条目。
+    final liveMusicKey = liveMusic == null
+        ? null
+        : LyricsService.songKeyOf(liveMusic);
+    final payloadApplies =
+        payload != null &&
+        liveMusicKey != null &&
+        payload.songKey == liveMusicKey;
+
+    if (!lyricsAsync.isLoading &&
+        payloadApplies &&
+        payload.mainModel != _lastAppliedModel) {
       _lastAppliedModel = payload.mainModel;
+      _placeholderTitle = null;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _lyricController.loadLyricModel(payload.mainModel);
+        _lyricController.setProgress(_position);
+      });
+    } else if (!lyricsAsync.isLoading &&
+        !payloadApplies &&
+        _placeholderTitle != _music.title) {
+      // 当前曲目确实没有能用的歌词（用户主动选「本地」，或候选来源都取不到）：
+      // 换回占位词。不换的话 lyricController 会一直留着上一个模型。
+      _lastAppliedModel = null;
+      _placeholderTitle = _music.title;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _lyricController.loadLyricModel(_placeholderModel(_music.title));
         _lyricController.setProgress(_position);
       });
     }
@@ -302,4 +338,10 @@ class _DetailPageState extends ConsumerState<DetailPage> {
   }
 
   LyricModel? _lastAppliedModel;
+
+  /// 当前屏幕上是不是占位词（值为此占位词所属曲名）。
+  ///
+  /// 占位词每次调用都新建 LyricModel，不能像载荷那样靠对象比对去重：
+  /// 位置每 tick 都会重建本 widget，没有这个标记就会每帧重载一次占位词。
+  String? _placeholderTitle;
 }
