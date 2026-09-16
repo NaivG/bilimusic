@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:bilimusic/shared/theme/app_palette.dart';
+import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
 
 /// 半透明白底圆形图标按钮 —— 收藏 / 分享 / 任意迷你按钮。
@@ -85,7 +87,10 @@ class _CircleIconButtonState extends State<CircleIconButton>
   }
 }
 
-/// 播放控制次按钮（mode / prev / next / queue）—— [TapScaleWidget] + 图标。
+/// 播放控制次按钮（mode / prev / next / queue）。
+/// 与 LandscapeBottomControl 中央控制行的按钮同款：
+/// [ScaleOnHover] 悬停放大 + [IconButton] 水波纹反馈，
+/// hover 底色为歌曲卡片同款 ghost 风格轻浮雕。
 class PlaybackControlButton extends StatelessWidget {
   final IconData icon;
   final double size;
@@ -104,23 +109,38 @@ class PlaybackControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TapScaleWidget(
-      pressedScale: 0.9,
-      onTap: onTap,
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: Icon(icon, color: iconColor, size: iconSize),
+    final palette = context.appPalette;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: ScaleOnHover(
+        hoverScale: 1.12,
+        child: IconButton(
+          onPressed: onTap,
+          icon: Icon(icon, size: iconSize, color: iconColor),
+          splashRadius: size * 0.5,
+          padding: EdgeInsets.zero,
+          constraints: BoxConstraints(minWidth: size, minHeight: size),
+          hoverColor: palette.surfaceHover.withValues(alpha: 0.35),
+          highlightColor: palette.surfacePressed.withValues(alpha: 0.45),
+          splashColor: palette.surfacePressed.withValues(alpha: 0.35),
+        ),
       ),
     );
   }
 }
 
-/// 主播放 / 暂停按钮 —— 白色渐变圆形 + [AnimatedSwitcher] icon 切换。
+/// 主播放 / 暂停按钮 —— 主题色圆形底 + [ScaleOnHover] 悬停放大
+/// + [AnimatedSwitcher] 图标切换，与 LandscapeBottomControl 中央主按钮同款，
+/// hover 底色为歌曲卡片同款 ghost 风格轻浮雕。
 class PlaybackPlayPauseButton extends StatelessWidget {
   final bool isPlaying;
   final double size;
   final double iconSize;
+  final Color iconColor;
+
+  /// 圆形底色，默认取 [Theme] 的 primary（与横屏底栏一致的强调色）。
+  final Color? backgroundColor;
   final VoidCallback? onTap;
 
   const PlaybackPlayPauseButton({
@@ -128,41 +148,49 @@ class PlaybackPlayPauseButton extends StatelessWidget {
     required this.isPlaying,
     required this.size,
     required this.iconSize,
+    this.backgroundColor,
+    this.iconColor = Colors.white,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return TapScaleWidget(
-      pressedScale: 0.92,
-      onTap: onTap,
+    final palette = context.appPalette;
+    final accent = backgroundColor ?? Theme.of(context).colorScheme.primary;
+    return ScaleOnHover(
+      hoverScale: 1.05,
       child: Container(
         width: size,
         height: size,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.white, Color(0xFFE0E0E0)],
-          ),
           shape: BoxShape.circle,
+          color: accent,
           boxShadow: [
             BoxShadow(
-              color: Colors.white.withValues(alpha: 0.35),
-              blurRadius: 25,
-              spreadRadius: 3,
+              color: accent.withValues(alpha: 0.3),
+              blurRadius: 12,
+              spreadRadius: 1,
             ),
           ],
         ),
-        child: Center(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
+        child: IconButton(
+          onPressed: onTap,
+          splashRadius: size * 0.5,
+          padding: EdgeInsets.zero,
+          constraints: BoxConstraints(minWidth: size, minHeight: size),
+          hoverColor: palette.surfaceHover.withValues(alpha: 0.35),
+          highlightColor: palette.surfacePressed.withValues(alpha: 0.45),
+          splashColor: palette.surfacePressed.withValues(alpha: 0.35),
+          icon: AnimatedSwitcher(
+            duration: AppTokens.standardDuration,
+            switchInCurve: AppTokens.standardEasing,
+            switchOutCurve: AppTokens.standardEasing,
             transitionBuilder: switcherFadeTransition,
             child: Icon(
               isPlaying ? Icons.pause : Icons.play_arrow,
               key: ValueKey(isPlaying),
-              color: Colors.black87,
               size: iconSize,
+              color: iconColor,
             ),
           ),
         ),

@@ -257,7 +257,7 @@ class LandscapeBottomControl extends ConsumerWidget {
     PlayMode playMode,
     PlayerState playerState,
   ) {
-    final smallSize = 32.0;
+    final smallSize = 40.0;
     final isPlaying = playerState is PlayerPlaying;
 
     return Row(
@@ -267,7 +267,7 @@ class LandscapeBottomControl extends ConsumerWidget {
         _buildSmallButton(
           icon: playMode.icon,
           size: smallSize,
-          iconSize: smallSize * 0.55,
+          iconSize: smallSize * 0.6,
           color: iconColor.withValues(alpha: 0.7),
           onTap: () =>
               ref.read(playbackCommandsProvider.notifier).togglePlayMode(),
@@ -276,7 +276,7 @@ class LandscapeBottomControl extends ConsumerWidget {
         _buildSmallButton(
           icon: Icons.skip_previous_rounded,
           size: smallSize,
-          iconSize: smallSize * 0.6,
+          iconSize: smallSize * 0.65,
           color: iconColor.withValues(alpha: 0.85),
           onTap: () =>
               ref.read(playbackCommandsProvider.notifier).playPrevious(),
@@ -331,7 +331,7 @@ class LandscapeBottomControl extends ConsumerWidget {
         _buildSmallButton(
           icon: Icons.skip_next_rounded,
           size: smallSize,
-          iconSize: smallSize * 0.6,
+          iconSize: smallSize * 0.65,
           color: iconColor.withValues(alpha: 0.85),
           onTap: () => ref.read(playbackCommandsProvider.notifier).playNext(),
         ),
@@ -340,7 +340,7 @@ class LandscapeBottomControl extends ConsumerWidget {
           _buildSmallButton(
             icon: Icons.queue_music,
             size: smallSize,
-            iconSize: smallSize * 0.55,
+            iconSize: smallSize * 0.6,
             color: iconColor.withValues(alpha: 0.7),
             onTap: onPlayList,
           ),
