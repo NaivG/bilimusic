@@ -13,6 +13,7 @@ import 'package:sqflite/sqflite.dart';
 
 import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/core/storage/database.dart';
+import 'package:bilimusic/core/storage/storage_path_resolver.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/offline/models/offline_track.dart';
 
@@ -22,21 +23,27 @@ import 'package:bilimusic/features/offline/models/offline_track.dart';
 /// - 临时缓存：播放时顺手落盘，随时可能被回收，用户无感知；
 /// - 本服务：用户显式下载，文件长期保留、可被资源管理器直接看到。
 ///
-/// 目录策略：
+/// 目录策略（统一的解析/校验都在 [StoragePathResolver] 里，本类只消费结果）：
 /// - 桌面端：默认 `<应用支持目录>/offline_music`，用户可在设置页改到任意目录；
-/// - Android：应用私有外部目录 `<external>/Android/data/<pkg>/files/Music`，
-///   **不需要任何存储权限**；此处不暴露选目录——`file_picker.getDirectoryPath`
-///   在 Android 虽然返回真实绝对路径，但那是通过存储框架拿到的，没有
-///   `MANAGE_EXTERNAL_STORAGE` 时第三方 ROM 上写外部公共目录会被拒。
-///   离线缓存的用途只有"写自己下的音频 + 读回来播"，私有目录已经完全够用，
-///   因此不请求该敏感权限（Google Play 对它的审核也很严）。
+/// - Android：默认仍是应用私有外部目录
+///   `<external>/Android/data/<pkg>/files/Music` —— **零权限、装了就能用**；
+///   用户想让文件出现在公共 `Music/` 里时，可在设置页主动选一次目录：
+///   `file_picker.getDirectoryPath` 会拉起 SAF（`ACTION_OPEN_DOCUMENT_TREE`），
+///   把 tree URI 反解成真实绝对路径交给我们，之后用 `dart:io` 直接读写。
+///
+///   **本应用不申请 `MANAGE_EXTERNAL_STORAGE`**。这么做的代价是：Android 11+
+///   只有共享媒体目录（`Music/` 等）里"应用自己贡献的文件"能用裸路径写，
+///   存储卡卷与 DocumentsUI 里的云盘 provider 反解出来的路径写不进去。所以
+///   选目录之后**立刻实写探针**（[StoragePathResolver.probe]），写不进去就
+///   当场拒绝并保留原目录，绝不让失败拖到用户点下载时才爆。
 ///
 /// 落盘格式：B 站 DASH 音频流本身就是一个自包含的 audio-only MP4
 /// （ftyp → moov → moof/sidx），mpv 与 ExoPlayer 都能直接解码，
 /// **无需转码**，仅在命名时给上 `.m4a` 后缀。
 class OfflineCacheService extends ChangeNotifier {
-  OfflineCacheService({http.Client? httpClient})
-    : _http = httpClient ?? http.Client();
+  OfflineCacheService({http.Client? httpClient, StoragePathResolver? resolver})
+    : _http = httpClient ?? http.Client(),
+      _paths = resolver ?? const StoragePathResolver();
 
   static const String KEY_BASE_DIR = 'offline_base_dir';
 
@@ -58,8 +65,20 @@ class OfflineCacheService extends ChangeNotifier {
   /// HTTP 客户端。非 final：测试通过 [overrideForTest] 换成替身。
   http.Client _http;
 
+  /// 统一的路径解析/校验（归一化、根内安全拼接、实写探测、根决策）。
+  final StoragePathResolver _paths;
+
   Database? _db;
   String? _baseDir;
+
+  /// 当前离线根是"用户配的"还是"私有兜底"。
+  StorageRootOrigin _rootOrigin = StorageRootOrigin.appPrivate;
+
+  /// 非空表示「配置的目录这次不可用，已回退到私有目录」，内容为原因。
+  String? _rootFallbackReason;
+
+  /// 非空表示连私有兜底目录都用不了 —— 离线功能整体不可用。
+  String? _rootError;
 
   final Map<String, DownloadProgress> _progress = {};
   final Set<String> _cancelled = {};
@@ -78,12 +97,29 @@ class OfflineCacheService extends ChangeNotifier {
   /// 当前生效的离线目录（[initialize] 之后非空）。
   String? get baseDirectory => _baseDir;
 
-  /// 桌面端可自选目录；Android 走应用私有外部目录，不在 UI 暴露选目录。
+  /// 当前离线目录的来源。配置的目录探测失败时会退回 [StorageRootOrigin.appPrivate]。
+  StorageRootOrigin get rootOrigin => _rootOrigin;
+
+  /// 非空表示「配置的目录这次不可用，已回退到私有目录」，可直接给用户看。
+  String? get rootFallbackReason => _rootFallbackReason;
+
+  /// 非空表示离线目录整体不可用（连私有兜底都建不出来），离线下载会失败。
+  String? get rootError => _rootError;
+
+  /// 能否让用户自选离线目录。
+  ///
+  /// - 桌面端：file_picker 直接给真实路径，随意选。
+  /// - Android：`file_picker.getDirectoryPath` 走 SAF（`ACTION_OPEN_DOCUMENT_TREE`）
+  ///   让用户选目录，再把 tree URI 反解成真实绝对路径。**不申请任何存储权限**
+  ///   —— 选完立刻实写探测，只有真能落盘的目录才会被采用。
+  /// - iOS：file_picker 给的是 security-scoped URL，`dart:io` 拿不到持久访问权，
+  ///   所以不暴露这个入口。
   ///
   /// 平台判断用 `defaultTargetPlatform` 而非 `Platform.isX`：本文件已经
   /// import 了 `dart:io`（文件操作必需），再用 PlatformHelper 会让 Web 构建
   /// 多背一层 dart:io 依赖，没必要。
-  static bool get supportsDirectoryPicker => _isDesktop && !kIsWeb;
+  static bool get supportsDirectoryPicker =>
+      !kIsWeb && (_isDesktop || _isAndroid);
 
   static bool get _isDesktop =>
       defaultTargetPlatform == TargetPlatform.windows ||
@@ -97,7 +133,14 @@ class OfflineCacheService extends ChangeNotifier {
     if (_initialized) return;
     _initialized = true;
     _db = await AppDatabase.instance.database;
-    _baseDir = await _resolveBaseDirectory();
+    try {
+      _baseDir = await _resolveBaseDirectory();
+    } on StorageRootUnavailableException catch (e) {
+      // 不抛出：`initialize()` 在 Provider 里是 fire-and-forget 调的，抛出去
+      // 只会变成一个没人接的异步异常。记下来，等真正要落盘时再报给用户。
+      _rootError = e.message;
+      debugPrint('[OfflineCache] 离线目录不可用: ${e.message}');
+    }
   }
 
   /// 测试用：直接注入 DB、离线目录与 HTTP 客户端，跳过 App 单例依赖。
@@ -123,22 +166,33 @@ class OfflineCacheService extends ChangeNotifier {
   //  目录
   // ====================================================================
 
-  /// 解析离线目录：用户配置优先，否则按平台给默认值。目录不存在则创建。
+  /// 解析离线目录：用户配置优先（需实测可写），否则按平台给默认值。
+  ///
+  /// 具体的「归一化 → 实写探测 → 挑一个真正能用的根」全部交给
+  /// [StoragePathResolver.resolve]；这里只负责把结果落到字段上并留痕，
+  /// 以便 UI 能提示"你选的目录这次用不了，已经暂时回到私有目录"。
   Future<String> _resolveBaseDirectory() async {
     final prefs = await SharedPreferences.getInstance();
-    final configured = prefs.getString(KEY_BASE_DIR);
-    if (configured != null && configured.isNotEmpty) {
-      final dir = Directory(configured);
-      if (!await dir.exists()) {
-        await dir.create(recursive: true);
-      }
-      return dir.path;
+    final decision = await _paths.resolve(
+      configuredPath: prefs.getString(KEY_BASE_DIR),
+      defaultPath: _defaultBaseDirectory,
+    );
+    _applyDecision(decision);
+    if (decision.isFallback) {
+      debugPrint('[OfflineCache] ${decision.fallbackReason}');
     }
-    return _defaultBaseDirectory();
+    return decision.path;
   }
 
+  void _applyDecision(StorageRootDecision decision) {
+    _rootOrigin = decision.origin;
+    _rootFallbackReason = decision.fallbackReason;
+    _rootError = null;
+  }
+
+  /// 平台默认离线目录（**只算路径，不创建** —— 创建由 resolve 的探针负责，
+  /// 免得"算一遍默认路径"这个纯查询动作在磁盘上留下副作用）。
   Future<String> _defaultBaseDirectory() async {
-    String dir;
     if (_isAndroid) {
       // 应用私有外部目录：无需权限，卸载时随应用一起清理。
       final external = await getExternalStorageDirectories(
@@ -147,22 +201,19 @@ class OfflineCacheService extends ChangeNotifier {
       final base = external != null && external.isNotEmpty
           ? external.first.path
           : (await getApplicationSupportDirectory()).path;
-      dir = p.join(base, ANDROID_DIR_NAME);
-    } else {
-      final support = await getApplicationSupportDirectory();
-      dir = p.join(support.path, DEFAULT_DIR_NAME);
+      return p.join(base, ANDROID_DIR_NAME);
     }
-    final d = Directory(dir);
-    if (!await d.exists()) {
-      await d.create(recursive: true);
-    }
-    return d.path;
+    final support = await getApplicationSupportDirectory();
+    return p.join(support.path, DEFAULT_DIR_NAME);
   }
 
-  /// 弹出系统目录选择器并切换离线目录（仅桌面端）。
+  /// 弹出系统目录选择器并切换离线目录（桌面端 + Android）。
   ///
-  /// Android 不暴露这个入口：见类注释——想在公共目录自由读写就得要
-  /// `MANAGE_EXTERNAL_STORAGE`，而离线缓存并不需要那个能力。
+  /// Android 上 `file_picker.getDirectoryPath` 会拉起 SAF
+  /// （`ACTION_OPEN_DOCUMENT_TREE`），选完把 tree URI 反解成真实绝对路径返回；
+  /// **全程不申请任何存储权限**，所以选完必须实写探测一次：能写才切换，
+  /// 写不进去就抛 [StorageRootUnavailableException] 并**保留原目录**，
+  /// 免得用户以为已经生效、下载却全落到别处。
   ///
   /// 已下载的文件**不会**被搬走：切换目录后旧记录会因 `exists()` 兜底失效，
   /// 用户需要在新目录重新下载（保持实现简单，避免跨盘移动大文件失败）。
@@ -171,31 +222,61 @@ class OfflineCacheService extends ChangeNotifier {
     final picked = await FilePicker.platform.getDirectoryPath(
       dialogTitle: '选择离线缓存目录',
     );
-    if (picked == null || picked.isEmpty) return null;
-    if (picked == _baseDir) return _baseDir;
+    if (picked == null || picked.trim().isEmpty) return null;
+
+    // create: false —— 选定的目录必须已经存在。路径不存在只可能是"存储卡
+    // 拔了"或"provider 反解出了假路径"，这两种情况都绝不该由我们凭空建目录。
+    final probe = await _paths.probe(picked);
+    if (!probe.usable) {
+      throw StorageRootUnavailableException(
+        '所选目录不可用（${probe.reason}），已保留原目录。'
+        '${_isAndroid ? 'Android 上只有共享媒体目录（如 Music/）可以直接写入；'
+                  '存储卡与云盘目录需要"所有文件访问"权限，本应用不申请。' : ''}',
+      );
+    }
+    if (probe.path == _baseDir) return _baseDir;
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(KEY_BASE_DIR, picked);
-    _baseDir = picked;
-    final dir = Directory(picked);
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
-    }
+    await prefs.setString(KEY_BASE_DIR, probe.path);
+    _baseDir = probe.path;
+    _applyDecision(
+      StorageRootDecision(
+        path: probe.path,
+        origin: StorageRootOrigin.configured,
+      ),
+    );
     // 旧目录的记录仍指向旧绝对路径，播放时靠 exists() 判断；
     // 这里只清掉"文件已不在"的悬挂记录，不动文件本体。
     await purgeMissing();
     _broadcastProgress();
     notifyListeners();
-    return picked;
+    return probe.path;
   }
 
   /// 恢复默认目录（桌面端回到应用支持目录，Android 一律是应用私有目录）。
   Future<void> resetBaseDirectory() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(KEY_BASE_DIR);
-    _baseDir = await _defaultBaseDirectory();
+    final decision = await _paths.resolve(
+      configuredPath: null,
+      defaultPath: _defaultBaseDirectory,
+    );
+    _baseDir = decision.path;
+    _applyDecision(decision);
     _broadcastProgress();
     notifyListeners();
+  }
+
+  /// 取当前生效的离线目录；不可用时抛出带原因的 [StateError]。
+  ///
+  /// 落盘前统一走这里，把"目录没了"报成一句人话，而不是
+  /// `Null check operator used on a null value`。
+  String _requireBaseDir() {
+    final dir = _baseDir;
+    if (dir == null) {
+      throw StateError(_rootError ?? '离线目录尚未就绪，请稍后重试');
+    }
+    return dir;
   }
 
   // ====================================================================
@@ -317,7 +398,7 @@ class OfflineCacheService extends ChangeNotifier {
     }
 
     final cid = _effectiveCid(music);
-    final dir = Directory(_baseDir!);
+    final dir = Directory(_requireBaseDir());
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
@@ -456,7 +537,7 @@ class OfflineCacheService extends ChangeNotifier {
       return existing;
     }
 
-    final dir = Directory(_baseDir!);
+    final dir = Directory(_requireBaseDir());
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
@@ -591,10 +672,15 @@ class OfflineCacheService extends ChangeNotifier {
     return removed;
   }
 
-  /// 清掉离线目录里遗留的 `*.part` 半成品（下载中途崩溃/被杀留下的）。
+  /// 清掉离线目录里遗留的临时残片：下载中途崩溃/被杀留下的 `*.part`，
+  /// 以及目录探测中途被杀留下的写探针文件。
+  ///
+  /// 目录不可用时直接返回 0（没什么可清的，也不该在这里抛异常打断清理流程）。
   Future<int> purgeTempFiles() async {
     await initialize();
-    final dir = Directory(_baseDir!);
+    final base = _baseDir;
+    if (base == null) return 0;
+    final dir = Directory(base);
     if (!await dir.exists()) return 0;
     var removed = 0;
     try {
@@ -602,7 +688,11 @@ class OfflineCacheService extends ChangeNotifier {
         recursive: true,
         followLinks: false,
       )) {
-        if (entity is! File || !entity.path.endsWith('.part')) continue;
+        if (entity is! File) continue;
+        final name = p.basename(entity.path);
+        final isLeftover =
+            name.endsWith('.part') || name == StoragePathResolver.probeFileName;
+        if (!isLeftover) continue;
         try {
           await entity.delete();
           removed++;
@@ -650,13 +740,23 @@ class OfflineCacheService extends ChangeNotifier {
   /// 生成落盘路径：`<base>/<首字母>/<artist> - <title> [cid].m4a`。
   ///
   /// 首字母分目录是为了避免单目录堆几万个文件（Windows 资源管理器会明显变卡）。
+  ///
+  /// 拼接统一走 [StoragePathResolver.resolveInRoot]：文件名虽然已经过
+  /// [sanitizeFileName] 净化，但"落盘路径一定在离线根之内"这件事由解析器
+  /// 一次性证明，而不是靠每个调用点自己保证。
   Future<String> _allocatePath(Directory base, Music music, String cid) async {
     final name = buildFileName(music, cid);
-    final dir = Directory(p.join(base.path, bucketOf(name)));
+    final bucket = bucketOf(name);
+    final dir = Directory(
+      _paths.resolveInRoot(root: base.path, relative: bucket),
+    );
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
-    return p.join(dir.path, '${buildFileName(music, cid)}.m4a');
+    return _paths.resolveInRoot(
+      root: base.path,
+      relative: p.join(bucket, '$name.m4a'),
+    );
   }
 
   /// 生成文件名（不含扩展名）：`<artist> - <title> [cid]`。

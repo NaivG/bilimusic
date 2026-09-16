@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/core/storage/storage_path_resolver.dart';
 import 'package:bilimusic/features/offline/offline_providers.dart';
 import 'package:bilimusic/features/offline/services/offline_cache_service.dart';
 import 'package:bilimusic/features/lyrics/lyrics_providers.dart';
@@ -46,6 +47,13 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
   int _offlineCount = 0;
   String _offlineSize = '0 B';
   String _offlineDir = '加载中...';
+
+  /// 当前离线目录是不是应用私有兜底目录（而不是用户在设置页选的）。
+  bool _offlineDirIsPrivate = true;
+
+  /// 非空表示「配置的目录这次不可用，已回退到私有目录」，内容为原因。
+  String? _offlineDirFallback;
+
   bool _offlineBusy = false;
 
   @override
@@ -86,7 +94,9 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     setState(() {
       _offlineCount = count;
       _offlineSize = _formatBytes(bytes, 2);
-      _offlineDir = offline.baseDirectory ?? '未配置';
+      _offlineDir = offline.baseDirectory ?? (offline.rootError ?? '未配置');
+      _offlineDirIsPrivate = offline.rootOrigin == StorageRootOrigin.appPrivate;
+      _offlineDirFallback = offline.rootFallbackReason;
     });
   }
 
@@ -194,6 +204,32 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     return const Divider(height: 1, indent: 16, endIndent: 16);
   }
 
+  /// 离线目录回退提示：用户选的目录这次探测不可写，已经暂时回到私有目录。
+  Widget _buildOfflineDirWarning(String reason) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.warning_amber, color: Colors.orange, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              reason,
+              style: const TextStyle(fontSize: 13, color: Colors.orange),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -254,6 +290,10 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
                         _offlineDir,
                         valueColor: Colors.grey,
                       ),
+                      if (_offlineDirFallback != null) ...[
+                        _buildDivider(),
+                        _buildOfflineDirWarning(_offlineDirFallback!),
+                      ],
                     ],
                   ),
                   Card(
@@ -270,7 +310,11 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
                               color: _getPrimaryColor(context),
                             ),
                             title: const Text('更改离线目录'),
-                            subtitle: const Text('已下载的文件不会自动搬移'),
+                            subtitle: Text(
+                              _offlineDirIsPrivate
+                                  ? '当前为应用私有目录 · 已下载的文件不会自动搬移'
+                                  : '已自定义目录 · 已下载的文件不会自动搬移',
+                            ),
                             trailing: const Icon(
                               Icons.arrow_forward_ios,
                               size: 16,
@@ -278,6 +322,24 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
                             onTap: _offlineBusy ? null : _changeOfflineDir,
                           ),
                           _buildDivider(),
+                          // 自定义目录之后必须留一条回到默认目录的路，
+                          // 否则换机/删目录后用户只能靠清空 App 数据复位。
+                          if (!_offlineDirIsPrivate) ...[
+                            ListTile(
+                              leading: Icon(
+                                Icons.settings_backup_restore,
+                                color: _getPrimaryColor(context),
+                              ),
+                              title: const Text('恢复默认目录'),
+                              subtitle: const Text('回到应用私有目录 · 已下载的文件不会搬移'),
+                              trailing: const Icon(
+                                Icons.arrow_forward_ios,
+                                size: 16,
+                              ),
+                              onTap: _offlineBusy ? null : _resetOfflineDir,
+                            ),
+                            _buildDivider(),
+                          ],
                         ],
                         ListTile(
                           leading: Icon(
@@ -461,7 +523,10 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     }
   }
 
-  /// 切换离线目录（仅桌面端；Android 走应用私有外部目录，不需要用户选）。
+  /// 切换离线目录（桌面端 + Android）。
+  ///
+  /// Android 上 file_picker 会拉起 SAF 让用户选目录，选完服务会**实写探测**
+  /// 一次；写不进去就抛 [StorageRootUnavailableException] 并保留原目录。
   Future<void> _changeOfflineDir() async {
     setState(() => _offlineBusy = true);
     try {
@@ -473,11 +538,47 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
         // 切换目录会清掉"文件已不在"的悬挂记录，列表要跟着重算。
         ref.invalidate(offlineTracksProvider);
         await _loadOfflineSummary();
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('离线目录已切换到 $picked')));
+        }
+      }
+    } on StorageRootUnavailableException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            duration: const Duration(seconds: 6),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('切换离线目录失败: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _offlineBusy = false);
+    }
+  }
+
+  /// 回到平台默认（应用私有）离线目录。
+  ///
+  /// 只清掉"文件已不在"的悬挂记录，不搬移任何文件 —— 与切目录同一套语义。
+  Future<void> _resetOfflineDir() async {
+    setState(() => _offlineBusy = true);
+    try {
+      await ref.read(offlineCacheServiceProvider).resetBaseDirectory();
+      ref.invalidate(offlineTracksProvider);
+      await _loadOfflineSummary();
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('已恢复默认离线目录')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('恢复默认目录失败: $e')));
       }
     } finally {
       if (mounted) setState(() => _offlineBusy = false);

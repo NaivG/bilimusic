@@ -7,6 +7,7 @@ import 'package:http/testing.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'package:bilimusic/core/storage/storage_path_resolver.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/offline/services/offline_cache_service.dart';
 
@@ -200,5 +201,20 @@ void main() {
     await File(again.filePath).delete();
     expect(await service.find('BV1xx411c7mD', '12345'), isNull);
     expect(await service.count(), 0);
+  });
+
+  test('清理残留会顺带清掉目录探测中途被杀留下的写探针文件', () async {
+    // 模拟两处残留：探测目录时被杀留下的探针，以及下载中途被杀留下的 .part。
+    final probeLeftover = File(
+      p.join(baseDir.path, StoragePathResolver.probeFileName),
+    );
+    await probeLeftover.writeAsString('probe');
+    final partLeftover = File(p.join(baseDir.path, '_', 'x.m4a.part'));
+    await partLeftover.parent.create(recursive: true);
+    await partLeftover.writeAsString('半成品');
+
+    expect(await service.purgeTempFiles(), 2);
+    expect(await probeLeftover.exists(), isFalse);
+    expect(await partLeftover.exists(), isFalse);
   });
 }
