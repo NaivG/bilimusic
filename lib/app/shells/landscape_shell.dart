@@ -63,18 +63,21 @@ class LandscapeShell extends ConsumerWidget {
                   ],
                 ),
               ),
-              // 底部播放器
-              if (_showShellChrome)
-                LandscapeBottomControl(
-                  onExpand: () => pageManager.push(ShellPage.detail),
-                  onPlayList: onPlayList,
-                ),
             ],
           ),
           // 详情页独立动画层（与底层切换完全解耦）
           buildShellDetailLayer(currentPage: currentPage),
         ],
       ),
+      // 底部播放条必须放在 Scaffold 的底槽（bottomNavigationBar）里，不能塞进
+      // 上面 body 的 Column。
+      // 放进底槽后 Scaffold 同样会为它预留 body 高度。
+      bottomNavigationBar: _showShellChrome
+          ? LandscapeBottomControl(
+              onExpand: () => pageManager.push(ShellPage.detail),
+              onPlayList: onPlayList,
+            )
+          : null,
     );
   }
 
