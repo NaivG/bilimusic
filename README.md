@@ -211,6 +211,7 @@ dart run bin/bilimusic_tui.dart --preview  # 静态设计预览（假数据，�
 
 ## 界面预览
 
+> 默认使用 Verdant 主题展示。
 
 <div align="center">
   <img src="./assets/screenshots/home-landscape.png" alt="home-landscape-shots" width="800" />
