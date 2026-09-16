@@ -16,8 +16,13 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._();
 
   static const String _dbFileName = 'playlist.db';
-  static const int _version = 1;
+  static const int _version = 2;
   static const String _migrationFlagKey = 'sqflite_migration_v1_done';
+
+  /// v2 新增：离线缓存（downloads 表）。
+  /// 注意：此后每加一张表，`_onCreate` 与 `_onUpgrade` **两处都要补**——
+  /// 新装用户走 onCreate，老用户走 onUpgrade，漏一处就会出现"表不存在"。
+  static const int _versionWithDownloads = 2;
 
   Database? _db;
 
@@ -28,6 +33,7 @@ class AppDatabase {
       '$path/$_dbFileName',
       version: _version,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -130,7 +136,46 @@ class AppDatabase {
       )
     ''');
 
+    _createDownloadsTable(batch);
+
     await batch.commit(noResult: true);
+  }
+
+  /// 离线缓存索引表。
+  ///
+  /// 主键 (bvid, cid)：与 [Music.key] 同一判等语义，多 P 视频按分 P 各存一份。
+  /// 只存"文件在哪、什么音质、多大"，音频本体是用户可见的普通文件，不进数据库。
+  void _createDownloadsTable(Batch batch) {
+    batch.execute('''
+      CREATE TABLE IF NOT EXISTS downloads (
+        bvid TEXT NOT NULL,
+        cid TEXT NOT NULL,
+        title TEXT,
+        artist TEXT,
+        file_path TEXT NOT NULL,
+        quality_id TEXT,
+        file_size INTEGER DEFAULT 0,
+        downloaded_at INTEGER NOT NULL,
+        PRIMARY KEY (bvid, cid)
+      )
+    ''');
+    batch.execute(
+      'CREATE INDEX IF NOT EXISTS idx_downloads_time '
+      'ON downloads(downloaded_at DESC)',
+    );
+  }
+
+  /// 数据库升级。
+  ///
+  /// [oldVersion] < 2 都补建 downloads 表：早期版本没有版本号迁移链，
+  /// 任何比 2 小的版本都缺这张表，统一按"补建"处理最稳。
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    final batch = db.batch();
+    if (oldVersion < _versionWithDownloads) {
+      _createDownloadsTable(batch);
+    }
+    await batch.commit(noResult: true);
+    debugPrint('[AppDatabase] upgraded $oldVersion -> $newVersion');
   }
 
   /// 一次性迁移：把旧 SharedPreferences 里残留的列表数据塞到 sqflite 里, 并删除旧 key。

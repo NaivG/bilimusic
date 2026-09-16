@@ -16,6 +16,7 @@ import 'package:bilimusic/features/lan_sync/services/device_identity.dart';
 import 'package:bilimusic/features/lan_sync/services/lan_sync_service.dart';
 import 'package:bilimusic/features/lan_sync/services/pairing_service.dart';
 import 'package:bilimusic/features/home/logic/recommendation_manager.dart';
+import 'package:bilimusic/features/offline/services/offline_cache_service.dart';
 import 'package:bilimusic/features/settings/settings_manager.dart';
 import 'package:bilimusic/features/auth/user_manager.dart';
 import 'package:bilimusic/features/fav_sync/fav_sync_manager.dart';
@@ -28,8 +29,27 @@ import 'package:bilimusic/features/fav_sync/fav_sync_manager.dart';
 
 // ==================== 基础无依赖服务 ====================
 
+/// 离线缓存服务。
+///
+/// 是长生命周期服务，必须在这里创建：ApiService 依赖它做查表/落盘，
+/// 设置页与详情页也直接消费它。放在 [apiServiceProvider] 之前声明，
+/// 依赖顺序由 `ref.watch` 自动确定。
+final offlineCacheServiceProvider = Provider<OfflineCacheService>((ref) {
+  final svc = OfflineCacheService();
+  svc.initialize();
+  ref.onDispose(svc.dispose);
+  return svc;
+});
+
 final apiServiceProvider = Provider<ApiService>((ref) {
-  return ApiService();
+  final offline = ref.watch(offlineCacheServiceProvider);
+  return ApiService(
+    // 播放链路：先查离线表（命中则断网也能播），未命中再走临时缓存/联网。
+    // 这里**不注入落盘钩子**：播放只借用可回收的临时缓存，只有"下载到离线缓存"
+    // 才写永久目录（由 OfflineTracksNotifier.download 显式落盘）。
+    offlineResolver: (music, qualityId) =>
+        offline.resolveLocal(music, qualityId: qualityId),
+  );
 });
 
 final notificationServiceProvider = Provider<NotificationService>((ref) {

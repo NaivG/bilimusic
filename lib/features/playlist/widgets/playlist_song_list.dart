@@ -265,6 +265,7 @@ class _PlaylistTrackRowState extends ConsumerState<PlaylistTrackRow> {
         playerCoordinator: ref.read(playerCoordinatorProvider),
         commands: ref.read(playlistCommandsProvider.notifier),
         onRemoveFromPlaylist: widget.onRemoveFromPlaylist,
+        ref: ref,
       ),
       child: MouseRegion(
         onEnter: (_) => setState(() => _isHovered = true),

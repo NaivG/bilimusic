@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/player/logic/player_coordinator.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
@@ -13,7 +14,7 @@ import 'package:bilimusic/shared/theme/app_tokens.dart';
 
 /// 通用音乐列表项组件
 /// 悬停/选中时背景和圆角边框从透明渐变至半透明(alpha: 0 -> 0.2)
-class CommonMusicListTile extends StatefulWidget {
+class CommonMusicListTile extends ConsumerStatefulWidget {
   final Music music;
   final PlayerCoordinator playerCoordinator;
   final PlaylistCommands commands;
@@ -42,10 +43,11 @@ class CommonMusicListTile extends StatefulWidget {
   });
 
   @override
-  State<CommonMusicListTile> createState() => _CommonMusicListTileState();
+  ConsumerState<CommonMusicListTile> createState() =>
+      _CommonMusicListTileState();
 }
 
-class _CommonMusicListTileState extends State<CommonMusicListTile> {
+class _CommonMusicListTileState extends ConsumerState<CommonMusicListTile> {
   bool _isHovered = false;
 
   @override
@@ -71,6 +73,7 @@ class _CommonMusicListTileState extends State<CommonMusicListTile> {
             playerCoordinator: widget.playerCoordinator,
             commands: widget.commands,
             playlistService: widget.playlistService,
+            ref: ref,
           ),
           child: Material(
             color: Colors.transparent,

@@ -10,11 +10,15 @@ import 'package:bilimusic/features/playlist/playlist_service.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/playlist.dart';
 import 'package:bilimusic/features/lan_sync/lan_sync_providers.dart';
+import 'package:bilimusic/features/offline/offline_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/shared/utils/share_helpers.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 
 /// Builds a context menu for the given music.
+///
+/// [ref] 可选：传了就多一个「下载到离线缓存」项（需要 Provider 访问权限）。
+/// 不传时菜单与历史行为一致——调用方是 [State]（没有 ref）时不必为此改结构。
 FutureOr<Menu?> buildMusicContextMenu({
   required BuildContext context,
   required Music music,
@@ -22,6 +26,7 @@ FutureOr<Menu?> buildMusicContextMenu({
   required PlaylistCommands commands,
   PlaylistService? playlistService,
   VoidCallback? onRemoveFromPlaylist,
+  WidgetRef? ref,
 }) {
   final isFav = commands.isFavorite(music);
 
@@ -107,6 +112,13 @@ FutureOr<Menu?> buildMusicContextMenu({
       MenuSeparator(),
       _buildPushToDeviceSubmenu(context, music),
       MenuSeparator(),
+      if (ref != null)
+        MenuAction(
+          title: '离线缓存',
+          image: MenuImage.icon(Icons.download_for_offline_outlined),
+          callback: () =>
+              performOfflineDownload(ref: ref, music: music, context: context),
+      ),
       MenuAction(
         title: '分享',
         image: MenuImage.icon(Icons.share),

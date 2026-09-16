@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/features/offline/offline_providers.dart';
+import 'package:bilimusic/features/offline/services/offline_cache_service.dart';
 import 'package:restart_app/restart_app.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 
@@ -19,6 +21,11 @@ class DataManagementPage extends ConsumerStatefulWidget {
 class _DataManagementPageState extends ConsumerState<DataManagementPage> {
   bool _loading = true;
 
+  /// 离线服务实例：`dispose()` 里不能再碰 `ref`（BuildContext 已 deactivate，
+  /// 会抛 "Using ref when a widget is about to or has been unmounted is unsafe"），
+  /// 所以在 initState 就存一份，销毁时拿它摘监听。
+  late final OfflineCacheService _offlineService;
+
   // 数据概览
   int _playHistoryCount = 0;
   int _favoritesCount = 0;
@@ -30,16 +37,52 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
   String _imageCacheSize = '计算中...';
   String _totalCacheSize = '计算中...';
 
+  // 离线缓存
+  int _offlineCount = 0;
+  String _offlineSize = '0 B';
+  String _offlineDir = '加载中...';
+  bool _offlineBusy = false;
+
   @override
   void initState() {
     super.initState();
+    _offlineService = ref.read(offlineCacheServiceProvider);
+    _offlineService.addListener(_onOfflineChanged);
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _offlineService.removeListener(_onOfflineChanged);
+    super.dispose();
+  }
+
+  /// 下载完成 / 切换目录 / 清空后刷新离线概览。
+  void _onOfflineChanged() {
+    if (mounted) _loadOfflineSummary();
   }
 
   Future<void> _loadData() async {
     setState(() => _loading = true);
-    await Future.wait([_loadAppData(), _loadCacheSize()]);
+    await Future.wait([
+      _loadAppData(),
+      _loadCacheSize(),
+      _loadOfflineSummary(),
+    ]);
     if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _loadOfflineSummary() async {
+    final offline = _offlineService;
+    await offline.initialize();
+    final count = await offline.count();
+    final bytes = await offline.totalBytes();
+    if (!mounted) return;
+    setState(() {
+      _offlineCount = count;
+      _offlineSize = _formatBytes(bytes, 2);
+      _offlineDir = offline.baseDirectory ?? '未配置';
+    });
   }
 
   Future<void> _loadAppData() async {
@@ -189,6 +232,61 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
                     ],
                   ),
 
+                  // 离线缓存
+                  _buildSectionTitle('离线缓存'),
+                  _buildInfoCard(
+                    children: [
+                      _buildInfoRow('已下载', '$_offlineCount 首'),
+                      _buildDivider(),
+                      _buildInfoRow('占用空间', _offlineSize),
+                      _buildDivider(),
+                      _buildInfoRow(
+                        '存放目录',
+                        _offlineDir,
+                        valueColor: Colors.grey,
+                      ),
+                    ],
+                  ),
+                  Card(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
+                    child: Column(
+                      children: [
+                        if (OfflineCacheService.supportsDirectoryPicker) ...[
+                          ListTile(
+                            leading: Icon(
+                              Icons.drive_file_move_outline,
+                              color: _getPrimaryColor(context),
+                            ),
+                            title: const Text('更改离线目录'),
+                            subtitle: const Text('已下载的文件不会自动搬移'),
+                            trailing: const Icon(
+                              Icons.arrow_forward_ios,
+                              size: 16,
+                            ),
+                            onTap: _offlineBusy ? null : _changeOfflineDir,
+                          ),
+                          _buildDivider(),
+                        ],
+                        ListTile(
+                          leading: Icon(
+                            Icons.delete_sweep_outlined,
+                            color: _getPrimaryColor(context),
+                          ),
+                          title: const Text('清空离线缓存'),
+                          subtitle: const Text('删除已下载的音频文件与记录'),
+                          trailing: const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                          ),
+                          onTap: _offlineBusy ? null : _clearOffline,
+                        ),
+                      ],
+                    ),
+                  ),
+
                   // 数据操作
                   _buildSectionTitle('数据操作'),
                   Card(
@@ -297,6 +395,78 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     }
   }
 
+  /// 切换离线目录（仅桌面端；Android 走应用私有外部目录，不需要用户选）。
+  Future<void> _changeOfflineDir() async {
+    setState(() => _offlineBusy = true);
+    try {
+      final picked = await ref
+          .read(offlineCacheServiceProvider)
+          .chooseBaseDirectory();
+      if (!mounted) return;
+      if (picked != null) {
+        // 切换目录会清掉"文件已不在"的悬挂记录，列表要跟着重算。
+        ref.invalidate(offlineTracksProvider);
+        await _loadOfflineSummary();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('切换离线目录失败: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _offlineBusy = false);
+    }
+  }
+
+  /// 清空离线缓存（文件 + 数据库记录）。
+  Future<void> _clearOffline() async {
+    if (_offlineCount == 0) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('当前没有离线缓存')));
+      return;
+    }
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('清空离线缓存'),
+          content: Text(
+            '将删除已下载的 $_offlineCount 首曲子（$_offlineSize）及其记录，'
+            '该操作不可恢复。',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('确定'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirm != true) return;
+
+    setState(() => _offlineBusy = true);
+    try {
+      await ref.read(offlineTracksProvider.notifier).clearAll();
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('离线缓存已清空')));
+        await _loadOfflineSummary();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('清空失败: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _offlineBusy = false);
+    }
+  }
+
   void _clearAllData() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -322,6 +492,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
               const Text('• 登录信息'),
               const Text('• 推荐缓存'),
               const Text('• 文件系统缓存'),
+              const Text('• 离线缓存（已下载的音频文件）'),
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -378,6 +549,8 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
 
         await musicCacheManager.emptyCache();
         await imageCacheManager.emptyCache();
+        // 离线缓存是用户主动下载的文件，清理时一并删掉（上面已明示）。
+        await ref.read(offlineCacheServiceProvider).clearAll();
 
         await Restart.restartApp(mode: RestartMode.process);
       } catch (e) {

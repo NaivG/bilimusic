@@ -336,12 +336,36 @@ class DualAudioService {
 
   // ============ 播放控制方法 ============
 
-  /// 使用活跃播放器播放URL
+  /// 播放源是网络流还是本地文件路径。
+  ///
+  /// 判据用 `://` 而不是 `Uri.parse(...).scheme`：`C:\Users\...` 会被解析成
+  /// "scheme = c"，据此判断必然误判。网络流（http/https/rtmp/content/asset…）
+  /// 一定带 `://`；本地绝对路径（`C:\...`、`/home/...`、`\\server\share\...`）
+  /// 都不带。给单测锁定用，故用 `@visibleForTesting` 暴露。
+  @visibleForTesting
+  static bool isRemoteSource(String source) => source.contains('://');
+
+  /// 把播放源交给播放器：网络流走 `setUrl`，本地文件走 `setFilePath`。
+  ///
+  /// **本地路径绝不能走 `setUrl`**：它内部是 `Uri.parse`，会把路径里的空格、
+  /// 中文、方括号一律百分号编码（`MIMI_music%20-%20%E3%80%90...%5D.m4a`），
+  /// 而媒体后端（just_audio_media_kit → media_kit → libmpv）拿到的只是这个
+  /// 编码后的"字面路径"，于是 `Cannot open file ...: No such file or directory`。
+  /// 离线文件名固定是 `<歌手> - <标题> [cid].m4a`，必然带空格与方括号，
+  /// 所以每个离线文件都会踩这个坑。`setFilePath` 内部走 `Uri.file`，
+  /// media_kit 的 `normalizeURI` 能把它正确还原成真实路径。
+  static Future<void> _setSource(ja.AudioPlayer player, String source) {
+    return isRemoteSource(source)
+        ? player.setUrl(source)
+        : player.setFilePath(source);
+  }
+
+  /// 使用活跃播放器播放URL（或本地文件路径）
   Future<void> playActive(String url) async {
     try {
       debugPrint('[DualAudioService] 开始播放 $url');
       _playerState.value = PlayerBuffering();
-      await _activePlayer.player.setUrl(url);
+      await _setSource(_activePlayer.player, url);
       await _activePlayer.player.seek(Duration.zero);
       _relativeVolume.value = 1.0;
       final v = _numericalValue.value;
@@ -359,13 +383,13 @@ class DualAudioService {
     }
   }
 
-  /// 预加载音频到待命播放器
+  /// 预加载音频到待命播放器（参数可能是网络 URL 或本地文件路径）
   Future<void> preloadToStandby(String url) async {
     try {
       debugPrint('[DualAudioService] 开始预加载 $url');
       // 注意：不要修改_playerState，因为这是standby播放器，不应该影响UI显示的active状态
 
-      await _standbyPlayer.player.setUrl(url);
+      await _setSource(_standbyPlayer.player, url);
       _standbyPlayer.currentUrl = url;
       _standbyPlayer.isReady = true;
       // 不在这里设置音量为0.0，避免AudioTrack进入长时间mute状态
