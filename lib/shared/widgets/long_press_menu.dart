@@ -118,7 +118,7 @@ FutureOr<Menu?> buildMusicContextMenu({
           image: MenuImage.icon(Icons.download_for_offline_outlined),
           callback: () =>
               performOfflineDownload(ref: ref, music: music, context: context),
-      ),
+        ),
       MenuAction(
         title: '分享',
         image: MenuImage.icon(Icons.share),
