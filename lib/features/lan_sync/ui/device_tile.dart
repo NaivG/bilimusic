@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:bilimusic/domain/lan_sync_mode.dart';
 import 'package:bilimusic/domain/peer_device.dart';
+import 'package:bilimusic/features/lan_sync/ui/device_visuals.dart';
 
 /// 设备列表中按"已配对 × 已连接"划分的 4 种状态。
 enum _TileState {
@@ -57,21 +58,21 @@ class DeviceTile extends StatelessWidget {
     return ListTile(
       onTap: onTap,
       leading: CircleAvatar(
-        backgroundColor: _platformColor(peer.platform).withValues(alpha: 0.15),
-        foregroundColor: _platformColor(peer.platform),
-        child: Icon(_platformIcon(peer.platform), size: 20),
+        backgroundColor: platformColor(peer.platform).withValues(alpha: 0.15),
+        foregroundColor: platformColor(peer.platform),
+        child: Icon(platformIcon(peer.platform), size: 20),
       ),
       title: Row(
         children: [
           Text(peer.name, maxLines: 1, overflow: TextOverflow.ellipsis),
           const SizedBox(width: 6),
-          if (peer.mode != LanSyncMode.off) ...[_ModeChip(peer.mode)],
+          if (peer.mode != LanSyncMode.off) ...[DeviceModeChip(peer.mode)],
         ],
       ),
       subtitle: Row(
         children: [
           Text(
-            _platformLabel(peer.platform),
+            platformLabel(peer.platform),
             style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
           ),
           const SizedBox(width: 6),
@@ -135,43 +136,6 @@ class DeviceTile extends StatelessWidget {
   }
 }
 
-class _ModeChip extends StatelessWidget {
-  final LanSyncMode mode;
-  const _ModeChip(this.mode);
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final (icon, color) = switch (mode) {
-      LanSyncMode.private => (Icons.lock_outline, colorScheme.secondary),
-      LanSyncMode.public => (Icons.public, colorScheme.tertiary),
-      LanSyncMode.off => (Icons.power_off, colorScheme.outline),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 11, color: color),
-          const SizedBox(width: 3),
-          Text(
-            modeShortLabel(mode),
-            style: TextStyle(
-              fontSize: 11,
-              color: color,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _StatusDot extends StatelessWidget {
   final Color color;
   const _StatusDot({required this.color});
@@ -184,37 +148,4 @@ class _StatusDot extends StatelessWidget {
       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
-}
-
-IconData _platformIcon(String platform) {
-  return switch (platform) {
-    'android' => Icons.android,
-    'ios' => Icons.phone_iphone,
-    'windows' => Icons.laptop_windows,
-    'macos' => Icons.laptop_mac,
-    'linux' => Icons.computer,
-    _ => Icons.device_unknown,
-  };
-}
-
-String _platformLabel(String platform) {
-  return switch (platform) {
-    'android' => 'Android',
-    'ios' => 'iOS',
-    'windows' => 'Windows',
-    'macos' => 'macOS',
-    'linux' => 'Linux',
-    _ => platform,
-  };
-}
-
-Color _platformColor(String platform) {
-  return switch (platform) {
-    'android' => Colors.green,
-    'ios' => Colors.blueGrey,
-    'windows' => Colors.blue,
-    'macos' => Colors.indigo,
-    'linux' => Colors.orange,
-    _ => Colors.grey,
-  };
 }

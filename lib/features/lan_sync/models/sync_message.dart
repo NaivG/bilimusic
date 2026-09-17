@@ -168,9 +168,37 @@ final class PlaylistMessage extends SyncMessage {
   };
 }
 
+/// [CmdMessage.action] 的取值常量。
+///
+/// 收发两侧共用一份，避免服务层 switch 与 UI 各写一套字符串字面量。
+abstract final class CmdActions {
+  static const String play = 'play';
+  static const String pause = 'pause';
+  static const String resume = 'resume';
+  static const String seek = 'seek';
+  static const String next = 'next';
+  static const String prev = 'prev';
+  static const String playAt = 'playAt';
+  static const String playMusic = 'playMusic';
+
+  /// 请求对端立刻回推一次「正在播放」快照（同步面板打开时刷新用）。
+  ///
+  /// 不认识该动作的旧版本对端会直接忽略，属兼容降级：面板只是拿不到首帧，
+  /// 仍会在对端下一次状态广播（播放/暂停/切歌）时补齐。
+  static const String requestState = 'state';
+
+  /// 被控端收到该动作时是否应先退出漫游（交出漫游会话，跟随主控端）。
+  ///
+  /// 遥控意味着主控端接管播放：被控端若留着漫游会话，续杯会往队列里追加
+  /// 推荐曲、打乱主控端看到的队列，被控端就跟不住了。
+  /// [requestState] 是只读索取快照（面板打开 / 切换设备时发送），
+  /// 不改变播放状态，因此不触发退出。
+  static bool exitsRoaming(String action) => action != requestState;
+}
+
 /// 远程控制指令（仅私有模式接收）。
 ///
-/// `action` ∈ `play` | `pause` | `resume` | `seek` | `next` | `prev` | `playAt`。
+/// `action` 取 [CmdActions] 中的常量。
 final class CmdMessage extends SyncMessage {
   final String action;
   final Map<String, dynamic>? payload;

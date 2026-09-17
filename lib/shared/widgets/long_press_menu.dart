@@ -238,9 +238,15 @@ Future<void> _pushToDevice(
   try {
     // 推送前补齐 cid，保证对端拿到即可播放
     final detailed = await container.read(apiServiceProvider).ensureCid(music);
-    lanSvc.pushMusicToPeer(peer.id, detailed);
+    final sent = lanSvc.pushMusicToPeer(peer.id, detailed);
     messenger.showSnackBar(
-      SnackBar(content: Text('已推送到"${peer.name}"：${detailed.title}')),
+      SnackBar(
+        content: Text(
+          sent
+              ? '已推送到"${peer.name}"：${detailed.title}'
+              : '推送失败："${peer.name}"未处于私有连接状态',
+        ),
+      ),
     );
   } catch (e) {
     messenger.showSnackBar(SnackBar(content: Text('推送失败: $e')));

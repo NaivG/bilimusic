@@ -502,9 +502,10 @@ class LanSyncService {
     }
   }
 
-  // TODO(未实现功能): 远端「现在播放」接收链（→ remoteNowPlayingController →
-  // remoteNowPlayingProvider）目前无 UI 消费，属未完成的新功能，暂保留；
-  // 实现「查看对端播放」UI 后接入，届时仍未用可整链删除。
+  /// 接收远端推送的「正在播放」快照。
+  ///
+  /// 消费方：同步面板（`remoteNowPlayingMapProvider`，位于 lan_sync_providers.dart，
+  /// 按 peerId 归并成组内各设备的详情）。
   void _handleState(LanSession session, StateMessage msg) {
     final remote = RemoteNowPlaying(
       peerId: session.peerId,
@@ -605,23 +606,31 @@ class LanSyncService {
 
   void _handleCmd(LanSession session, CmdMessage msg) {
     if (!session.isPrivate) return; // 公共模式不接受 cmd
+    // 被控端先交出漫游会话：收到遥控即代表主控端接管播放，本机若还在漫游，
+    // 续杯会往队列里追加推荐曲，就跟不住主控端了（只读的 requestState 除外）。
+    if (CmdActions.exitsRoaming(msg.action)) {
+      coordinator.stopRoam();
+    }
     switch (msg.action) {
-      case 'pause':
+      case CmdActions.pause:
         unawaited(coordinator.pause());
-      case 'play':
-      case 'resume':
+      case CmdActions.play:
+      case CmdActions.resume:
         unawaited(coordinator.resume());
-      case 'seek':
+      case CmdActions.seek:
         final ms = msg.payload?['positionMs'];
         if (ms is int) unawaited(coordinator.seek(Duration(milliseconds: ms)));
-      case 'next':
+      case CmdActions.next:
         unawaited(coordinator.playNext());
-      case 'prev':
+      case CmdActions.prev:
         unawaited(coordinator.playPrevious());
-      case 'playAt':
+      case CmdActions.playAt:
         final idx = msg.payload?['index'];
         if (idx is int) unawaited(coordinator.playAtIndex(idx));
-      case 'playMusic':
+      case CmdActions.requestState:
+        // 同步面板打开时主动索取首帧快照（含私有队列）。
+        _sendCurrentState(session);
+      case CmdActions.playMusic:
         final m = msg.payload?['music'];
         if (m is Map<String, dynamic>) {
           try {
@@ -709,17 +718,45 @@ class LanSyncService {
 
   /// 把 [music] 推送到 [peerId] 对应的私有会话对端播放。
   ///
-  /// 仅当该 peer 已完成私有 + token 握手且 session 处于 `syncing` 时才发；
-  /// 否则静默丢弃（调用方根据 toast 文案自处理）。
-  void pushMusicToPeer(String peerId, Music music) {
+  /// 仅当该 peer 已完成私有 + token 握手且 session 处于 `syncing` 时才发，
+  /// 返回 `true`；否则静默丢弃并返回 `false`（调用方据此提示用户）。
+  bool pushMusicToPeer(String peerId, Music music) {
     final session = _sessions[peerId];
-    if (session == null) return;
-    if (session.state != LanSessionState.syncing) return;
-    if (!session.isPrivate) return;
+    if (session == null) return false;
+    if (session.state != LanSessionState.syncing) return false;
+    if (!session.isPrivate) return false;
     session.send(
-      CmdMessage(action: 'playMusic', payload: {'music': music.toJson()}),
+      CmdMessage(
+        action: CmdActions.playMusic,
+        payload: {'music': music.toJson()},
+      ),
     );
+    return true;
   }
+
+  /// 向 [peerId] 发送一条远程控制指令（[CmdActions] 中的动作）。
+  ///
+  /// 与 [pushMusicToPeer] 同一套前置校验：会话存在、处于 `syncing` 且为私有。
+  /// 公共只读会话、未握手、对端已断开的场景一律返回 `false`，
+  /// 由调用方决定提示文案（同步面板据此显示「该设备不可遥控」）。
+  bool sendRemoteCommand(
+    String peerId,
+    String action, {
+    Map<String, dynamic>? payload,
+  }) {
+    final session = _sessions[peerId];
+    if (session == null) return false;
+    if (session.state != LanSessionState.syncing) return false;
+    if (!session.isPrivate) return false;
+    session.send(CmdMessage(action: action, payload: payload));
+    return true;
+  }
+
+  /// 请求对端立即回推一次「正在播放」快照（同步面板打开 / 切换设备时用）。
+  ///
+  /// 返回 false 表示指令未能发出，对端快照只能等它下一次主动广播。
+  bool requestRemoteState(String peerId) =>
+      sendRemoteCommand(peerId, CmdActions.requestState);
 
   /// 主动发起配对：用户已在 UI 输入对端 PIN。
   ///

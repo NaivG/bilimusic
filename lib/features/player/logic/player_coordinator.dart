@@ -62,6 +62,12 @@ class PlayerCoordinator {
   _RoamSession? _roamSession;
   bool _roamFetchInFlight = false;
 
+  /// 漫游会话是否活跃（供漫游 UI 订阅，见 `isRoamingProvider`）。
+  ///
+  /// 漫游的启停不只来自漫游入口：被控端收到遥控指令、本机「跟随此设备」
+  /// 都会退出漫游，UI 必须能被动跟随，而不是靠调用方手动 setState。
+  final ValueNotifier<bool> roamingNotifier = ValueNotifier<bool>(false);
+
   PlayerCoordinator({
     required DualAudioService audioService,
     required SettingsManager settingsManager,
@@ -686,10 +692,12 @@ class PlayerCoordinator {
     await _playlistService.addAllToPlaylist(seeds);
     _playlistService.setCurrentIndex(0);
 
-    _roamSession = _RoamSession(
-      style: style,
-      refillThreshold: _settingsManager.roamRefillThreshold,
-      seeds: seeds,
+    _setRoamSession(
+      _RoamSession(
+        style: style,
+        refillThreshold: _settingsManager.roamRefillThreshold,
+        seeds: seeds,
+      ),
     );
 
     await _playCurrentTrack();
@@ -722,10 +730,12 @@ class PlayerCoordinator {
     await _playlistService.addAllToPlaylist(songs);
     _playlistService.setCurrentIndex(0);
 
-    _roamSession = _RoamSession(
-      style: style,
-      refillThreshold: _settingsManager.roamRefillThreshold,
-      seeds: seeds,
+    _setRoamSession(
+      _RoamSession(
+        style: style,
+        refillThreshold: _settingsManager.roamRefillThreshold,
+        seeds: seeds,
+      ),
     );
 
     await _playCurrentTrack();
@@ -737,8 +747,44 @@ class PlayerCoordinator {
   /// 退出漫游模式：停用 session，队列保留并继续按当前 PlayMode 播。
   void stopRoam() {
     if (_roamSession == null) return;
-    _roamSession = null;
+    _setRoamSession(null);
     debugPrint('[PlayerCoordinator] roam stopped');
+  }
+
+  /// 统一的漫游会话写入点：切换会话并同步 [roamingNotifier]。
+  ///
+  /// 所有漫游会话变更都必须走这里，否则漫游 UI 会与实际状态脱节。
+  void _setRoamSession(_RoamSession? session) {
+    if (identical(_roamSession, session)) return;
+    _roamSession = session;
+    roamingNotifier.value = session != null;
+  }
+
+  /// 采用远端对端推送的队列到本机播放（同步面板的「跟随此设备」）。
+  ///
+  /// 语义：本机在此动作里是**被控端**，跟随主控端（对端）播放。
+  ///
+  /// 与 [applyRoamPlaylist] 的区别：
+  /// - 不建立漫游会话，并先走 [stopRoam] 退出正在进行的漫游：否则续杯会往
+  ///   跟随队列里追加推荐曲，本机就跟不住主控端的队列了（漫游 UI 也会因为
+  ///   [roamingNotifier] 自动刷新）。
+  /// - 从 [index] 开始播（远端当前播到第几首），越界回落到第 0 首。
+  /// - [songs] 为空（公共只读会话不推送队列）时不做任何事，由调用方提示。
+  Future<void> adoptRemotePlaylist({
+    required List<Music> songs,
+    int index = 0,
+  }) async {
+    if (songs.isEmpty) return;
+    stopRoam();
+    await clearPlaylist();
+    await _playlistService.addAllToPlaylist(songs);
+    _playlistService.setCurrentIndex(
+      index >= 0 && index < songs.length ? index : 0,
+    );
+    await _playCurrentTrack();
+    debugPrint(
+      '[PlayerCoordinator] adopted remote playlist: ${songs.length} songs, index=$index',
+    );
   }
 
   /// 检查队列余量，触发 roam 懒加载。
@@ -943,6 +989,7 @@ class PlayerCoordinator {
     _debounceTimer?.cancel();
     _countdownTimer?.cancel();
     pauseAfterCurrentTrack.dispose();
+    roamingNotifier.dispose();
     await _audioService.dispose();
     await _playlistService.dispose();
   }

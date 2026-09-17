@@ -5,6 +5,7 @@ import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/roam/models/roam_config.dart';
 import 'package:bilimusic/features/roam/models/roam_style.dart';
+import 'package:bilimusic/features/roam/roam_providers.dart';
 import 'package:bilimusic/shared/utils/clipboard_helpers.dart';
 import 'package:bilimusic/shared/widgets/music_cover.dart';
 
@@ -16,7 +17,8 @@ import 'package:bilimusic/shared/widgets/music_cover.dart';
 /// - 停止漫游 → 退出漫游
 /// - 关闭
 ///
-/// 返回 `true` 表示用户点击了「停止漫游」，`null` 表示取消/关闭。
+/// 返回 `true` 表示用户点击了「停止漫游」，`null` 表示取消/关闭；
+/// 漫游状态本身以 [isRoamingProvider] 为准（遥控 / 跟随也会停漫游）。
 Future<bool?> showRoamInfoDialog(BuildContext context, WidgetRef ref) {
   return showDialog<bool>(
     context: context,
@@ -30,6 +32,9 @@ class _RoamInfoDialog extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final coordinator = ref.read(playerCoordinatorProvider);
+    // 停下漫游的来源不止本对话框：遥控指令 / 「跟随此设备」也会停，
+    // 订阅后按钮的可用状态才能跟着变。
+    final isRoaming = ref.watch(isRoamingProvider);
     final style = coordinator.roamStyle;
     final seeds = coordinator.roamSeeds;
 
@@ -66,7 +71,7 @@ class _RoamInfoDialog extends ConsumerWidget {
           child: const Text('导出配置'),
         ),
         TextButton(
-          onPressed: coordinator.isRoaming ? () => _onStop(context, ref) : null,
+          onPressed: isRoaming ? () => _onStop(context, ref) : null,
           style: TextButton.styleFrom(foregroundColor: Colors.red),
           child: const Text('停止漫游'),
         ),

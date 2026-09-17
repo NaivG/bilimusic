@@ -9,6 +9,8 @@ import 'package:bilimusic/domain/music.dart' as model;
 import 'package:bilimusic/app/shells/navigation_providers.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/player/widgets/sleep_timer_sheet.dart';
+import 'package:bilimusic/features/lan_sync/lan_sync_providers.dart';
+import 'package:bilimusic/features/lan_sync/ui/sync_panel.dart';
 import 'package:bilimusic/shared/utils/dialog_helpers.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
 import 'package:bilimusic/shared/widgets/window_drag_area.dart';
@@ -204,6 +206,10 @@ class LandscapeDetailPage extends ConsumerWidget {
           onTap: onToggleFavorite,
         ),
         SheetAction(icon: Icons.share, label: '分享', onTap: onShare),
+        syncPanelSheetAction(
+          context,
+          onlinePeers: ref.read(connectedPeersProvider).length,
+        ),
         SheetAction(
           icon: Icons.timer_outlined,
           // 实时文案：倒计时进行中随剩余时间刷新。
