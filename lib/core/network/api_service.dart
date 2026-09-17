@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart' show debugPrint;
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 import 'package:bilimusic/core/network/bili_client.dart';
 import 'package:bilimusic/core/network/bili_exception.dart';
@@ -11,11 +12,30 @@ import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/search_result.dart';
 import 'package:bilimusic/core/network/av_bv.dart';
 
+/// 离线查表钩子：命中且音质够用时返回本地文件路径与实际音质，否则 null。
+///
+/// 用回调而不是直接依赖 `OfflineCacheService`：`lib/core/` 必须保持不依赖
+/// feature 层，具体实现由 `app/app_providers.dart` 注入。
+typedef OfflineResolver = Future<({String path, String qualityId})?> Function(
+  Music music,
+  String qualityId,
+);
+
 /// B 站 API 服务。所有 HTTP 请求统一走 [BiliClient]。
 class ApiService {
-  ApiService({BiliClient? client}) : _client = client ?? BiliClient();
-
+  ApiService({
+    BiliClient? client,
+    CacheManager? musicCache,
+    OfflineResolver? offlineResolver,
+  }) : _client = client ?? BiliClient(),
+       _musicCache = musicCache ?? musicCacheManager,
+       _offlineResolver = offlineResolver;
   final BiliClient _client;
+
+  /// 音频临时缓存。抽成字段便于测试注入，行为与全局 `musicCacheManager` 一致。
+  final CacheManager _musicCache;
+
+  final OfflineResolver? _offlineResolver;
 
   // ====================================================================
   //  视频详情
@@ -109,7 +129,16 @@ class ApiService {
   //  音频 URL
   // ====================================================================
 
-  /// 获取可播放的音频 URL（命中本地缓存则返回本地路径，否则走 `/x/player/playurl` 后下载）。
+  /// 获取可播放的音频路径，按「离线缓存 → 临时缓存 → 联网取流下载」顺序解析：
+  ///
+  /// 1. 离线缓存（`downloads` 表 + 磁盘文件）：命中且音质够用就直接返回本地路径，
+  ///    断网也能播；文件被外部删掉时由 `OfflineResolver` 顺手清掉记录并回退下一步；
+  /// 2. 临时缓存（flutter_cache_manager，滚动回收）：命中即返回；
+  /// 3. `/x/player/playurl` 拿 DASH 音频流，下载进**临时缓存**后返回其路径。
+  ///
+  /// 本方法**只借用临时缓存，不写永久离线目录**：落进离线目录是"用户显式下载"的
+  /// 语义，由下载入口（`OfflineTracksNotifier.download`）自己 `persistFromFile` 完成。
+  /// 否则每播一首都会永久占用户一块盘，离线缓存目录就变成了第二个播放缓存目录。
   ///
   /// [qualityId] 为 B 站音质代码：30216=64K / 30232=132K / 30280=192K /
   /// 30250=杜比全景声 / 30251=Hi-Res 无损（后两者需大会员账号）。
@@ -117,7 +146,8 @@ class ApiService {
   ///
   /// 返回 `(path, qualityId)`：qualityId 为实际命中的流音质代码——
   /// 在线挑选时是回退后真正命中的那一档，缓存命中时即请求音质（缓存 key 按请求音质区分），
-  /// 失败时为空串。
+  /// 离线命中时是**落盘时的实际音质**，失败时为空串。
+  /// path 是当前存在于磁盘的路径：离线命中时是离线目录里那份，其余是临时缓存那份。
   ///
   /// 失败返回 `path: ''` —— 该方法历史上是「尽力而为」语义，未改为抛异常以避免
   /// 破坏 [PlayerCoordinator] 的 fallback 逻辑（无 URL 即停在 stopped 态）。
@@ -126,15 +156,24 @@ class ApiService {
     String qualityId = '30280',
   }) async {
     try {
-      String cid = music.cid;
+      var cid = music.cid;
       if (cid.isEmpty && music.pages.isNotEmpty) {
         cid = music.pages[0].cid;
+      }
+
+      // ① 离线缓存优先：命中就完全不碰网络。
+      final offline = await _offlineResolver?.call(music, qualityId);
+      if (offline != null && offline.path.isNotEmpty) {
+        debugPrint(
+          '[ApiService] getAudioUrl(${music.id}): 离线命中 ${offline.path}',
+        );
+        return offline;
       }
 
       final cacheKey = cid.isNotEmpty
           ? '${music.id}_${cid}_q$qualityId'
           : '${music.id}_q$qualityId';
-      final cached = await musicCacheManager.getFileFromCache(cacheKey);
+      final cached = await _musicCache.getFileFromCache(cacheKey);
       if (cached != null) {
         // 缓存 key 按请求音质区分，命中即视为该音质
         return (path: cached.file.path, qualityId: qualityId);
@@ -183,7 +222,7 @@ class ApiService {
 
       // 缓存 key 按请求的音质区分：回退下载的流也存同一 key，
       // 保证同一设置下重复播放稳定命中缓存。
-      final file = await musicCacheManager.downloadFile(
+      final file = await _musicCache.downloadFile(
         audioUrl,
         key: cacheKey,
         authHeaders: {

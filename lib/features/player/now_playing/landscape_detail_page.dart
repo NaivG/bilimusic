@@ -9,8 +9,11 @@ import 'package:bilimusic/domain/music.dart' as model;
 import 'package:bilimusic/app/shells/navigation_providers.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/player/widgets/sleep_timer_sheet.dart';
+import 'package:bilimusic/features/lan_sync/lan_sync_providers.dart';
+import 'package:bilimusic/features/lan_sync/ui/sync_panel.dart';
 import 'package:bilimusic/shared/utils/dialog_helpers.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/shared/widgets/window_drag_area.dart';
 import 'package:bilimusic/app/app_providers.dart';
 
 /// 横屏详情页 —— 纯视图：左侧专辑区 + 右侧歌词面板（Apple Music 左右分栏布局）。
@@ -133,55 +136,60 @@ class LandscapeDetailPage extends ConsumerWidget {
   }
 
   Widget _buildAppBar(BuildContext context, WidgetRef ref) {
-    return SafeArea(
-      bottom: false,
-      child: Container(
-        height: 56,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Row(
-          children: [
-            IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  shape: BoxShape.circle,
+    // 详情页隐藏了外壳标题栏（见 LandscapeShell._showShellChrome），窗口又是
+    // 无边框模式，所以这条自绘标题栏必须自带拖动区，否则详情页整页拖不动窗口。
+    return WindowDragArea(
+      child: SafeArea(
+        bottom: false,
+        child: Container(
+          height: 56,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            children: [
+              IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.keyboard_arrow_down,
+                    color: Colors.white,
+                    size: 24,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.keyboard_arrow_down,
-                  color: Colors.white,
-                  size: 24,
+                onPressed: () => ref
+                    .read(shellNavigationProvider.notifier)
+                    .maybePop(context),
+              ),
+              const Spacer(),
+              Text(
+                '正在播放',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              onPressed: () =>
-                  ref.read(shellNavigationProvider.notifier).maybePop(context),
-            ),
-            const Spacer(),
-            Text(
-              '正在播放',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.9),
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const Spacer(),
-            IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  shape: BoxShape.circle,
+              const Spacer(),
+              IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.more_horiz,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.more_horiz,
-                  color: Colors.white,
-                  size: 20,
-                ),
+                onPressed: () => _showOptionsSheet(context, ref),
               ),
-              onPressed: () => _showOptionsSheet(context, ref),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -198,6 +206,10 @@ class LandscapeDetailPage extends ConsumerWidget {
           onTap: onToggleFavorite,
         ),
         SheetAction(icon: Icons.share, label: '分享', onTap: onShare),
+        syncPanelSheetAction(
+          context,
+          onlinePeers: ref.read(connectedPeersProvider).length,
+        ),
         SheetAction(
           icon: Icons.timer_outlined,
           // 实时文案：倒计时进行中随剩余时间刷新。

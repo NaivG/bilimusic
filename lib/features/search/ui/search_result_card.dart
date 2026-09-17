@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/search_result.dart';
 import 'package:bilimusic/features/player/logic/player_coordinator.dart';
@@ -12,7 +13,7 @@ import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/core/network/network_config.dart';
 
 /// 搜索结果卡片组件 - 用于展示非Music类型的搜索结果
-class SearchResultCard extends StatefulWidget {
+class SearchResultCard extends ConsumerStatefulWidget {
   final SearchResult result;
   final PlayerCoordinator playerCoordinator;
   final PlaylistCommands commands;
@@ -31,10 +32,10 @@ class SearchResultCard extends StatefulWidget {
   });
 
   @override
-  State<SearchResultCard> createState() => _SearchResultCardState();
+  ConsumerState<SearchResultCard> createState() => _SearchResultCardState();
 }
 
-class _SearchResultCardState extends State<SearchResultCard>
+class _SearchResultCardState extends ConsumerState<SearchResultCard>
     with SingleTickerProviderStateMixin {
   bool _isHovered = false;
   late AnimationController _animationController;
@@ -93,6 +94,7 @@ class _SearchResultCardState extends State<SearchResultCard>
               playerCoordinator: widget.playerCoordinator,
               commands: widget.commands,
               playlistService: widget.playlistService,
+              ref: ref,
             );
           },
           child: GestureDetector(

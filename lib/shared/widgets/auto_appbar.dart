@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:window_manager/window_manager.dart';
-import 'package:bilimusic/shared/utils/platform_helper.dart';
+import 'package:bilimusic/shared/widgets/window_drag_area.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 
 /// 自动适配的 AppBar
-/// 在桌面平台使用 GestureDetector 包裹，支持窗口拖动
+/// 在桌面平台整条标题栏可拖动窗口（见 [WindowDragArea]）
 class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Widget? leading;
   final bool automaticallyImplyLeading;
@@ -89,14 +88,8 @@ class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
       forceMaterialTransparency: forceMaterialTransparency ?? false,
     );
 
-    if (!PlatformHelper.isDesktop) {
-      return appBar;
-    }
-
-    return GestureDetector(
-      onPanStart: (_) => windowManager.startDragging(),
-      child: appBar,
-    );
+    // 桌面端：整条标题栏（含无标题时的空白区）都能拖动窗口
+    return WindowDragArea(child: appBar);
   }
 
   @override

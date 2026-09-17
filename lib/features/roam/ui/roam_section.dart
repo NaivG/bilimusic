@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/features/roam/roam_providers.dart';
 import 'package:bilimusic/features/roam/ui/roam_info_dialog.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 
@@ -12,29 +12,15 @@ import 'package:bilimusic/app/shells/shell_page_manager.dart';
 /// - 未漫游：trailing 为右箭头，点击进入 [ShellPage.roamOnboarding]。
 /// - 漫游中：trailing 为紫色设置按钮，点击 [showRoamInfoDialog]
 ///   （详情框内可导出配置或停止漫游）。
-class RoamSection extends ConsumerStatefulWidget {
+///
+/// 漫游状态订阅 [isRoamingProvider]：除了本行的入口，被控端收到遥控指令、
+/// 本机「跟随此设备」也会退出漫游，本行需要跟着刷新。
+class RoamSection extends ConsumerWidget {
   const RoamSection({super.key});
 
   @override
-  ConsumerState<RoamSection> createState() => _RoamSectionState();
-}
-
-class _RoamSectionState extends ConsumerState<RoamSection> {
-  void _onStartTap() {
-    ShellPageManager.instance.push(ShellPage.roamOnboarding);
-  }
-
-  Future<void> _onSettingsTap() async {
-    final didStop = await showRoamInfoDialog(context, ref);
-    if (didStop == true) {
-      // isRoaming 变化后手动触发重建（行内仍使用 ref.read，依赖 setState）
-      setState(() {});
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isRoaming = ref.read(playerCoordinatorProvider).isRoaming;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isRoaming = ref.watch(isRoamingProvider);
 
     return ListTile(
       leading: Container(
@@ -50,10 +36,12 @@ class _RoamSectionState extends ConsumerState<RoamSection> {
           ? IconButton(
               icon: const Icon(Icons.tune, color: Colors.purple),
               tooltip: '漫游设置',
-              onPressed: _onSettingsTap,
+              onPressed: () => showRoamInfoDialog(context, ref),
             )
           : const Icon(Icons.arrow_forward_ios),
-      onTap: isRoaming ? null : _onStartTap,
+      onTap: isRoaming
+          ? null
+          : () => ShellPageManager.instance.push(ShellPage.roamOnboarding),
     );
   }
 }

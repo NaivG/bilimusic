@@ -1,0 +1,84 @@
+name: 🐛 Bug 报告
+description: 报告使用中遇到的问题，帮助我们改进
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！提交前请先[搜索现有 Issue](https://github.com/NaivG/bilimusic/issues?q=is%3Aissue)，避免重复提交。
+        > [!WARNING]
+        > 请勿在 Issue 中粘贴 Cookie、账号信息等敏感数据。
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 出现问题的平台
+      options:
+        - Windows
+        - Linux
+        - Android
+        - macOS
+        - iOS
+        - Web
+        - TUI（终端客户端）
+        - 其他
+    validations:
+      required: true
+  - type: input
+    id: os-version
+    attributes:
+      label: 系统版本
+      description: 例如 Windows 11 25H2 / Ubuntu 26.04 / Android 15；Linux 请注明发行版
+      placeholder: Windows 11 25H2
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: 应用版本
+      description: 可在「设置 → 关于」中查看；从源码构建请填写 commit hash
+      placeholder: 例如 v1.5.0
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 清晰简洁地描述遇到了什么问题
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      description: 如何稳定触发该问题
+      placeholder: |
+        1. 打开 …
+        2. 点击 …
+        3. 出现 …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+      description: 你认为应该发生什么
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+      description: 实际发生了什么，可附截图或录屏
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志
+      description: 崩溃日志 / Debug 错误堆栈 / 控制台输出（请确认已去除敏感信息）
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已搜索并确认没有重复的 Issue
+        - label: 我使用的是最新版本（或最新 dev 分支构建）
+        - label: 我确认本 Issue 不包含 Cookie、账号信息等敏感数据
+          required: true

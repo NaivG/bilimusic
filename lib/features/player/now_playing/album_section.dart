@@ -411,6 +411,8 @@ class _AlbumSectionState extends ConsumerState<AlbumSection>
           isPlaying: widget.isPlaying,
           size: m.mainButtonSize,
           iconSize: m.mainIconSize,
+          iconColor: Colors.black.withValues(alpha: 0.9),
+          backgroundColor: Colors.white.withValues(alpha: 0.9),
           onTap: widget.onPlayPause,
         ),
         SizedBox(width: m.gapMain),
@@ -570,10 +572,10 @@ class _AlbumMetrics {
 
     // 控制行总宽 ≈ 4.94 × 主按钮（4 副按钮×0.62 + 主按钮 + 4 间距），保证不溢出
     final mainButtonSize = math.max(
-      32.0,
-      math.min(coverSize * 0.24, math.min(contentWidth / 4.94, 76.0)),
+      36.0,
+      math.min(coverSize * 0.28, math.min(contentWidth / 4.94, 76.0)),
     );
-    final sideButtonSize = mainButtonSize * 0.62;
+    final sideButtonSize = mainButtonSize * 0.65;
 
     // 信息行实测高度（字号/缩放就位后），供「填充 vs 滚动」判定
     final infoTextHeight =
@@ -606,7 +608,7 @@ class _AlbumMetrics {
       mainButtonSize: mainButtonSize,
       sideButtonSize: sideButtonSize,
       mainIconSize: mainButtonSize * 0.5,
-      sideIconSize: sideButtonSize * 0.55,
+      sideIconSize: sideButtonSize * 0.65,
       gapMain: mainButtonSize * 0.35,
       gapSide: mainButtonSize * 0.38,
       gapCoverInfo: coverSize * 0.2,

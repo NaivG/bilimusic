@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'app_component_themes.dart';
 import 'app_palette.dart';
 import 'app_tokens.dart';
 
@@ -136,6 +137,7 @@ ThemeData _buildLucent(Brightness brightness) {
     colorScheme: scheme,
     useMaterial3: true,
     extensions: [palette],
+    snackBarTheme: AppComponentThemes.snackBar(scheme),
     cardTheme: CardThemeData(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppTokens.radiusMd),

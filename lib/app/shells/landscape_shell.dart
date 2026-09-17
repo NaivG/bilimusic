@@ -51,14 +51,10 @@ class LandscapeShell extends ConsumerWidget {
                       child: Material(
                         color: sidebarSurface.withValues(alpha: 0.2),
                         child: shellPageSwitcher(
-                          key: ValueKey(
-                            pageManager.basePage == ShellPage.playlist
-                                ? 'playlist-${pageManager.playlistNavGen}'
-                                : pageManager.basePage.name,
-                          ),
+                          key: pageManager.basePageKey,
                           child: buildShellPageContent(
                             page: pageManager.basePage,
-                            pageManager: pageManager,
+                            args: pageManager.baseEntry.args,
                             homePage: const HomeContent(showAppBar: false),
                           ),
                         ),
@@ -67,18 +63,21 @@ class LandscapeShell extends ConsumerWidget {
                   ],
                 ),
               ),
-              // 底部播放器
-              if (_showShellChrome)
-                LandscapeBottomControl(
-                  onExpand: () => pageManager.push(ShellPage.detail),
-                  onPlayList: onPlayList,
-                ),
             ],
           ),
           // 详情页独立动画层（与底层切换完全解耦）
           buildShellDetailLayer(currentPage: currentPage),
         ],
       ),
+      // 底部播放条必须放在 Scaffold 的底槽（bottomNavigationBar）里，不能塞进
+      // 上面 body 的 Column。
+      // 放进底槽后 Scaffold 同样会为它预留 body 高度。
+      bottomNavigationBar: _showShellChrome
+          ? LandscapeBottomControl(
+              onExpand: () => pageManager.push(ShellPage.detail),
+              onPlayList: onPlayList,
+            )
+          : null,
     );
   }
 
@@ -112,11 +111,12 @@ class LandscapeShell extends ConsumerWidget {
 
   /// 侧边栏
   Widget _buildSidebar(WidgetRef ref) {
-    final selectedLabel = _getSelectedLabel();
     return LandscapeSidebar(
-      selectedLabel: selectedLabel,
+      selectedLabel: _getSelectedLabel(),
       playlists: ref.watch(userPlaylistsProvider),
-      selectedPlaylistId: pageManager.getArgs<String>('selectedPlaylistId'),
+      // 歌单页时按 playlistId 高亮对应侧边栏项（我喜欢的音乐/最近播放/创建的歌单）；
+      // 每日推荐、远程歌单等 id 不在侧边栏中，自然不高亮。
+      selectedPlaylistId: pageManager.activePlaylistId,
       onNavTap: _onSidebarNavTap,
       onPlaylistTap: (playlistId) {
         pageManager.goToPlaylist(playlistId: playlistId);
@@ -125,10 +125,10 @@ class LandscapeShell extends ConsumerWidget {
     );
   }
 
-  /// 当前应高亮的顶层导航项。
-  /// 在歌单页时返回 null —— `ShellPageManager.selectedTabIndex` 对
-  /// `ShellPage.playlist` 退化到 home 索引，所以这里要根据 currentPage
-  /// 直接判断，避免出现"在歌单页却仍高亮发现"的视觉残留。
+  /// 当前应高亮的顶层导航项（发现/搜索/设置）。
+  /// 在歌单页时返回 null——此时侧边栏的视觉焦点由
+  /// [ShellPageManager.activePlaylistId] 交给对应歌单项，避免
+  /// 「歌单项和发现同时高亮」或「在歌单页却仍高亮发现」的视觉残留。
   String? _getSelectedLabel() {
     if (pageManager.currentPage == ShellPage.playlist) {
       return null;

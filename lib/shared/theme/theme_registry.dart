@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'gruvbox_theme.dart';
 import 'lucent_theme.dart';
 import 'nocturne_theme.dart';
+import 'nord_theme.dart';
+import 'solarized_theme.dart';
 import 'verdant_theme.dart';
 
 /// 主题描述符 —— 在设置页选择器中渲染色板预览,以及给 [MaterialApp] 提供
@@ -91,6 +94,78 @@ class _VerdantDescriptor extends AppThemeDescriptor {
       : VerdantColors.surfaceDark;
 }
 
+class _SolarizedDescriptor extends AppThemeDescriptor {
+  @override
+  String get id => 'solarized';
+  @override
+  String get label => 'Solarized';
+  @override
+  String? get subtitle => '经典调色板 · 米纸底 · 深蓝/亮青 accent';
+
+  @override
+  ThemeData light() => SolarizedTheme.lightTheme();
+  @override
+  ThemeData dark() => SolarizedTheme.darkTheme();
+
+  @override
+  Color paletteAccent(Brightness brightness) => brightness == Brightness.light
+      ? SolarizedColors.primaryLight
+      : SolarizedColors.primaryDark;
+
+  @override
+  Color paletteSurface(Brightness brightness) => brightness == Brightness.light
+      ? SolarizedColors.surfaceLight
+      : SolarizedColors.surfaceDark;
+}
+
+class _NordDescriptor extends AppThemeDescriptor {
+  @override
+  String get id => 'nord';
+  @override
+  String get label => 'Nord';
+  @override
+  String? get subtitle => '极地冰雪 · 雪暴白/极夜底 · 冻蓝/冻青 accent';
+
+  @override
+  ThemeData light() => NordTheme.lightTheme();
+  @override
+  ThemeData dark() => NordTheme.darkTheme();
+
+  @override
+  Color paletteAccent(Brightness brightness) => brightness == Brightness.light
+      ? NordColors.primaryLight
+      : NordColors.primaryDark;
+
+  @override
+  Color paletteSurface(Brightness brightness) => brightness == Brightness.light
+      ? NordColors.surfaceLight
+      : NordColors.surfaceDark;
+}
+
+class _GruvboxDescriptor extends AppThemeDescriptor {
+  @override
+  String get id => 'gruvbox';
+  @override
+  String get label => 'Gruvbox';
+  @override
+  String? get subtitle => '复古暖调 · 米色/深棕底 · 暖橙 accent';
+
+  @override
+  ThemeData light() => GruvboxTheme.lightTheme();
+  @override
+  ThemeData dark() => GruvboxTheme.darkTheme();
+
+  @override
+  Color paletteAccent(Brightness brightness) => brightness == Brightness.light
+      ? GruvboxColors.primaryLight
+      : GruvboxColors.primaryDark;
+
+  @override
+  Color paletteSurface(Brightness brightness) => brightness == Brightness.light
+      ? GruvboxColors.surfaceLight
+      : GruvboxColors.surfaceDark;
+}
+
 /// 主题注册表 —— 提供稳定顺序的 [AppThemeDescriptor] 列表。
 class ThemeRegistry {
   ThemeRegistry._();
@@ -99,6 +174,9 @@ class ThemeRegistry {
     _LucentDescriptor(),
     _NocturneDescriptor(),
     _VerdantDescriptor(),
+    _SolarizedDescriptor(),
+    _NordDescriptor(),
+    _GruvboxDescriptor(),
   ];
 
   static final Map<String, AppThemeDescriptor> _byId = {

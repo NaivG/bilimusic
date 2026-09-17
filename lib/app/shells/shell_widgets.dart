@@ -27,9 +27,13 @@ import 'package:bilimusic/features/lan_sync/ui/sync_page.dart';
 /// 两个壳的差异点（home 是包不包 AppBar）通过
 /// 参数注入；剩余的 11 个 ShellPage 走完全相同的渲染管线，
 /// 新加页面只需在这里加一行。
+///
+/// [args] 必须传页面自己那一帧的参数（横竖屏壳均传
+/// `pageManager.baseEntry.args`），不要传栈顶帧——栈顶可能是
+/// detail 等无参页面，会导致底层页面拿到空参数。
 Widget buildShellPageContent({
   required ShellPage page,
-  required ShellPageManager pageManager,
+  required Map<String, dynamic> args,
   required Widget homePage,
 }) {
   switch (page) {
@@ -38,7 +42,7 @@ Widget buildShellPageContent({
     case ShellPage.search:
       return const SearchOverlay();
     case ShellPage.searchResults:
-      final query = pageManager.getArgs<String>('query') ?? '';
+      final query = args['query'] as String? ?? '';
       return SearchResultsOverlay(query: query);
     case ShellPage.profile:
       return const ProfilePage();
@@ -47,9 +51,9 @@ Widget buildShellPageContent({
     case ShellPage.detail:
       return const DetailPage();
     case ShellPage.playlist:
-      final playlistId = pageManager.getArgs<String>('playlistId');
-      final songs = pageManager.getArgs<List<Music>>('songs');
-      final playlistName = pageManager.getArgs<String>('playlistName');
+      final playlistId = args['playlistId'] as String?;
+      final songs = args['songs'] as List<Music>?;
+      final playlistName = args['playlistName'] as String?;
       return PlaylistPage(
         playlistId: playlistId,
         songs: songs,
