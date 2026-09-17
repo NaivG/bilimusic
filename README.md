@@ -194,7 +194,8 @@ dart run bin/bilimusic_tui.dart --preview  # 静态设计预览（假数据，�
 - 多档音质选择，DASH 音频流按选择取流并回显实际生效音质。
 - 后台播放、系统媒体通知、音量持久化。
 - 动态歌词：自动匹配、逐字点亮、辉光效果。
-- 主题系统：Lucent / Nocturne / Verdant，运行时切换并按封面主色适配。
+- 主题系统：Lucent / Nocturne / Verdant / Gruvbox / Nord / Solarized 六套主题，运行时切换并按封面主色适配。
+- 离线缓存：歌曲可下载到本地，断网也能继续播放。
 
 **整理与同步**
 - 本地歌单：创建、编辑、删除、拖拽排序、滑动删除。
@@ -237,7 +238,7 @@ dart run bin/bilimusic_tui.dart --preview  # 静态设计预览（假数据，�
 - **桌面端**：使用 B 站 App 扫码登录。
 - **数据迁移**：可在数据管理中将移动端数据迁移到桌面端。
 
-> **数据存储**：歌单、收藏和历史保存在本地 SQLite；设置使用 `shared_preferences`；网络资源与歌词进入本地缓存。迁移或清理前请做好备份。
+> **数据存储**：歌单、收藏和历史保存在本地 SQLite；设置使用 `shared_preferences`；网络资源与歌词进入本地缓存；歌曲可另存为离线缓存，断网可播。迁移或清理前请做好备份。
 
 ---
 
@@ -307,11 +308,12 @@ lib/
 │   ├── playlist/              # 歌单 / 收藏 / 历史的单一数据源
 │   ├── roam/                  # 漫游模式：simhash 排序、种子多样性与风格策略
 │   ├── lan_sync/              # 局域网同步：mDNS 发现、二维码配对、远程控制
+│   ├── offline/               # 离线缓存：下载管理、断网播放与缓存清理
 │   ├── auth/                  # 扫码登录、验证码与 Cookie 管理
 │   ├── fav_sync/              # B 站收藏夹导入与同步状态跟踪
 │   ├── home/ search/ profile/ # 首页推荐、搜索、个人中心
 │   └── settings/ update/      # 设置、数据迁移；更新检查、Release 解析、应用内更新与更新日志
-└── shared/                    # 跨模块共享：widgets/、theme/(Lucent/Nocturne/Verdant)、utils/
+└── shared/                    # 跨模块共享：widgets/、theme/(Lucent/Nocturne/Verdant/Gruvbox/Nord/Solarized)、utils/
 
 bin/
 ├── bilimusic_tui.dart         # 终端客户端入口（dart_tui + libmpv FFI）
@@ -402,6 +404,9 @@ This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 ```
+
+> [!WARNING]
+> 本项目的图标采用 [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) 协议。
 
 ---
 
