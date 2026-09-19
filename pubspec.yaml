@@ -77,6 +77,7 @@ dependencies:
   archive: ^4.2.0
   flutter_app_update: ^3.2.4
   permission_handler: ^11.4.0
+  jni: ^1.0.3 # for arm64 global_jni_env build fix (dart-lang/native#3498)
 #  just_aaudio:
 #    path: ../just_aaudio
 
