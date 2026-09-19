@@ -116,6 +116,9 @@ jobs:
           # macOS 需要在 Apple 主机上编译（Xcode），runner 为 Apple Silicon(arm64)
           - name: macos
             os: macos-latest
+          # Linux arm64
+          - name: linux-arm
+            os: ubuntu-24.04-arm
 
     steps:
       # 检出代码
@@ -143,14 +146,40 @@ jobs:
         shell: bash
 
       # 设置Flutter环境
+      # 全平台锁 Flutter 3.47.5，避免 SDK 分叉：
+      #   - x64 走 stable 通道 + 指定版本，下载官方 SDK 压缩包；
+      #   - arm64 只能走 master（Flutter 未发布 Linux arm64 SDK 压缩包）。
       - name: Set up Flutter
+        if: matrix.name != 'linux-arm'
         uses: subosito/flutter-action@v2
         with:
-          channel: stable  # 使用Flutter的稳定版
+          channel: stable
+          flutter-version: 3.47.5
+
+      - name: Set up Flutter arm64
+        if: matrix.name == 'linux-arm'
+        uses: subosito/flutter-action@v2
+        with:
+          channel: master
+          architecture: arm64
+          flutter-version: 3.47.5  # 等价于 commit 6a19cca，锁住不跟 master 飘
 
       # 显示Flutter版本信息
       - name: Check Flutter version
         run: flutter --version
+
+      # flutter-action 命中缓存、或 git clone 中断时，checkout 可能失败而静默退回 master HEAD；
+      # 这里断言一次，避免用 master 编出来的包混进 Release。
+      - name: Verify pinned Flutter version
+        run: |
+          set -euo pipefail
+          flutter --version --machine > _flutter_version.json
+          cat _flutter_version.json
+          if ! grep -q '"frameworkVersion": "3.47.5"' _flutter_version.json; then
+            echo "::error::Flutter version is not pinned to 3.47.5"
+            exit 1
+          fi
+        shell: bash
       
       # 安装Flutter依赖
       - name: Install dependencies
@@ -196,7 +225,7 @@ jobs:
           flutter build web
       
       - name: Build Linux
-        if: matrix.name == 'linux'
+        if: matrix.name == 'linux' || matrix.name == 'linux-arm'
         run: |
           sudo apt-get update -y
           sudo apt-get install -y ninja-build libgtk-3-dev
@@ -256,6 +285,8 @@ jobs:
             zip -r bilimusic_web-release-${{ steps.read_build_env.outputs.FULL_VERSION }}.zip build/web
           elif [ "${{ matrix.name }}" = "linux" ]; then
             zip -r bilimusic_linux-x64-${{ steps.read_build_env.outputs.FULL_VERSION }}.zip build/linux/x64/release/bundle
+          elif [ "${{ matrix.name }}" = "linux-arm" ]; then
+            zip -r bilimusic_linux-arm64-${{ steps.read_build_env.outputs.FULL_VERSION }}.zip build/linux/arm64/release/bundle
           elif [ "${{ matrix.name }}" = "windows" ]; then
             powershell Compress-Archive build/windows/x64/runner/Release bilimusic_win32_x64-${{ steps.read_build_env.outputs.FULL_VERSION }}.zip
           elif [ "${{ matrix.name }}" = "macos" ]; then
