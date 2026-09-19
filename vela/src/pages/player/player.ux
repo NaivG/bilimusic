@@ -1,0 +1,1045 @@
+<template>
+  <div class="demo-page">
+    <!-- 封面背景层：只在白名单机型渲染（依据见 common/device.js 的 COVER_BACKGROUND_DEVICES）。
+         用 <image> 而不是 CSS background-image 有两个原因：
+           1. src 是最基础的属性绑定，不依赖「内联 style 对象绑定」；
+           2. image 组件的 object-fit 默认值就是 cover，正好是背景图要的效果；
+         alt="blank" 是官方专门给的「远程图不显示占位图」开关，避免首帧灰块闪烁。
+         背景层放在 scroll 外面：两屏共用同一张封面底，滚动不重载。 -->
+    <image
+      class="cover-bg"
+      if="{{ showCoverBg }}"
+      src="{{ coverUrl }}"
+      alt="blank"
+      onerror="onCoverError"
+    />
+    <!-- 压暗层：Vela 没有 filter/backdrop-filter，
+         所谓「模糊背景」在本平台只能做到「半透明压暗」，靠它保住前景对比度。 -->
+    <div class="cover-mask" if="{{ showCoverBg }}"></div>
+
+    <!-- 横向翻页容器：第 1 屏播放器，向左滑进入第 2 屏播放队列。
+         ★ 横向是故意的 feature：左右滑 = 换页、上下滑 = 滚内容更符合操作直觉，
+           且上下手势整轴让给第 2 屏的队列 list，不会与外层翻页抢同一根轴。
+           代价（明知且接受）：表冠旋转是纵向滚动，翻不了横向页，第 1 屏上表冠
+           无事可做；第 2 屏表冠仍滚队列（见 settlePagerPage / focusCrownTarget）。
+         为什么是 scroll 而不是 swiper：本机实测 swiper 既无原生旋转翻页、也不
+         派发表冠事件、翻页手势同样不可靠，而 Vela 又没有滑动手势事件可供自补；
+         scroll 手指滚动原生、官方文档明确支持嵌套子滚动容器，性能也更好。
+         scroll-x 显式绑定布尔值，不赌运行时对字符串 "true"/"false" 的转换。
+         两屏宽度 = 屏宽（pageW 由 deviceService 按 getInfo 的 screenWidth 给定；
+         官方 scroll 文档：「竖向滚动需要设置定高，水平滚动需要设置定宽」，子项
+         不定宽横向滚不起来），高度 = 屏高（pageH，与纵向版同理）。
+         靠 scroll-snap 样式吸附成整页（见 .pager/.screen；APILevel 3+ 的增强，
+         不支持的机型自由滚动，JS 侧逻辑不依赖吸附）。
+         「落定在哪一屏」只有 onscroll 一路信号：官方 scroll 只收录 scrolltop /
+         scrollbottom（纵向边界），没有 scrollleft / scrollright，横向落定靠
+         scrollX 贴边带（≤8px / ≥pageW-8px）汇入 settlePagerPage —— 落定第 1 屏
+         焦点交回本容器（横向容器上表冠无事可做，落焦只为焦点确定性），落定
+         第 2 屏焦点交给队列 list（表冠滚队列）。 -->
+    <scroll
+      class="pager"
+      id="pager"
+      scroll-x="{{ true }}"
+      onscroll="onPagerScroll"
+    >
+      <!-- 第 1 屏：播放器（宽度 = 屏宽、高度 = 屏高：scroll 的子项必须有确定
+           尺寸才能成页，水平滚动尤其要定宽） -->
+      <div class="screen" style="width: {{ pageW }}px; height: {{ pageH }}px">
+        <!-- 安全区容器：左右内缩同一个 px 值（deviceService 按「屏宽 × 内缩比例」算好），
+             对称由构造保证。为何不用「百分比宽 + flex 居中」的盒子：渲染层会左锚定，
+             见 common/device.js 的 safeHorizontalInsetPx 注释 -->
+        <div
+          class="safe"
+          style="padding-left: {{ safeInsetPx }}px; padding-right: {{ safeInsetPx }}px"
+        >
+          <!-- 当前时间（小字）：放在歌曲信息**上方**，用来协调第 1 屏的纵向排版 ——
+               标题之上本来是整块空白死区，加一行小字后视觉重心上移、上下留白对称。
+               只显示 HH:MM（要日期/星期的话 common/clock.js 里现成有，
+               formatClockParts().date / .weekday，这里故意不用：小字越小越不抢戏）。
+               时间由本 VM 的定时器按 1 秒对账（startClock），跨分钟才真的重绘。
+               拿不到合法时刻时整行不渲染（见 syncClock），不留空行也不显示 NaN:NaN。 -->
+          <div class="clock-row" if="{{ clockText }}">
+            <text class="clock-text">{{ clockText }}</text>
+          </div>
+          <!-- 歌曲信息 -->
+          <div class="song">
+            <marquee class="song-name" scrollamount="{{36}}">
+              {{ title || "未在播放" }}
+            </marquee>
+            <!-- 歌手行：播放态文案（缓冲中…/已暂停等）优先于 artist，
+                 正在播放时 hint 为空串，走回歌手名 -->
+            <marquee class="singer-name" scrollamount="{{36}}">
+              {{ hint || artist }}
+            </marquee>
+          </div>
+          <!-- 播放控制按钮 -->
+          <div class="controls">
+            <image class="icon" src="/common/icon/prev.png" onclick="onPrev" />
+            <div class="play-button">
+              <!-- 播放进度条 -->
+              <div class="progress-container">
+                <progress class="play-progress" type="arc" percent="{{progress}}"></progress>
+              </div>
+              <image
+                class="icon"
+                if="{{isPlaying}}"
+                src="/common/icon/pause.png"
+                onclick="playOrPause"
+              />
+              <image
+                class="icon"
+                else
+                src="/common/icon/play.png"
+                onclick="playOrPause"
+              />
+            </div>
+            <image class="icon" src="/common/icon/next.png" onclick="onNext" />
+          </div>
+          <!-- 进度时间 -->
+          <div class="time-row">
+            <text class="time-text">{{ timeText }}</text>
+            <text class="time-text" if="{{ queueText }}">{{ queueText }}</text>
+          </div>
+          <!-- 错误 / 提示：短提示居中静态显示；长报错（60-120 字的诊断信息）走跑马灯。
+               屏幕只有 4xx px 宽、text 又是 lines:2 + ellipsis，「为什么失败」那半句
+               会被截掉 —— 而排查要看的恰恰是那半句，所以长文案交给 marquee。
+               marquee 是官方组件（dom/marquee.d.ts），歌名/歌手行一直在用它；
+               text-offset 是 Vela 独有的首尾间距，滚到接头处更好认从哪读起。
+               scrollamount 比歌名行（36）小一半：歌名只要认出来就行，诊断信息要一个字
+               一个字读，默认速度（18px/步 ≈ 9 字/秒）刚好是能跟上的节奏。 -->
+          <div class="notice-row" if="{{ notice }}">
+            <marquee
+              class="notice notice-scroll"
+              if="{{ noticeScroll }}"
+              scrollamount="{{18}}"
+              text-offset="{{40}}"
+            >{{ notice }}</marquee>
+            <text class="notice" else>{{ notice }}</text>
+          </div>
+          <!-- 底部操作按钮 -->
+          <div class="footer">
+            <image class="icon" src="/common/icon/volume.png" onclick="goToVolume" />
+            <image class="icon" src="/common/icon/more.png" onclick="goToMore" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 第 2 屏：播放队列。
+           手势说明：本屏主体是可纵向滚动的 list，上下手势归 list、左右手势归
+           外层翻页 —— 两轴分离互不抢（这正是横向翻页换来的好处）。头部
+           「‹ 播放队列」走 scrollTo({left:0}) 仍是保留的兜底返回路径：不依赖
+           手势，也省掉「想起手势怎么滑」的心智。
+           表冠说明：落定在第 2 屏后焦点交给 qList，旋转 = 滚队列（纵向、原生）；
+           第 1 屏时焦点在外层横向 scroll，表冠无事可做（可接受的取舍）。
+           见 settlePagerPage / focusCrownTarget。 -->
+      <div class="screen" style="width: {{ pageW }}px; height: {{ pageH }}px">
+        <div
+          class="safe q-safe"
+          style="padding-left: {{ safeInsetPx }}px; padding-right: {{ safeInsetPx }}px"
+        >
+          <div class="q-header">
+            <!-- 官方手表小程序的头部样式：居中「‹ 标题」，整块红色、可点返回。
+                 贴顶不留上边距 —— 上下不做安全区，省出的高度给列表 -->
+            <text class="q-back" onclick="collapseQueue">‹ 播放队列</text>
+            <text class="q-count" if="{{ queueText }}">{{ queueText }}</text>
+          </div>
+
+          <list
+            class="q-list"
+            id="qList"
+            if="{{ queueItems.length }}"
+          >
+            <list-item
+              for="{{(index, item) in queueItems}}"
+              tid="_key"
+              type="qsong"
+              class="q-item {{ item.isCurrent ? 'q-item-current' : '' }}"
+            >
+              <text class="q-index {{ item.isCurrent ? 'q-index-current' : '' }}">
+                {{ item.isCurrent ? '♪' : index + 1 }}
+              </text>
+              <!-- 中段（歌名+歌手）是「点歌」点击区；右侧 × 是兄弟节点而非子节点，
+                   两者的 onclick 互不嵌套，不依赖事件拦截 -->
+              <div class="q-detail" onclick="playQueueItem(index)">
+                <!-- 正在播放的条目标题用跑马灯：长标题不截断（短标题时静止显示） -->
+                <marquee
+                  if="{{ item.isCurrent }}"
+                  class="q-name-mq"
+                  scrollamount="{{24}}"
+                >{{ item.title }}</marquee>
+                <text else class="q-name">{{ item.title }}</text>
+                <text class="q-artist">{{ item.artist }}</text>
+              </div>
+              <image
+                class="q-remove"
+                src="/common/icon/cancel.png"
+                onclick="removeQueueItem(index)"
+              />
+            </list-item>
+          </list>
+
+          <text class="q-empty" if="{{ !queueItems.length }}" onclick="goToMore">
+            队列是空的，去「更多」选首歌
+          </text>
+        </div>
+      </div>
+    </scroll>
+  </div>
+</template>
+
+<script>
+import router from "@system.router";
+import playerService from "../../services/playerService";
+import session from "../../services/session";
+import deviceService from "../../services/deviceService";
+import { normalizeCoverUrl } from "../../common/device";
+import { formatClockParts } from "../../common/clock";
+
+const STATE_HINT = {
+  idle: "点「更多」选歌播放",
+  loading: "缓冲中…",
+  playing: "",
+  paused: "已暂停",
+  error: "播放出错",
+};
+
+export default {
+  data: {
+    title: "",
+    artist: "",
+    // 标题上方那行小字时间（HH:MM，见 common/clock.js 与模板里的 .clock-row）。
+    // 初值给空串：首帧还没走到 syncClock 时整行不渲染，不会闪一个空行出来
+    clockText: "",
+    isPlaying: false,
+    progress: 0,
+    timeText: "0:00 / 0:00",
+    queueText: "",
+    hint: STATE_HINT.idle,
+    notice: "",
+    // 提示行是否走跑马灯（长报错放不下一行，见 setNotice）
+    noticeScroll: false,
+    // 左右安全内缩 px：拿不到设备信息时按 480 宽矩形屏兜底（480 × 6% ≈ 29），
+    // device.getInfo() 回来后由 applyDevice 用真实屏宽重算
+    safeInsetPx: 29,
+    // 每一屏的宽 / 高 px：scroll 的子项必须有确定尺寸才能成页（官方 scroll 文档：
+    // 竖向滚动需要设置定高，水平滚动需要设置定宽）。拿不到屏宽屏高时按 480 兜底，
+    // getInfo 回来后由 applyDevice 用真实 screenWidth / screenHeight 重算
+    pageW: 480,
+    pageH: 480,
+    showCoverBg: false,
+    coverUrl: "",
+    // 第 2 屏播放队列的展示条目（由 syncQueue 从本 VM 的 playerService 重建）
+    queueItems: [],
+  },
+
+  onInit() {
+    // 展示类原生事件（进度/播放态）在本 VM 绑定；控制类（通知栏切歌、播完下一首）
+    // 归 app VM —— 两个 VM 绑定的属性刻意不重叠，避免互相顶掉回调。
+    playerService.init();
+
+    // 当前落定的屏（0=播放器，1=队列，由滚动落定信号驱动）。非响应式内部状态，
+    // 只给表冠焦点管理用，不放进 data，免得触发无谓渲染。
+    this._pagerIndex = 0;
+
+    // 上一份快照的**原始** cover 串（未归一化）：只有它变了才需要跑 normalizeCoverUrl。
+    // 同样不进 data —— 它只服务于 applySnapshot 里那个 O(1) 比较。
+    this._rawCover = "";
+
+    // 表盘时间那行小字：起表 + 立刻写一次首帧值
+    this.startClock();
+
+    // 设备屏宽与背景图白名单：先落保守值（480 宽矩形屏的内缩 + 不渲染背景），
+    // getInfo 回来后再刷一次。圆屏机型首帧会闪一下「更宽的布局」，可接受；
+    // 反过来先按圆屏收窄、到了矩形屏再放宽会更难看。
+    this.applyDevice(deviceService.capabilities());
+    deviceService.whenReady().then(() => {
+      this.applyDevice(deviceService.capabilities());
+    });
+
+    // 等 app.ux bootstrap 把登录态从 storage 恢复完成再 applySnapshot，
+    // 避免 session.isLoggedIn() 读到空 state 把登录页残留的「未登录」字样带进来。
+    session.ready().then(async () => {
+      this._unsub = playerService.subscribe((type, snap) => {
+        this.applySnapshot(snap, type);
+        // 队列内容 / 当前曲目变化时重建第 2 屏条目；
+        // progress/volume 这类高频事件不重建，别每秒白渲染一遍列表
+        if (type === "queue" || type === "track") this.syncQueue(snap);
+      });
+      // 本 VM 的 playerService 是独立实例，先跟共享态对账再渲染
+      await playerService.adopt();
+      this.applySnapshot(playerService.getSnapshot());
+      this.syncQueue();
+    });
+  },
+
+  /**
+   * 模板渲染完成后把表冠焦点首次落位到外层 scroll（横向容器：表冠旋转无事可做，
+   * 显式落焦只为焦点确定性）。本页有多个「可响应表冠」的组件（封面 <image>、
+   * 外层 scroll、第 2 屏 list）且都在异步挂载，「默认焦点给谁」在真机上不可
+   * 预测（实测会整页表冠无响应），所以焦点一律显式管理，不依赖默认规则。
+   */
+  onReady() {
+    this.focusCrownTarget();
+  },
+
+  onShow() {
+    // ★ 主页显示不更新的根因修复点：Vela 每个 page 一个独立 JS VM，
+    //   在 list 页点歌改的是 list VM 那份 playerService，本 VM 必须重新读共享态。
+    playerService.setVisible(true);
+    playerService.startTicking();
+    // 时间行重新起表 + 立刻对账一次（onHide 停表期间可能已经跨了好几分钟）
+    this.startClock();
+    // 从别的页面回来时把表冠焦点重新落位（返回页面栈不重建页面，
+    // 但焦点是否保留因 runtime 而异；这是 onReady 首帧落位之外的保险）
+    this.focusCrownTarget();
+    session.ready().then(async () => {
+      await playerService.adopt();
+      this.applySnapshot(playerService.getSnapshot());
+      this.syncQueue();
+    });
+  },
+
+  onHide() {
+    // 页面不可见时停掉 1 秒对账，省电
+    playerService.stopTicking();
+    // 原生 audio 事件仍绑在本 VM 上（页面没销毁就不会解绑），ontimeupdate 那 4HZ
+    // 只能靠可见性挡住广播 —— 不然在「更多/推荐」里每秒还白算 5 次快照
+    playerService.setVisible(false);
+    // 时间行也停：看不见的页面没必要每秒醒一次（回来 onShow 立刻补一次对账）
+    this.stopClock();
+  },
+
+  onDestroy() {
+    if (this._unsub) {
+      this._unsub();
+      this._unsub = null;
+    }
+    playerService.stopTicking();
+    playerService.setVisible(false);
+    // 定时器必须在页面销毁时清掉：Vela 起表是原生 setInterval，
+    // 忘了清就是「页面没了还在跑」的常驻开销（登录页倒计时同款纪律）
+    this.stopClock();
+  },
+
+  /* ------------------------------ 小字时间 ------------------------------ */
+
+  /**
+   * 起表：每秒对一次时间。
+   *
+   * 为什么按 1 秒轮询、而不是「精确 sleep 到下一个整分」：runtime 的 setInterval
+   * 精度与休眠唤醒行为在各机型上不一致，算出来的差值 sleep 有漂移风险；1 秒轮询
+   * 是登录页倒计时已经用惯的路子。展示串只到分钟，且 setField 只在值真的变了才
+   * 写回 data —— 所以每分钟实际只重绘一次，开销可以忽略。
+   * 幂等：重复调用（onInit / onShow）先停旧表再起新表，不会累积定时器。
+   */
+  startClock() {
+    this.stopClock();
+    this.syncClock();
+    this._clockTimer = setInterval(() => {
+      this.syncClock();
+    }, 1000);
+  },
+
+  stopClock() {
+    if (this._clockTimer) {
+      clearInterval(this._clockTimer);
+      this._clockTimer = null;
+    }
+  },
+
+  /** 把当前时刻写进 data.clockText；只有分钟变了才会真的触发渲染（setField 去重） */
+  syncClock() {
+    const parts = formatClockParts(new Date());
+    this.setField("clockText", parts.time);
+  },
+
+  /** 只在值真的变了才写回 data，减少手表上的无谓重绘 */
+  setField(key, value) {
+    if (this[key] !== value) this[key] = value;
+  },
+
+  /**
+   * 屏宽 -> 安全区内缩 px；白名单 -> 是否允许渲染封面背景。
+   * 允许 ≠ 渲染：还要有可用的封面地址，见 syncCoverBg。
+   */
+  applyDevice(caps) {
+    this._coverAllowed = !!caps.coverBackground;
+    this.setField("safeInsetPx", caps.safeInsetPx);
+    this.setField("pageW", caps.pageWidthPx || 480);
+    this.setField("pageH", caps.pageHeightPx || 480);
+    this.syncCoverBg();
+  },
+
+  /** 背景层是否渲染 = 机型在白名单内 && 有可用封面地址 && 没加载失败过 */
+  syncCoverBg() {
+    const next = !!this._coverAllowed && !!this.coverUrl && !this._coverFailed;
+    const mounted = next && !this.showCoverBg;
+    this.setField("showCoverBg", next);
+    // 封面 <image> 也在「可响应表冠」组件之列（官方表冠文档把 image 列在其中，
+    // 用于图片缩放），异步挂载可能把已落位的表冠焦点搅走 —— 挂载瞬间抢回来
+    if (mounted) this.focusCrownTarget();
+  },
+
+  /** 封面加载失败（网络 / CDN 不认处理参数）就撤掉背景层，退回纯黑底 */
+  onCoverError() {
+    this._coverFailed = true;
+    this.setField("showCoverBg", false);
+    console.warn("[Player] 封面背景加载失败，已退回纯黑底:", this.coverUrl);
+  },
+
+  /**
+   * 提示行（notice）的唯一写入口。
+   *
+   * 为什么要有这个函数：诊断类报错（例如 `直链与落盘均失败：CDN 拒绝（HTTP 403，
+   * 节点 upos，Referer 已带，直链余 118 分钟）`）有 60-120 字，而屏幕只有 4xx px 宽、
+   * text 又是 lines:2 + ellipsis —— 尾巴会被截掉，而排查最想看的正是那半句。
+   * 超过一行放得下的长度就切跑马灯（marquee），短提示仍旧居中静态显示。
+   */
+  setNotice(text) {
+    const s = String(text || "");
+    this.setField("notice", s);
+    // 20px 字号在 466px 宽的屏上大约一行 20 字，留点余量：超过 18 字就改用跑马灯
+    this.setField("noticeScroll", s.length > 18);
+  },
+
+  /**
+   * 把播放服务快照落到 data 上。
+   *
+   * 这是本页最热的函数：页面可见时 progress 每秒来约 5 次
+   * （ontimeupdate 4HZ + 1 秒对账一次 syncPlayState），每次都从这里过一遍。
+   * 两道省开销的闸：
+   *   1) 封面归一化只在「原始 cover 串变了」时做 —— 高频快照里它必然没变，
+   *      而 normalizeCoverUrl 里的正则与拼接是这里唯一真正要算的东西；
+   *   2) 不可见时 playerService 压根不发 progress（见 playerService.setVisible），
+   *      隐藏页面上这个函数不会再被高频调用。
+   * 其余字段全是 setField 去重（值没变不触发渲染）或纯读分支，照常执行 ——
+   * 状态/进度/提示该刷还得刷，封面没变不等于快照没变。
+   */
+  applySnapshot(snap, type) {
+    if (!snap) return;
+
+    const track = snap.track;
+    const rawCover = track ? track.cover || "" : "";
+    if (rawCover !== this._rawCover) {
+      this._rawCover = rawCover;
+      // 换歌才重置「封面加载失败」标记：同一首加载失败过就别每秒重试一次
+      const nextCover = normalizeCoverUrl(rawCover);
+      if (nextCover !== this.coverUrl) {
+        this._coverFailed = false;
+        this.setField("coverUrl", nextCover);
+      }
+    }
+
+    this.setField("title", track ? track.title : "");
+    this.setField("artist", track ? track.artist : "");
+    this.syncCoverBg();
+    this.setField("isPlaying", snap.isPlaying);
+    this.setField("progress", Math.round(snap.percent || 0));
+    this.setField(
+      "timeText",
+      formatTime(snap.currentTime) + " / " + formatTime(snap.duration)
+    );
+    if (!snap.queueLength) {
+      this.setField("queueText", "");
+    } else if (snap.index >= 0) {
+      this.setField("queueText", snap.index + 1 + "/" + snap.queueLength);
+    } else {
+      this.setField("queueText", snap.queueLength + " 首");
+    }
+
+    if (snap.state === "error") {
+      this.setNotice(snap.error || STATE_HINT.error);
+    } else if (type === "fallback") {
+      this.setNotice("直链受限，已转本地播放");
+    } else {
+      this.setNotice("");
+    }
+
+    if (snap.state === "idle" && !snap.queueLength) {
+      this.setField(
+        "hint",
+        session.isLoggedIn() ? STATE_HINT.idle : "未登录，去「更多」登录"
+      );
+    } else {
+      this.setField("hint", STATE_HINT[snap.state] || "");
+    }
+  },
+
+  /**
+   * 播放服务实例是按 VM 隔离的，本页发的控制指令前都得先对账
+   * （由 playerService 内部 adopt 完成），这里只负责转发。
+   */
+  playOrPause() {
+    if (!playerService.getSnapshot().queueLength) {
+      this.goToMore();
+      return;
+    }
+    playerService.toggle();
+  },
+
+  onPrev() {
+    playerService.prev();
+  },
+
+  onNext() {
+    playerService.next();
+  },
+
+  /* ------------------------------ 表冠旋转焦点管理 ------------------------------ */
+
+  /**
+   * 表冠焦点落位：第 1 屏交给外层 scroll，第 2 屏交给队列 list（表冠 = 原生
+   * 滚队列）。list 是本页唯一被实测验证过表冠可达的组件；list 不存在（队列
+   * 还是空的）时退回外层 scroll。
+   * 注意第 1 屏的 scroll 已是横向容器：表冠旋转是纵向滚动，翻不了横向页 ——
+   * 这里仍显式落焦（而不是放任不管），是因为「默认焦点给谁」在真机上不可
+   * 预测，与其让焦点飘到封面 image 上，不如钉在一个确定的组件上；表冠真正
+   * 干活的地方是第 2 屏的队列。
+   * 抢焦点双保险：focus({focus:true}) 是 Vela《通用方法》的 API，requestFocus
+   * 是手表联盟《表冠旋转》的 API，两个都试；都没有就静默放弃（没有表冠的
+   * 机型本来也不需要这套）。
+   */
+  focusCrownTarget() {
+    const el =
+      (this._pagerIndex === 1 && this.$element("qList")) ||
+      this.$element("pager");
+    if (!el) return;
+    if (typeof el.focus === "function") {
+      el.focus({ focus: true });
+    }
+    if (typeof el.requestFocus === "function") {
+      el.requestFocus(true);
+    }
+  },
+
+  /**
+   * 「落定在哪一屏」的统一入口：onscroll 的 scrollX 贴边带与 collapseQueue 的
+   * 程序化返回都汇到这里 —— 变屏时同步游标，并把表冠焦点挪到新屏的滚动容器上。
+   * 幂等：同一屏重复落定直接跳过，不给已获焦的组件反复抢焦点。
+   */
+  settlePagerPage(page) {
+    if (this._pagerIndex === page) return;
+    this._pagerIndex = page;
+    this.focusCrownTarget();
+  },
+
+  /**
+   * 滚动中的贴边检测 —— 横向翻页唯一的落定信号：官方 scroll 只收录
+   * scrolltop / scrollbottom（纵向边界），没有 scrollleft / scrollright，
+   * 「停在哪一屏」只能靠 scroll 事件的 scrollX 两条贴边带（≤8px / ≥pageW-8px）。
+   * 滚动途中的中间位置不落定、也不动焦点 —— 手指拖到一半松手时焦点必须留在
+   * 外层 scroll 上，等吸附/贴边后再落定。
+   */
+  onPagerScroll(ev) {
+    const x = ev && typeof ev.scrollX === "number" ? ev.scrollX : 0;
+    const pageW = this.pageW || 480;
+    if (x <= 8) {
+      this.settlePagerPage(0);
+    } else if (x >= pageW - 8) {
+      this.settlePagerPage(1);
+    }
+  },
+
+  /* ---------------------------- 第 2 屏：播放队列 ---------------------------- */
+
+  /**
+   * 用本 VM 的队列 + 当前下标重建第 2 屏的展示条目。
+   * 触发点：queue / track 事件、onInit 与 onShow 的对账后、本页的点歌/移除动作后。
+   */
+  syncQueue(snap) {
+    const s = snap || playerService.getSnapshot();
+    const queue = playerService.getQueue() || [];
+    this.queueItems = queue.map((t, i) => ({
+      // tid 回收用的稳定 key：位置 + bvid（同一首歌重复入队也不会撞 key）
+      _key: i + "_" + (t.bvid || t.id || t.title || ""),
+      title: t.title || t.name || "未知曲目",
+      artist: t.artist || t.artists || "",
+      isCurrent: i === s.index,
+    }));
+    // 队列屏的 list 挂在 if 条件下：队列「空→有」或 tid 回收会让它整个重挂，
+    // 新节点不带焦点，表冠会瞬间失灵 —— 重新落位一次
+    //（第 1 屏 / 节点还不存在时 focusCrownTarget 内部退回外层 scroll / 静默跳过）
+    this.focusCrownTarget();
+  },
+
+  /** 点队列条目 → 切到那首（点当前曲目则忽略，避免误触打断重播） */
+  async playQueueItem(index) {
+    if (index === playerService.getSnapshot().index) return;
+    await playerService.playAt(index);
+    this.syncQueue();
+  },
+
+  /** × 按钮 → 从队列移除（正在播的被移除时，playerService 会接播下一首） */
+  async removeQueueItem(index) {
+    await playerService.removeFromQueue(index);
+    this.syncQueue();
+  },
+
+  /** 头部「‹ 播放队列」：横向滚回左端（第 1 屏）。留着不依赖手势的返回路径 */
+  collapseQueue() {
+    const pager = this.$element("pager");
+    if (pager && typeof pager.scrollTo === "function") {
+      pager.scrollTo({ left: 0, behavior: "smooth" });
+    }
+    // 部分 runtime 对程序化滚动不派发 scroll，这里直接落游标 +
+    // 把表冠焦点重新落位（事件有派发时 settlePagerPage 会再做一遍，幂等）
+    this._pagerIndex = 0;
+    this.focusCrownTarget();
+  },
+
+  goToVolume() {
+    router.push({ uri: "/pages/volume" });
+  },
+
+  /**
+   * 「更多」页：用户卡片 / 官方推荐 / 收藏夹 / 设置项的入口。
+   * 不在这里判登录态：推荐流免登录，收藏夹入口的登录拦截在更多页里做。
+   */
+  goToMore() {
+    router.push({ uri: "/pages/more" });
+  },
+};
+
+function formatTime(seconds) {
+  const s = Math.max(0, Math.floor(Number(seconds) || 0));
+  const m = Math.floor(s / 60);
+  const rest = s % 60;
+  return m + ":" + (rest < 10 ? "0" + rest : rest);
+}
+</script>
+
+<style>
+.demo-page {
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: #000;
+}
+
+/* ------------------------------ 背景层 ------------------------------ */
+
+/* 绝对定位 = 不参与 flex 排版；写在 DOM 最前 = 画在最底层。
+   object-fit 显式写 cover：不依赖组件默认值，方形封面铺非方形屏时
+   按「放大到盖满 + 居中裁切」处理，绝不留边。 */
+.cover-bg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 压暗层：Vela 没有 filter: blur() / backdrop-filter，
+   「模糊背景」只能退化成半透明压暗，0.62 是能保住白色文字与图标对比度的一档 */
+.cover-mask {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.62);
+}
+
+/* ------------------------------ 安全区 ------------------------------ */
+
+/* 安全区容器：占满整屏宽，左右内缩是**同一个 px 值**（模板内联 style 绑定
+   deviceService.capabilities().safeInsetPx）。
+   不用「百分比宽 + 交叉轴居中」的盒子：渲染层会左锚定（详见 common/device.js）；
+   全宽 + 对称 padding 让左右留白由构造保证相等，不经过 flex 对齐。 */
+.safe {
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+/* ------------------------ 横向翻页 · 第 2 屏：播放队列 ------------------------ */
+
+/* 翻页容器：铺满整屏，scroll-x 横向翻页（为什么是 feature 不是 bug，见模板
+   顶部注释）。为什么用 scroll 不用 swiper：本机实测 swiper 无原生旋转翻页、
+   不派发表冠事件、翻页手势也不可靠，而 scroll 手指滚动原生、还支持嵌套子滚动
+   容器，性能也更好。
+   scroll-snap 是 APILevel 3+ / toolkit 1.1.4+ 的增强：两屏吸附成整页（x mandatory
+   = 停在最近的屏幕锚点）；不支持的机型忽略此样式自由滚动，JS 侧落定逻辑不依赖
+   吸附。 */
+.pager {
+  width: 100%;
+  height: 100%;
+  scroll-snap-type: x mandatory;
+}
+
+/* 翻页的每一屏：宽度与高度由模板内联绑定 pageW / pageH（= 屏宽屏高 px）。
+   官方 scroll 文档：竖向滚动需要设置定高，水平滚动需要设置定宽 —— 子项不定宽
+   横向滚不起来。flex-shrink: 0 防止两屏在行布局里被压窄（压窄了就滚不成整页），
+   内部交给各自的 .safe 排版 */
+.screen {
+  flex-shrink: 0;
+  scroll-snap-align: start;
+}
+
+/* 第 2 屏覆盖：内容顶对齐（.safe 的整体垂直居中是第 1 屏的排版） */
+.q-safe {
+  justify-content: flex-start;
+}
+
+/* 队列屏头部：贴顶、居中「‹ 播放队列」红色返回（官方手表小程序样式），
+   上下不做安全区 —— 省出的高度全部给列表 */
+.q-header {
+  width: 100%;
+  height: 64px;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
+
+.q-back {
+  font-size: 30px;
+  color: #ff3a3a;
+  padding: 8px 20px;
+}
+
+.q-count {
+  font-size: 22px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-left: 8px;
+}
+
+/* 队列列表：占头部以下剩余的全部高度 */
+.q-list {
+  width: 100%;
+  flex: 1;
+  margin-top: 12px;
+}
+
+/* 条目：边框 + 圆角 + 底色 + 间距，正在播放的条目描红加淡红底 */
+.q-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 84px;
+  margin-bottom: 14px;
+  padding-left: 16px;
+  padding-right: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 18px;
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.q-item-current {
+  border-color: rgba(255, 58, 58, 0.7);
+  background-color: rgba(255, 58, 58, 0.12);
+}
+
+.q-index {
+  width: 44px;
+  text-align: center;
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.q-index-current {
+  color: #ff3a3a;
+}
+
+/* 中段（歌名 + 歌手）：点歌的点击区；× 是兄弟节点，互不嵌套 */
+.q-detail {
+  flex: 1;
+  height: 100%;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.q-name {
+  width: 100%;
+  font-size: 28px;
+  color: #ffffff;
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+/* 跑马灯（正在播放的标题）：长标题横向滚动、短标题静止；
+   高度写死一行，避免跑马灯组件在纵向 flex 里测量塌陷 */
+.q-name-mq {
+  width: 100%;
+  height: 40px;
+  font-size: 28px;
+  color: #ff3a3a;
+}
+
+.q-artist {
+  width: 100%;
+  font-size: 22px;
+  color: rgba(255, 255, 255, 0.55);
+  lines: 1;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+/* × 移除按钮：复用音量页的 cancel 图标；本体 40px 里留 padding 扩大点击热区 */
+.q-remove {
+  width: 40px;
+  height: 40px;
+  padding: 10px;
+  opacity: 0.7;
+}
+
+.q-empty {
+  width: 100%;
+  margin-top: 40px;
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+}
+
+.progress-container {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 200px;
+  height: 200px;
+  justify-content: center;
+  align-items: center;
+}
+
+.play-button {
+  width: 200px;
+  height: 200px;
+  justify-content: center;
+  align-items: center;
+}
+
+.play-progress {
+  radius: 74px;
+  stroke-width: 14px;
+  start-angle: 4deg;
+  total-angle: 360deg;
+  color: #ff3a3a;
+  layer-color: rgba(255, 255, 255, 0.1);
+}
+
+/* 下面这些行的宽度都写 100%：实际可用宽度由 .safe 的左右内缩 padding 决定，
+   这里写死 px 会在圆屏上顶出圆弧。 */
+
+/* 标题上方的小字时间：与歌名/歌手同为居中一行（居中对齐由 text-align 保证，
+   不靠父容器交叉轴居中 —— .safe 全宽 + 子项 100% 宽，这个组合在各机型上都稳）。
+   高度写死一行：定时器每分钟只改文字、不改排版，布局不会随秒跳动。
+   颜色用 0.45 的白：比歌手行（0.8）更退后一层，小字不抢标题的焦点。 */
+
+/* 添加10px上边距，避免顶满不好看 */
+.clock-row {
+  width: 100%;
+  height: 32px;
+  padding-top: 10px; 
+  justify-content: center;
+  align-items: center;
+}
+
+.clock-text {
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+  lines: 1;
+}
+
+.song {
+  width: 100%;
+  height: 150px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.song-name {
+  width: 100%;
+  font-size: 42px;
+  color: #ffffff;
+  lines: 1;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+.singer-name {
+  width: 100%;
+  font-size: 26px;
+  color: rgba(255, 255, 255, 0.8);
+  lines: 1;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+.controls {
+  width: 100%;
+  height: 160px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.icon {
+  width: 64px;
+  height: 64px;
+}
+
+.time-row {
+  width: 100%;
+  height: 34px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.time-text {
+  font-size: 22px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.notice {
+  width: 100%;
+  margin-top: 4px;
+  font-size: 20px;
+  color: #ff8c8c;
+  text-align: center;
+  lines: 2;
+  text-overflow: ellipsis;
+}
+
+/* 跑马灯分支只有一行（marquee 本来就是单行滚动），所以不再需要 lines/ellipsis；
+   height 写死一行，避免滚动文本把下面的底部按钮顶动。 */
+.notice-scroll {
+  height: 28px;
+  text-align: left;
+  lines: 1;
+  text-overflow: clip;
+}
+
+.footer {
+  width: 100%;
+  height: 140px;
+  justify-content: space-around;
+  align-items: center;
+}
+
+/* 胶囊屏（手环 9 / 10）**不是本项目的设计目标** —— 屏幕太窄，放不下
+   「歌名 + 歌手 + 控制」这几行文字，没有可用的排版方案。下面这块只是
+   老版本的兜底，保证真装上不会溢出破版；不再继续投入适配。
+   注意它本身就是 @media（APILevel 2+），而手环 8 Pro / Redmi Watch 4 等机型
+   连媒体查询都不支持 —— 圆屏安全区因此改走 @system.device + 形状 class，
+   不走这里（见 common/device.js 顶部注释）。 */
+@media (shape: pill-shaped) or (max-width: 106) {
+  .footer {
+    width: 100%;
+    height: 110px;
+  }
+
+  .controls {
+    width: 100%;
+  }
+
+  .singer-name {
+    width: 100%;
+  }
+
+  .progress-container {
+    width: 100%;
+  }
+
+  .play-button {
+    width: 100px;
+  }
+
+  .play-progress {
+    radius: 46px;
+  }
+
+  .song {
+    width: 100%;
+    height: 110px;
+  }
+
+  .clock-row {
+    width: 100%;
+    height: 24px;
+  }
+
+  .clock-text {
+    font-size: 18px;
+  }
+
+  .song-name {
+    width: 100%;
+    font-size: 34px;
+  }
+
+  .icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .time-row {
+    width: 100%;
+  }
+
+  .time-text {
+    font-size: 18px;
+  }
+
+  .notice {
+    width: 100%;
+    font-size: 16px;
+  }
+
+  /* 跑马灯那行在窄屏上跟着字号缩（高度写死是为了不把底部按钮顶动） */
+  .notice-scroll {
+    height: 22px;
+  }
+
+  /* 队列屏的胶囊屏兜底（不是设计目标，只保证不破版） */
+  .q-header {
+    height: 48px;
+  }
+
+  .q-back {
+    font-size: 24px;
+  }
+
+  .q-count {
+    font-size: 18px;
+  }
+
+  .q-item {
+    height: 88px;
+    margin-bottom: 10px;
+    border-radius: 12px;
+  }
+
+  .q-index {
+    width: 34px;
+    font-size: 20px;
+  }
+
+  .q-name {
+    font-size: 22px;
+  }
+
+  .q-name-mq {
+    height: 32px;
+    font-size: 22px;
+  }
+
+  .q-artist {
+    font-size: 18px;
+  }
+
+  .q-remove {
+    width: 44px;
+    height: 44px;
+    padding: 8px;
+  }
+
+  .q-empty {
+    font-size: 18px;
+  }
+}
+</style>

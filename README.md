@@ -3,7 +3,7 @@
 
   # BiliMusic
   <p><strong>把哔哩哔哩里的声音，整理成一张属于你的播放桌面。</strong></p>
-  <p>基于 Flutter 的 B 站音乐播放器 · 跨平台 · GUI/TUI · 漫游发现 · 局域网同步</p>
+  <p>基于 Flutter 的 B 站音乐播放器 · 跨平台 · GUI/TUI/Vela · 漫游发现 · 局域网同步</p>
   
   <p>
     <a href="https://github.com/NaivG/bilimusic/releases"><img src="https://img.shields.io/github/v/release/NaivG/bilimusic?label=release&sort=semver" alt="Latest release"></a>
@@ -18,7 +18,7 @@
 </div>
 
 
-BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。基于 Flutter 一次覆盖 Windows、Linux、Android，并对 macOS、Web 提供实验性支持。它不复制视频平台，只做播放器该做的事：搜索、整理、连续播放与跨设备同步。
+BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。基于 Flutter 一次覆盖 Windows、Linux、Android，对 macOS、Web 提供实验性支持，同时支持 Xiaomi Vela 端。它不复制视频平台，只做播放器该做的事：搜索、整理、连续播放与跨设备同步。
 
 <div align="center">
   <sub>如果这个项目对你有帮助，欢迎 ⭐ Star 支持一下！</sub>
@@ -36,6 +36,7 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
   - [从源码运行](#从源码运行)
   - [构建发布版本](#构建发布版本)
   - [终端客户端（TUI）](#终端客户端tui)
+  - [小米 Vela 手表端](#小米-vela-手表端)
 - [用法](#用法)
   - [常用入口](#常用入口)
   - [漫游模式](#漫游模式)
@@ -88,6 +89,7 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 | **macOS 10.15+, with Metal Support** | ⚠️ 实验性 | CI 产出 ad-hoc 签名的未公证 `.app`，也可从源码构建 |
 | **iOS 13+** | ❓ 未经测试 | 可从源码构建无签名版本 |
 | **Web** | ⚠️ 实验性 | 解压后部署到 Web 服务器，需配置 CORS |
+| **Xiaomi Vela** | ✅ 稳定 | 适用于小米、红米手表系列（API 2+），下载安装`.rpk`，详见[小米 Vela 手表端](#小米-vela-手表端) |
 
 关于应用内更新：Android / Windows / Linux 支持；Web 与 macOS 跳转 Releases（见[更新与版本](#更新与版本)）。
 
@@ -145,6 +147,20 @@ dart run bin/bilimusic_tui.dart --probe    # 网络与解码分层自检
 dart run bin/bilimusic_tui.dart --smoke    # 无终端驱动完整循环
 dart run bin/bilimusic_tui.dart --preview  # 静态设计预览（假数据，无网络无声）
 ```
+
+#### 小米 Vela 手表端
+
+`vela/` 是与 Flutter 主项目并列的小米 Vela JS 快应用形态手表客户端，与主项目**不共享代码、不共享包管理**。该手表端走 `npm`，不跑 `flutter pub`：
+
+```bash
+cd vela
+npm install                       # 首次安装依赖（仅需一次）
+npm run verify                    # 离线自检（纯 Node，无设备/模拟器）
+npm run start                     # AIoT-IDE 调试启动（aiot server --watch）
+npm run build                     # 构建 RPK（aiot build）
+```
+
+> 详细设计目标、适配机型表、安装教程、目录结构等，请阅读 [`vela/README.md`](vela/README.md)。
 
 ---
 

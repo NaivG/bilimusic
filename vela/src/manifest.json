@@ -1,0 +1,84 @@
+{
+  "package": "github.naivg.bilimusic",
+  "name": "bilimusic",
+  "versionName": "1.9.2",
+  "versionCode": 21,
+  "minAPILevel": 2,
+  "icon": "/common/logo.png",
+  "deviceTypeList": [
+    "watch"
+  ],
+  "features": [
+    {
+      "name": "system.router"
+    },
+    {
+      "name": "system.audio"
+    },
+    {
+      "name": "system.volume"
+    },
+    {
+      "name": "system.fetch"
+    },
+    {
+      "name": "system.interconnect"
+    },
+    {
+      "name": "system.storage"
+    },
+    {
+      "name": "system.crypto"
+    },
+    {
+      "name": "system.file"
+    },
+    {
+      "name": "system.request"
+    },
+    {
+      "name": "system.device"
+    },
+    {
+      "name": "system.app"
+    }
+  ],
+  "config": {
+    "logLevel": "log",
+    "designWidth": "device-width",
+    "background": {
+      "features": [
+        "system.audio"
+      ]
+    }
+  },
+  "router": {
+    "entry": "pages/player",
+    "pages": {
+      "pages/player": {
+        "component": "player"
+      },
+      "pages/volume": {
+        "component": "volume"
+      },
+      "pages/more": {
+        "component": "more"
+      },
+      "pages/recommend": {
+        "component": "recommend"
+      },
+      "pages/fav": {
+        "component": "fav"
+      },
+      "pages/favDetail": {
+        "component": "favDetail"
+      },
+      "pages/login": {
+        "component": "login"
+      },
+      "pages/about": {
+        "component": "about"
+      }
+    }
+  }
+}

@@ -1,0 +1,80 @@
+<script>
+import playerService from "./services/playerService";
+import * as session from "./services/session";
+import * as audioCache from "./services/audioCache";
+
+export default {
+  onCreate() {
+    console.log("[App] created");
+    this.bootstrap();
+  },
+
+  onDestroy() {
+    console.log("[App] destroyed");
+  },
+
+  /**
+   * 服务自举：播放服务初始化 + 登录态与播放态恢复
+   * 注意 onCreate 不会被框架 await，内部自行兜错，避免启动失败白屏。
+   *
+   * 各 page（list / login / player）的 onInit 会通过 session.ready() 等待
+   * 登录态恢复完成再判登录态，避免与本 bootstrap 抢跑把已登录态错判为未登录。
+   *
+   * 分三段独立 try/catch：旧 Vela runtime 不识别 ontimeupdate/onprevious/onnext
+   * 等属性时 audio.X = ... 会抛错，必须保证抛错时仍能把共享态恢复做完，
+   * 否则页面里的 playerService 会一直停在空队列上（playerService.js 的 adopt）。
+   */
+  async bootstrap() {
+    console.log("[App] bootstrap start");
+
+    // 1) 原生事件绑定：app VM 只绑控制类（通知栏切歌、播完自动下一首）。
+    //    展示类事件（进度/播放态）归常驻的主页 VM，两边刻意不重叠 ——
+    //    原生回调若是「按属性最后设置者生效」，重叠会导致通知栏按钮失灵。
+    try {
+      playerService.init({ display: false, control: true });
+      console.log("[App] playerService.init done");
+    } catch (e) {
+      console.error("[App] playerService.init 失败（audio 事件未全绑定）:", e);
+    }
+
+    // 2) 取流解析器不必注入：Vela 每个 page 一个独立 VM，各自的 playerService
+    //    实例默认就用本 VM 的 biliApi.resolveTrackUrl；在 app VM 注入只影响 app VM，
+    //    反而容易让人误以为跨页生效（需要 mock 时用 playerService.setUrlResolver）。
+
+    // 3) 恢复登录态与播放态（队列、当前曲目；**不自动播放**）
+    //    音量不在此列：真相是系统媒体音量（@system.volume），无需恢复。
+    try {
+      await session.restore();
+      // 清理老版本单独存的音量键（现在音量以系统为准，留着只会误导排查）
+      await playerService.retireLegacyVolume();
+      const snap = await playerService.adopt();
+      console.log(
+        "[App] bootstrap 完成 | 登录:",
+        session.isLoggedIn(),
+        "| 队列:",
+        snap.queueLength,
+        "| 当前:",
+        snap.track ? snap.track.title : "无",
+        "| 状态:",
+        snap.state
+      );
+    } catch (e) {
+      console.error("[App] bootstrap 后段失败:", e);
+    }
+
+    // 4) 音频缓存：清掉上次运行留下的 .part 残片（崩溃/断电来不及改名的）。
+    //    完整缓存文件保留 —— 再次播放同一首仍然秒开；清空入口在更多页。
+    //    刻意不 await：bootstrap 的 Promise 没人消费（onCreate 框架不 await），
+    //    等它只是把最后一段挂在那里；清理内部那次 ensureDir（目录没建过时一个
+    //    mkdir IPC）该发还是发，省不掉。失败只记日志，绝不往外抛。
+    audioCache
+      .cleanupOrphans()
+      .then(function (removed) {
+        if (removed) console.log("[App] 已清理音频缓存残片", removed, "个");
+      })
+      .catch(function (e) {
+        console.warn("[App] 音频缓存残片清理失败:", e);
+      });
+  },
+};
+</script>

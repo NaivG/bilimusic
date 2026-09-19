@@ -1,0 +1,165 @@
+<template>
+  <div class="volume">
+    <!-- 控制音量按钮：官方音量示例的布局 —— 音量条整条垂直居中，圆屏中线就是
+         整屏最宽处，所以本页不做左右安全区、音量条直接吃满屏宽-->
+    <div class="volume-bar-container">
+      <image class="action-icon" src="/common/icon/minus.png" onclick="changeVolume(-1)"></image>
+      <div class="volume-progress-container">
+        <progress class="volume-progress" percent="{{volume}}"></progress>
+      </div>
+      <image class="action-icon" src="/common/icon/plus.png" onclick="changeVolume(1)"></image>
+    </div>
+    <!-- 返回播放页面：官方示例的贴底圆形关闭钮（本页不做「‹ 标题」头部） -->
+    <div class="cancel-container">
+      <image class="action-icon" src="/common/icon/cancel.png" onclick="goBack"></image>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from "@system.router";
+import playerService from "../../services/playerService";
+import { stepPercent, toPercent } from "../../common/volume";
+
+export default {
+  data: {
+    volume: 0,
+  },
+
+  onInit() {
+    // 本页不维护音量：真相是系统媒体音量（@system.volume），
+    // 页面只做两件事 —— 显示当前系统音量、把 +/- 写回系统音量。
+    // 注意 playerService 是「每个 page VM 一份实例」，音量值不靠内存共享，
+    // 每次都从系统读回来（下方 startVolumeWatch 里的 getMediaValue）。
+    this._unsub = playerService.subscribe((type, snap) => {
+      if (type === "volume") this.renderVolume(snap.volume);
+    });
+
+    // 页面可见期间接管音量变化：按实体键或去系统设置改音量，
+    // 这里的数字会跟着变（事件 + 1 秒对账，见 playerService.startVolumeWatch）
+    playerService.startVolumeWatch();
+  },
+
+  onDestroy() {
+    // 音量事件槽与轮询都要还回去：原生回调若是「最后设置者生效」，
+    // 页面销毁了还占着它会顶掉后来者
+    playerService.stopVolumeWatch();
+    if (this._unsub) {
+      this._unsub();
+      this._unsub = null;
+    }
+  },
+
+  renderVolume(value) {
+    this.volume = toPercent(value);
+  },
+
+  changeVolume(dir) {
+    const next = stepPercent(this.volume, dir);
+    // 乐观更新：setMediaValue 要等原生回调，UI 不跟着等；
+    // 真值随后由系统音量事件/对账回读校准（值相同则不会重绘）
+    this.volume = next;
+    playerService.setVolume(next / 100);
+  },
+
+  goBack() {
+    router.back();
+  },
+};
+</script>
+
+<style>
+/* 整页样式照搬官方音量示例（与其它页的「头部统一样式」是两条路线）：
+   音量条垂直居中 + 贴底圆形关闭钮，上下左右都不做安全区。 */
+.volume {
+  width: 100%;
+  height: 100%;
+  justify-content: center;
+  align-items: center;
+  background-color: #000;
+}
+
+.volume-bar-container {
+  width: 100%;
+  height: 140px;
+  justify-content: space-around;
+  align-items: center;
+  background-color: #2a2a2a;
+  border-radius: 70px;
+}
+.volume-progress-container {
+  width: 50%;
+  height: 30px;
+  justify-content: center;
+  align-items: center;
+}
+
+.action-icon {
+  width: 60px;
+  height: 60px;
+}
+
+.volume-progress {
+  color: #ff3a3a;
+  stroke-width: 30px;
+  layer-color: rgba(255, 255, 255, 0.1);
+}
+
+.cancel-container {
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  bottom: 18px;
+  justify-content: center;
+  align-items: center;
+  background-color: #2d2d2d;
+  border-radius: 50%;
+}
+
+/* 胶囊屏（手环 9 / 10）不是本项目的设计目标，这块只是官方示例的老版本兜底；
+   圆屏不走 @media 也不需要安全区：本页音量条垂直居中，圆屏中线放得下整条 bar，
+   所以不参与 deviceService 的形状 class 体系（见 common/device.js 顶部说明）。 */
+@media (shape: pill-shaped) or (max-width: 106) {
+  .volume {
+    align-items: flex-start;
+  }
+  .volume-bar-container {
+    width: 100%;
+    height: 370px;
+    margin-top: 20px;
+    padding: 10px;
+    justify-content: space-around;
+    flex-direction: column;
+    align-items: center;
+    background-color: #2a2a2a;
+    border-radius: 200px;
+  }
+
+  .action-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 60px;
+  }
+
+  .volume-progress-container {
+    width: 95%;
+    height: 220px;
+  }
+
+  .volume-progress {
+    color: #ff3a3a;
+    stroke-width: 30px;
+    layer-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .cancel-container {
+    position: absolute;
+    width: 70px;
+    height: 70px;
+    justify-content: center;
+    align-items: center;
+    background-color: #2d2d2d;
+    border-radius: 50%;
+  }
+}
+</style>
