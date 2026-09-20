@@ -34,6 +34,9 @@ class SettingsManager extends ChangeNotifier {
   static const String KEY_LAN_SYNC_MODE = 'lan_sync_mode';
   static const String KEY_LAN_SYNC_DEVICE_NAME = 'lan_sync_device_name';
 
+  // 窗口行为设置键名
+  static const String KEY_CLOSE_BEHAVIOR = 'close_behavior';
+
   // 默认值
   static const bool DEFAULT_NOTIFICATIONS_ENABLED = true;
   static const String DEFAULT_APPEARANCE = 'system';
@@ -61,6 +64,14 @@ class SettingsManager extends ChangeNotifier {
   // 局域网同步默认值
   static const String DEFAULT_LAN_SYNC_MODE = 'off';
   static const String DEFAULT_LAN_SYNC_DEVICE_NAME = '';
+
+  // 关闭行为取值
+  static const String CLOSE_BEHAVIOR_PROMPT = 'prompt'; // 弹出提示
+  static const String CLOSE_BEHAVIOR_MINIMIZE_TRAY = 'minimize_tray'; // 最小化至托盘
+  static const String CLOSE_BEHAVIOR_EXIT = 'exit'; // 直接退出
+
+  // 窗口行为默认值：关闭时弹窗询问
+  static const String DEFAULT_CLOSE_BEHAVIOR = CLOSE_BEHAVIOR_PROMPT;
 
   // 单例实例
   static final SettingsManager _instance = SettingsManager._internal();
@@ -154,6 +165,10 @@ class SettingsManager extends ChangeNotifier {
     _cache[KEY_LAN_SYNC_DEVICE_NAME] =
         prefs.getString(KEY_LAN_SYNC_DEVICE_NAME) ??
         DEFAULT_LAN_SYNC_DEVICE_NAME;
+
+    // 加载窗口行为设置
+    _cache[KEY_CLOSE_BEHAVIOR] =
+        prefs.getString(KEY_CLOSE_BEHAVIOR) ?? DEFAULT_CLOSE_BEHAVIOR;
   }
 
   /// 获取通知设置
@@ -365,6 +380,31 @@ class SettingsManager extends ChangeNotifier {
 
   Future<void> setLanSyncDeviceName(String value) async {
     await _saveSetting(KEY_LAN_SYNC_DEVICE_NAME, value);
+  }
+
+  // ============ 窗口行为相关设置 ============
+
+  /// 获取窗口关闭行为
+  /// (prompt=弹出提示 / minimize_tray=最小化至托盘 / exit=直接退出)
+  String get closeBehavior =>
+      _cache[KEY_CLOSE_BEHAVIOR] ?? DEFAULT_CLOSE_BEHAVIOR;
+
+  /// 设置窗口关闭行为
+  Future<void> setCloseBehavior(String value) async {
+    await _saveSetting(KEY_CLOSE_BEHAVIOR, value);
+  }
+
+  /// 获取关闭行为的文本描述
+  String getCloseBehaviorText(String mode) {
+    switch (mode) {
+      case CLOSE_BEHAVIOR_MINIMIZE_TRAY:
+        return '最小化至托盘';
+      case CLOSE_BEHAVIOR_EXIT:
+        return '直接退出';
+      case CLOSE_BEHAVIOR_PROMPT:
+      default:
+        return '弹出提示';
+    }
   }
 
   /// 获取外观的文本描述

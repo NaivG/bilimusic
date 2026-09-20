@@ -4,9 +4,8 @@ import 'package:bilimusic/shared/utils/platform_helper.dart';
 
 class _WindowButtons extends StatelessWidget {
   final bool isDark;
-  final VoidCallback? onClose;
 
-  const _WindowButtons({required this.isDark, this.onClose});
+  const _WindowButtons({required this.isDark});
 
   @override
   Widget build(BuildContext context) {
@@ -27,10 +26,9 @@ class _WindowButtons extends StatelessWidget {
         _WindowButton(
           icon: Icons.close,
           isDark: isDark,
-          onTap: () {
-            onClose?.call();
-            windowManager.close();
-          },
+          // 实际关闭行为（弹窗确认/收进托盘/直接退出）由
+          // BilimusicWindowListener.onWindowClose 依据设置分发
+          onTap: windowManager.close,
           hoverColor: Colors.red,
           iconHoverColor: Colors.white,
         ),
@@ -91,13 +89,11 @@ class _WindowButtonState extends State<_WindowButton> {
 class DesktopNavBar extends StatelessWidget {
   final int selectedIndex;
   final Function(int) onNavTap;
-  final VoidCallback? onClose;
 
   const DesktopNavBar({
     super.key,
     required this.selectedIndex,
     required this.onNavTap,
-    this.onClose,
   });
 
   @override
@@ -169,7 +165,7 @@ class DesktopNavBar extends StatelessWidget {
               }).toList(),
             ),
           ),
-          _WindowButtons(isDark: isDark, onClose: onClose),
+          _WindowButtons(isDark: isDark),
         ],
       ),
     );

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
-import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/player/widgets/mini_player_bar.dart';
 import 'package:bilimusic/app/shells/widgets/desktop_window_controls.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
@@ -65,8 +64,6 @@ class PortraitShell extends ConsumerWidget {
               child: DesktopNavBar(
                 selectedIndex: selectedIndex,
                 onNavTap: (index) => pageManager.goToTab(index),
-                onClose: () =>
-                    ref.read(playbackCommandsProvider.notifier).stop(),
               ),
             )
           : null,
@@ -122,8 +119,6 @@ class PortraitShell extends ConsumerWidget {
               child: DesktopNavBar(
                 selectedIndex: selectedIndex,
                 onNavTap: (index) => pageManager.goToTab(index),
-                onClose: () =>
-                    ref.read(playbackCommandsProvider.notifier).stop(),
               ),
             )
           : null,

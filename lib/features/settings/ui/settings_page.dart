@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/features/settings/settings_manager.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/theme/theme_registry.dart';
@@ -205,6 +206,38 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 onChanged: notifier.setTabletMode,
               ),
             ),
+
+            // 窗口行为（仅桌面端显示）
+            if (PlatformHelper.isDesktop) ...[
+              _buildSectionTitle('窗口行为'),
+              ListTile(
+                leading: Icon(Icons.window, color: _getPrimaryColor(context)),
+                title: Text('关闭行为'),
+                subtitle: Text(
+                  ref
+                      .read(settingsManagerProvider)
+                      .getCloseBehaviorText(settings.closeBehavior),
+                ),
+                trailing: DropdownButton<String>(
+                  value: settings.closeBehavior,
+                  items: const [
+                    DropdownMenuItem(
+                      value: SettingsManager.CLOSE_BEHAVIOR_PROMPT,
+                      child: Text('弹出提示'),
+                    ),
+                    DropdownMenuItem(
+                      value: SettingsManager.CLOSE_BEHAVIOR_MINIMIZE_TRAY,
+                      child: Text('最小化至托盘'),
+                    ),
+                    DropdownMenuItem(
+                      value: SettingsManager.CLOSE_BEHAVIOR_EXIT,
+                      child: Text('直接退出'),
+                    ),
+                  ],
+                  onChanged: notifier.setCloseBehavior,
+                ),
+              ),
+            ],
 
             // 音频设置（仅在安卓平台可用）
             _buildSectionTitle('音频'),

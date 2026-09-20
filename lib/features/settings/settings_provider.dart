@@ -23,6 +23,7 @@ class SettingsState {
   final int preloadSeconds;
   final String lanSyncMode;
   final String lanSyncDeviceName;
+  final String closeBehavior;
 
   const SettingsState({
     this.notificationsEnabled = true,
@@ -40,6 +41,7 @@ class SettingsState {
     this.preloadSeconds = 10,
     this.lanSyncMode = 'off',
     this.lanSyncDeviceName = '',
+    this.closeBehavior = 'prompt',
   });
 
   SettingsState copyWith({
@@ -58,6 +60,7 @@ class SettingsState {
     int? preloadSeconds,
     String? lanSyncMode,
     String? lanSyncDeviceName,
+    String? closeBehavior,
   }) {
     return SettingsState(
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
@@ -75,6 +78,7 @@ class SettingsState {
       preloadSeconds: preloadSeconds ?? this.preloadSeconds,
       lanSyncMode: lanSyncMode ?? this.lanSyncMode,
       lanSyncDeviceName: lanSyncDeviceName ?? this.lanSyncDeviceName,
+      closeBehavior: closeBehavior ?? this.closeBehavior,
     );
   }
 }
@@ -101,6 +105,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       preloadSeconds: s.preloadSeconds,
       lanSyncMode: s.lanSyncMode,
       lanSyncDeviceName: s.lanSyncDeviceName,
+      closeBehavior: s.closeBehavior,
     );
   }
 
@@ -122,6 +127,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       preloadSeconds: s.preloadSeconds,
       lanSyncMode: s.lanSyncMode,
       lanSyncDeviceName: s.lanSyncDeviceName,
+      closeBehavior: s.closeBehavior,
     );
   }
 
@@ -214,6 +220,13 @@ class SettingsNotifier extends Notifier<SettingsState> {
   Future<void> setLanSyncDeviceName(String value) async {
     state = state.copyWith(lanSyncDeviceName: value);
     await _save('lan_sync_device_name', value);
+  }
+
+  /// 委托给 SettingsManager 落盘并刷新其内存缓存：
+  /// 窗口监听器在关闭时同步读 manager.closeBehavior，必须保证最新。
+  Future<void> setCloseBehavior(String? value) async {
+    if (value == null) return;
+    await ref.read(_settingsManagerProvider).setCloseBehavior(value);
   }
 
   Future<void> _save(String key, dynamic value) async {

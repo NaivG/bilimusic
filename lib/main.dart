@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'package:bilimusic/shared/utils/platform_helper.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:bilimusic/app/desktop_tray.dart';
+import 'package:bilimusic/app/app_navigator_key.dart';
 import 'package:bilimusic/app/window_listener.dart';
 import 'package:flutter/material.dart';
 
@@ -42,6 +44,10 @@ Future<void> _setupMainWindow() async {
     await windowManager.focus();
   });
   windowManager.addListener(BilimusicWindowListener());
+  // 托盘建起来之后才拦截关闭：否则窗口关不掉，托盘里又没东西可点
+  if (await DesktopTray.instance.initialize()) {
+    await windowManager.setPreventClose(true);
+  }
 }
 
 void main() async {
@@ -111,6 +117,11 @@ void main() async {
   // 初始化桌面窗口
   if (PlatformHelper.isDesktop) {
     await _setupMainWindow();
+    // 托盘就绪后再接菜单内容（控制器在组合根里创建与释放）：
+    // 菜单要读播放器状态，得等 Provider 容器就绪；没有托盘则无需创建。
+    if (DesktopTray.instance.isReady) {
+      DesktopTray.instance.useContent(container.read(trayMenuProvider));
+    }
   }
 
   runApp(
@@ -132,8 +143,8 @@ class MyApp extends ConsumerStatefulWidget {
 }
 
 class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
-  // 添加全局key用于获取MaterialApp的context
-  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  // 全局key用于获取MaterialApp的context（与窗口监听器共用，见 app_navigator_key.dart）
+  final GlobalKey<NavigatorState> _navigatorKey = appNavigatorKey;
 
   @override
   void initState() {

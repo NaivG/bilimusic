@@ -17,6 +17,7 @@ import 'package:bilimusic/features/lan_sync/services/lan_sync_service.dart';
 import 'package:bilimusic/features/lan_sync/services/pairing_service.dart';
 import 'package:bilimusic/features/home/logic/recommendation_manager.dart';
 import 'package:bilimusic/features/offline/services/offline_cache_service.dart';
+import 'package:bilimusic/app/tray_menu.dart';
 import 'package:bilimusic/features/settings/settings_manager.dart';
 import 'package:bilimusic/features/auth/user_manager.dart';
 import 'package:bilimusic/features/fav_sync/fav_sync_manager.dart';
@@ -185,6 +186,21 @@ final pairingServiceProvider = Provider<PairingService>((ref) {
   final svc = PairingService();
   svc.load();
   return svc;
+});
+
+// ==================== 桌面托盘 ====================
+
+/// 托盘右键菜单：曲目信息 / 播放控制 / 收藏 / 播放模式 / 页面入口 / 退出。
+///
+/// 由 main.dart 在托盘图标建起来之后读取并挂到托盘上（托盘基础设施见
+/// `desktop_tray.dart`）：没有托盘时创建它只是白白挂一串播放器监听。
+final trayMenuProvider = Provider<TrayMenu>((ref) {
+  final menu = TrayMenu(
+    coordinator: ref.watch(playerCoordinatorProvider),
+    playlistService: ref.watch(playlistServiceProvider),
+  );
+  ref.onDispose(menu.dispose);
+  return menu;
 });
 
 final lanSyncServiceProvider = Provider<LanSyncService>((ref) {

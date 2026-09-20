@@ -78,6 +78,7 @@ dependencies:
   flutter_app_update: ^3.2.4
   permission_handler: ^11.4.0
   jni: ^1.0.3 # for arm64 global_jni_env build fix (dart-lang/native#3498)
+  tray_manager: ^0.7.0
 #  just_aaudio:
 #    path: ../just_aaudio
 
@@ -108,6 +109,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/ic_launcher.png
+    - assets/tray_icon.ico
     - assets/version.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
