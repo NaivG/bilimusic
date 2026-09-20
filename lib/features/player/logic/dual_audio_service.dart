@@ -665,17 +665,33 @@ class DualAudioService {
   Future<void> dispose() async {
     debugPrint('[DualAudioService] 开始释放资源');
 
-    // 取消所有订阅
-    for (final sub in _subscriptions) {
-      await sub.cancel();
-    }
+    // 取消所有订阅：先摘出快照再清空列表，避免「cancel 期间又有 add」导致
+    // ConcurrentModificationError（cancel 可能同步触发监听回调）。单个取消失败
+    // 只记日志，不能中断后面的播放器释放。
+    final subscriptions = List<StreamSubscription>.of(_subscriptions);
     _subscriptions.clear();
+    for (final sub in subscriptions) {
+      try {
+        await sub.cancel();
+      } catch (e) {
+        debugPrint('[DualAudioService] 取消订阅失败 $e');
+      }
+    }
 
-    // 停止并释放两个播放器
-    await _playerA.player.stop();
-    await _playerA.player.dispose();
-    await _playerB.player.stop();
-    await _playerB.player.dispose();
+    // 停止并释放两个播放器：即使上一步出过问题也必须走到这里，
+    // 否则 libmpv 线程会带着活跃解码器被进程退出拆掉。
+    for (final info in [_playerA, _playerB]) {
+      try {
+        await info.player.stop();
+      } catch (e) {
+        debugPrint('[DualAudioService] 停止播放器失败 $e');
+      }
+      try {
+        await info.player.dispose();
+      } catch (e) {
+        debugPrint('[DualAudioService] 释放播放器失败 $e');
+      }
+    }
 
     debugPrint('[DualAudioService] 资源释放完成');
   }

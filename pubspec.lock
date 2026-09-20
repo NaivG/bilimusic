@@ -66,7 +66,7 @@ packages:
     source: hosted
     version: "0.18.19"
   audio_service_platform_interface:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: audio_service_platform_interface
       sha256: "6283782851f6c8b501b60904a32fc7199dc631172da0629d7301e66f672ab777"
@@ -84,10 +84,11 @@ packages:
   audio_service_win:
     dependency: "direct main"
     description:
-      name: audio_service_win
-      sha256: "677e25f447d3d49f537ea6f4fd36e9511acdc0badc6534c9cb92a205566ba12a"
-      url: "https://pub.dev"
-    source: hosted
+      path: "."
+      ref: HEAD
+      resolved-ref: ea69377527d37ba64130f5a51dfa62c9b4995ba2
+      url: "https://github.com/NaivG/audio_service_win.git"
+    source: git
     version: "0.0.3"
   audio_session:
     dependency: "direct main"

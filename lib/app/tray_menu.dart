@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:tray_manager/tray_manager.dart';
 
+import 'package:bilimusic/app/app_lifecycle.dart';
 import 'package:bilimusic/app/desktop_tray.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/domain/music.dart';
@@ -322,7 +323,7 @@ class TrayMenu implements TrayMenuContent {
   });
 
   /// 退出要等菜单自己的消息循环跑完：在菜单回调里同步销毁托盘图标会崩。
-  void _quit() => Timer.run(() => _run(DesktopTray.instance.quit));
+  void _quit() => Timer.run(() => _run(AppLifecycleManager.instance.quit));
 
   /// 菜单回调不能把异常抛回原生层——那会打断原生的菜单消息循环。
   void _run(Future<void> Function() action) {

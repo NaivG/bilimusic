@@ -26,6 +26,10 @@ abstract interface class TrayMenuContent {
 
 /// 桌面端系统托盘：把窗口「最小化 / 关闭」收进托盘，并提供右键菜单。
 ///
+/// 只管「图标与时机」：什么时候建图标、什么时候显示/隐藏窗口、什么时候刷新菜单。
+/// 真正退出应用是 `AppLifecycleManager.quit()` 的事（摘图标只是那串收尾动作的第一步），
+/// 本类不持有 Provider 容器与音频句柄。
+///
 /// 只有托盘图标真的创建成功（[isReady]）时，窗口监听器才会接管最小化与关闭；
 /// 托盘不可用时保持原来的行为——否则用户会既看不到托盘图标、又关不掉窗口。
 class DesktopTray {
@@ -153,15 +157,9 @@ class DesktopTray {
     }
   }
 
-  /// 真正退出：先摘掉托盘图标（避免任务栏留下幽灵图标），再关窗口。
-  Future<void> quit() async {
-    await dispose();
-    // 关闭拦截还开着的话，destroy 之外的关闭路径又会被解释成「收进托盘」
-    await windowManager.setPreventClose(false);
-    await windowManager.destroy();
-  }
-
   /// 释放托盘图标与菜单内容。之后 [isReady] 为 false，窗口恢复默认的关闭行为。
+  ///
+  /// 由 `AppLifecycleManager.quit()` 在退出流程第一步调用（也可重入，见 [TrayMenuContent.dispose]）。
   Future<void> dispose() async {
     _ready = false;
     final icon = _trayIcon;

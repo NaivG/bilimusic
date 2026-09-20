@@ -1,4 +1,5 @@
 import 'package:bilimusic/app/app_navigator_key.dart';
+import 'package:bilimusic/app/app_lifecycle.dart';
 import 'package:bilimusic/app/close_confirm_dialog.dart';
 import 'package:bilimusic/app/desktop_tray.dart';
 import 'package:bilimusic/features/settings/settings_manager.dart';
@@ -10,9 +11,16 @@ class BilimusicWindowListener extends WindowListener {
 
   @override
   void onWindowClose() async {
-    // 托盘不可用时保持原行为：直接退出（否则窗口关不掉，托盘里又没东西可点）
+    // 托盘不可用时没有「收进托盘」这个选项，直接走完整退出流程。
+    //
+    // 这里必须走 AppLifecycleManager.quit() 而不是 windowManager.destroy()：
+    // destroy() 是 PostQuitMessage(0)（window_manager.cpp:233），跳过
+    // WM_DESTROY → Win32Window::Destroy() → FlutterWindow::OnDestroy() 这条引擎析构路径，
+    // 窗口/插件注册在「没析构」的状态下被进程退出带走，正是崩溃族一
+    // （flutter_windows.dll + 0x1e240）的成因。quit() 内部的 `_quitting` 闸门同时挡住了
+    // 「退出流程自己发的那次 close 再绕回这里」的递归。
     if (!DesktopTray.instance.isReady) {
-      await windowManager.destroy();
+      await AppLifecycleManager.instance.quit();
       return;
     }
     // SettingsManager 是单例，与 settingsManagerProvider 持有同一实例
@@ -20,7 +28,7 @@ class BilimusicWindowListener extends WindowListener {
       case SettingsManager.CLOSE_BEHAVIOR_MINIMIZE_TRAY:
         await DesktopTray.instance.hideToTray();
       case SettingsManager.CLOSE_BEHAVIOR_EXIT:
-        await DesktopTray.instance.quit();
+        await AppLifecycleManager.instance.quit();
       default: // prompt：弹窗询问本次关闭行为
         await _showCloseConfirmDialog();
     }

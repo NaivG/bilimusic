@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'package:bilimusic/shared/utils/platform_helper.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:bilimusic/app/app_lifecycle.dart';
 import 'package:bilimusic/app/desktop_tray.dart';
 import 'package:bilimusic/app/app_navigator_key.dart';
 import 'package:bilimusic/app/window_listener.dart';
@@ -81,6 +82,8 @@ void main() async {
 
   // 构造 Riverpod 容器，让依赖关系通过 ref.watch 编译期声明
   final container = ProviderContainer();
+  // 登记给 AppLifecycleManager：退出时统一释放（摘托盘 → 收音频 → 释放容器 → 关窗口）
+  AppLifecycleManager.instance.attachContainer(container);
 
   // 读取 playerCoordinator（首次读取会触发依赖图所有服务初始化）
   final coordinator = container.read(playerCoordinatorProvider);
@@ -113,6 +116,11 @@ void main() async {
 
   // 初始化通知服务(音频处理器)
   container.read(notificationServiceProvider).initialize(audioHandler);
+
+  // 登记给 AppLifecycleManager：退出前要 stop() 音频服务并显式释放 SMTC，
+  // 否则系统媒体会话会被留到进程收尾阶段才析构 —— 那条路径在 Windows 上会崩
+  // （audio_service_win#5，见 app_lifecycle.dart）
+  AppLifecycleManager.instance.attachAudioHandler(audioHandler);
 
   // 初始化桌面窗口
   if (PlatformHelper.isDesktop) {

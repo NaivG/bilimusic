@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:bilimusic/app/app_lifecycle.dart';
 import 'package:bilimusic/app/desktop_tray.dart';
 import 'package:bilimusic/features/settings/settings_manager.dart';
 
@@ -41,7 +42,7 @@ class _CloseConfirmDialogState extends State<_CloseConfirmDialog> {
     if (minimize) {
       await DesktopTray.instance.hideToTray();
     } else {
-      await DesktopTray.instance.quit();
+      await AppLifecycleManager.instance.quit();
     }
   }
 
