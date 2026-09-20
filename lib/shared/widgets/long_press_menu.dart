@@ -124,6 +124,12 @@ FutureOr<Menu?> buildMusicContextMenu({
         image: MenuImage.icon(Icons.share),
         callback: () => shareMusic(music),
       ),
+      if (music.id.isNotEmpty)
+        MenuAction(
+          title: '打开原网页',
+          image: MenuImage.icon(Icons.open_in_new),
+          callback: () => openOriginalPage(music),
+        ),
     ],
   );
 }

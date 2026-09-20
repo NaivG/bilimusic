@@ -18,6 +18,7 @@ import 'package:bilimusic/shared/utils/animations.dart';
 import 'package:bilimusic/shared/utils/dialog_helpers.dart';
 import 'package:bilimusic/shared/utils/formatters.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/shared/utils/share_helpers.dart';
 
 /// 方屏详情页（手表/折叠外屏/近正方形 PiP）
 /// 顶部：横向封面 + 信息（miniplayer 风格）
@@ -336,6 +337,12 @@ class SquareDetailPage extends ConsumerWidget {
           onTap: onToggleFavorite,
         ),
         SheetAction(icon: Icons.share, label: '分享', onTap: onShare),
+        if (music.id.isNotEmpty)
+          SheetAction(
+            icon: Icons.open_in_new,
+            label: '打开原网页',
+            onTap: () => openOriginalPage(music),
+          ),
         syncPanelSheetAction(
           context,
           onlinePeers: ref.read(connectedPeersProvider).length,

@@ -13,6 +13,7 @@ import 'package:bilimusic/features/lan_sync/lan_sync_providers.dart';
 import 'package:bilimusic/features/lan_sync/ui/sync_panel.dart';
 import 'package:bilimusic/shared/utils/dialog_helpers.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/shared/utils/share_helpers.dart';
 import 'package:bilimusic/shared/widgets/window_drag_area.dart';
 import 'package:bilimusic/app/app_providers.dart';
 
@@ -206,6 +207,12 @@ class LandscapeDetailPage extends ConsumerWidget {
           onTap: onToggleFavorite,
         ),
         SheetAction(icon: Icons.share, label: '分享', onTap: onShare),
+        if (music.id.isNotEmpty)
+          SheetAction(
+            icon: Icons.open_in_new,
+            label: '打开原网页',
+            onTap: () => openOriginalPage(music),
+          ),
         syncPanelSheetAction(
           context,
           onlinePeers: ref.read(connectedPeersProvider).length,
