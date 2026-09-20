@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:bilimusic/core/storage/database.dart';
@@ -27,6 +28,7 @@ import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:bilimusic/features/update/update_checker.dart';
 import 'package:bilimusic/features/update/ui/update_dialog.dart';
 import 'package:bilimusic/app/shells/app_shell.dart';
+import 'package:bilimusic/features/storage/database_conflict_dialog.dart';
 import 'package:bilimusic/shared/theme/theme_registry.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
 
@@ -61,8 +63,42 @@ void main() async {
     // 桌面端 sqflite FFI 初始化
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+    
+    // 桌面端把库从 sqflite 的默认落点搬进应用数据目录
+    AppDatabase.directoryResolver = () async =>
+        (await getApplicationSupportDirectory()).path;
   }
 
+  // 数据库落点预检 —— 排在**窗口和 App 之前**。
+  //
+  // 用户手上可能不止一份库（旧落点跟着 cwd 走，见 core/storage/database_conflict.dart）。
+  // 不止一份能读时要问用户，问完归档落败的、**重启进程**，新进程重扫一遍只会看到
+  // 一份，于是走最朴素的「搬过去 / 打开」。放在这里而不是 App 内部，是因为重启时
+  // 进程里必须什么都没有：`RestartMode.process` 是硬退出、不做析构，而且改名归档
+  // 发生时不能有任何东西持有那些 `.db`（Windows 上 rename 被打开的文件会失败）。
+  await _resolveDatabasePlacementIfNeeded();
+
+  await _bootstrapApp();
+}
+
+/// 有落点冲突就问用户 + 归档 + 重启；没有冲突时立即返回。
+///
+/// 冲突这条路上这个函数**不应该返回**：用户选完之后 shell 会用
+/// `RestartMode.process` 把进程换掉，新进程重扫一遍（那时盘上只剩一份，走最朴素的
+/// 「搬过去 / 打开」）；换不掉时 shell 自己切到「请手动重新打开」。
+Future<void> _resolveDatabasePlacementIfNeeded() async {
+  final scan = await AppDatabase.preflightDatabaseLocation();
+  if (scan == null) return;
+
+  runApp(DatabaseConflictShell(scan: scan));
+
+  // 走到这里说明进程没被换掉（正常路径永远到不了这行）
+  // 让 shell 去提示用户手动重开。
+  return Completer<void>().future;
+}
+
+/// 预检之后的常规启动：网络配置 → 组合根 → 音频服务 → 窗口 → `runApp`。
+Future<void> _bootstrapApp() async {
   // 注入 Cookie 持久化(NetworkConfig 保持纯 Dart,便于 CLI/TUI 宿主复用)
   NetworkConfig.cookieLoader = () async =>
       (await SharedPreferences.getInstance()).getString('cookies');
@@ -71,9 +107,6 @@ void main() async {
 
   // 初始化网络配置
   await NetworkConfig.init();
-
-  // 一次性把旧 SharedPreferences 列表数据迁入 playlist.db
-  await AppDatabase.instance.migrateFromPrefsOnce();
 
   // 初始化just_audio_media_kit（仅在非Web和非Android/iOS平台上需要）
   if (PlatformHelper.isDesktop) {
@@ -88,14 +121,29 @@ void main() async {
   // 读取 playerCoordinator（首次读取会触发依赖图所有服务初始化）
   final coordinator = container.read(playerCoordinatorProvider);
 
-  // 等待播放列表服务初始化完成，
-  // 否则 UI 在 build 阶段同步读取 .favorites / .userPlaylistsSnapshot 等会抛 StateError
+  // 播放列表初始化（等 AppDatabase.instance.database）。
+  //
+  // **刻意不 await**：等在这里会把窗口的出现推迟到开库、甚至搬库之后。UI 读到的
+  // 都是各 ValueNotifier 的初始空值，不会抛 StateError（那个只在 _dbChecked 上）。
   final playlistService = container.read(playlistServiceProvider);
-  await playlistService.initialize();
+  final playlistReady = playlistService.initialize();
+
+  // 一次性把旧 SharedPreferences 列表数据迁入 playlist.db
+  //
+  // 同样刻意不 await：它内部会开库（可能还要先搬库）。放在 runApp 之后，启动顺序
+  // 就是「窗口先出来 → 库打开 → 列表填充」。
+  unawaited(AppDatabase.instance.migrateFromPrefsOnce());
 
   // 后台回填历史/收藏/当前列表中 cid 缺失的 item（不阻塞初始化）
+  //
+  // 先等 initialize 完成再回填：它内部用 `_dbChecked`，库还没开就会抛
+  // StateError（未初始化访问）。等的是一个已经在跑的 Future，所以这里不额外
+  // 阻塞任何东西。
   unawaited(
-    playlistService.backfillMissingCids(ensureCid: coordinator.ensureCid),
+    playlistReady.then(
+      (_) =>
+          playlistService.backfillMissingCids(ensureCid: coordinator.ensureCid),
+    ),
   );
 
   // 初始化音频服务并保存实例
@@ -215,6 +263,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       theme: descriptor.light(),
       darkTheme: descriptor.dark(),
       themeMode: _parseAppearance(settings.appearance),
+      // 数据库落点的冲突在 `main()` 里就已经问完了（那时候 App 还没构造），
+      // 所以这里直接用 AppShell。
       home: const AppShell(),
     );
   }
