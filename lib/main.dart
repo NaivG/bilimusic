@@ -63,7 +63,7 @@ void main() async {
     // 桌面端 sqflite FFI 初始化
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
-    
+
     // 桌面端把库从 sqflite 的默认落点搬进应用数据目录
     AppDatabase.directoryResolver = () async =>
         (await getApplicationSupportDirectory()).path;
