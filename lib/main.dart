@@ -221,7 +221,9 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       debugPrint(
         'Update available: ${result.remoteVersion}\nChangelog:\n${result.newEntries.map((entry) => entry.toString()).join('\n')}',
       );
-      if (navigatorContext != null) {
+      // 这个 context 来自全局 Navigator key，不是 State.context，
+      // 只能用它自己的 mounted 判断（State.mounted 对它是不相关的检查）
+      if (navigatorContext != null && navigatorContext.mounted) {
         await UpdateAvailableDialog.show(
           navigatorContext,
           newVersion: result.remoteVersion,

@@ -512,6 +512,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   void _createNewPlaylist() {
     final TextEditingController controller = TextEditingController();
+    // 弹窗的 context 在 pop 之后就不再可靠，messenger 从页面 context 上先取好
+    final messenger = ScaffoldMessenger.of(context);
 
     showDialog(
       context: context,
@@ -538,12 +540,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   await ref
                       .read(playlistServiceProvider)
                       .createPlaylist(name: controller.text.trim());
+                  if (!context.mounted) return;
                   Navigator.pop(context);
                   _loadData();
-                  if (mounted) {
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(const SnackBar(content: Text('歌单创建成功')));
-                  }
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('歌单创建成功')),
+                  );
                 }
               },
               child: const Text('创建'),
