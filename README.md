@@ -83,8 +83,8 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 
 | 平台 | 状态 | 备注 |
 | --- | --- | --- |
-| **Windows** 10+ | ✅ 稳定 | 解压即用 |
-| **Linux** | ✅ 稳定 | Ubuntu 20.04+ 或主流发行版；需要 `libmpv-dev` |
+| **Windows** 10+ | ✅ 稳定 | 解压即用，`x64`架构 |
+| **Linux** | ✅ 稳定 | Ubuntu 20.04+ 或主流发行版，`x64`或`arm64`架构；需要 `libmpv-dev` |
 | **Android** 12+ | ✅ 稳定 | 按设备架构选择 APK（`arm64-v8a` / `armeabi-v7a` / `x86_64`），或全平台 AAB |
 | **macOS 10.15+, with Metal Support** | ⚠️ 实验性 | CI 产出 ad-hoc 签名的未公证 `.app`，也可从源码构建 |
 | **iOS 13+** | ❓ 未经测试 | 可从源码构建无签名版本 |
@@ -105,7 +105,7 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 - macOS / Web：需手动重新下载。
 
 ```bash
-# Linux 用户需要先安装依赖
+# Linux 因为打包时不含libmpv，需要先安装依赖
 sudo apt install libmpv-dev
 ```
 
