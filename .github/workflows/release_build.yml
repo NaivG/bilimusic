@@ -14,6 +14,13 @@ jobs:
   # 将新版本号作为输出，供其他 job 使用
   build_env: # 更新pubspec.yaml中的版本号:
     runs-on: ubuntu-latest
+    # 步骤级输出（$GITHUB_OUTPUT）默认只对同 job 的后续步骤可见；下游 job 想用
+    # needs.build_env.outputs 下的键，必须在 job 上显式映射一次。
+    outputs:
+      # 主版本号（pubspec.yaml 的 1.9.2，不带 +build）→ Vela 端 versionName
+      MAIN_VERSION: ${{ steps.update_version_in_pubspec.outputs.MAIN_VERSION }}
+      # 提交数 → Vela 端 versionCode（与 Flutter 端 build number 同源）
+      BUILD_VERSION: ${{ steps.update_version_in_pubspec.outputs.BUILD_VERSION }}
     steps:
       # 检出代码
       - uses: actions/checkout@v4
@@ -60,6 +67,12 @@ jobs:
           # 从pubspec.yaml中提取主版本号,(e.g. version: 1.0.0+1，提取1.0.0)
           MAIN_VERSION=$(grep "^version:" pubspec.yaml | sed -E 's/version: ([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
           echo "MAIN_VERSION=${MAIN_VERSION}"
+          # 抽不到就当场炸在源头。
+          if ! [[ "$MAIN_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::pubspec.yaml 未解析出合法的 version（'${MAIN_VERSION}'），期望形如 version: 1.9.2+190"
+            grep "^version:" pubspec.yaml || true
+            exit 1
+          fi
           # 供 build_vela 对齐 versionName 使用（Vela 端的 versionName 必须等于 Flutter 端的主版本号）
           echo "MAIN_VERSION=${MAIN_VERSION}" >> "$GITHUB_OUTPUT"
           # 供 build_vela 对齐 versionCode 使用（Vela 端的 versionCode 必须等于提交数，与 Flutter 端的 build number 同源）
