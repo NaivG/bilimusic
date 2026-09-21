@@ -55,6 +55,7 @@ dependencies:
   share_plus: ^12.0.2
   crypto: ^3.0.6
   encrypt: ^5.0.3
+  pointycastle: ^3.9.1 # 密码登录 RSA_PKCS1 直接用到它的 RSAPublicKey 类型（encrypt 的底层）
   url_launcher: ^6.3.2
   gt3_flutter_plugin: ^0.1.1
   color_thief_dart: ^0.1.0

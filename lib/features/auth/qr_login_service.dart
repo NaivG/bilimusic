@@ -30,7 +30,10 @@ class QrLoginService {
       query: {'qrcode_key': qrcodeKey},
     );
     final statusCode = (data['code'] as num?)?.toInt() ?? -1;
-    return QrPollResult(status: QrPollStatus.fromCode(statusCode));
+    return QrPollResult(
+      status: QrPollStatus.fromCode(statusCode),
+      refreshToken: data['refresh_token']?.toString() ?? '',
+    );
   }
 }
 
@@ -74,5 +77,12 @@ enum QrPollStatus {
 
 class QrPollResult {
   final QrPollStatus status;
-  const QrPollResult({required this.status});
+
+  /// 刷新凭据，仅登录成功时非空。
+  ///
+  /// 不是 Cookie（Set-Cookie 已由 PassportClient 落地），要单独落盘到
+  /// [PassportStore]，SESSDATA 续期要用——之前在轮询成功后被直接丢弃了。
+  final String refreshToken;
+
+  const QrPollResult({required this.status, this.refreshToken = ''});
 }

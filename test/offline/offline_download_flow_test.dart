@@ -238,8 +238,12 @@ class _FakeBiliClient extends BiliClient {
   @override
   Future<dynamic> get(
     String path, {
-    Map<String, String>? query,
-    Map<String, String>? extraHeaders,
+    Map<String, Object?>? query,
+    bool signed = false,
+    Map<String, String>? headers,
+    Duration? timeout,
+    String? baseUrl,
+    bool retry = true,
   }) async {
     if (path == '/x/player/playurl') {
       return {

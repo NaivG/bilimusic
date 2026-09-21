@@ -99,14 +99,16 @@ Future<void> _resolveDatabasePlacementIfNeeded() async {
 
 /// 预检之后的常规启动：网络配置 → 组合根 → 音频服务 → 窗口 → `runApp`。
 Future<void> _bootstrapApp() async {
-  // 注入 Cookie 持久化(NetworkConfig 保持纯 Dart,便于 CLI/TUI 宿主复用)
+  // 注入 Cookie 持久化(NetworkConfig 保持纯 Dart,便于 CLI/TUI 宿主复用)。
+  // 落盘的是 CookieJar 的 `{version, cookies:[…]}` 格式；老版本存下的扁平
+  // `{"SESSDATA":"…"}` 由 `CookieJar.load` 就地迁移。
   NetworkConfig.cookieLoader = () async =>
       (await SharedPreferences.getInstance()).getString('cookies');
   NetworkConfig.cookieSaver = (json) async =>
       (await SharedPreferences.getInstance()).setString('cookies', json);
 
-  // 初始化网络配置
-  await NetworkConfig.init();
+  // 初始化网络配置：只等读盘 + 旧格式迁移；设备标识 / bili_ticket 的自举放后台。
+  await NetworkConfig.init(waitForBootstrap: false);
 
   // 初始化just_audio_media_kit（仅在非Web和非Android/iOS平台上需要）
   if (PlatformHelper.isDesktop) {

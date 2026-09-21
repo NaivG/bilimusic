@@ -1,8 +1,7 @@
-import 'dart:convert';
-
+import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:flutter/material.dart';
-import 'package:crypto/crypto.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/core/network/bili_exception.dart';
 import 'package:bilimusic/core/network/passport_client.dart';
 import 'package:bilimusic/features/auth/captcha_helper.dart';
@@ -11,14 +10,14 @@ import 'package:bilimusic/features/auth/ui/qr_login_widget.dart';
 
 enum _LoginMode { sms, password, qr }
 
-class LoginPage extends StatefulWidget {
+class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
   @override
-  _LoginPageState createState() => _LoginPageState();
+  ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends ConsumerState<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   _LoginMode _mode = PlatformHelper.isDesktop ? _LoginMode.qr : _LoginMode.sms;
   String _selectedCountry = '中国大陆';
@@ -211,7 +210,7 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      await _passport.postForm(
+      final data = await _passport.postForm(
         '/x/passport-login/web/login/sms',
         body: {
           'cid': _countryId, // 使用数据库ID而不是国际冠字码
@@ -222,6 +221,8 @@ class _LoginPageState extends State<LoginPage> {
           'go_url': "https://www.bilibili.com/",
         },
       );
+
+      await _onLoginSucceeded(data);
 
       messenger.showSnackBar(SnackBar(content: Text('登录成功')));
 
@@ -308,7 +309,7 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _doPasswordLogin(Map<String, String> validateResult) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
-      // 2. 获取公钥和盐
+      // 2. 获取公钥和盐（盐 20 秒有效，必须贴着提交取——极验已在前面过完）
       final keyInfo = await _getPublicKey();
       if (keyInfo == null) {
         setState(() {
@@ -317,17 +318,20 @@ class _LoginPageState extends State<LoginPage> {
         return;
       }
 
-      // 3. 加密密码（简化处理，实际应使用RSA加密）
-      final hashedPassword = sha256
-          .convert(utf8.encode(keyInfo['hash'] + _password))
-          .toString();
+      // 3. 加密密码：base64(RSA_PKCS1(盐 + 明文密码))。
+      //    不是旧的 sha256(盐 + 密码)——服务端已不认，会一直报密码错误。
+      final encryptedPassword = PassportClient.encryptPassword(
+        keyInfo['key']!.toString(),
+        keyInfo['hash']!.toString(),
+        _password,
+      );
 
       // 4. 登录
-      await _passport.postForm(
+      final data = await _passport.postForm(
         '/x/passport-login/web/login',
         body: {
           'username': _phoneNumber,
-          'password': hashedPassword,
+          'password': encryptedPassword,
           'keep': '0',
           'token': _captchaToken,
           'challenge': validateResult['geetest_challenge'] ?? '',
@@ -336,6 +340,20 @@ class _LoginPageState extends State<LoginPage> {
           'source': 'main-fe-header',
         },
       );
+
+      // code == 0 但 status != 0 是风控分支：服务端要求用绑定手机号做安全
+      // 验证（「手机号验证」，完整闭环要走 /x/safecenter/*，本端未接入），
+      // 这里如实提示并引导改用扫码登录。
+      //
+      // 一般撞这个是正常的，用扫码和验证码登录一次就可以了。
+      final status = (data['status'] as num?)?.toInt() ?? 0;
+      if (status != 0) {
+        final message = data['message']?.toString() ?? '本次登录环境存在风险，请改用扫码登录';
+        messenger.showSnackBar(SnackBar(content: Text(message)));
+        return;
+      }
+
+      await _onLoginSucceeded(data);
 
       messenger.showSnackBar(SnackBar(content: Text('登录成功')));
 
@@ -348,6 +366,20 @@ class _LoginPageState extends State<LoginPage> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  /// 登录成功后的收尾：把 passport 下发的 refresh_token 落盘。
+  ///
+  /// Cookie 已由 PassportClient 统一回收；refresh_token 是响应体里的
+  /// **非 Cookie** 刷新凭据（SESSDATA 续期要用），落盘失败不影响本次登录。
+  Future<void> _onLoginSucceeded(Map<String, dynamic> data) async {
+    final token = data['refresh_token']?.toString() ?? '';
+    if (token.isEmpty) return;
+    try {
+      await ref.read(passportStoreProvider).setRefreshToken(token);
+    } catch (e) {
+      debugPrint('[Login] refresh_token 落盘失败: $e');
     }
   }
 

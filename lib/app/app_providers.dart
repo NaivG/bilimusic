@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lyrics_now/lyrics_now.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:bilimusic/core/network/bili_client.dart';
+import 'package:bilimusic/core/network/passport_store.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/core/network/api_service.dart';
 import 'package:bilimusic/features/player/logic/dual_audio_service.dart';
@@ -78,6 +80,25 @@ final playlistServiceProvider = Provider<PlaylistService>((ref) {
   svc.initialize();
   ref.onDispose(svc.dispose);
   return svc;
+});
+
+// ==================== 登录凭据 ====================
+
+/// `refresh_token` 的 SharedPreferences 键。
+const String _refreshTokenPrefsKey = 'bili_refresh_token_v1';
+
+/// 登录凭据仓库：refresh_token 这类非 Cookie 的登录凭据（SESSDATA 续期要用）。
+///
+/// Cookie 由 `NetworkConfig.cookieJar` 负责（main.dart 注入落盘钩子）；
+/// refresh_token 是 passport 登录成功时随响应体下发的，单独走这里。
+/// TUI 只共享 Cookie 登录态，refresh_token 目前只有 App 侧消费。
+final passportStoreProvider = Provider<PassportStore>((ref) {
+  Future<SharedPreferences> prefs() => SharedPreferences.getInstance();
+  return PassportStore(
+    loader: () async => (await prefs()).getString(_refreshTokenPrefsKey),
+    saver: (json) async =>
+        (await prefs()).setString(_refreshTokenPrefsKey, json),
+  );
 });
 
 // ==================== 设置 / 用户 / 收藏同步 ====================
