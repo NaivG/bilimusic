@@ -104,7 +104,9 @@ class PipService extends ChangeNotifier {
 
       _isPipMode = false;
       notifyListeners();
-      await Future.delayed(const Duration(milliseconds: 100)); // 让窗口动画先结束，防止直接放大穿帮
+      await Future.delayed(
+        const Duration(milliseconds: 100),
+      ); // 让窗口动画先结束，防止直接放大穿帮
       await windowManager.show();
     } catch (e) {
       debugPrint('PipService.exitPipMode error: $e');
