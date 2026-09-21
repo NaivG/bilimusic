@@ -23,7 +23,7 @@ import 'package:bilimusic/features/player/logic/audio_handler.dart';
 import 'package:bilimusic/core/network/network_config.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audio_service/audio_service.dart';
-import 'package:just_audio_media_kit/just_audio_media_kit.dart';
+import 'package:mpv_audio_kit/mpv_audio_kit.dart';
 
 import 'package:bilimusic/features/update/update_checker.dart';
 import 'package:bilimusic/features/update/ui/update_dialog.dart';
@@ -110,10 +110,14 @@ Future<void> _bootstrapApp() async {
   // 初始化网络配置：只等读盘 + 旧格式迁移；设备标识 / bili_ticket 的自举放后台。
   await NetworkConfig.init(waitForBootstrap: false);
 
-  // 初始化just_audio_media_kit（仅在非Web和非Android/iOS平台上需要）
-  if (PlatformHelper.isDesktop) {
-    JustAudioMediaKit.ensureInitialized();
-  }
+  // 初始化 mpv_audio_kit（播放引擎）。
+  //
+  // **全平台无条件调用**，不再带 isDesktop 门：ensureInitialized 内部的平台
+  // quirk 要在 Linux/macOS/iOS 上执行 setlocale(LC_NUMERIC, "C")（libmpv 的
+  // API 契约，否则可能 abort），Windows/Android 跳过该步但孤儿句柄清理仍要
+  // 登记。位置保持在 ProviderContainer 之前——dualAudioServiceProvider 会
+  // 创建 Player。
+  MpvAudioKit.ensureInitialized();
 
   // 构造 Riverpod 容器，让依赖关系通过 ref.watch 编译期声明
   final container = ProviderContainer();
