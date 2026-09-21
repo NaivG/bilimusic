@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/core/storage/storage_path_resolver.dart';
+import 'package:bilimusic/features/auth/user_providers.dart';
 import 'package:bilimusic/features/offline/offline_providers.dart';
 import 'package:bilimusic/features/offline/services/offline_cache_service.dart';
 import 'package:bilimusic/features/lyrics/lyrics_providers.dart';
@@ -32,7 +33,6 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
   int _playHistoryCount = 0;
   int _favoritesCount = 0;
   int _playlistCount = 0;
-  bool _isLoggedIn = false;
 
   // 存储占用
   String _musicCacheSize = '计算中...';
@@ -100,26 +100,18 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     });
   }
 
+  /// 概览里的计数来自本地数据库；登录状态不在这里自判，
+  /// build 里直接 watch [userStateProvider]（UserManager 按 SESSDATA 判定）。
   Future<void> _loadAppData() async {
-    final prefs = await SharedPreferences.getInstance();
-
     final historyCount = ref.read(playlistServiceProvider).historyCount;
     final favCount = ref.read(playlistServiceProvider).favoritesCount;
     final playlistCount = ref.read(playlistServiceProvider).userPlaylistsCount;
-
-    // 登录状态
-    final cookies = prefs.getString('cookies');
-    final isLoggedIn =
-        cookies != null &&
-        cookies.isNotEmpty &&
-        cookies.contains('DedeUserID=');
 
     if (mounted) {
       setState(() {
         _playHistoryCount = historyCount;
         _favoritesCount = favCount;
         _playlistCount = playlistCount;
-        _isLoggedIn = isLoggedIn;
       });
     }
   }
@@ -180,19 +172,25 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     );
   }
 
+  /// 概览行：值一侧用 Expanded + TextAlign.end，长文本（如存放目录的完整
+  /// 路径）会自动换行。
   Widget _buildInfoRow(String label, String value, {Color? valueColor}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: const TextStyle(fontSize: 14)),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: valueColor,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: valueColor,
+              ),
             ),
           ),
         ],
@@ -232,6 +230,9 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
 
   @override
   Widget build(BuildContext context) {
+    // 登录状态来自 UserManager（按 cookie 里的 SESSDATA 判定），watch 以便
+    // 登录/退出后回到本页能即时刷新。
+    final userState = ref.watch(userStateProvider);
     return Scaffold(
       appBar: AutoAppBar.generateAppBar(title: '数据管理'),
       backgroundColor: Colors.transparent,
@@ -253,8 +254,10 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
                       _buildDivider(),
                       _buildInfoRow(
                         '登录状态',
-                        _isLoggedIn ? '已登录' : '未登录',
-                        valueColor: _isLoggedIn ? Colors.green : Colors.grey,
+                        userState.isLoggedIn ? '已登录' : '未登录',
+                        valueColor: userState.isLoggedIn
+                            ? Colors.green
+                            : Colors.grey,
                       ),
                     ],
                   ),

@@ -60,6 +60,10 @@ jobs:
           # 从pubspec.yaml中提取主版本号,(e.g. version: 1.0.0+1，提取1.0.0)
           MAIN_VERSION=$(grep "^version:" pubspec.yaml | sed -E 's/version: ([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
           echo "MAIN_VERSION=${MAIN_VERSION}"
+          # 供 build_vela 对齐 versionName 使用（Vela 端的 versionName 必须等于 Flutter 端的主版本号）
+          echo "MAIN_VERSION=${MAIN_VERSION}" >> "$GITHUB_OUTPUT"
+          # 供 build_vela 对齐 versionCode 使用（Vela 端的 versionCode 必须等于提交数，与 Flutter 端的 build number 同源）
+          echo "BUILD_VERSION=${{ steps.generate_version.outputs.BUILD_VERSION }}" >> "$GITHUB_OUTPUT"
           
           # 组合新的完整版本号 (e.g. 1.0.0+34)
           FULL_VERSION="${MAIN_VERSION}+${{ steps.generate_version.outputs.BUILD_VERSION }}"
@@ -112,6 +116,9 @@ jobs:
           # macOS 需要在 Apple 主机上编译（Xcode），runner 为 Apple Silicon(arm64)
           - name: macos
             os: macos-latest
+          # Linux arm64
+          - name: linux-arm
+            os: ubuntu-24.04-arm
 
     steps:
       # 检出代码
@@ -139,14 +146,40 @@ jobs:
         shell: bash
 
       # 设置Flutter环境
+      # 全平台锁 Flutter 3.47.5，避免 SDK 分叉：
+      #   - x64 走 stable 通道 + 指定版本，下载官方 SDK 压缩包；
+      #   - arm64 只能走 master（Flutter 未发布 Linux arm64 SDK 压缩包）。
       - name: Set up Flutter
+        if: matrix.name != 'linux-arm'
         uses: subosito/flutter-action@v2
         with:
-          channel: stable  # 使用Flutter的稳定版
+          channel: stable
+          flutter-version: 3.47.5
+
+      - name: Set up Flutter arm64
+        if: matrix.name == 'linux-arm'
+        uses: subosito/flutter-action@v2
+        with:
+          channel: master
+          architecture: arm64
+          flutter-version: 3.47.5  # 等价于 commit 6a19cca，锁住不跟 master 飘
 
       # 显示Flutter版本信息
       - name: Check Flutter version
         run: flutter --version
+
+      # flutter-action 命中缓存、或 git clone 中断时，checkout 可能失败而静默退回 master HEAD；
+      # 这里断言一次，避免用 master 编出来的包混进 Release。
+      - name: Verify pinned Flutter version
+        run: |
+          set -euo pipefail
+          flutter --version --machine > _flutter_version.json
+          cat _flutter_version.json
+          if ! grep -q '"frameworkVersion": "3.47.5"' _flutter_version.json; then
+            echo "::error::Flutter version is not pinned to 3.47.5"
+            exit 1
+          fi
+        shell: bash
       
       # 安装Flutter依赖
       - name: Install dependencies
@@ -192,7 +225,7 @@ jobs:
           flutter build web
       
       - name: Build Linux
-        if: matrix.name == 'linux'
+        if: matrix.name == 'linux' || matrix.name == 'linux-arm'
         run: |
           sudo apt-get update -y
           sudo apt-get install -y ninja-build libgtk-3-dev
@@ -252,6 +285,8 @@ jobs:
             zip -r bilimusic_web-release-${{ steps.read_build_env.outputs.FULL_VERSION }}.zip build/web
           elif [ "${{ matrix.name }}" = "linux" ]; then
             zip -r bilimusic_linux-x64-${{ steps.read_build_env.outputs.FULL_VERSION }}.zip build/linux/x64/release/bundle
+          elif [ "${{ matrix.name }}" = "linux-arm" ]; then
+            zip -r bilimusic_linux-arm64-${{ steps.read_build_env.outputs.FULL_VERSION }}.zip build/linux/arm64/release/bundle
           elif [ "${{ matrix.name }}" = "windows" ]; then
             powershell Compress-Archive build/windows/x64/runner/Release bilimusic_win32_x64-${{ steps.read_build_env.outputs.FULL_VERSION }}.zip
           elif [ "${{ matrix.name }}" = "macos" ]; then
@@ -273,8 +308,193 @@ jobs:
             *.zip
           if-no-files-found: error
 
+  # Vela 手表端构建（小米 Vela JS 快应用，独立工具链，与 Flutter 主项目不共享代码）
+  # - 不进 build_app matrix：matrix 是按 OS 矩阵走 Flutter 构建的，vela 只在 ubuntu 跑
+  # - 必须先于 release job 完成，RPK 才会被打到 GitHub Release
+  # - 产物名从 manifest.json 取 versionName + versionCode，方便在 Release 页一眼区分
+  build_vela:
+    needs: build_env
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Vela 端是独立 Node 工程，依赖在 vela/node_modules，与 Flutter 主项目不共享
+      # 用 actions/setup-node 而不是 Flutter 的 subosito/flutter-action
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # aiot-toolkit 要求 node >= 18
+
+      - name: Restore signing keys
+        env:
+          VELA_CERT_PEM: ${{ secrets.VELA_CERT_PEM }}
+          VELA_PRIV_PEM: ${{ secrets.VELA_PRIV_PEM }}
+        run: |
+          set -euo pipefail
+          # 必须两个 secret 都齐；缺一个就 fail-fast，避免后续 npm run release 产物缺签名
+          if [ -z "${VELA_CERT_PEM:-}" ] || [ -z "${VELA_PRIV_PEM:-}" ]; then
+            echo "::error::Missing required secrets VELA_CERT_PEM / VELA_PRIV_PEM"
+            echo "请在仓库 Settings → Secrets and variables → Actions 里补齐这两个 PEM"
+            exit 1
+          fi
+          # aiot release 模式按 sign/release/ → sign/ 顺序查找，写到 sign/release/ 走最高优先级
+          mkdir -p vela/sign/release
+          printf '%s' "$VELA_CERT_PEM" > vela/sign/release/certificate.pem
+          printf '%s' "$VELA_PRIV_PEM" > vela/sign/release/private.pem
+          ls -la vela/sign/release/
+
+      # npm ci 比 npm install 严格：依赖必须与 package-lock.json 完全一致，CI 必须走 ci
+      # allowScripts 已显式声明 @parcel/watcher + protobufjs；加 --foreground-scripts 确保非交互环境下白名单生效
+      - name: Install dependencies
+        working-directory: vela
+        run: npm ci --foreground-scripts
+
+      # 版本号对齐：manifest.json 里的 versionName / versionCode 是手工维护的，容易与 Flutter 端漂移。
+      # CI 出包时一律以「Flutter 主版本号 = versionName」+「提交数 = versionCode」为准改写：
+      #   - versionName ← pubspec.yaml 的 1.9.1（不带 +build），即上面 build_env 抽出的 MAIN_VERSION
+      #   - versionCode ← git rev-list --count HEAD，与 Flutter 端的 build number 同源同值：
+      #     Android 用 commit 数当 versionCode 递增，而 Vela 端 versionCode 也是单调递增的整数
+      #     （跨 VM 用 playstate 落盘、系统音量与 about 页读的都是这一对字段），两者必须一起涨，
+      #     否则「关于页显示 1.9.1+170，安装包却还是 21」这类漂移会一直存在。
+      # 只写 manifest.json，不动 package.json（aiot 打包只认 manifest）。
+      - name: Align Vela version with Flutter (versionName + commit count)
+        working-directory: vela
+        env:
+          VELA_VERSION_NAME: ${{ needs.build_env.outputs.MAIN_VERSION }}
+          VELA_VERSION_CODE: ${{ needs.build_env.outputs.BUILD_VERSION }}
+        run: |
+          set -euo pipefail
+          echo "::group::Before"
+          cat src/manifest.json
+          echo "::endgroup::"
+
+          # 先报错再改写，避免拿空值 / 非数字覆盖出一个不可安装的包
+          if [ -z "${VELA_VERSION_NAME:-}" ] || ! [[ "$VELA_VERSION_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::VELA_VERSION_NAME 非法（'${VELA_VERSION_NAME:-}'），期望形如 1.9.1"
+            exit 1
+          fi
+          if [ -z "${VELA_VERSION_CODE:-}" ] || ! [[ "$VELA_VERSION_CODE" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::VELA_VERSION_CODE 非法（'${VELA_VERSION_CODE:-}'），期望正整数提交数"
+            exit 1
+          fi
+
+          node - <<'EOF'
+          const { readFileSync, writeFileSync } = require('node:fs')
+          const path = require('node:path')
+
+          const file = path.resolve('src/manifest.json')
+          const raw = readFileSync(file, 'utf8')
+          const manifest = JSON.parse(raw)
+          const versionName = process.env.VELA_VERSION_NAME
+          const versionCode = Number(process.env.VELA_VERSION_CODE)
+
+          console.log(
+            `manifest 原值：versionName=${manifest.versionName} versionCode=${manifest.versionCode}` +
+              `（Type: ${typeof manifest.versionCode}）`
+          )
+          manifest.versionName = versionName
+          manifest.versionCode = versionCode
+
+          // 缩进 2 空格 + 结尾换行，保持与仓库现状的格式一致（避免制造整文件 diff）
+          writeFileSync(file, JSON.stringify(manifest, null, 2) + '\n', 'utf8')
+
+          const check = JSON.parse(readFileSync(file, 'utf8'))
+          if (check.versionName !== versionName || check.versionCode !== versionCode || typeof check.versionCode !== 'number') {
+            console.error('::error::manifest.json 改写后校验失败')
+            process.exit(1)
+          }
+          console.log(`manifest 新值：versionName=${check.versionName} versionCode=${check.versionCode}`)
+          EOF
+
+          # 逐字节对账：只允许版本号两行变化，其他声明（features / router / config.background）必须一字不动
+          if ! grep -q "\"versionName\": \"${VELA_VERSION_NAME}\"" src/manifest.json; then
+            echo "::error::versionName 未按预期写入 src/manifest.json"
+            exit 1
+          fi
+          if ! grep -q "\"versionCode\": ${VELA_VERSION_CODE}" src/manifest.json; then
+            echo "::error::versionCode 未按预期写入 src/manifest.json"
+            exit 1
+          fi
+          # 双保险：确认 versionCode 是 JSON number，没有被写成字符串 / 数组 / null
+          node -e '
+            const m = require("./src/manifest.json")
+            if (typeof m.versionCode !== "number") { console.error("::error::versionCode 不是 number"); process.exit(1) }
+            console.log("对齐完成：" + m.versionName + "+" + m.versionCode)
+          '
+
+          echo "::group::After"
+          cat src/manifest.json
+          echo "::endgroup::"
+
+          # 把对齐结果带进后续步骤（RPK 产物名 / 日志），避免再读一次文件读岔
+          {
+            echo "VELA_VERSION_NAME=${VELA_VERSION_NAME}"
+            echo "VELA_VERSION_CODE=${VELA_VERSION_CODE}"
+          } >> "$GITHUB_ENV"
+
+      # 提交前最低要求：verify 全过
+      - name: Run offline self-check
+        working-directory: vela
+        run: npm run verify
+
+      # aiot release：PRODUCTION 模式 + sign/release/ 下的私钥签名
+      - name: Build RPK
+        working-directory: vela
+        run: npm run release
+
+      # 从对齐步骤带来的 VELA_VERSION_NAME / VELA_VERSION_CODE 拼产物名，与 Flutter 端 <平台>-<version> 风格保持一致
+      # 不再重读 manifest.json：对齐步骤已校验过写入结果，这里读环境变量保证产物名与包内版本严格同源
+      # 跳过 .diff.rpk（增量差分包，CI 不发，只发完整包）
+      - name: Rename artifact
+        working-directory: vela
+        run: |
+          set -euo pipefail
+          VERSION_NAME="${VELA_VERSION_NAME:?对齐步骤未导出 VELA_VERSION_NAME}"
+          VERSION_CODE="${VELA_VERSION_CODE:?对齐步骤未导出 VELA_VERSION_CODE}"
+          echo "versionName=${VERSION_NAME} versionCode=${VERSION_CODE}"
+          # aiot release 默认输出在 dist/；DEFAULT 命名 = packageName.signaturType.versionName.rpk
+          # 例如 bilimusic.release.1.9.1.rpk；文件名里必须带上对齐后的 versionName，
+          # 否则说明 aiot 打包前版本没对齐（改了 manifest 却出旧名字的包）
+          shopt -s nullglob
+          RPK_FILES=(dist/*.rpk)
+          if [ ${#RPK_FILES[@]} -eq 0 ]; then
+            echo "::error::No .rpk produced under vela/dist/"
+            ls -la dist/ || true
+            exit 1
+          fi
+          if ! ls dist/*"${VERSION_NAME}".rpk >/dev/null 2>&1; then
+            echo "::error::dist/ 下没有 versionName=${VERSION_NAME} 的 RPK，构建用的 manifest 版本没对齐上"
+            ls -la dist/ || true
+            exit 1
+          fi
+          # 只挑完整包：排除 .diff.rpk（增量差分包）
+          FULL_RPK=()
+          for f in "${RPK_FILES[@]}"; do
+            [[ "$f" == *.diff.rpk ]] && continue
+            FULL_RPK+=("$f")
+          done
+          if [ ${#FULL_RPK[@]} -eq 0 ]; then
+            echo "::error::Only .diff.rpk produced (no full RPK), refusing to publish"
+            ls -la dist/ || true
+            exit 1
+          fi
+          if [ ${#FULL_RPK[@]} -gt 1 ]; then
+            echo "::warning::Multiple full RPKs produced, taking the first: ${FULL_RPK[0]}"
+          fi
+          mv "${FULL_RPK[0]}" "bilimusic_vela-${VERSION_NAME}-${VERSION_CODE}.rpk"
+          ls -la bilimusic_vela-*.rpk
+
+      # 复用 build_app 的 artifact 上传模式，但 name 单独叫 vela-artifact，避免被 release job 的 glob 误吞
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vela-artifact
+          path: vela/bilimusic_vela-*.rpk
+          if-no-files-found: error
+
   release:
-    needs: build_app
+    needs: [build_app, build_vela]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
@@ -304,7 +524,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          for artifact in artifacts/*/*.{apk,aab,ipa,zip}
+          for artifact in artifacts/*/*.{apk,aab,ipa,zip,rpk}
           do
             if [ -f "$artifact" ]; then
               asset_name=$(basename "$artifact")

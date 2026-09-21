@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lyrics_now/lyrics_now.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:bilimusic/core/network/bili_client.dart';
+import 'package:bilimusic/core/network/passport_store.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/core/network/api_service.dart';
 import 'package:bilimusic/features/player/logic/dual_audio_service.dart';
@@ -17,6 +19,7 @@ import 'package:bilimusic/features/lan_sync/services/lan_sync_service.dart';
 import 'package:bilimusic/features/lan_sync/services/pairing_service.dart';
 import 'package:bilimusic/features/home/logic/recommendation_manager.dart';
 import 'package:bilimusic/features/offline/services/offline_cache_service.dart';
+import 'package:bilimusic/app/tray_menu.dart';
 import 'package:bilimusic/features/settings/settings_manager.dart';
 import 'package:bilimusic/features/auth/user_manager.dart';
 import 'package:bilimusic/features/fav_sync/fav_sync_manager.dart';
@@ -77,6 +80,25 @@ final playlistServiceProvider = Provider<PlaylistService>((ref) {
   svc.initialize();
   ref.onDispose(svc.dispose);
   return svc;
+});
+
+// ==================== 登录凭据 ====================
+
+/// `refresh_token` 的 SharedPreferences 键。
+const String _refreshTokenPrefsKey = 'bili_refresh_token_v1';
+
+/// 登录凭据仓库：refresh_token 这类非 Cookie 的登录凭据（SESSDATA 续期要用）。
+///
+/// Cookie 由 `NetworkConfig.cookieJar` 负责（main.dart 注入落盘钩子）；
+/// refresh_token 是 passport 登录成功时随响应体下发的，单独走这里。
+/// TUI 只共享 Cookie 登录态，refresh_token 目前只有 App 侧消费。
+final passportStoreProvider = Provider<PassportStore>((ref) {
+  Future<SharedPreferences> prefs() => SharedPreferences.getInstance();
+  return PassportStore(
+    loader: () async => (await prefs()).getString(_refreshTokenPrefsKey),
+    saver: (json) async =>
+        (await prefs()).setString(_refreshTokenPrefsKey, json),
+  );
 });
 
 // ==================== 设置 / 用户 / 收藏同步 ====================
@@ -185,6 +207,21 @@ final pairingServiceProvider = Provider<PairingService>((ref) {
   final svc = PairingService();
   svc.load();
   return svc;
+});
+
+// ==================== 桌面托盘 ====================
+
+/// 托盘右键菜单：曲目信息 / 播放控制 / 收藏 / 播放模式 / 页面入口 / 退出。
+///
+/// 由 main.dart 在托盘图标建起来之后读取并挂到托盘上（托盘基础设施见
+/// `desktop_tray.dart`）：没有托盘时创建它只是白白挂一串播放器监听。
+final trayMenuProvider = Provider<TrayMenu>((ref) {
+  final menu = TrayMenu(
+    coordinator: ref.watch(playerCoordinatorProvider),
+    playlistService: ref.watch(playlistServiceProvider),
+  );
+  ref.onDispose(menu.dispose);
+  return menu;
 });
 
 final lanSyncServiceProvider = Provider<LanSyncService>((ref) {

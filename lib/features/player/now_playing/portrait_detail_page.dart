@@ -14,6 +14,7 @@ import 'package:bilimusic/features/lan_sync/ui/sync_panel.dart';
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/shared/utils/dialog_helpers.dart';
+import 'package:bilimusic/shared/utils/share_helpers.dart';
 
 /// 竖屏详情页 —— Apple Music 风格单面板布局
 /// （与 `AlbumSection` 思路一致：封面 + 信息 + 操作 + 进度 + 5 按钮 + 音量）
@@ -181,6 +182,12 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage> {
           onTap: widget.onToggleFavorite,
         ),
         SheetAction(icon: Icons.share, label: '分享', onTap: widget.onShare),
+        if (widget.music.id.isNotEmpty)
+          SheetAction(
+            icon: Icons.open_in_new,
+            label: '打开原网页',
+            onTap: () => openOriginalPage(widget.music),
+          ),
         // 临时接线：同步面板入口（后续挪到常驻入口时删掉这里与另两个布局的同名项）
         syncPanelSheetAction(
           context,

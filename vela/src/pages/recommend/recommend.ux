@@ -1,0 +1,442 @@
+<template>
+  <div class="rec-page">
+    <!-- 安全区容器：左右内缩同一个 px 值（见 common/device.js safeHorizontalInsetPx） -->
+    <div
+      class="safe"
+      style="padding-left: {{ safeInsetPx }}px; padding-right: {{ safeInsetPx }}px"
+    >
+      <!-- 头部：官方手表小程序样式 —— 贴顶、居中「‹ 标题」红色返回，上下不做安全区 -->
+      <div class="header">
+        <text class="header-back" onclick="goBack">‹ 官方推荐</text>
+      </div>
+
+      <!-- 状态提示 -->
+      <text class="state" if="{{ loading }}">加载中…</text>
+      <text class="state error" if="{{ error }}" onclick="reload">{{ error }}</text>
+
+      <list class="list" if="{{ tracks.length }}">
+        <!-- 播放全部：用当前已加载的整份推荐建队列，从第 1 首连播，然后回播放器 -->
+        <list-item class="play-all" type="playall" onclick="playAll">
+          <text class="play-all-text">▶ 播放全部</text>
+          <text class="play-all-desc">{{ tracks.length }} 首</text>
+        </list-item>
+
+        <list-item
+          for="{{(index, item) in tracks}}"
+          class="item"
+          onclick="play(index)"
+          tid="id"
+          type="song"
+        >
+          <text class="item-index {{ index === currentIndex ? 'item-index-current' : '' }}">
+            {{ index === currentIndex ? '♪' : index + 1 }}
+          </text>
+          <div class="detail">
+            <text
+              class="item-title"
+              style="color: {{ index === currentIndex ? '#ff3a3a' : '#ffffff' }};"
+            >{{ item.title }}</text>
+            <text class="item-subtitle">{{ item.artist }}</text>
+          </div>
+          <text class="item-duration">{{ duration(item.duration) }}</text>
+        </list-item>
+
+        <list-item class="item load-more" if="{{ hasMore }}" onclick="loadMore" type="more">
+          <text class="load-more-text">加载更多…</text>
+        </list-item>
+      </list>
+
+      <text
+        class="state"
+        if="{{ !loading && !error && !tracks.length }}"
+        onclick="reload"
+      >{{ emptyText || '推荐流是空的' }}</text>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from "@system.router";
+import * as biliApi from "../../services/biliApi";
+import playerService from "../../services/playerService";
+import deviceService from "../../services/deviceService";
+import { findTrackIndex } from "../../common/tracks";
+
+export default {
+  data: {
+    tracks: [],
+    loading: false,
+    error: "",
+    emptyText: "",
+    hasMore: false,
+    currentIndex: -1,
+    // rcmd 推荐流的翻页游标（fresh_idx，从 1 开始；兜底热门时兼作 pn 页码）
+    nextIdx: 1,
+    // 当前数据源：'rcmd'（官方推荐流）| 'popular'（综合热门兜底）。
+    // 第一页自动探测；之后固定用同一来源翻页，不混流。
+    source: "",
+    // 左右安全内缩 px：先按 480 宽矩形屏兜底，getInfo 回来后再重算
+    // （机制见 common/device.js 的 safeHorizontalInsetPx 注释）
+    safeInsetPx: 29,
+  },
+
+  onInit() {
+    // 屏幕形状只影响左右内缩 px，先落保守值再刷新（详见 player.ux 同名处注释）
+    this.safeInsetPx = deviceService.capabilities().safeInsetPx;
+    deviceService.whenReady().then(() => {
+      this.safeInsetPx = deviceService.capabilities().safeInsetPx;
+    });
+
+    // 高亮「队列里正在播的是哪一行」：本列表 ≠ 播放队列（解耦），
+    // 不能按下标对齐，只能按曲目同一性（bvid/avid）匹配。
+    this._unsub = playerService.subscribe((type) => {
+      if (type === "track" || type === "queue") this.syncHighlight();
+    });
+
+    // 本页是独立 JS VM：先把共享态读回来，高亮才准确。
+    // 推荐流免登录，不需要 session.ready() 门禁。
+    playerService.adopt().then(() => {
+      this.syncHighlight();
+      this.loadFirstPage();
+    });
+  },
+
+  onShow() {
+    // 从播放器返回时对账一次：队列可能被别的 VM 改过，高亮要跟上
+    playerService.adopt().then(() => this.syncHighlight());
+  },
+
+  onDestroy() {
+    if (this._unsub) {
+      this._unsub();
+      this._unsub = null;
+    }
+  },
+
+  /* ---------------------------- 数据加载 ---------------------------- */
+
+  async loadFirstPage() {
+    this.loading = true;
+    this.error = "";
+    this.emptyText = "";
+    this.tracks = [];
+    this.nextIdx = 1;
+
+    try {
+      await this.loadPage(1, true);
+    } catch (e) {
+      console.error("[Recommend] 加载失败:", e);
+      this.error = "加载失败：" + describe(e) + "（点击重试）";
+    } finally {
+      this.loading = false;
+    }
+  },
+
+  async loadPage(idx, replace) {
+    // 第一页自动探测来源（rcmd 失败自动落热门）；之后固定同一来源，不混流
+    const res = await biliApi.getRecommendResources(idx, this.source || undefined);
+    this.source = res.source;
+    this.nextIdx = res.nextIdx;
+    this.hasMore = res.hasMore;
+
+    if (replace) {
+      // 页内先去重（rcmd 不同 fresh_idx 之间可能翻出重复条目）
+      this.tracks = dedupe(res.tracks);
+    } else {
+      const fresh = res.tracks.filter((t) => findTrackIndex(this.tracks, t) < 0);
+      this.tracks = this.tracks.concat(fresh);
+    }
+    console.log(
+      "[Recommend]",
+      this.source,
+      "第",
+      idx,
+      "页加载",
+      res.tracks.length,
+      "条，累计",
+      this.tracks.length,
+      "hasMore =",
+      res.hasMore
+    );
+    this.syncHighlight();
+  },
+
+  async loadMore() {
+    if (this.loading || !this.hasMore) return;
+    this.loading = true;
+    try {
+      await this.loadPage(this.nextIdx, false);
+    } catch (e) {
+      console.error("[Recommend] 加载更多失败:", e);
+      this.error = "加载更多失败：" + describe(e);
+    } finally {
+      this.loading = false;
+    }
+  },
+
+  reload() {
+    this.error = "";
+    this.loadFirstPage();
+  },
+
+  /* ---------------------------- 播放（解耦语义） ---------------------------- */
+
+  syncHighlight() {
+    // 列表 ≠ 队列：按曲目同一性找「队列里正在播的」在本列表里的位置
+    this.currentIndex = findTrackIndex(this.tracks, playerService.getSnapshot().track);
+  },
+
+  /**
+   * 单曲点播：插到队列当前曲目之后立即播放（队列原有内容保留）。
+   * 收藏夹/推荐只是选歌入口，播放列表独立演进。
+   * 留在本页：可以连续挑几首组一个队列，看完高亮后自己返回。
+   */
+  async play(index) {
+    const track = this.tracks[index];
+    if (!track) return;
+    await playerService.playTrackNow(track);
+    this.syncHighlight();
+  },
+
+  /** 播放全部：明确地用这份推荐建队列（想连播整个来源时用这个），回播放器 */
+  async playAll() {
+    if (!this.tracks.length) return;
+    await playerService.setQueue(this.tracks, 0);
+    // 入口链固定为 player → more → recommend，回退 2 步到播放器
+    router.back({ step: 2 });
+  },
+
+  goBack() {
+    router.back();
+  },
+
+  /** 模板中直接调用：秒 -> m:ss */
+  duration(seconds) {
+    const s = Math.max(0, Math.floor(Number(seconds) || 0));
+    const m = Math.floor(s / 60);
+    const rest = s % 60;
+    return m + ":" + (rest < 10 ? "0" + rest : rest);
+  },
+};
+
+/** 页内去重（保持顺序） */
+function dedupe(tracks) {
+  const out = [];
+  (tracks || []).forEach((t) => {
+    if (findTrackIndex(out, t) < 0) out.push(t);
+  });
+  return out;
+}
+
+function describe(e) {
+  if (!e) return "未知错误";
+  if (typeof e === "string") return e;
+  if (e.message) return e.message;
+  if (e.code !== undefined) return "code=" + e.code;
+  return JSON.stringify(e);
+}
+</script>
+
+<style>
+.rec-page {
+  width: 100%;
+  height: 100%;
+  padding: 20px 0;
+  flex-direction: column;
+  align-items: center;
+  background-color: black;
+}
+
+/* 安全区容器：占满整屏宽，左右内缩是同一个 px 值（模板内联 style 绑定）。
+   不用「百分比宽 + 交叉轴居中」的盒子：渲染层会左锚定，见 common/device.js。 */
+.safe {
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 头部：贴顶、居中「‹ 官方推荐」红色返回（官方手表小程序样式，上下不做安全区） */
+.header {
+  width: 100%;
+  height: 64px;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
+
+.header-back {
+  font-size: 30px;
+  color: #ff3a3a;
+  padding: 8px 20px;
+}
+
+.state {
+  width: 100%;
+  margin-top: 20px;
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+}
+
+.state.error {
+  color: #ff8c8c;
+}
+
+.list {
+  width: 100%;
+  margin-top: 10px;
+  flex: 1;
+}
+
+/* 播放全部行：主题红描边卡片，比普通条目更醒目 */
+.play-all {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  height: 88px;
+  margin-bottom: 14px;
+  padding-left: 20px;
+  padding-right: 14px;
+  border: 1px solid rgba(255, 58, 58, 0.6);
+  border-radius: 18px;
+  background-color: rgba(255, 58, 58, 0.12);
+}
+
+.play-all-text {
+  flex: 1;
+  font-size: 30px;
+  color: #ff3a3a;
+}
+
+.play-all-desc {
+  font-size: 22px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.item {
+  display: flex;
+  width: 100%;
+  height: 100px;
+  padding-bottom: 8px;
+}
+
+.item-index {
+  width: 50px;
+  height: 100%;
+  text-align: center;
+  color: white;
+  font-size: 26px;
+}
+
+.item-index-current {
+  color: #ff3a3a;
+}
+
+.detail {
+  flex: 1;
+  height: 100%;
+  flex-direction: column;
+}
+
+.item-title {
+  width: 100%;
+  font-size: 30px;
+  height: 52px;
+  line-height: 52px;
+  color: #ffffff;
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.item-subtitle {
+  width: 100%;
+  font-size: 24px;
+  height: 40px;
+  line-height: 40px;
+  color: rgba(255, 255, 255, 0.6);
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.item-duration {
+  width: 80px;
+  height: 100%;
+  line-height: 100px;
+  font-size: 22px;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: right;
+}
+
+.load-more {
+  justify-content: center;
+  align-items: center;
+}
+
+.load-more-text {
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* 胶囊屏（手环 9 / 10）不是本项目的设计目标，这块只是老版本的兜底；
+   圆屏安全区不走 @media（对 S1 Pro / Redmi Watch 4 不支持），走 .shape-* class。
+   详见 player.ux 同名注释与 common/device.js 顶部说明。 */
+@media (shape: pill-shaped) or (max-width: 106) {
+  .rec-page {
+    padding: 10px;
+  }
+
+  .header {
+    height: 48px;
+  }
+
+  .header-back {
+    font-size: 24px;
+  }
+
+  .play-all {
+    height: 72px;
+    border-radius: 12px;
+  }
+
+  .play-all-text {
+    font-size: 24px;
+  }
+
+  .play-all-desc {
+    font-size: 18px;
+  }
+
+  .item {
+    height: 80px;
+  }
+
+  .item-index {
+    width: 34px;
+    font-size: 20px;
+  }
+
+  .item-title {
+    font-size: 22px;
+    height: 42px;
+    line-height: 42px;
+  }
+
+  .item-subtitle {
+    font-size: 18px;
+    height: 32px;
+    line-height: 32px;
+  }
+
+  .item-duration {
+    width: 60px;
+    line-height: 80px;
+    font-size: 16px;
+  }
+
+  .state {
+    font-size: 18px;
+  }
+}
+</style>

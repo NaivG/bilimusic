@@ -1,0 +1,512 @@
+<template>
+  <div class="more-page">
+    <!-- 安全区容器：左右内缩同一个 px 值（见 common/device.js safeHorizontalInsetPx）。
+         头部走官方手表小程序样式：贴顶、居中「‹ 标题」红色返回 ——
+         上下不做安全区，居中的短标题在圆屏上也不会被圆边切掉。 -->
+    <div
+      class="safe"
+      style="padding-left: {{ safeInsetPx }}px; padding-right: {{ safeInsetPx }}px"
+    >
+      <div class="header">
+        <text class="header-back" onclick="goBack">‹ 更多</text>
+      </div>
+
+      <list class="menu">
+        <!-- 用户卡片（单独卡片形式）：头像 + 用户名；未登录时是「点击登录」入口 -->
+        <list-item class="card-wrap" type="card">
+          <div class="user-card" onclick="onUserCard">
+            <image
+              class="avatar"
+              if="{{ face }}"
+              src="{{ face }}"
+              alt="blank"
+            />
+            <text class="avatar avatar-fallback" else>{{ avatarChar }}</text>
+            <div class="user-info">
+              <text class="user-name">{{ userName }}</text>
+              <text class="user-sub">{{ userSub }}</text>
+            </div>
+            <text class="user-action" if="{{ !loggedIn }}">去登录</text>
+          </div>
+        </list-item>
+
+        <!-- 内容入口 -->
+        <list-item class="section-wrap" type="section">
+          <text class="section-title">内容</text>
+        </list-item>
+        <list-item class="menu-item" type="menu" onclick="goRecommend">
+          <div class="menu-main">
+            <text class="menu-name">官方推荐</text>
+            <text class="menu-desc">B 站推荐流，免登录可听</text>
+          </div>
+          <text class="menu-arrow">›</text>
+        </list-item>
+        <list-item class="menu-item" type="menu" onclick="goFav">
+          <div class="menu-main">
+            <text class="menu-name">收藏夹</text>
+            <text class="menu-desc">我的 B 站收藏</text>
+          </div>
+          <text class="menu-arrow">›</text>
+        </list-item>
+
+        <!-- 设置项 -->
+        <list-item class="section-wrap" type="section">
+          <text class="section-title">设置</text>
+        </list-item>
+        <list-item class="menu-item" type="menu" onclick="toggleLoop">
+          <div class="menu-main">
+            <text class="menu-name">单曲循环</text>
+            <text class="menu-desc">播完自动重播当前曲目</text>
+          </div>
+          <text class="loop-state {{ loopOn ? 'loop-on' : '' }}">
+            {{ loopOn ? '开' : '关' }}
+          </text>
+        </list-item>
+        <list-item class="menu-item" type="menu" onclick="onClearCache">
+          <div class="menu-main">
+            <text class="menu-name">清理音频缓存</text>
+            <text class="menu-desc">{{ cacheTip }}</text>
+          </div>
+        </list-item>
+        <list-item class="menu-item" type="menu" onclick="goAbout">
+          <div class="menu-main">
+            <text class="menu-name">关于</text>
+            <text class="menu-desc">应用信息与版本</text>
+          </div>
+          <text class="menu-arrow">›</text>
+        </list-item>
+        <list-item
+          class="menu-item"
+          type="menu"
+          if="{{ loggedIn }}"
+          onclick="onLogout"
+        >
+          <div class="menu-main">
+            <text class="menu-name danger">退出登录</text>
+            <text class="menu-desc">{{ loggingOut ? '正在退出…' : '清除本机登录态' }}</text>
+          </div>
+        </list-item>
+      </list>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from "@system.router";
+import playerService from "../../services/playerService";
+import authService from "../../services/authService";
+import session from "../../services/session";
+import deviceService from "../../services/deviceService";
+import * as audioCache from "../../services/audioCache";
+import { normalizeCoverUrl } from "../../common/device";
+
+export default {
+  data: {
+    loggedIn: false,
+    userName: "未登录",
+    userSub: "",
+    face: "",
+    avatarChar: "未",
+    loopOn: false,
+    loggingOut: false,
+    // 音频缓存行：onShow 时显示占用概况，点击后短暂显示清理结果
+    cacheTip: "清理落盘的音频文件",
+    cacheTipTimer: null,
+    // 左右安全内缩 px：先按 480 宽矩形屏兜底，getInfo 回来后再重算
+    // （机制见 common/device.js 的 safeHorizontalInsetPx 注释）
+    safeInsetPx: 29,
+  },
+
+  onInit() {
+    // 屏幕形状只影响左右内缩 px，先落保守值再刷新（详见 player.ux 同名处注释）
+    this.safeInsetPx = deviceService.capabilities().safeInsetPx;
+    deviceService.whenReady().then(() => {
+      this.safeInsetPx = deviceService.capabilities().safeInsetPx;
+    });
+  },
+
+  onShow() {
+    // 卡片与循环开关在每次可见时刷一遍：从登录页返回、或循环在别处被改过都能跟上。
+    // session.ready() 幂等，不会和 app.ux bootstrap 抢跑。
+    session.ready().then(() => {
+      this.refreshCard();
+    });
+    playerService.adopt().then(() => {
+      this.loopOn = playerService.getSnapshot().loop;
+    });
+    this.refreshCacheTip();
+  },
+
+  refreshCacheTip() {
+    // 落盘缓存的占用概况（网桥机型上这是唯一能出声的方式，不是可有可无的加速器）
+    audioCache.describeCache().then((info) => {
+      this.cacheTip = info.count
+        ? "已缓存 " + info.count + " 首 · " + audioCache.formatBytes(info.bytes)
+        : "清理落盘的音频文件";
+    });
+  },
+
+  async onClearCache() {
+    if (this.cacheTip === "清理中…") return;
+    if (this.cacheTipTimer) {
+      clearTimeout(this.cacheTipTimer);
+      this.cacheTipTimer = null;
+    }
+    this.cacheTip = "清理中…";
+    try {
+      const removed = await audioCache.clearAudioCache();
+      this.cacheTip = removed ? "已清理 " + removed + " 个文件" : "本来就没有缓存";
+    } catch (e) {
+      console.error("[More] 清理音频缓存失败:", e);
+      this.cacheTip = "清理失败，请重试";
+    }
+    // 2 秒后恢复成占用概况（顺手再查一次，期间可能又有预取落盘）
+    this.cacheTipTimer = setTimeout(() => {
+      this.cacheTipTimer = null;
+      this.refreshCacheTip();
+    }, 2000);
+  },
+
+  refreshCard() {
+    const snap = session.snapshot();
+    this.loggedIn = snap.loggedIn;
+    this.userName = snap.loggedIn ? snap.uname || "B 站用户" : "未登录";
+    this.userSub = snap.loggedIn
+      ? snap.mid
+        ? "mid " + snap.mid
+        : "登录态有效"
+      : "登录后可同步收藏夹";
+    this.face = snap.loggedIn ? normalizeCoverUrl(snap.face) : "";
+    this.avatarChar = snap.loggedIn
+      ? (snap.uname || "B").slice(0, 1)
+      : "未";
+  },
+
+  /* ---------------------------- 用户卡片 ---------------------------- */
+
+  onUserCard() {
+    // 已登录时登录页显示账号信息（主按钮就是「返回」），未登录时是扫码登录；
+    // 两种情况都停在登录页里由它自己 back 回来，本页 onShow 会重刷卡片。
+    // 注意：这里只能 push，登录页不能 replace 成别的页 —— recommend / favDetail 的
+    // back({step}) 依赖「player → more → …」这条固定入口链的深度。
+    router.push({ uri: "/pages/login" });
+  },
+
+  /* ---------------------------- 内容入口 ---------------------------- */
+
+  goRecommend() {
+    // 推荐流免登录：未登录也能听
+    router.push({ uri: "/pages/recommend" });
+  },
+
+  goFav() {
+    if (!session.isLoggedIn()) {
+      router.push({ uri: "/pages/login" });
+      return;
+    }
+    router.push({ uri: "/pages/fav" });
+  },
+
+  /* ---------------------------- 设置项 ---------------------------- */
+
+  goAbout() {
+    // 关于页自己经 appService 读 @system.app 的 getInfo()，这里只负责跳转
+    router.push({ uri: "/pages/about" });
+  },
+
+  toggleLoop() {
+    const next = !playerService.getSnapshot().loop;
+    playerService.setLoop(next);
+    this.loopOn = next;
+  },
+
+  async onLogout() {
+    if (this.loggingOut) return;
+    this.loggingOut = true;
+    try {
+      await authService.logout();
+    } catch (e) {
+      console.error("[More] 退出登录失败:", e);
+    }
+    this.loggingOut = false;
+    this.refreshCard();
+  },
+
+  onDestroy() {
+    // 定时器卫生：缓存提示的恢复定时器不许比页面活得久
+    if (this.cacheTipTimer) {
+      clearTimeout(this.cacheTipTimer);
+      this.cacheTipTimer = null;
+    }
+  },
+
+  goBack() {
+    router.back();
+  },
+};
+</script>
+
+<style>
+.more-page {
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  background-color: black;
+}
+
+/* 安全区容器：占满整屏宽，左右内缩是同一个 px 值（模板内联 style 绑定）。
+   不用「百分比宽 + 交叉轴居中」的盒子：部分机型上会左锚定。 */
+.safe {
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 头部：贴顶、居中「‹ 更多」红色返回（官方手表小程序样式，上下不做安全区） */
+.header {
+  width: 100%;
+  height: 64px;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
+
+.header-back {
+  font-size: 30px;
+  color: #ff3a3a;
+  padding: 8px 20px;
+}
+
+.menu {
+  width: 100%;
+  flex: 1;
+  margin-top: 10px;
+}
+
+/* ------------------------------ 用户卡片 ------------------------------ */
+
+.card-wrap {
+  display: flex;
+  width: 100%;
+  height: 148px;
+  margin-bottom: 10px;
+}
+
+/* 单独卡片：边框 + 圆角 + 深底，与播放队列条目同风格 */
+.user-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  height: 148px;
+  padding-left: 20px;
+  padding-right: 16px;
+  border: 1px solid rgba(255, 58, 58, 0.45);
+  border-radius: 20px;
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.avatar {
+  width: 92px;
+  height: 92px;
+  border-radius: 46px;
+}
+
+.avatar-fallback {
+  color: #ffffff;
+  font-size: 40px;
+  text-align: center;
+  line-height: 92px;
+  background-color: #2d2d2d;
+}
+
+.user-info {
+  flex: 1;
+  height: 92px;
+  flex-direction: column;
+  justify-content: center;
+  margin-left: 18px;
+}
+
+.user-name {
+  width: 100%;
+  font-size: 30px;
+  color: #ffffff;
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.user-sub {
+  width: 100%;
+  margin-top: 4px;
+  font-size: 22px;
+  color: rgba(255, 255, 255, 0.55);
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.user-action {
+  font-size: 24px;
+  color: #ff3a3a;
+}
+
+/* ------------------------------ 分区标题 ------------------------------ */
+
+.section-wrap {
+  display: flex;
+  width: 100%;
+  height: 52px;
+  align-items: flex-end;
+}
+
+.section-title {
+  font-size: 22px;
+  color: rgba(255, 255, 255, 0.45);
+  padding-bottom: 6px;
+}
+
+/* ------------------------------ 菜单行 ------------------------------ */
+
+/* 尺度向播放队列（player.ux 的 .q-item）看齐：条目本身压到 88px，
+   但条目之间留 14px 空隙 —— 偏紧凑，又不至于挤成一片。
+   队列条目是 84px + 14px，这里多 4px 是因为右侧还有箭头/开关要摆。 */
+.menu-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  height: 88px;
+  margin-bottom: 14px;
+  padding-left: 20px;
+  padding-right: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 18px;
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.menu-main {
+  flex: 1;
+  height: 100%;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* 字号与队列歌名同号（28px），两行文字在 88px 里仍然留白充足 */
+.menu-name {
+  width: 100%;
+  font-size: 28px;
+  color: #ffffff;
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.menu-name.danger {
+  color: #ff8c8c;
+}
+
+.menu-desc {
+  width: 100%;
+  margin-top: 2px;
+  font-size: 20px;
+  color: rgba(255, 255, 255, 0.5);
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.menu-arrow {
+  width: 40px;
+  text-align: center;
+  font-size: 36px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.loop-state {
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.loop-state.loop-on {
+  color: #ff3a3a;
+}
+
+/* 胶囊屏（手环 9 / 10）不是本项目的设计目标，这块只是老版本的兜底；
+   圆屏安全区不走 @media（对 S1 Pro / Redmi Watch 4 不支持），走 .shape-* class。
+   详见 player.ux 同名注释与 common/device.js 顶部说明。 */
+@media (shape: pill-shaped) or (max-width: 106) {
+  .header {
+    height: 48px;
+  }
+
+  .header-back {
+    font-size: 24px;
+  }
+
+  .card-wrap {
+    height: 116px;
+    margin-bottom: 8px;
+  }
+
+  .user-card {
+    height: 116px;
+    padding-left: 14px;
+    border-radius: 14px;
+  }
+
+  .avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 36px;
+  }
+
+  .avatar-fallback {
+    font-size: 30px;
+    line-height: 72px;
+  }
+
+  .user-name {
+    font-size: 24px;
+  }
+
+  .user-sub {
+    font-size: 18px;
+  }
+
+  .user-action {
+    font-size: 20px;
+  }
+
+  .section-wrap {
+    height: 42px;
+  }
+
+  .section-title {
+    font-size: 18px;
+  }
+
+  .menu-item {
+    height: 72px;
+    margin-bottom: 10px;
+    padding-left: 14px;
+    border-radius: 12px;
+  }
+
+  .menu-name {
+    font-size: 22px;
+  }
+
+  .menu-desc {
+    font-size: 16px;
+  }
+
+  .menu-arrow {
+    width: 30px;
+    font-size: 28px;
+  }
+
+  .loop-state {
+    font-size: 20px;
+  }
+}
+</style>

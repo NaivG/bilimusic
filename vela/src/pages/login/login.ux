@@ -1,0 +1,437 @@
+<template>
+  <div class="login-page">
+    <!-- 安全区容器：左右内缩同一个 px 值（见 common/device.js safeHorizontalInsetPx）。
+         标题行在最顶部，不收进来的话会被圆弧切掉。 -->
+    <div
+      class="safe"
+      style="padding-left: {{ safeInsetPx }}px; padding-right: {{ safeInsetPx }}px"
+    >
+      <!-- 标题与状态：官方手表小程序样式 —— 贴顶、居中「‹ 标题」红色返回 -->
+      <div class="header">
+        <text class="header-back" onclick="goBack">‹ {{ title }}</text>
+        <text class="status" style="color: {{ statusColor }};">{{ statusText }}</text>
+      </div>
+
+      <!-- 二维码 / 已登录信息：整块可点 —— 未登录时点它重新出码
+           （失效、加载失败也靠点这里重试，页面底部不再放「刷新」按钮）。
+           <qrcode> 自己也绑一遍：二维码在屏时正是最想刷新的时候，
+           万一该组件在某个 runtime 上不把点击冒泡给父层，这一层还能兜住
+           （onQrTap 有 busy 守卫，重复触发只跑一次）。 -->
+      <div class="qr-box" onclick="onQrTap">
+        <qrcode if="{{ qrUrl }}" class="qr" value="{{ qrUrl }}" onclick="onQrTap"></qrcode>
+        <div else class="qr-placeholder">
+          <text class="placeholder-text">{{ placeholder }}</text>
+        </div>
+      </div>
+
+      <!-- 提示与倒计时 -->
+      <text class="hint">{{ hint }}</text>
+      <text class="countdown" if="{{ countdown > 0 }}">二维码有效期 {{ countdown }}s</text>
+
+      <!-- 联调诊断信息 -->
+      <text class="diag" if="{{ diag }}">{{ diag }}</text>
+
+      <!-- 操作：只有居中一个「返回」。重新出码走二维码本身（点二维码）
+           —— 本页的去处只有一个，不再并排第二个同义按钮 -->
+      <div class="actions">
+        <div class="btn" onclick="goBack">
+          <text class="btn-text">返回</text>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from "@system.router";
+import authService from "../../services/authService";
+import session from "../../services/session";
+import deviceService from "../../services/deviceService";
+import { CONFIG } from "../../common/config";
+
+const STATUS_TEXT = {
+  idle: "未开始",
+  loading: "正在申请二维码…",
+  waiting: "请用哔哩哔哩客户端扫码",
+  scanned: "已扫码，请在手机上确认",
+  success: "登录成功",
+  expired: "二维码已失效",
+  error: "出错了",
+};
+
+const STATUS_COLOR = {
+  idle: "#aaaaaa",
+  loading: "#aaaaaa",
+  waiting: "#ffffff",
+  scanned: "#ffcc44",
+  success: "#4ade80",
+  expired: "#ff8c8c",
+  error: "#ff5a5a",
+};
+
+export default {
+  data: {
+    title: "扫码登录",
+    qrUrl: "",
+    placeholder: "二维码准备中…",
+    statusText: STATUS_TEXT.loading,
+    statusColor: STATUS_COLOR.loading,
+    hint: "",
+    diag: "",
+    countdown: 0,
+    loggedIn: false,
+    // 左右安全内缩 px：先按 480 宽矩形屏兜底，getInfo 回来后再重算
+    // （机制见 common/device.js 的 safeHorizontalInsetPx 注释）
+    safeInsetPx: 29,
+  },
+
+  onInit() {
+    // 屏幕形状只影响左右内缩 px，先落保守值再刷新（详见 player.ux 同名处注释）
+    this.safeInsetPx = deviceService.capabilities().safeInsetPx;
+    deviceService.whenReady().then(() => {
+      this.safeInsetPx = deviceService.capabilities().safeInsetPx;
+    });
+
+    this._unsub = authService.subscribe(this.onAuthEvent);
+    this._tickTimer = null;
+    // 出码请求在飞：连点二维码时用它吞掉重复请求（authService 内部只保证停掉旧轮询，
+    // 挡不住两个并发的出码请求互相覆盖二维码）
+    this.busy = false;
+
+    // 等 app.ux bootstrap 把登录态从 storage 恢复完成再判登录态，
+    // 否则会和 bootstrap 抢跑、把已登录态错判为「未登录」而白走一遍扫码。
+    session.ready().then(() => {
+      if (session.isLoggedIn()) {
+        this.applyLoggedIn(session.snapshot());
+      } else {
+        this.startLogin();
+      }
+    });
+  },
+
+  onDestroy() {
+    if (this._unsub) {
+      this._unsub();
+      this._unsub = null;
+    }
+    this.stopCountdown();
+    // 离开页面即停止轮询，避免后台空转耗电
+    authService.stopLogin(false);
+  },
+
+  /* ---------------------------- 事件订阅 ---------------------------- */
+
+  onAuthEvent(type, snap, payload) {
+    if (type === "qrcode") {
+      this.qrUrl = payload.url || "";
+      this.placeholder = "二维码准备中…";
+      this.hint = "手机哔哩哔哩「我的-扫一扫」（点二维码刷新）";
+      if (this.qrUrl) {
+        this.startCountdown();
+      } else {
+        this.stopCountdown();
+        this.countdown = 0;
+      }
+      return;
+    }
+
+    if (type === "status") {
+      const status = snap.status;
+      this.statusText = snap.message || STATUS_TEXT[status] || status;
+      this.statusColor = STATUS_COLOR[status] || "#ffffff";
+
+      if (status === "success") {
+        this.loggedIn = true;
+        this.title = "已登录";
+        this.qrUrl = "";
+        this.placeholder = session.snapshot().uname || "已登录";
+        this.hint = "登录态已保存，可离线保留";
+        this.stopCountdown();
+        this.countdown = 0;
+      } else if (status === "expired" || status === "error") {
+        // 文案本身就写明「点这里」，因为刷新入口就是二维码本身
+        this.placeholder =
+          status === "expired" ? "已失效，点击重新获取" : "加载失败，点击重试";
+        this.qrUrl = "";
+        this.stopCountdown();
+        this.countdown = 0;
+      }
+      return;
+    }
+
+    // 联调诊断：响应体 cookie_info 声明了几项、实际取到哪些（真机定位用）
+    if (type === "diagnostics") {
+      const d = payload;
+      const got = d.obtained.length ? d.obtained.join(",") : "无";
+      const missing = d.missingKeyCookies.length
+        ? " | 缺:" + d.missingKeyCookies.join(",")
+        : "";
+      this.diag = "cookie_info:" + d.cookieInfoCount + " | 得:" + got + missing;
+    }
+  },
+
+  /* ---------------------------- 流程控制 ---------------------------- */
+
+  async startLogin() {
+    if (this.busy) return;
+    this.busy = true;
+    this.loggedIn = false;
+    this.title = "扫码登录";
+    this.hint = "在手机哔哩哔哩「我的-扫一扫」中扫描";
+    this.diag = "";
+    this.qrUrl = "";
+    this.placeholder = "二维码准备中…";
+    try {
+      await authService.startLogin();
+    } catch (e) {
+      this.placeholder = "获取失败，点击重试";
+      this.statusText = (e && e.message) || "申请二维码失败";
+      this.statusColor = STATUS_COLOR.error;
+    } finally {
+      this.busy = false;
+    }
+  },
+
+  applyLoggedIn(info) {
+    this.loggedIn = true;
+    this.title = "已登录";
+    this.qrUrl = "";
+    this.placeholder = info.uname || "已登录";
+    this.statusText = info.uname ? info.uname + "（mid " + info.mid + "）" : "登录态有效";
+    this.statusColor = STATUS_COLOR.success;
+    this.hint = "";
+    this.countdown = 0;
+  },
+
+  /**
+   * 点二维码 = 重新出码（本页唯一的「刷新」入口）。
+   * 已登录时这里只是账号信息展示；出码请求还在飞时吞掉连点，避免两个请求互相覆盖二维码。
+   */
+  onQrTap() {
+    if (this.loggedIn || this.busy) return;
+    this.startLogin();
+  },
+
+  goBack() {
+    router.back();
+  },
+
+  /* ---------------------------- 倒计时 ---------------------------- */
+
+  startCountdown() {
+    this.stopCountdown();
+    this._deadline = Date.now() + CONFIG.QR_TIMEOUT;
+    this.countdown = Math.round(CONFIG.QR_TIMEOUT / 1000);
+    this._tickTimer = setInterval(() => {
+      const left = Math.round((this._deadline - Date.now()) / 1000);
+      this.countdown = left > 0 ? left : 0;
+      if (left <= 0) this.stopCountdown();
+    }, 1000);
+  },
+
+  stopCountdown() {
+    if (this._tickTimer) {
+      clearInterval(this._tickTimer);
+      this._tickTimer = null;
+    }
+  },
+};
+</script>
+
+<style>
+.login-page {
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: #000;
+}
+
+/* 安全区容器：占满整屏宽，左右内缩是同一个 px 值（模板内联 style 绑定）。
+   不用「百分比宽 + 交叉轴居中」的盒子：渲染层会左锚定，见 common/device.js。 */
+.safe {
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+/* 头部：贴顶、居中「‹ 标题」红色返回（官方手表小程序样式，上下不做安全区）；
+   状态行跟在标题下面。本页还留着底部按钮作大号操作区 */
+.header {
+  width: 100%;
+  height: 96px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.header-back {
+  width: 100%;
+  font-size: 32px;
+  color: #ff3a3a;
+  text-align: center;
+  lines: 1;
+  text-overflow: ellipsis;
+  padding: 8px 20px;
+}
+
+.status {
+  width: 100%;
+  margin-top: 6px;
+  font-size: 24px;
+  color: #ffffff;
+  text-align: center;
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+/* 二维码/账号信息块 = 未登录时的「刷新」按钮（模板里绑了 onclick="onQrTap"） */
+.qr-box {
+  width: 220px;
+  height: 220px;
+  margin-top: 8px;
+  justify-content: center;
+  align-items: center;
+  background-color: #ffffff;
+  border-radius: 16px;
+}
+
+.qr {
+  width: 200px;
+  height: 200px;
+}
+
+.qr-placeholder {
+  width: 100%;
+  height: 100%;
+  justify-content: center;
+  align-items: center;
+  background-color: #1c1c1c;
+  border-radius: 16px;
+}
+
+.placeholder-text {
+  width: 90%;
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.75);
+  text-align: center;
+  lines: 2;
+  text-overflow: ellipsis;
+}
+
+.hint {
+  width: 100%;
+  margin-top: 10px;
+  font-size: 22px;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  lines: 2;
+  text-overflow: ellipsis;
+}
+
+.countdown {
+  margin-top: 4px;
+  font-size: 20px;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+}
+
+.diag {
+  width: 100%;
+  margin-top: 6px;
+  font-size: 16px;
+  color: rgba(120, 200, 255, 0.85);
+  text-align: center;
+  lines: 3;
+  text-overflow: ellipsis;
+}
+
+/* 底部只有一个居中的「返回」；重新出码走二维码本身（点二维码），所以这里不再是两按钮排布 */
+.actions {
+  width: 100%;
+  height: 88px;
+  margin-top: 12px;
+  justify-content: center;
+  align-items: center;
+}
+
+.btn {
+  width: 160px;
+  height: 64px;
+  justify-content: center;
+  align-items: center;
+  background-color: #2d2d2d;
+  border-radius: 32px;
+}
+
+.btn-text {
+  font-size: 26px;
+  color: #ffffff;
+}
+
+/* 胶囊屏（手环 9 / 10）不是本项目的设计目标，这块只是老版本的兜底；
+   圆屏安全区不走 @media（对 S1 Pro / Redmi Watch 4 不支持），走 .shape-* class。
+   详见 player.ux 同名注释与 common/device.js 顶部说明。 */
+@media (shape: pill-shaped) or (max-width: 106) {
+  .header {
+    width: 100%;
+    height: 72px;
+  }
+
+  .header-back {
+    font-size: 26px;
+  }
+
+  .status {
+    font-size: 20px;
+  }
+
+  .qr-box {
+    width: 170px;
+    height: 170px;
+    margin-top: 4px;
+  }
+
+  .qr {
+    width: 156px;
+    height: 156px;
+  }
+
+  .placeholder-text {
+    font-size: 20px;
+  }
+
+  .hint {
+    width: 100%;
+    font-size: 18px;
+  }
+
+  .countdown {
+    font-size: 16px;
+  }
+
+  .diag {
+    width: 100%;
+    font-size: 14px;
+  }
+
+  .actions {
+    width: 100%;
+    height: 72px;
+    margin-top: 6px;
+  }
+
+  .btn {
+    width: 130px;
+    height: 54px;
+    border-radius: 27px;
+  }
+
+  .btn-text {
+    font-size: 22px;
+  }
+}
+</style>

@@ -28,32 +28,29 @@ class TuiApi {
   }
 
   Future<void> init() async {
-    NetworkConfig.setBiliHeaders({
-      'User-Agent': NetworkConfig.userAgent,
-      'Referer': 'https://www.bilibili.com',
-      'Access-Control-Allow-Origin': 'https://api.bilibili.com',
-    });
-    final cookies = _loadAppCookies();
-    if (cookies.isNotEmpty) {
-      // setCookies 内部的 prefs 持久化在 CLI 宿主里会静默跳过
-      NetworkConfig.setCookies(cookies);
-      hasLoginCookies = cookies.containsKey('SESSDATA');
-    }
+    // Cookie 不走 shared_preferences(纯 Dart 宿主),直接读桌面 App 的存储文件;
+    // 新格式 `{version, cookies:[…]}` 与老的扁平 JSON / 裸 Cookie 串 CookieJar
+    // 都认(见其 load 的文档),所以 TUI 与 App 共享同一份登录态。
+    NetworkConfig.cookieLoader = () async => _loadRawCookies();
+    await NetworkConfig.init();
+    hasLoginCookies = NetworkConfig.cookieJar.isLoggedIn;
   }
 
-  Map<String, String> _loadAppCookies() {
+  /// 桌面 App 存储文件里 `cookies` 键的原始字符串 —— 交给 CookieJar 解析，
+  /// 它认得新旧两种落盘格式。
+  ///
+  /// 持久化只读不写：TUI 与 App 的落盘格式虽然同构，但两个进程各写各的会互相
+  /// 覆盖，所以这里不注入 saver（CookieJar 在 saver 为 null 时退化成纯内存）。
+  static String? _loadRawCookies() {
     try {
       final file = File(_prefsPath);
-      if (!file.existsSync()) return const {};
+      if (!file.existsSync()) return null;
       final root = jsonDecode(file.readAsStringSync());
-      if (root is! Map) return const {};
+      if (root is! Map) return null;
       final raw = root['flutter.cookies'];
-      if (raw is! String || raw.isEmpty) return const {};
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map) return const {};
-      return decoded.map((k, v) => MapEntry('$k', '$v'));
+      return raw is String && raw.isNotEmpty ? raw : null;
     } catch (_) {
-      return const {};
+      return null;
     }
   }
 

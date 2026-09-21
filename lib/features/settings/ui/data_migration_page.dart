@@ -391,6 +391,9 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
             ? (importData['settings'][SettingsManager.KEY_VERSION_CODE] as int?)
             : null;
 
+        // 选文件与读文件都可能等很久，弹窗前确认页面还在
+        if (!mounted) return;
+
         // 如果数据文件中没有版本号或者版本号大于当前应用版本，则提示用户
         if (dataVersionCode == null) {
           // 数据文件中没有版本信息

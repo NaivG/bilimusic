@@ -101,7 +101,9 @@ class _QrLoginWidgetState extends ConsumerState<QrLoginWidget> {
       if (!mounted) return;
 
       if (result.status == QrPollStatus.success) {
-        // Set-Cookie 已由 PassportClient 落地
+        // Set-Cookie 已由 PassportClient 落地；refresh_token 是响应体里的
+        // 非 Cookie 刷新凭据（SESSDATA 续期要用），单独落盘。
+        await _saveRefreshToken(result.refreshToken);
         _stopTimers();
         setState(() => _status = QrPollStatus.success);
         // 通知 UserManager 刷新用户信息
@@ -128,6 +130,16 @@ class _QrLoginWidgetState extends ConsumerState<QrLoginWidget> {
     _pollTimer = null;
     _tickerTimer?.cancel();
     _tickerTimer = null;
+  }
+
+  /// 把 passport 下发的 refresh_token 落盘；失败不影响本次登录。
+  Future<void> _saveRefreshToken(String token) async {
+    if (token.isEmpty) return;
+    try {
+      await ref.read(passportStoreProvider).setRefreshToken(token);
+    } catch (e) {
+      debugPrint('[QrLogin] refresh_token 落盘失败: $e');
+    }
   }
 
   int get _remainingSeconds {

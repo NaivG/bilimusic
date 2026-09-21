@@ -3,7 +3,7 @@
 
   # BiliMusic
   <p><strong>把哔哩哔哩里的声音，整理成一张属于你的播放桌面。</strong></p>
-  <p>基于 Flutter 的 B 站音乐播放器 · 跨平台 · GUI/TUI · 漫游发现 · 局域网同步</p>
+  <p>基于 Flutter 的 B 站音乐播放器 · 跨平台 · GUI/TUI/Vela · 漫游发现 · 局域网同步</p>
   
   <p>
     <a href="https://github.com/NaivG/bilimusic/releases"><img src="https://img.shields.io/github/v/release/NaivG/bilimusic?label=release&sort=semver" alt="Latest release"></a>
@@ -18,7 +18,7 @@
 </div>
 
 
-BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。基于 Flutter 一次覆盖 Windows、Linux、Android，并对 macOS、Web 提供实验性支持。它不复制视频平台，只做播放器该做的事：搜索、整理、连续播放与跨设备同步。
+BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。基于 Flutter 一次覆盖 Windows、Linux、Android，对 macOS、Web 提供实验性支持，同时支持 Xiaomi Vela 端。它不复制视频平台，只做播放器该做的事：搜索、整理、连续播放与跨设备同步。
 
 <div align="center">
   <sub>如果这个项目对你有帮助，欢迎 ⭐ Star 支持一下！</sub>
@@ -36,6 +36,7 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
   - [从源码运行](#从源码运行)
   - [构建发布版本](#构建发布版本)
   - [终端客户端（TUI）](#终端客户端tui)
+  - [小米 Vela 手表端](#小米-vela-手表端)
 - [用法](#用法)
   - [常用入口](#常用入口)
   - [漫游模式](#漫游模式)
@@ -82,12 +83,13 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 
 | 平台 | 状态 | 备注 |
 | --- | --- | --- |
-| **Windows** 10+ | ✅ 稳定 | 解压即用 |
-| **Linux** | ✅ 稳定 | Ubuntu 20.04+ 或主流发行版；需要 `libmpv-dev` |
+| **Windows** 10+ | ✅ 稳定 | 解压即用，`x64`架构 |
+| **Linux** | ✅ 稳定 | Ubuntu 20.04+ 或主流发行版，`x64`或`arm64`架构；需要[安装依赖](#直接安装) |
 | **Android** 12+ | ✅ 稳定 | 按设备架构选择 APK（`arm64-v8a` / `armeabi-v7a` / `x86_64`），或全平台 AAB |
 | **macOS 10.15+, with Metal Support** | ⚠️ 实验性 | CI 产出 ad-hoc 签名的未公证 `.app`，也可从源码构建 |
 | **iOS 13+** | ❓ 未经测试 | 可从源码构建无签名版本 |
 | **Web** | ⚠️ 实验性 | 解压后部署到 Web 服务器，需配置 CORS |
+| **Xiaomi Vela** | ✅ 稳定 | 适用于小米、红米手表系列（API 2+），下载安装`.rpk`，详见[小米 Vela 手表端](#小米-vela-手表端) |
 
 关于应用内更新：Android / Windows / Linux 支持；Web 与 macOS 跳转 Releases（见[更新与版本](#更新与版本)）。
 
@@ -102,9 +104,11 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 - Android / Windows / Linux：启动时自动检查更新。
 - macOS / Web：需手动重新下载。
 
+Linux 需要安装依赖：
+
 ```bash
-# Linux 用户需要先安装依赖
-sudo apt install libmpv-dev
+sudo apt install libmpv-dev # Linux 因为打包时不含libmpv，需要先安装
+sudo apt install libgtk-3-dev libx11-dev libxi-dev # tray_manager 依赖，一般桌面端运行时都能满足，如果看不到托盘请自行安装
 ```
 
 ### 从源码运行
@@ -145,6 +149,20 @@ dart run bin/bilimusic_tui.dart --probe    # 网络与解码分层自检
 dart run bin/bilimusic_tui.dart --smoke    # 无终端驱动完整循环
 dart run bin/bilimusic_tui.dart --preview  # 静态设计预览（假数据，无网络无声）
 ```
+
+#### 小米 Vela 手表端
+
+`vela/` 是与 Flutter 主项目并列的小米 Vela JS 快应用形态手表客户端，与主项目**不共享代码、不共享包管理**。该手表端走 `npm`，不跑 `flutter pub`：
+
+```bash
+cd vela
+npm install                       # 首次安装依赖（仅需一次）
+npm run verify                    # 离线自检（纯 Node，无设备/模拟器）
+npm run start                     # AIoT-IDE 调试启动（aiot server --watch）
+npm run build                     # 构建 RPK（aiot build）
+```
+
+> 详细设计目标、适配机型表、安装教程、目录结构等，请阅读 [`vela/README.md`](vela/README.md)。
 
 ---
 
@@ -192,7 +210,8 @@ dart run bin/bilimusic_tui.dart --preview  # 静态设计预览（假数据，�
 - 多 P 视频切换、顺序 / 随机 / 单曲循环。
 - A/B 双播放器 + equal-power 曲线的交叉淡入淡出。
 - 多档音质选择，DASH 音频流按选择取流并回显实际生效音质。
-- 后台播放、系统媒体通知、音量持久化。
+- 后台播放、系统媒体通知、桌面托盘、Windows SMTC 与 Linux MPRIS 媒体键控制、音量持久化。
+- 详情页与长按菜单支持一键打开 B 站原网页。
 - 动态歌词：自动匹配、逐字点亮、辉光效果。
 - 主题系统：Lucent / Nocturne / Verdant / Gruvbox / Nord / Solarized 六套主题，运行时切换并按封面主色适配。
 - 离线缓存：歌曲可下载到本地，断网也能继续播放。
@@ -238,7 +257,7 @@ dart run bin/bilimusic_tui.dart --preview  # 静态设计预览（假数据，�
 - **桌面端**：使用 B 站 App 扫码登录。
 - **数据迁移**：可在数据管理中将移动端数据迁移到桌面端。
 
-> **数据存储**：歌单、收藏和历史保存在本地 SQLite；设置使用 `shared_preferences`；网络资源与歌词进入本地缓存；歌曲可另存为离线缓存，断网可播。迁移或清理前请做好备份。
+> **数据存储**：歌单、收藏和历史保存在本地 SQLite；设置使用 `shared_preferences`；网络资源与歌词进入本地缓存；歌曲可另存为离线缓存，断网可播。桌面端启动时会检测多份数据库副本，发现冲突时引导选择保留哪一份，落选副本改名归档、绝不删除。迁移或清理前请做好备份。
 
 ---
 
@@ -297,7 +316,7 @@ BiliClient  ←── Bilibili API
 ```text
 lib/
 ├── main.dart                  # 应用入口：窗口、数据库、audio_service 初始化
-├── app/                       # app_providers.dart 组合根 + shells/ 应用外壳与导航
+├── app/                       # app_providers.dart 组合根 + shells/ 应用外壳、导航与桌面托盘
 ├── core/                      # 无 UI 基础设施
 │   ├── network/               # BiliClient、ApiService、PassportClient 与异常体系
 │   └── storage/               # AppDatabase(SQLite) 与 CacheManager
@@ -315,6 +334,16 @@ lib/
 │   └── settings/ update/      # 设置、数据迁移；更新检查、Release 解析、应用内更新与更新日志
 └── shared/                    # 跨模块共享：widgets/、theme/(Lucent/Nocturne/Verdant/Gruvbox/Nord/Solarized)、utils/
 
+vela/                           # 小米 Vela JS 快应用手表端
+├── src/
+│   ├── app.ux                  # 启动自举：控制类音频事件绑定 + 登录态/播放态恢复
+│   ├── manifest.json           # features 与 config.background 后台运行声明
+│   ├── common/                 # 纯函数：配置、解析、音量、跨 VM 播放态、网桥协议
+│   ├── pages/                  # player / more / recommend / fav / favDetail / login / volume / about
+│   └── services/               # 会话、请求收口、网桥会话、音频缓存、B 站接口、扫码登录、播放服务
+├── scripts/                    # 离线自检（纯 Node）+ aiot-hooks 与 @system.* 桩（仅离线测试用）
+└── README.md                   # Vela 端完整文档
+
 bin/
 ├── bilimusic_tui.dart         # 终端客户端入口（dart_tui + libmpv FFI）
 └── tui/                       # TUI 内部实现：mpv_player(FFI)、tui_api、app_model、probe
@@ -329,7 +358,9 @@ bin/
 | [Flutter](https://flutter.dev/) | 跨平台 UI 框架 |
 | [Riverpod](https://riverpod.dev/) | 状态管理与依赖注入 |
 | [just_audio](https://pub.dev/packages/just_audio) · [audio_service](https://pub.dev/packages/audio_service) | 音频播放 + 后台与系统媒体控制 |
+| [audio_service_win](https://github.com/NaivG/audio_service_win) · [audio_service_mpris](https://pub.dev/packages/audio_service_mpris) | Windows SMTC + Linux MPRIS 媒体控制 |
 | [just_audio_media_kit](https://pub.dev/packages/just_audio_media_kit) | 桌面端 libmpv 音频后端 |
+| [tray_manager](https://pub.dev/packages/tray_manager) | 桌面系统托盘 |
 | [media_kit_libs_audio](https://pub.dev/packages/media_kit_libs_audio) | 桌面端 libmpv 原生库（TUI 亦复用其 libmpv 产物） |
 | [http](https://pub.dev/packages/http) | 统一 HTTP 客户端 |
 | [bonsoir](https://pub.dev/packages/bonsoir) | mDNS 局域网设备发现 |

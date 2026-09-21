@@ -124,6 +124,12 @@ FutureOr<Menu?> buildMusicContextMenu({
         image: MenuImage.icon(Icons.share),
         callback: () => shareMusic(music),
       ),
+      if (music.id.isNotEmpty)
+        MenuAction(
+          title: '打开原网页',
+          image: MenuImage.icon(Icons.open_in_new),
+          callback: () => openOriginalPage(music),
+        ),
     ],
   );
 }
@@ -302,19 +308,17 @@ void _createNewPlaylist(BuildContext context, PlaylistService playlistService) {
             onPressed: () async {
               if (formKey.currentState!.validate()) {
                 final playlistName = controller.text.trim();
+                // 跨 async gap 前先拿到 navigator 与 messenger
+                final navigator = Navigator.of(context);
+                final messenger = ScaffoldMessenger.of(context);
                 try {
                   await playlistService.createPlaylist(name: playlistName);
-                  Navigator.of(context).pop();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('已创建歌单"$playlistName"')),
-                    );
-                  }
+                  navigator.pop();
+                  messenger.showSnackBar(
+                    SnackBar(content: Text('已创建歌单"$playlistName"')),
+                  );
                 } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(SnackBar(content: Text('创建歌单失败: $e')));
-                  }
+                  messenger.showSnackBar(SnackBar(content: Text('创建歌单失败: $e')));
                 }
               }
             },

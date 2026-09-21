@@ -31,6 +31,11 @@ class UserStateNotifier extends Notifier<UserState> {
   @override
   UserState build() {
     final um = ref.read(_userManagerProvider);
+    // 先同步判一次登录态再挂监听：checkCookieLogin 只读 NetworkConfig 的内存
+    // cookie（main 里已 await NetworkConfig.init，此处必然就绪），不发请求。
+    // 必须放在 addListener 之前，否则它因状态变化触发的 notifyListeners 会在
+    // provider build 期间回调改 state（Riverpod 禁止 build 期间改 state）。
+    um.checkCookieLogin();
     um.addListener(_onUserManagerChanged);
     ref.onDispose(() => um.removeListener(_onUserManagerChanged));
     return _readFromManager();

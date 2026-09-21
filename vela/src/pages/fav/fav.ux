@@ -1,0 +1,294 @@
+<template>
+  <div class="fav-page">
+    <!-- 安全区容器：左右内缩同一个 px 值（见 common/device.js safeHorizontalInsetPx） -->
+    <div
+      class="safe"
+      style="padding-left: {{ safeInsetPx }}px; padding-right: {{ safeInsetPx }}px"
+    >
+      <!-- 头部：官方手表小程序样式 —— 贴顶、居中「‹ 标题」红色返回，上下不做安全区 -->
+      <div class="header">
+        <text class="header-back" onclick="goBack">‹ 收藏夹</text>
+      </div>
+
+      <!-- 状态提示 -->
+      <text class="state" if="{{ loading }}">加载中…</text>
+      <text class="state error" if="{{ error }}" onclick="reload">{{ error }}</text>
+
+      <!-- 收藏夹列表 -->
+      <list class="list" if="{{ folders.length }}">
+        <list-item
+          for="{{(index, item) in folders}}"
+          class="folder-item"
+          tid="mediaId"
+          type="folder"
+          onclick="goDetail(index)"
+        >
+          <div class="detail">
+            <text class="folder-name">{{ item.title }}</text>
+            <text class="folder-count">{{ item.count }} 个内容</text>
+          </div>
+          <text class="folder-arrow">›</text>
+        </list-item>
+      </list>
+
+      <text
+        class="state"
+        if="{{ !loading && !error && !folders.length }}"
+        onclick="onEmptyTap"
+      >{{ emptyText || '没有找到收藏夹' }}</text>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from "@system.router";
+import * as biliApi from "../../services/biliApi";
+import session from "../../services/session";
+import deviceService from "../../services/deviceService";
+
+export default {
+  data: {
+    folders: [],
+    loading: false,
+    error: "",
+    emptyText: "",
+    // 未登录时置 true：空态文案变成「点击去登录」的入口
+    needLogin: false,
+    // 左右安全内缩 px：先按 480 宽矩形屏兜底，getInfo 回来后再重算
+    // （机制见 common/device.js 的 safeHorizontalInsetPx 注释）
+    safeInsetPx: 29,
+  },
+
+  onInit() {
+    // 屏幕形状只影响左右内缩 px，先落保守值再刷新（详见 player.ux 同名处注释）
+    this.safeInsetPx = deviceService.capabilities().safeInsetPx;
+    deviceService.whenReady().then(() => {
+      this.safeInsetPx = deviceService.capabilities().safeInsetPx;
+    });
+
+    // 等 app.ux bootstrap 把登录态从 storage 恢复完成再判登录态，
+    // 否则会和 bootstrap 抢跑、把已登录态错判为「未登录」。
+    session.ready().then(() => {
+      if (!session.isLoggedIn()) {
+        this.needLogin = true;
+        this.emptyText = "未登录，点击去登录";
+        return;
+      }
+      this.loadFolders();
+    });
+  },
+
+  onShow() {
+    // 空态里的「点击去登录」是 push 登录页，登录成功后登录页只 back 回来，
+    // 本页要自己重试一次才不至于停在「未登录」。带 needLogin 守卫：
+    // 首帧 onShow 时它还是 false，不会和 onInit 抢着拉一遍。
+    if (!this.needLogin) return;
+    this.reload();
+  },
+
+  /* ---------------------------- 数据加载 ---------------------------- */
+
+  async loadFolders() {
+    this.loading = true;
+    this.error = "";
+    this.emptyText = "";
+    this.needLogin = false;
+    try {
+      const mid = session.getMid();
+      const folders = await biliApi.getCreatedFavFolders(mid);
+      this.folders = folders;
+      if (!folders.length) {
+        this.emptyText = "没有找到收藏夹";
+      }
+      console.log("[Fav] 收藏夹", folders.length, "个");
+    } catch (e) {
+      console.error("[Fav] 加载收藏夹失败:", e);
+      this.error = "加载失败：" + describe(e) + "（点击重试）";
+    } finally {
+      this.loading = false;
+    }
+  },
+
+  reload() {
+    this.error = "";
+    session.ready().then(() => {
+      if (!session.isLoggedIn()) {
+        this.needLogin = true;
+        this.emptyText = "未登录，点击去登录";
+        return;
+      }
+      this.loadFolders();
+    });
+  },
+
+  /* ---------------------------- 跳转 ---------------------------- */
+
+  goDetail(index) {
+    const folder = this.folders[index];
+    if (!folder) return;
+    router.push({
+      uri: "/pages/favDetail",
+      params: { mediaId: folder.mediaId, title: folder.title },
+    });
+  },
+
+  onEmptyTap() {
+    if (this.needLogin) {
+      router.push({ uri: "/pages/login" });
+      return;
+    }
+    this.reload();
+  },
+
+  goBack() {
+    router.back();
+  },
+};
+
+function describe(e) {
+  if (!e) return "未知错误";
+  if (typeof e === "string") return e;
+  if (e.message) return e.message;
+  if (e.code !== undefined) return "code=" + e.code;
+  return JSON.stringify(e);
+}
+</script>
+
+<style>
+.fav-page {
+  width: 100%;
+  height: 100%;
+  padding: 20px 0;
+  flex-direction: column;
+  align-items: center;
+  background-color: black;
+}
+
+/* 安全区容器：占满整屏宽，左右内缩是同一个 px 值（模板内联 style 绑定）。
+   不用「百分比宽 + 交叉轴居中」的盒子：渲染层会左锚定，见 common/device.js。 */
+.safe {
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 头部：贴顶、居中「‹ 收藏夹」红色返回（官方手表小程序样式，上下不做安全区） */
+.header {
+  width: 100%;
+  height: 64px;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
+
+.header-back {
+  font-size: 30px;
+  color: #ff3a3a;
+  padding: 8px 20px;
+}
+
+.state {
+  width: 100%;
+  margin-top: 20px;
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+}
+
+.state.error {
+  color: #ff8c8c;
+}
+
+.list {
+  width: 100%;
+  margin-top: 10px;
+  flex: 1;
+}
+
+.folder-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  height: 112px;
+  margin-bottom: 12px;
+  padding-left: 20px;
+  padding-right: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 18px;
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.detail {
+  flex: 1;
+  height: 100%;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.folder-name {
+  width: 100%;
+  font-size: 30px;
+  color: #ffffff;
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.folder-count {
+  width: 100%;
+  margin-top: 2px;
+  font-size: 22px;
+  color: rgba(255, 255, 255, 0.55);
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.folder-arrow {
+  width: 40px;
+  text-align: center;
+  font-size: 36px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* 胶囊屏（手环 9 / 10）不是本项目的设计目标，这块只是老版本的兜底；
+   圆屏安全区不走 @media（对 S1 Pro / Redmi Watch 4 不支持），走 .shape-* class。
+   详见 player.ux 同名注释与 common/device.js 顶部说明。 */
+@media (shape: pill-shaped) or (max-width: 106) {
+  .fav-page {
+    padding: 10px;
+  }
+
+  .header {
+    height: 48px;
+  }
+
+  .header-back {
+    font-size: 24px;
+  }
+
+  .folder-item {
+    height: 88px;
+    margin-bottom: 8px;
+    padding-left: 14px;
+    border-radius: 12px;
+  }
+
+  .folder-name {
+    font-size: 24px;
+  }
+
+  .folder-count {
+    font-size: 18px;
+  }
+
+  .folder-arrow {
+    width: 30px;
+    font-size: 28px;
+  }
+
+  .state {
+    font-size: 18px;
+  }
+}
+</style>

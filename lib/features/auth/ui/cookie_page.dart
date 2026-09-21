@@ -2,12 +2,16 @@ import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 import 'package:flutter/material.dart';
 import 'package:bilimusic/core/network/network_config.dart';
 
+/// Cookie 信息页。
+///
+/// 展示的是 [NetworkConfig.cookieJar] 里的完整 Cookie（不再是扁平 name→value）：
+/// 每条都带自己生效的域名 / 路径与过期时间，登出只摘会话 Cookie、设备标识留在盘上。
 class CookiePage extends StatelessWidget {
   const CookiePage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final cookies = NetworkConfig.cookies;
+    final cookies = NetworkConfig.cookieJar.all;
 
     return Scaffold(
       appBar: AutoAppBar.generateAppBar(title: 'Cookie 信息'),
@@ -31,10 +35,14 @@ class CookiePage extends StatelessWidget {
           : ListView.builder(
               itemCount: cookies.length,
               itemBuilder: (context, index) {
-                final entry = cookies.entries.elementAt(index);
+                final cookie = cookies[index];
                 return ListTile(
-                  title: Text(entry.key),
-                  subtitle: Text(entry.value),
+                  title: Text(cookie.name),
+                  subtitle: Text(
+                    '${cookie.value}\n'
+                    '${cookie.domain}${cookie.path} · '
+                    '${cookie.expiresAt == null ? '会话' : '至 ${cookie.expiresAt!.toLocal()}'}',
+                  ),
                   isThreeLine: true,
                 );
               },

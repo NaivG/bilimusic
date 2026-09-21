@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/shared/widgets/long_press_menu.dart';
@@ -8,7 +6,7 @@ import 'package:bilimusic/features/auth/user_manager.dart';
 import 'package:bilimusic/domain/playlist.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bilimusic/core/network/network_config.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:bilimusic/core/network/passport_client.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/roam/ui/roam_section.dart';
@@ -74,49 +72,46 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   }
 
   // 退出登录
+  //
+  // 先请求服务端注销当前 SESSDATA（`/login/exit/v2`，PassportClient.logout），
+  // 成功才动本地——服务端没注销成功就清本地，网络一抖用户就被"登丢"了：
+  // 本地 Cookie 看似清干净了，服务端会话却还活着。失败时本地登录态原样保留。
+  // 本地清理只摘会话 Cookie：`clearSession()` 按名字清掉 SESSDATA / bili_jct /
+  // DedeUserID 等登录态，保留 buvid3 / b_nut / bili_ticket 这些设备标识
+  // （清掉它们等于下次启动要从零自举，白白多几次撞风控的机会）。
+  // 落盘由 jar 的 saver 钩子自动完成，这里不再手写 prefs；
+  // refresh_token 凭据（PassportStore）一并清掉。
   Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    final cookiesJson = prefs.getString('cookies');
+    final passport = PassportClient();
+    try {
+      await passport.logout();
 
-    if (cookiesJson != null && cookiesJson.isNotEmpty) {
+      // 清 refresh_token 凭据；失败不拦着登出（Cookie 才是登录态的事实来源）。
       try {
-        final cookiesMap = json.decode(cookiesJson) as Map;
-        final cookies = Map<String, String>.from(
-          cookiesMap.map(
-            (key, value) => MapEntry(key.toString(), value.toString()),
-          ),
-        );
-
-        // 删除指定的Cookie字段
-        cookies.removeWhere(
-          (key, value) =>
-              key == 'SESSDATA' ||
-              key == 'bili_jct' ||
-              key == 'DedeUserID' ||
-              key == 'DedeUserID__ckMd5' ||
-              key == 'sid',
-        );
-
-        // 保存更新后的 cookies
-        await prefs.setString('cookies', json.encode(cookies));
-
-        // 更新 NetworkConfig 中的 cookies
-        NetworkConfig.setCookies(cookies);
-
-        // 清除用户缓存
-        await ref.read(userManagerProvider).clear();
-
-        if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text('已退出登录')));
-        }
+        await ref.read(passportStoreProvider).clear();
       } catch (e) {
-        debugPrint('退出登录失败: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text('退出登录失败: $e')));
-        }
+        debugPrint('refresh_token 清理失败: $e');
       }
+
+      // 只摘会话 Cookie，保留设备标识。
+      NetworkConfig.cookieJar.clearSession();
+
+      // 清除用户缓存
+      await ref.read(userManagerProvider).clear();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('已退出登录')));
+      }
+    } catch (e) {
+      debugPrint('退出登录失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('退出登录失败：服务端注销未完成，本地登录态保持不变')),
+        );
+      }
+    } finally {
+      passport.close();
     }
   }
 
@@ -512,6 +507,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   void _createNewPlaylist() {
     final TextEditingController controller = TextEditingController();
+    // 弹窗的 context 在 pop 之后就不再可靠，messenger 从页面 context 上先取好
+    final messenger = ScaffoldMessenger.of(context);
 
     showDialog(
       context: context,
@@ -538,12 +535,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   await ref
                       .read(playlistServiceProvider)
                       .createPlaylist(name: controller.text.trim());
+                  if (!context.mounted) return;
                   Navigator.pop(context);
                   _loadData();
-                  if (mounted) {
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(const SnackBar(content: Text('歌单创建成功')));
-                  }
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('歌单创建成功')),
+                  );
                 }
               },
               child: const Text('创建'),

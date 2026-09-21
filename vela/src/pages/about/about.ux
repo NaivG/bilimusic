@@ -1,0 +1,376 @@
+<template>
+  <div class="about-page">
+    <!-- 安全区容器：左右内缩同一个 px 值（见 common/device.js safeHorizontalInsetPx）。
+         头部走官方手表小程序样式：贴顶、居中「‹ 关于」红色返回。 -->
+    <div
+      class="safe"
+      style="padding-left: {{ safeInsetPx }}px; padding-right: {{ safeInsetPx }}px"
+    >
+      <div class="header">
+        <text class="header-back" onclick="goBack">‹ 关于</text>
+      </div>
+
+      <list class="info-list">
+        <!-- 应用卡片：图标 + 名称 + 版本，三个值都来自 @system.app 的 getInfo() -->
+        <list-item class="card-wrap" type="card">
+          <div class="app-card">
+            <image
+              class="app-icon"
+              if="{{ icon }}"
+              src="{{ icon }}"
+              alt="blank"
+            />
+            <text class="app-icon app-icon-fallback" else>{{ iconChar }}</text>
+            <div class="app-info">
+              <text class="app-name">{{ appName }}</text>
+              <text class="app-version" if="{{ versionText }}">{{ versionText }}</text>
+            </div>
+          </div>
+        </list-item>
+
+        <!-- 应用信息：逐项来自 getInfo()，页面里不写死任何包名/版本值。
+             取不到的字段（老 runtime 不给）整行不渲染，不留空行；
+             整个接口读不到时连分区标题一起收起。 -->
+        <list-item class="section-wrap" type="section" if="{{ available }}">
+          <text class="section-title">应用信息</text>
+        </list-item>
+        <list-item class="kv-item" type="menu" if="{{ packageName }}">
+          <text class="kv-key">包名</text>
+          <text class="kv-value">{{ packageName }}</text>
+        </list-item>
+        <!-- 版本格式和flutter对齐 -->
+        <list-item class="kv-item" type="menu" if="{{ versionName }}">
+          <text class="kv-key">版本</text>
+          <text class="kv-value">{{ versionName }}+{{ versionCodeText }}</text>
+        </list-item>
+        <list-item class="kv-item" type="menu" if="{{ logLevel }}">
+          <text class="kv-key">日志级别</text>
+          <text class="kv-value">{{ logLevel }}</text>
+        </list-item>
+        <list-item class="kv-item" type="menu" if="{{ sourceText }}">
+          <text class="kv-key">启动来源</text>
+          <text class="kv-value">{{ sourceText }}</text>
+        </list-item>
+
+        <list-item class="footnote-wrap" type="section">
+          <text class="footnote">{{ footnoteText }}</text>
+        </list-item>
+      </list>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from "@system.router";
+import appService from "../../services/appService";
+import deviceService from "../../services/deviceService";
+import { describeAppSource, formatAppVersion } from "../../common/appinfo";
+
+/**
+ * 关于页：显示当前应用自己的信息（包名/名称/版本/图标/日志级别/启动来源）。
+ *
+ * 全部值来自 `@system.app` 的 `getInfo()`（经 appService 归一化），页面里
+ * **不硬编码**包名与版本号 —— 改了 manifest 的 versionName/versionCode，
+ * 这里显示的跟着变（离线自检有断言钉住）。
+ *
+ * 文档：https://iot.mi.com/vela/quickapp/zh/features/basic/app.html
+ */
+export default {
+  data: {
+    // 应用身份（getInfo 的 name / versionName + versionCode / icon）
+    appName: "关于",
+    versionText: "",
+    icon: "",
+    iconChar: "应",
+    // 是否真的读到了应用信息：false 时连「应用信息」分区一起收起
+    available: false,
+    // 逐项信息
+    packageName: "",
+    versionName: "",
+    versionCodeText: "",
+    logLevel: "",
+    sourceText: "",
+    footnoteText: "",
+    // 左右安全内缩 px：先按 480 宽矩形屏兜底，getInfo 回来后再重算
+    // （机制见 common/device.js 的 safeHorizontalInsetPx 注释）
+    safeInsetPx: 29,
+  },
+
+  onInit() {
+    // 屏幕形状只影响左右内缩 px，先落保守值再刷新（详见 player.ux 同名处注释）
+    this.safeInsetPx = deviceService.capabilities().safeInsetPx;
+    deviceService.whenReady().then(() => {
+      this.safeInsetPx = deviceService.capabilities().safeInsetPx;
+    });
+
+    this.renderAppInfo();
+  },
+
+  /**
+   * 读取并铺开应用信息。
+   * appService.info() 同步返回（getInfo 本身就是同步接口），同一个 VM 内只问一次原生；
+   * 原生不可用时 available=false，这里退化成「未能读取」，不猜任何值。
+   */
+  renderAppInfo() {
+    const info = appService.info();
+
+    this.available = info.available;
+    this.appName = info.name || (info.available ? "未命名应用" : "未能读取应用信息");
+    this.versionText = formatAppVersion(info);
+    this.packageName = info.packageName;
+    this.versionName = info.versionName;
+    this.versionCodeText = info.versionCode > 0 ? String(info.versionCode) : "";
+    this.logLevel = info.logLevel;
+    this.sourceText = describeAppSource(info.sourceType);
+    this.icon = info.icon;
+    this.iconChar = (info.name || "应").slice(0, 1);
+    // 脚注是「这页不是写死的」的凭据，也让用户知道去哪儿看同一份值
+    this.footnoteText = info.available
+      ? "以上信息由 @system.app 读取"
+      : "未能读取应用信息（@system.app 不可用）";
+  },
+
+  goBack() {
+    router.back();
+  },
+};
+</script>
+
+<style>
+.about-page {
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  background-color: black;
+}
+
+/* 安全区容器：占满整屏宽，左右内缩是同一个 px 值（模板内联 style 绑定）。
+   不用「百分比宽 + 交叉轴居中」的盒子：渲染层会左锚定，见 common/device.js。 */
+.safe {
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 头部：贴顶、居中「‹ 关于」红色返回（官方手表小程序样式，上下不做安全区） */
+.header {
+  width: 100%;
+  height: 64px;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
+
+.header-back {
+  font-size: 30px;
+  color: #ff3a3a;
+  padding: 8px 20px;
+}
+
+.info-list {
+  width: 100%;
+  flex: 1;
+  margin-top: 10px;
+}
+
+/* ------------------------------ 应用卡片 ------------------------------ */
+
+.card-wrap {
+  display: flex;
+  width: 100%;
+  height: 148px;
+  margin-bottom: 10px;
+}
+
+/* 单独卡片：边框 + 圆角 + 深底，与「更多」页用户卡片同风格。
+   图标用圆角方而不是正圆：logo 是方图，切圆会削掉四角。 */
+.app-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  height: 148px;
+  padding-left: 20px;
+  padding-right: 16px;
+  border: 1px solid rgba(255, 58, 58, 0.45);
+  border-radius: 20px;
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.app-icon {
+  width: 92px;
+  height: 92px;
+  border-radius: 24px;
+}
+
+.app-icon-fallback {
+  color: #ffffff;
+  font-size: 40px;
+  text-align: center;
+  line-height: 92px;
+  background-color: #2d2d2d;
+}
+
+.app-info {
+  flex: 1;
+  height: 92px;
+  flex-direction: column;
+  justify-content: center;
+  margin-left: 18px;
+}
+
+.app-name {
+  width: 100%;
+  font-size: 30px;
+  color: #ffffff;
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.app-version {
+  width: 100%;
+  margin-top: 4px;
+  font-size: 22px;
+  color: rgba(255, 255, 255, 0.55);
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+/* ------------------------------ 分区标题 ------------------------------ */
+
+.section-wrap {
+  display: flex;
+  width: 100%;
+  height: 52px;
+  align-items: flex-end;
+}
+
+.section-title {
+  font-size: 22px;
+  color: rgba(255, 255, 255, 0.45);
+  padding-bottom: 6px;
+}
+
+/* ------------------------------ 信息行 ------------------------------ */
+
+/* 尺度与「更多」页条目一致：88px 高 + 14px 留白（偏紧凑，但不挤在一起）。
+   标签在上、值在下：包名这类长值在圆屏上也不用被右对齐截断。 */
+.kv-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  height: 88px;
+  margin-bottom: 14px;
+  padding-left: 20px;
+  padding-right: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 18px;
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.kv-key {
+  width: 100%;
+  font-size: 20px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.kv-value {
+  width: 100%;
+  margin-top: 2px;
+  font-size: 26px;
+  color: #ffffff;
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.footnote-wrap {
+  display: flex;
+  width: 100%;
+  height: 64px;
+  justify-content: center;
+  align-items: center;
+}
+
+.footnote {
+  font-size: 20px;
+  color: rgba(255, 255, 255, 0.4);
+  text-align: center;
+}
+
+/* 胶囊屏（手环 9 / 10）不是本项目的设计目标，这块只是老版本的兜底；
+   圆屏安全区不走 @media（对 S1 Pro / Redmi Watch 4 不支持），走 .shape-* class。
+   详见 player.ux 同名注释与 common/device.js 顶部说明。 */
+@media (shape: pill-shaped) or (max-width: 106) {
+  .header {
+    height: 48px;
+  }
+
+  .header-back {
+    font-size: 24px;
+  }
+
+  .card-wrap {
+    height: 116px;
+    margin-bottom: 8px;
+  }
+
+  .app-card {
+    height: 116px;
+    padding-left: 14px;
+    border-radius: 14px;
+  }
+
+  .app-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
+  }
+
+  .app-icon-fallback {
+    font-size: 30px;
+    line-height: 72px;
+  }
+
+  .app-name {
+    font-size: 24px;
+  }
+
+  .app-version {
+    font-size: 18px;
+  }
+
+  .section-wrap {
+    height: 42px;
+  }
+
+  .section-title {
+    font-size: 18px;
+  }
+
+  .kv-item {
+    height: 72px;
+    margin-bottom: 10px;
+    padding-left: 14px;
+    border-radius: 12px;
+  }
+
+  .kv-key {
+    font-size: 16px;
+  }
+
+  .kv-value {
+    font-size: 22px;
+  }
+
+  .footnote-wrap {
+    height: 52px;
+  }
+
+  .footnote {
+    font-size: 16px;
+  }
+}
+</style>

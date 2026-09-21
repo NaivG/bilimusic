@@ -1,210 +1,159 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 
-import 'package:http/http.dart' as http;
+import 'package:bilimusic/core/network/bili_bootstrap.dart';
+import 'package:bilimusic/core/network/cookie_jar.dart';
+import 'package:bilimusic/core/network/wbi.dart';
 
-/// 统一网络请求配置
-
+/// 全局网络配置：请求头、Cookie 仓库、超时与签名策略。
+///
+/// 设计上保持**纯 Dart**（不 import 任何 Flutter 插件）：持久化由宿主通过
+/// [cookieLoader] / [cookieSaver] 注入（App 走 SharedPreferences，TUI 直接读
+/// 桌面 App 的存储文件），这样 core 层能被 TUI 等纯 Dart 宿主复用。
+///
+/// Cookie 按域名 / 路径 / 过期时间决定每个请求该带哪些 Cookie，
+/// 并把响应里的 `Set-Cookie` 统一收回来。
 class NetworkConfig {
-  /// 全应用唯一 User-Agent 字面量来源（B 站 API / 更新检查等所有出站请求共用）。
+  const NetworkConfig._();
+
+  /// 全应用唯一的 User-Agent。
   static const String userAgent =
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0';
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) '
+      'Gecko/20100101 Firefox/153.0';
+
+  static const String apiBase = 'https://api.bilibili.com';
+  static const String webBase = 'https://www.bilibili.com';
+  static const String searchBase = 'https://search.bilibili.com';
+  static const String passportBase = 'https://passport.bilibili.com';
+
+  /// B 站 JSON 接口通用的 Accept。
+  static const String jsonAccept = 'application/json, text/plain, */*';
+
+  static const String _acceptLanguage = 'zh-CN,zh;q=0.9,en;q=0.8';
 
   /// Cookie 持久化钩子，由 App 宿主（main.dart）注入 SharedPreferences 实现。
   ///
-  /// 本类保持纯 Dart（不 import 任何 Flutter 插件），使 core 层可被
-  /// CLI/TUI 等纯 Dart 宿主复用；未注入钩子时持久化自然跳过。
+  /// 未注入时持久化自然跳过（纯内存），CLI / 测试可直接使用。
   static Future<String?> Function()? cookieLoader;
   static Future<void> Function(String cookiesJson)? cookieSaver;
 
-  static Map<String, String> _biliHeaders = {};
-  static Map<String, String> _cookies = {};
+  static Duration _timeout = const Duration(seconds: 15);
+  static bool _wbiOnRiskControl = true;
 
-  static Map<String, String> get biliHeaders {
-    // 创建 headers 副本
-    final headers = Map<String, String>.from(_biliHeaders);
+  static CookieJar _cookieJar = CookieJar();
+  static BiliBootstrap? _bootstrap;
+  static WbiSigner? _wbiSigner;
 
-    // 将 cookies 转换为标准的字符串格式
-    if (_cookies.isNotEmpty) {
-      final cookieString = _cookies.entries
-          .map((e) => '${e.key}=${e.value}')
-          .join('; ');
-      headers['Cookie'] = cookieString;
+  /// Cookie 仓库。唯一的登录态事实来源（`SESSDATA` 在就在）。
+  static CookieJar get cookieJar => _cookieJar;
+
+  /// 自举器（设备标识 / 票据 / WBI 口令）。
+  static BiliBootstrap get bootstrap => _bootstrap ??= BiliBootstrap(
+    jar: _cookieJar,
+    timeout: _timeout < const Duration(seconds: 10)
+        ? _timeout
+        : const Duration(seconds: 10),
+  );
+
+  /// WBI 签名器，默认口令来源就是 [bootstrap]。
+  static WbiSigner get wbiSigner =>
+      _wbiSigner ??= WbiSigner(fetchKeys: bootstrap.fetchWbiKeys);
+
+  /// 默认请求超时。
+  static Duration get timeout => _timeout;
+
+  /// 撞上风控且当次未签名时，是否自动补签重试一次。
+  static bool get wbiOnRiskControl => _wbiOnRiskControl;
+
+  /// 启动时替换实现（宿主注入持久化、测试注入假数据）都走这里。
+  ///
+  /// 传 [cookieJar] 会连带重建 [bootstrap] / [wbiSigner]（它们持有旧 jar 的引用）。
+  static void configure({
+    CookieJar? cookieJar,
+    Duration? timeout,
+    bool? wbiOnRiskControl,
+  }) {
+    if (cookieJar != null) {
+      _cookieJar = cookieJar;
+      _bootstrap = null;
+      _wbiSigner = null;
     }
+    if (timeout != null) _timeout = timeout;
+    if (wbiOnRiskControl != null) _wbiOnRiskControl = wbiOnRiskControl;
+  }
 
+  /// 基础请求头（不含 Cookie）。
+  ///
+  /// [withOrigin] 只给写请求用：浏览器的同站 GET 不带 `Origin`，
+  /// 带着反而更像脚本；POST 才会带。
+  static Map<String, String> baseHeaders({
+    Uri? forUri,
+    bool withOrigin = false,
+    String accept = '*/*',
+  }) {
+    final headers = <String, String>{
+      'User-Agent': userAgent,
+      'Accept': accept,
+      'Accept-Language': _acceptLanguage,
+      'Referer': '${_refererFor(forUri)}/',
+    };
+    if (withOrigin) {
+      headers['Origin'] = webBase;
+    }
     return headers;
   }
 
-  /// 设置B站请求头
-  static void setBiliHeaders(Map<String, String> headers) {
-    _biliHeaders = Map<String, String>.from(headers);
+  /// 基础请求头 + 该 URL 该带的 Cookie —— **出站请求的唯一装配入口**。
+  static Map<String, String> headersFor(
+    Uri uri, {
+    bool withOrigin = false,
+    String accept = jsonAccept,
+  }) {
+    final headers = baseHeaders(
+      forUri: uri,
+      withOrigin: withOrigin,
+      accept: accept,
+    );
+    final cookie = _cookieJar.cookieHeaderFor(uri);
+    if (cookie != null && cookie.isNotEmpty) headers['Cookie'] = cookie;
+    return headers;
   }
 
-  /// 更新B站请求头
-  static void updateBiliHeaders(Map<String, String> headers) {
-    _biliHeaders.addAll(headers);
-  }
-
-  static Map<String, String> get cookies {
-    return Map<String, String>.from(_cookies);
-  }
-
-  /// 设置Cookies
-  static void setCookies(Map<String, String> cookies) {
-    _cookies = Map<String, String>.from(cookies);
-    // 同时更新 SharedPreferences
-    _saveCookiesToPrefs();
-  }
-
-  /// 更新Cookies
-  static void updateCookies(Map<String, String> cookies) {
-    _cookies.addAll(cookies);
-    // 同时更新 SharedPreferences
-    _saveCookiesToPrefs();
-  }
-
-  /// 解析 Set-Cookie 响应头（支持单个 header 中合并的多个 cookie）
+  /// 给「不区分目标域名」的调用方用的一套固定请求头：封面 / 头像 / 歌单图等
+  /// `cached_network_image` 的 `httpHeaders`。
   ///
-  /// `http` 包会把多个 Set-Cookie header 拼接成一个以 ", " 分隔的字符串；
-  /// 当 cookie 的 Expires 属性本身含逗号（如 `Expires=Sat, 04 Mar 2023 07:30:09 GMT`）时，
-  /// 简单的按 "," 切分会误切。识别规则：cookie 名以 RFC 6265 token 子集 `[A-Za-z0-9_.-]+`
-  /// 限定，且其前必须紧邻 `, ` 或字符串开头，紧跟 `=`，可以正确避开 Expires 日期里的逗号。
-  static Map<String, String> parseSetCookieHeaders(String headerValue) {
-    final result = <String, String>{};
-    if (headerValue.isEmpty) return result;
-    final pattern = RegExp(r'(?:^|,\s*)([A-Za-z0-9_.\-]+)=([^;,]*)');
-    for (final match in pattern.allMatches(headerValue)) {
-      final name = match.group(1);
-      final value = match.group(2);
-      if (name != null && value != null) {
-        result[name] = value;
-      }
-    }
-    return result;
+  /// 按主站域名取 Cookie —— 图片域（`i0.hdslb.com`）匹配不到，多带一份用不上的
+  /// Cookie 无害；真正防外链的是 `Referer`。
+  static Map<String, String> get biliHeaders =>
+      headersFor(Uri.parse('$webBase/'));
+
+  /// 按目标域名挑一个自然的 Referer（返回值不带结尾斜杠，由调用方补）。
+  static String _refererFor(Uri? uri) {
+    if (uri == null) return webBase;
+    final host = uri.host;
+    if (host == 'api.bilibili.com') return webBase;
+    if (host == 'passport.bilibili.com') return webBase;
+    if (host == 'search.bilibili.com') return searchBase;
+    if (host.endsWith('bilibili.com')) return 'https://$host';
+    return webBase;
   }
 
-  static Future<void> _saveCookiesToPrefs() async {
-    final saver = cookieSaver;
-    if (saver == null || _cookies.isEmpty) return;
-    final jsonString = json.encode(_cookies);
-    await saver(jsonString);
-  }
-
-  /// 从 HTTP 响应头捕获 Set-Cookie 并合入当前 cookie 表（为空则不动）。
+  /// 启动引导：载入持久化 Cookie（含旧扁平格式一次性迁移），补齐设备标识与票据。
   ///
-  /// 登录 / 扫码登录成功的会话 cookie（SESSDATA 等）由此单点入库；
-  /// [PassportClient] 的每个已校验响应都会经过这里，调用方无需再自行解析。
-  static void captureFrom(Map<String, String> responseHeaders) {
-    final cookies = parseSetCookieHeaders(responseHeaders['set-cookie'] ?? '');
-    if (cookies.isNotEmpty) {
-      updateCookies(cookies);
-    }
-  }
+  /// [waitForBootstrap] 默认 **false**：只等本地读盘（很快），联网自举放到后台 ——
+  /// 自举要串行发好几个请求（finger/spi → GenWebTicket → 主站激活），等它会把首屏
+  /// 拖到网络上；而自举本身只是"降低风控概率"，失败也能跑（原因记在
+  /// `BiliBootstrap.lastError`）。需要确定性时序的场景（探针 / 测试）再传 true。
+  static Future<void> init({bool waitForBootstrap = false}) async {
+    // 宿主注入的静态钩子挂到当前 jar 上；构造时已注入的那份优先，不被覆盖。
+    _cookieJar.loader ??= cookieLoader;
+    _cookieJar.saver ??= cookieSaver;
 
-  static Future<void> init() async {
-    // 配置默认headers
-    _biliHeaders = {
-      'User-Agent': userAgent,
-      'Referer': 'https://www.bilibili.com',
-      'Access-Control-Allow-Origin': 'https://api.bilibili.com',
-    };
+    await _cookieJar.load();
 
-    // 读取并解析 cookies（宿主未注入 loader 时为 null,跳过）
-    var cookiesJson = await cookieLoader?.call();
-    if (cookiesJson != null && cookiesJson.isNotEmpty) {
-      try {
-        // 尝试解析 JSON 格式的 cookies
-        final cookiesMap = json.decode(cookiesJson);
-        if (cookiesMap is Map) {
-          _cookies = Map<String, String>.from(
-            cookiesMap.map(
-              (key, value) => MapEntry(key.toString(), value.toString()),
-            ),
-          );
-        } else {
-          // 如果不是 JSON 格式，按照字符串处理
-          _parseCookiesString(cookiesJson);
-        }
-      } catch (e) {
-        // JSON 解析失败，按照字符串处理
-        _parseCookiesString(cookiesJson);
-      }
-    }
-
-    // 如果 cookies 为空，则获取 buvid3 和 buvid4
-    if (_cookies.isEmpty) {
-      final buvids = await _fetchBuvids();
-      _cookies['buvid3'] = buvids['b_3'] ?? '';
-      _cookies['buvid4'] = buvids['b_4'] ?? '';
-      await _saveCookiesToPrefs();
-    }
-  }
-
-  static void _parseCookiesString(String cookiesString) {
-    final cookies = <String, String>{};
-    final pairs = cookiesString.split(';');
-
-    for (var pair in pairs) {
-      final trimmed = pair.trim();
-      if (trimmed.isNotEmpty) {
-        final parts = trimmed.split('=');
-        if (parts.length == 2) {
-          cookies[parts[0].trim()] = parts[1].trim();
-        }
-      }
-    }
-
-    _cookies = cookies;
-  }
-
-  /// 拉取 buvid3/buvid4（init 引导调用）。
-  ///
-  /// 有意不走 [BiliClient]：这是配置层自身的引导请求，不宜反向依赖构建于
-  /// 其上的客户端实例；且带特有的 429 限流重试逻辑。UA 已收敛到
-  /// [userAgent] 常量，超时与其他请求一致（10s）。
-  static Future<Map<String, String>> _fetchBuvids() async {
-    try {
-      final response = await http
-          .get(
-            Uri.parse('https://api.bilibili.com/x/frontend/finger/spi'),
-            headers: {
-              'User-Agent': userAgent,
-              'Referer': 'https://www.bilibili.com',
-              'Access-Control-Allow-Origin': 'https://api.bilibili.com',
-            },
-          )
-          .timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        if (json.containsKey('data') &&
-            json['data'] is Map &&
-            json['data'].containsKey('b_3') &&
-            json['data'].containsKey('b_4')) {
-          final buvid3 = json['data']['b_3'] as String?;
-          final buvid4 = json['data']['b_4'] as String?;
-          return {'b_3': buvid3 ?? '', 'b_4': buvid4 ?? ''};
-        } else {
-          throw const FormatException(
-            'Invalid response format: missing data, b_3 or b_4 field',
-          );
-        }
-      } else if (response.statusCode == 429) {
-        // 处理速率限制并返回重试的Future
-        return Future.delayed(const Duration(seconds: 5), _fetchBuvids);
-      } else {
-        throw HttpException(
-          'Request failed with status: ${response.statusCode}',
-        );
-      }
-    } catch (e) {
-      // 添加错误日志(仅 debug;不依赖 Flutter foundation,便于纯 Dart 宿主复用)
-      assert(() {
-        stdout.writeln('Failed to fetch buvids: $e');
-        return true;
-      }());
-      return {'b_3': '', 'b_4': ''};
+    if (waitForBootstrap) {
+      await bootstrap.ensureDeviceCookies();
+    } else {
+      unawaited(bootstrap.ensureDeviceCookies());
     }
   }
 }
