@@ -235,7 +235,7 @@ jobs:
         if: matrix.name == 'web'
         run: |
           dart run sqflite_common_ffi_web:setup --force 
-          flutter build web
+          flutter build web --no-wasm-dry-run
       
       - name: Build Linux
         if: matrix.name == 'linux' || matrix.name == 'linux-arm'
