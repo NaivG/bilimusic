@@ -23,8 +23,8 @@ class PipService extends ChangeNotifier {
 
   // PiP 窗口常量
   static const double pipWidth = 420.0;
-  static const double pipHeight = 160.0;
-  static const Size pipMinimumSize = Size(320, 160);
+  static const double pipHeight = 140.0;
+  static const Size pipMinimumSize = Size(360, 140);
 
   /// 切换 PiP 模式
   Future<void> toggle() async {
@@ -87,8 +87,10 @@ class PipService extends ChangeNotifier {
     try {
       // 1. 取消置顶
       await windowManager.setAlwaysOnTop(false);
+      // 2. 隐藏窗口，避免缩放动画
+      await windowManager.hide();
 
-      // 2. 恢复原始窗口大小和位置
+      // 3. 恢复原始窗口大小和位置
       await windowManager.setMinimumSize(const Size(800, 600));
       if (_savedSize != null) {
         await windowManager.setSize(_savedSize!);
@@ -102,6 +104,8 @@ class PipService extends ChangeNotifier {
 
       _isPipMode = false;
       notifyListeners();
+      await Future.delayed(const Duration(milliseconds: 100)); // 让窗口动画先结束，防止直接放大穿帮
+      await windowManager.show();
     } catch (e) {
       debugPrint('PipService.exitPipMode error: $e');
       _isPipMode = false;
