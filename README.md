@@ -208,7 +208,8 @@ npm run build                     # 构建 RPK（aiot build）
 - 多 P 视频切换、顺序 / 随机 / 单曲循环。
 - A/B 双播放器 + equal-power 曲线的交叉淡入淡出。
 - 多档音质选择，DASH 音频流按选择取流并回显实际生效音质。
-- 后台播放、系统媒体通知、音量持久化。
+- 后台播放、系统媒体通知、桌面托盘、Windows SMTC 与 Linux MPRIS 媒体键控制、音量持久化。
+- 详情页与长按菜单支持一键打开 B 站原网页。
 - 动态歌词：自动匹配、逐字点亮、辉光效果。
 - 主题系统：Lucent / Nocturne / Verdant / Gruvbox / Nord / Solarized 六套主题，运行时切换并按封面主色适配。
 - 离线缓存：歌曲可下载到本地，断网也能继续播放。
@@ -254,7 +255,7 @@ npm run build                     # 构建 RPK（aiot build）
 - **桌面端**：使用 B 站 App 扫码登录。
 - **数据迁移**：可在数据管理中将移动端数据迁移到桌面端。
 
-> **数据存储**：歌单、收藏和历史保存在本地 SQLite；设置使用 `shared_preferences`；网络资源与歌词进入本地缓存；歌曲可另存为离线缓存，断网可播。迁移或清理前请做好备份。
+> **数据存储**：歌单、收藏和历史保存在本地 SQLite；设置使用 `shared_preferences`；网络资源与歌词进入本地缓存；歌曲可另存为离线缓存，断网可播。桌面端启动时会检测多份数据库副本，发现冲突时引导选择保留哪一份，落选副本改名归档、绝不删除。迁移或清理前请做好备份。
 
 ---
 
@@ -313,7 +314,7 @@ BiliClient  ←── Bilibili API
 ```text
 lib/
 ├── main.dart                  # 应用入口：窗口、数据库、audio_service 初始化
-├── app/                       # app_providers.dart 组合根 + shells/ 应用外壳与导航
+├── app/                       # app_providers.dart 组合根 + shells/ 应用外壳、导航与桌面托盘
 ├── core/                      # 无 UI 基础设施
 │   ├── network/               # BiliClient、ApiService、PassportClient 与异常体系
 │   └── storage/               # AppDatabase(SQLite) 与 CacheManager
@@ -331,6 +332,16 @@ lib/
 │   └── settings/ update/      # 设置、数据迁移；更新检查、Release 解析、应用内更新与更新日志
 └── shared/                    # 跨模块共享：widgets/、theme/(Lucent/Nocturne/Verdant/Gruvbox/Nord/Solarized)、utils/
 
+vela/                           # 小米 Vela JS 快应用手表端
+├── src/
+│   ├── app.ux                  # 启动自举：控制类音频事件绑定 + 登录态/播放态恢复
+│   ├── manifest.json           # features 与 config.background 后台运行声明
+│   ├── common/                 # 纯函数：配置、解析、音量、跨 VM 播放态、网桥协议
+│   ├── pages/                  # player / more / recommend / fav / favDetail / login / volume / about
+│   └── services/               # 会话、请求收口、网桥会话、音频缓存、B 站接口、扫码登录、播放服务
+├── scripts/                    # 离线自检（纯 Node）+ aiot-hooks 与 @system.* 桩（仅离线测试用）
+└── README.md                   # Vela 端完整文档
+
 bin/
 ├── bilimusic_tui.dart         # 终端客户端入口（dart_tui + libmpv FFI）
 └── tui/                       # TUI 内部实现：mpv_player(FFI)、tui_api、app_model、probe
@@ -345,7 +356,9 @@ bin/
 | [Flutter](https://flutter.dev/) | 跨平台 UI 框架 |
 | [Riverpod](https://riverpod.dev/) | 状态管理与依赖注入 |
 | [just_audio](https://pub.dev/packages/just_audio) · [audio_service](https://pub.dev/packages/audio_service) | 音频播放 + 后台与系统媒体控制 |
+| [audio_service_win](https://github.com/NaivG/audio_service_win) · [audio_service_mpris](https://pub.dev/packages/audio_service_mpris) | Windows SMTC + Linux MPRIS 媒体控制 |
 | [just_audio_media_kit](https://pub.dev/packages/just_audio_media_kit) | 桌面端 libmpv 音频后端 |
+| [tray_manager](https://pub.dev/packages/tray_manager) | 桌面系统托盘 |
 | [media_kit_libs_audio](https://pub.dev/packages/media_kit_libs_audio) | 桌面端 libmpv 原生库（TUI 亦复用其 libmpv 产物） |
 | [http](https://pub.dev/packages/http) | 统一 HTTP 客户端 |
 | [bonsoir](https://pub.dev/packages/bonsoir) | mDNS 局域网设备发现 |
