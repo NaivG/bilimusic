@@ -1036,7 +1036,7 @@ eq(
   CONFIG.AUDIO_CACHE.CHUNK_RETRIES
 )
 
-// 4a) 兜底期间切歌：落盘完成也不抢播旧歌的本地文件
+// 4a) 兜底期间切歌：旧歌的落盘完成也不抢播
 fetchStub.__setFailAlways(null) // 放行落盘：这次的兜底会成功
 await errVm.playAt(1)
 await until(() => errVm.getSnapshot().state === 'playing')
@@ -1045,32 +1045,49 @@ fetchStub.__setDelay(40)
 audioStub.__emit('onerror') // E2 直链失败，兜底开始下载 E2
 await wait(10)
 await errVm.playAt(0) // 兜底还在路上，用户切回 E1
-audioStub.__emit('onerror') // E1 自己的直链也失败 → 它自己那份落盘（= 迟到的兜底）
-await wait(10)
 fetchStub.__setDelay(0)
-// 等到两份落盘都转正（转正是异步的，固定 sleep 会跟分块次数赛跑）
-await until(() => errFileStub.__exists(CACHE_DIR + errCacheNameOf('bv_BVE1')), 2000)
+// 这一节要判的是「旧歌（E2）那份兜底收尾之后有没有动在播的 src」，**不是**「此刻 src 是
+// 不是直链」。早先这里顺手也给 E1 发了一次 onerror，于是 E1 也有一份兜底在跑，再用
+// 「src 仍是 E1 直链」当判据 —— 那等于赌「E1 那份兜底还没收尾」。而它在
+// 「.part 改名转正 → prune → seq 守卫 → startUrl」这条链上随时会**合法**接管
+// （E1 就是当前曲目）。轮询采到链上哪一步只看事件循环有多忙：本地（node 24、空闲）
+// 总采在收尾之前，CI就会采在之后，于是「当前曲目的兜底接管」被误报成「旧歌抢播」。
+//
+// 现在这一节同一时刻**只有旧歌那份兜底在跑**：src 的唯一合法终态就是 E1 的直链，
+// 没有任何别的东西会去动它，断言因此与调度无关。
+const e1DirectSrc = 'https://cdn.example/BVE1.m4s'
+const e2CacheUri = CACHE_DIR + errCacheNameOf('bv_BVE2')
+// 等旧歌那份「迟到的落盘」整份落盘（.part 转正 = 完成）
+await until(() => errFileStub.__exists(e2CacheUri), 2000)
+// 转正之后还有 prune 与 seq 守卫两步异步收尾，留一小段时间给它们跑完。
+// 这一步是「断言不空转」的保证：守卫若被写坏，抢播必在这几毫秒里发生（见 4a 的说明）。
+await wait(60)
 eq('迟到的兜底不抢播（仍在播 E1）', errVm.getSnapshot().track.title, 'E1')
 ok(
   '★ 兜底完成但已切歌：旧歌的本地文件不抢播',
-  audioStub.__state().src === 'https://cdn.example/BVE1.m4s',
+  audioStub.__state().src === e1DirectSrc,
   'src=' + audioStub.__state().src
 )
-// 迟到的落盘不是白干：E1 的完整文件留在缓存里，下次播它直接秒开
+// 迟到的落盘不是白干：E2 的完整文件留在缓存里，下次播它直接秒开
 ok(
   '★ 迟到的落盘留在缓存（没白下，下次秒开）',
-  errFileStub.__exists(CACHE_DIR + errCacheNameOf('bv_BVE1')),
-  `miss ${CACHE_DIR + errCacheNameOf('bv_BVE1')} | files=${JSON.stringify(Object.keys(errFileStub.__files()))}`
+  errFileStub.__exists(e2CacheUri),
+  `miss ${e2CacheUri} | files=${JSON.stringify(Object.keys(errFileStub.__files()))}`
 )
 
 // 4b) 兜底失败时已切歌：错误不甩给新歌
+//     （4a 里那份兜底属于**旧歌**；这里换成当前曲目自己的兜底，且它注定失败）
 fetchStub.__setFailAlways(28, '')
 fetchStub.__setDelay(40)
+const dlBefore = dlCount() // 这一轮兜底会发的分块请求数（= CHUNK_RETRIES 次重试）
 audioStub.__emit('onerror') // E1 直链失败，兜底开始下载 E1
 await wait(10)
-await errVm.playAt(1) // 用户切到 E2
+await errVm.playAt(1) // 用户切到 E2（已在缓存里，秒开）
 fetchStub.__setDelay(0)
-await wait(120) // 让迟到的兜底走完（失败）
+// 等这份注定失败的兜底把重试额度跑光，再等 seq 守卫跑完 —— 固定 sleep 两头都不靠谱：
+// 短了会在守卫之前断言（空转通过），长了只是白等
+await until(() => dlCount() >= dlBefore + CONFIG.AUDIO_CACHE.CHUNK_RETRIES, 2000)
+await wait(30)
 eq('迟到的兜底失败不影响新歌（仍在播 E2）', errVm.getSnapshot().track.title, 'E2')
 ok(
   '★ 迟到的兜底失败不污染新曲目（无错误态）',
