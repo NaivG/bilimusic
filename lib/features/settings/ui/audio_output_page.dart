@@ -282,10 +282,7 @@ class _AudioOutputPageState extends ConsumerState<AudioOutputPage> {
               ),
             ],
           ),
-          _note(
-            '恢复默认只重置上面四项，不影响已同意的免责说明。',
-            scheme,
-          ),
+          _note('恢复默认只重置上面四项，不影响已同意的免责说明。', scheme),
         ],
       ),
     );
