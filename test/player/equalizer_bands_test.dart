@@ -1,7 +1,10 @@
 import 'dart:math' as math;
 
+import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/features/player/logic/audio_effects_service.dart';
 import 'package:bilimusic/features/player/logic/equalizer_bands.dart';
 import 'package:bilimusic/features/settings/ui/audio_dsp_page.dart';
+import 'package:bilimusic/features/settings/ui/widgets/compressor_curve.dart';
 import 'package:bilimusic/features/settings/ui/widgets/equalizer_curve.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -328,92 +331,108 @@ void main() {
   });
 
   group('AudioDspPage 冒烟', () {
-    testWidgets('默认渲染：3 个平铺模块 + 2 个折叠分组，无引擎写入路径', (tester) async {
-      // 给一个较高的 viewport，避免 ListView 懒构建导致远端模块没渲染
-      tester.view.physicalSize = const Size(1080, 2400);
+    /// 页面上 9 个折叠模块的头部标题（顺序即信号链顺序）。
+    const moduleTitles = [
+      '均衡器',
+      '交叉回馈',
+      '压缩器',
+      '低频激励',
+      '高频谐波激励',
+      '回声',
+      '限幅器',
+      '立体声宽度',
+      '环绕上混',
+    ];
+
+    /// 给一个较高的 viewport：ListView 懒构建，视口外的模块不会挂载，
+    /// 断言会扑空。
+    void enlargeViewport(WidgetTester tester, double height) {
+      tester.view.physicalSize = Size(1080, height);
       tester.view.devicePixelRatio = 1;
       addTearDown(() {
         tester.view.resetPhysicalSize();
         tester.view.resetDevicePixelRatio();
       });
+    }
+
+    testWidgets('默认渲染：9 个同构折叠模块全部收起，无引擎写入路径', (tester) async {
+      enlargeViewport(tester, 2400);
 
       await tester.pumpWidget(
         const ProviderScope(child: MaterialApp(home: AudioDspPage())),
       );
       expect(tester.takeException(), isNull);
 
-      // ── 均衡器段 ──────────────────────────────────────────────
-      expect(find.text('启用均衡器'), findsOneWidget);
-      expect(find.byType(EqualizerCurve), findsOneWidget);
-      // 「预设」入口存在（PopupMenuButton 自身是 IconButton，不显示文本）。
-      expect(find.byTooltip('预设'), findsOneWidget);
+      // ── 9 个模块头一字不差地都在 ────────────────────────────
+      for (final title in moduleTitles) {
+        expect(find.text(title), findsOneWidget, reason: '缺少模块「$title」');
+      }
 
-      // ── Crossfeed 段 ──────────────────────────────────────────
-      expect(find.text('启用交叉回馈'), findsOneWidget);
+      // 头部的开关与正文无关：收起时 9 个开关照常可见（这就是
+      // 「收起也能一眼看完全部开关」的前提）。
+      expect(find.byType(Switch), findsNWidgets(9));
 
-      // ── Compressor 段 ─────────────────────────────────────────
-      expect(find.text('启用压缩器'), findsOneWidget);
+      // ── 正文整棵卸载（不是隐藏）─────────────────────────────
+      // 全部未启用 → 全部收起，正文连树都没进。
+      expect(find.byType(EqualizerCurve), findsNothing);
+      expect(find.byTooltip('预设'), findsNothing);
+      expect(find.text('重置'), findsNothing);
 
-      // ── 音效增强 / 立体声增强（组级折叠，默认收起）──────────────
-      expect(find.text('音效增强'), findsOneWidget);
-      expect(find.text('立体声增强'), findsOneWidget);
-      // 收起时 ExpansionTile 走 maintainState: false，子效果卡根本不在树上
-      // ——既看不到它们的开关，也看不到它们的「重置」。
-      expect(find.text('低频激励'), findsNothing);
-      expect(find.text('立体声宽度'), findsNothing);
-
-      // 三个平铺模块共用一个「重置」文案，找 3 个（新分组未展开，不计入）。
-      expect(find.text('重置'), findsNWidgets(3));
-
-      // 默认（未配置过 anequalizer）开关应为关
-      final sw = tester.widget<SwitchListTile>(
-        find.ancestor(
-          of: find.text('启用均衡器'),
-          matching: find.byType(SwitchListTile),
-        ),
-      );
-      expect(sw.value, false);
+      // 头部第二行是参数快照，不是重复的开 / 关状态。
+      expect(find.text('8 段 · 平直'), findsOneWidget);
     });
 
-    testWidgets('展开两个分组后渲染全部 6 张效果卡（含开关与重置入口）', (tester) async {
-      // 两组全展开后的页面高度远超 2400，viewport 直接给足，
-      // 免得 ListView 懒构建把卡片挡在视口外、断言扑空。
-      tester.view.physicalSize = const Size(1080, 6000);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
+    testWidgets('点头部展开 / 收起：正文挂载与卸载，开关数量不变', (tester) async {
+      enlargeViewport(tester, 2400);
 
       await tester.pumpWidget(
         const ProviderScope(child: MaterialApp(home: AudioDspPage())),
       );
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.text('音效增强'));
+      await tester.tap(find.text('均衡器'));
       await tester.pumpAndSettle();
 
-      // ── 音效增强 4 张卡（激励 → 回声 → 限幅，顺序即信号链顺序）──
-      expect(find.text('低频激励'), findsOneWidget);
-      expect(find.text('高频谐波激励'), findsOneWidget);
-      expect(find.text('回声'), findsOneWidget);
-      expect(find.text('砖墙限幅'), findsOneWidget);
+      expect(find.byType(EqualizerCurve), findsOneWidget);
+      expect(find.byTooltip('预设'), findsOneWidget);
+      expect(find.text('重置'), findsNWidgets(1));
+      // 展开只动正文，不增减头部。
+      expect(find.byType(Switch), findsNWidgets(9));
 
-      await tester.tap(find.text('立体声增强'));
+      // 再点一次收起：正文卸载、重置入口消失，头部原样留着。
+      await tester.tap(find.text('均衡器'));
       await tester.pumpAndSettle();
 
-      // ── 立体声增强 2 张卡 ─────────────────────────────────────
-      expect(find.text('立体声宽度'), findsOneWidget);
-      expect(find.text('环绕上混'), findsOneWidget);
-
-      // 3 个平铺模块 + 6 张效果卡，每张一个「重置」。
-      expect(find.text('重置'), findsNWidgets(9));
-
-      // 每张卡一个开关，加上平铺的 3 个，共 9 个 SwitchListTile。
-      expect(find.byType(SwitchListTile), findsNWidgets(9));
-
-      // 新增的滑块渲染时不应抛异常（收起状态下这些子树根本没建过）。
+      expect(find.byType(EqualizerCurve), findsNothing);
+      expect(find.text('重置'), findsNothing);
+      expect(find.byType(Switch), findsNWidgets(9));
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('已启用的效果器默认展开，未启用的收起', (tester) async {
+      enlargeViewport(tester, 2400);
+
+      // 预置「只开着压缩器」的效果包：展开态没有被手动点过，
+      // 因此应当直接落到「跟开关走」这条推导上。
+      final svc = AudioEffectsService();
+      svc.effects.value = const AudioEffects().copyWith(
+        acompressor: AcompressorSettings(enabled: true),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [audioEffectsServiceProvider.overrideWithValue(svc)],
+          child: const MaterialApp(home: AudioDspPage()),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+
+      expect(find.byType(CompressorCurve), findsOneWidget);
+      expect(find.byType(EqualizerCurve), findsNothing);
+      expect(find.text('重置'), findsNWidgets(1));
+      // 开关状态与展开状态一致：9 个开关，只有压缩器那个是开的。
+      final switches = tester.widgetList<Switch>(find.byType(Switch)).toList();
+      expect(switches.where((s) => s.value), hasLength(1));
     });
   });
 }

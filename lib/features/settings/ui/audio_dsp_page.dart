@@ -11,28 +11,24 @@ import 'package:bilimusic/features/player/logic/equalizer_presets.dart';
 import 'package:bilimusic/features/settings/ui/widgets/compressor_curve.dart';
 import 'package:bilimusic/features/settings/ui/widgets/crossfeed_diagram.dart';
 import 'package:bilimusic/features/settings/ui/widgets/equalizer_curve.dart';
+import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 
 /// 音效与均衡器（设置 → 音频）。
 ///
-/// 当前承载 5 个模块：
+/// 页面由 **9 个同构折叠模块** 组成，每个模块 = 一行头部 + 一块可折叠正文：
 ///
-/// 1. **均衡器** —— 8 段可调频段图示均衡（lavfi `anequalizer`），
-///    见 [EqualizerBandModel]；
-/// 2. **交叉回馈** —— 模拟音箱听音的自然声场体验，lavfi `crossfeed`，
-///    见 [CrossfeedSettingsModel]；
-/// 3. **动态范围压缩器** —— 古典 / 现场录音压动态，lavfi `acompressor`，
-///    见 [CompressorSettingsModel]；
-/// 4. **音效增强**（可折叠组）—— 低频激励 `asubboost` / 高频谐波激励
-///    `aexciter` / 回声 `aecho` / 砖墙限幅 `alimiter`；
-/// 5. **立体声增强**（可折叠组）—— 立体声宽度 `extrastereo` / 环绕上混
-///    `surround`。
-///
-/// 后两组是**组级折叠**：6 个效果每个都带 3~5 条滑块，逐卡再折一层会让
-/// 页面多出 6 个只有一行的标题，点开点关全是噪音；而全部平铺会把页面拉到
-/// 6 屏以上，所以折叠粒度取在「特性」这一层。
-///
-/// ## 提交节奏（沿用既有约定）
+/// | 模块 | lavfi | 正文 |
+/// | --- | --- | --- |
+/// | 均衡器 | `anequalizer` | 响应曲线 + 预设菜单 |
+/// | 交叉回馈 | `crossfeed` | 声场图 + 2 条滑块 |
+/// | 压缩器 | `acompressor` | 压缩曲线 + 5 条滑块 |
+/// | 低频激励 | `asubboost` | 5 条滑块 |
+/// | 高频谐波激励 | `aexciter` | 3 条滑块 |
+/// | 回声 | `aecho` | 4 条滑块 |
+/// | 限幅器 | `alimiter` | 3 条滑块 |
+/// | 立体声宽度 | `extrastereo` | 1 条滑块 |
+/// | 环绕上混 | `surround` | 4 条滑块 |
 ///
 /// 拖动中的修改落在本地草稿，松手 / 双击复位 / 切换开关才整包提交。
 /// **不要改成逐帧提交**——
@@ -42,11 +38,6 @@ import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 /// 断音。crossfeed / acompressor 的参数虽可热更，同样**节流为松手提交**——
 /// 写盘噪音和重绘压力都不值得为热更付出代价。
 ///
-/// 草稿分两套：上面三个模块各持一个**类型化**草稿（`_draft` /
-/// `_crossfeedDraft` / `_compressorDraft`），因为它们的模型层要垫换算
-/// （频段切分 / dB↔振幅）；音效增强 + 立体声增强 6 个槽位共用**一个整包
-/// 草稿** `_fxDraft`，因为它们都是 lavfi 参数直通、`AudioEffects` 自带
-/// `copyWith`，整包草稿就是最小实现。两套的提交时机完全一致。
 class AudioDspPage extends ConsumerStatefulWidget {
   const AudioDspPage({super.key});
 
@@ -64,13 +55,26 @@ class _AudioDspPageState extends ConsumerState<AudioDspPage> {
   /// Compressor 的本地草稿；null 表示当前没有未提交的编辑。
   CompressorSettingsModel? _compressorDraft;
 
-  /// 音效增强 + 立体声增强 6 个槽位共用的**整包**草稿；
-  /// null 表示当前没有未提交的编辑。
+  /// 6 个 lavfi 效果共用的**整包**草稿；null 表示当前没有未提交的编辑。
   ///
   /// 与上面三个模块的类型化草稿并存、互不干扰：它们的提交都走
   /// `setEffects`，写入的是「已提交包 + 本次改动」，同一时刻只有一个手势
   /// 在改，不会互相覆盖。
   mpv.AudioEffects? _fxDraft;
+
+  // ── 折叠状态 ────────────────────────────────────────────────────────
+
+  /// 各模块展开态的**手动覆盖表**。
+  final Map<_Module, bool> _open = {};
+
+  /// 模块 [m] 此刻是否展开。
+  ///
+  /// 没被手动点过的模块回落到「这个效果开着吗」——打开的自动展开、
+  /// 关掉的自动收起；点过之后 [_open] 里那一次手势就是唯一事实。
+  bool _isOpen(_Module m, bool enabled) => _open[m] ?? enabled;
+
+  /// 记录一次手动展开 / 收起（头部点击，或开关连带的展开）。
+  void _setOpen(_Module m, bool value) => setState(() => _open[m] = value);
 
   // ── 音效增强 / 立体声增强：整包草稿 ────────────────────────────────
 
@@ -181,6 +185,8 @@ class _AudioDspPageState extends ConsumerState<AudioDspPage> {
   void _toggleEqEnabled(bool value) {
     final model = _currentEqModel();
     setState(() => _draft = null);
+    // 开 → 顺手展开（正要调它）；关 → 收起。[_setOpen] 记下这次手势。
+    _setOpen(_Module.eq, value);
     final effects = ref.read(audioEffectsProvider);
     ref
         .read(audioEffectsCommandsProvider.notifier)
@@ -250,6 +256,7 @@ class _AudioDspPageState extends ConsumerState<AudioDspPage> {
   void _toggleCrossfeed(bool value) {
     final model = _currentCrossfeed();
     setState(() => _crossfeedDraft = null);
+    _setOpen(_Module.crossfeed, value);
     final effects = ref.read(audioEffectsProvider);
     ref
         .read(audioEffectsCommandsProvider.notifier)
@@ -304,6 +311,7 @@ class _AudioDspPageState extends ConsumerState<AudioDspPage> {
   void _toggleCompressor(bool value) {
     final model = _currentCompressor();
     setState(() => _compressorDraft = null);
+    _setOpen(_Module.compressor, value);
     final effects = ref.read(audioEffectsProvider);
     ref
         .read(audioEffectsCommandsProvider.notifier)
@@ -328,6 +336,61 @@ class _AudioDspPageState extends ConsumerState<AudioDspPage> {
         );
   }
 
+  /// 6 个 lavfi 效果的开关：**改完立刻提交，并顺带同步展开态**
+  /// （打开即展开，关掉即收起），与前三个模块的 `_*Enabled` 同语义。
+  void _toggleFx(
+    _Module m,
+    bool value,
+    mpv.AudioEffects Function(mpv.AudioEffects) patch,
+  ) {
+    _setOpen(m, value);
+    _applyFx(patch);
+  }
+
+  // ── 参数快照（收起时头部第二行）────────────────────────────────────
+  //
+  // 开关本身已经表达了开 / 关，所以这一行**不再重复状态**，改成「当前
+  // 调到哪儿了」：整页收起时扫一眼就能读出整条链的参数。取值一律走
+  // 草稿优先的模型，拖动中头部实时跟着走。
+
+  String _eqStatus(EqualizerBandModel m) {
+    final tuned = m.gainsDb.where((g) => g.abs() > 1e-6).length;
+    return tuned == 0 ? '8 段 · 平直' : '8 段 · 已调 $tuned 段';
+  }
+
+  String _crossfeedStatus(CrossfeedSettingsModel m) =>
+      '强度 ${_percent(m.strength)} · 范围 ${_percent(m.range)}';
+
+  String _compressorStatus(CompressorSettingsModel m) =>
+      '${m.thresholdDb.round()} dB · ${m.ratio.toStringAsFixed(1)}:1';
+
+  String _subboostStatus(mpv.AsubboostSettings s) =>
+      '×${s.boost.toStringAsFixed(1)} · ${s.cutoff.round()} Hz';
+
+  String _exciterStatus(mpv.AexciterSettings s) =>
+      '×${s.amount.toStringAsFixed(1)} · ${s.freq.round()} Hz';
+
+  String _echoStatus(mpv.AechoSettings s) =>
+      '${AechoParams.delayOf(s).round()} ms · 衰减 '
+      '${_percent(AechoParams.decayOf(s))}';
+
+  String _limiterStatus(mpv.AlimiterSettings s) =>
+      '${CompressorSettingsModel.amplitudeToDb(s.limit).round()} dB · '
+      '${s.attack.toStringAsFixed(1)} ms';
+
+  String _extrastereoStatus(mpv.ExtrastereoSettings s) =>
+      '差分 ×${s.m.toStringAsFixed(1)}';
+
+  String _surroundStatus(mpv.SurroundSettings s) =>
+      '${s.angle.round()}° · ${_focusText(s.focus)}';
+
+  /// 环绕上混「聚焦」的读数，滑块与参数快照共用。
+  static String _focusText(double v) => v > 0.005
+      ? '前 ${v.toStringAsFixed(2)}'
+      : v < -0.005
+      ? '后 ${(-v).toStringAsFixed(2)}'
+      : '居中';
+
   // ── UI ──────────────────────────────────────────────────────────────
 
   @override
@@ -349,8 +412,14 @@ class _AudioDspPageState extends ConsumerState<AudioDspPage> {
         CompressorSettingsModel.fromAcompressorSettings(effects.acompressor);
     final compEnabled = _acompressorEnabled(effects);
 
-    // 音效增强 / 立体声增强：草稿优先，否则就是已提交的包。
+    // 6 个 lavfi 效果：草稿优先，否则就是已提交的包。
     final fx = _fxDraft ?? effects;
+    final sub = fx.asubboost ?? const mpv.AsubboostSettings();
+    final exc = fx.aexciter ?? const mpv.AexciterSettings();
+    final echo = fx.aecho ?? const mpv.AechoSettings();
+    final lim = fx.alimiter ?? const mpv.AlimiterSettings();
+    final st = fx.extrastereo ?? const mpv.ExtrastereoSettings();
+    final su = fx.surround ?? const mpv.SurroundSettings();
 
     final scheme = Theme.of(context).colorScheme;
     final primary = Theme.of(context).brightness == Brightness.dark
@@ -362,785 +431,821 @@ class _AudioDspPageState extends ConsumerState<AudioDspPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
         children: [
-          _buildEqualizerSection(
-            primary: primary,
-            scheme: scheme,
-            model: eqModel,
+          // ── 均衡器 ──
+          _module(
+            m: _Module.eq,
+            icon: Icons.equalizer,
+            status: _eqStatus(eqModel),
             enabled: eqEnabled,
-          ),
-          const SizedBox(height: 24),
-          _buildCrossfeedSection(
+            onEnabledChanged: _toggleEqEnabled,
+            onReset: _resetEq,
+            note:
+                '8 段可调频段均衡器（实时）。横向拖动节点调整'
+                '频段中心频率，纵向拖动调整增益，双击节点将增益归零。'
+                '各频段按几何中点切分、互不重叠，并在边界处平滑衔接。',
             primary: primary,
             scheme: scheme,
-            model: cfModel,
+            controls: [
+              EqualizerCurve(
+                model: eqModel,
+                enabled: eqEnabled,
+                onBandChanged: _onEqBandChanged,
+                onDragEnd: _commitEqDraft,
+              ),
+            ],
+            // 均衡器的正文尾部是「预设 + 重置」一行（预设是它独有的入口）。
+            footer: Row(
+              children: [
+                PopupMenuButton<EqualizerPreset>(
+                  tooltip: '预设',
+                  onSelected: _applyEqPreset,
+                  padding: EdgeInsets.zero,
+                  position: PopupMenuPosition.under,
+                  itemBuilder: (context) => [
+                    for (final p in kBuiltInEqualizerPresets)
+                      PopupMenuItem<EqualizerPreset>(
+                        value: p,
+                        height: 56,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                p.name,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                p.description,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                  icon: const Icon(Icons.tune, size: 18),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _resetEq,
+                  icon: const Icon(Icons.restart_alt, size: 18),
+                  label: const Text('重置'),
+                ),
+              ],
+            ),
+          ),
+
+          // ── 交叉回馈 ──
+          _module(
+            m: _Module.crossfeed,
+            icon: Icons.headphones_rounded,
+            status: _crossfeedStatus(cfModel),
             enabled: cfEnabled,
-          ),
-          const SizedBox(height: 24),
-          _buildCompressorSection(
+            onEnabledChanged: _toggleCrossfeed,
+            onReset: _resetCrossfeed,
+            note:
+                '耳机左右声道串扰，模拟音箱的自然声场体验。'
+                '强度决定对侧混音量；范围决定低架截频对应的声场宽度。'
+                '对室内音箱摆放的录音有提升，对单声道/假立体声录音慎用。'
+                '打开后会产生一定延迟。',
             primary: primary,
             scheme: scheme,
-            model: compModel,
-            enabled: compEnabled,
+            controls: [
+              CrossfeedDiagram(
+                strength: cfModel.strength,
+                range: cfModel.range,
+                enabled: cfEnabled,
+              ),
+              _SliderRow(
+                label: '强度',
+                value: cfModel.strength,
+                min: 0,
+                max: 1,
+                format: _percent,
+                onChanged: (v) => _setCrossfeedDraft(cfModel.withStrength(v)),
+                onChangeEnd: (_) => _commitCrossfeedDraft(),
+                primary: primary,
+              ),
+              _SliderRow(
+                label: '范围',
+                value: cfModel.range,
+                min: 0,
+                max: 1,
+                format: _percent,
+                onChanged: (v) => _setCrossfeedDraft(cfModel.withRange(v)),
+                onChangeEnd: (_) => _commitCrossfeedDraft(),
+                primary: primary,
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          _buildEnhancementGroup(primary: primary, scheme: scheme, fx: fx),
-          const SizedBox(height: 8),
-          _buildStereoGroup(primary: primary, scheme: scheme, fx: fx),
+
+          // ── 压缩器 ──
+          _module(
+            m: _Module.compressor,
+            icon: Icons.compress_rounded,
+            status: _compressorStatus(compModel),
+            enabled: compEnabled,
+            onEnabledChanged: _toggleCompressor,
+            onReset: _resetCompressor,
+            note:
+                '动态范围压缩（古典 / 现场录音首选）。'
+                '阈值以上信号按压缩比折叠；补偿增益把压掉的响度补回来。'
+                '古典 / 现场录音：低阈值 + 较高压缩比 + 中等启动/释放 '
+                '+ 适当补偿增益，能让 ppp ↔ fff 整体可控。',
+            primary: primary,
+            scheme: scheme,
+            controls: [
+              CompressorCurve(
+                threshold: CompressorSettingsModel.dbToAmplitude(
+                  compModel.thresholdDb,
+                ),
+                ratio: compModel.ratio,
+                makeup: CompressorSettingsModel.dbToAmplitude(
+                  compModel.makeupDb,
+                ),
+                enabled: compEnabled,
+              ),
+              _SliderRow(
+                label: '阈值',
+                value: compModel.thresholdDb,
+                min: -60,
+                max: 0,
+                format: (v) => '${v.round()} dB',
+                onChanged: (v) =>
+                    _setCompressorDraft(compModel.withThresholdDb(v)),
+                onChangeEnd: (_) => _commitCompressorDraft(),
+                primary: primary,
+              ),
+              _SliderRow(
+                label: '压缩比',
+                value: compModel.ratio,
+                min: 1,
+                max: 20,
+                format: (v) => '${v.toStringAsFixed(1)}:1',
+                onChanged: (v) => _setCompressorDraft(compModel.withRatio(v)),
+                onChangeEnd: (_) => _commitCompressorDraft(),
+                primary: primary,
+              ),
+              _SliderRow(
+                label: '启动时间',
+                value: compModel.attackMs,
+                min: 0.01,
+                max: 2000,
+                divisions: null,
+                format: (v) => '${v.round()} ms',
+                onChanged: (v) =>
+                    _setCompressorDraft(compModel.withAttackMs(v)),
+                onChangeEnd: (_) => _commitCompressorDraft(),
+                primary: primary,
+              ),
+              _SliderRow(
+                label: '释放时间',
+                value: compModel.releaseMs,
+                min: 0.01,
+                max: 9000,
+                divisions: null,
+                format: (v) => '${v.round()} ms',
+                onChanged: (v) =>
+                    _setCompressorDraft(compModel.withReleaseMs(v)),
+                onChangeEnd: (_) => _commitCompressorDraft(),
+                primary: primary,
+              ),
+              _SliderRow(
+                label: '补偿增益',
+                value: compModel.makeupDb,
+                min: 0,
+                max: 24,
+                format: (v) => '+${v.round()} dB',
+                onChanged: (v) =>
+                    _setCompressorDraft(compModel.withMakeupDb(v)),
+                onChangeEnd: (_) => _commitCompressorDraft(),
+                primary: primary,
+              ),
+            ],
+          ),
+
+          // ── 低频激励 asubboost ──
+          _module(
+            m: _Module.subboost,
+            icon: Icons.graphic_eq_rounded,
+            status: _subboostStatus(sub),
+            enabled: sub.enabled,
+            onEnabledChanged: (v) => _toggleFx(
+              _Module.subboost,
+              v,
+              _editSubboost((s) => s.copyWith(enabled: v)),
+            ),
+            onReset: () => _applyFx(
+              _editSubboost((s) => mpv.AsubboostSettings(enabled: s.enabled)),
+            ),
+            note:
+                '补回下潜不足的低频。增益是最大提升倍数，'
+                '截频决定抬哪一段以下，干/湿是原声与激励声的配比，'
+                '反馈让提升带上延音。耳机低频发虚时效果明显，'
+                '音箱上开大容易轰头。',
+            primary: primary,
+            scheme: scheme,
+            controls: [
+              _SliderRow(
+                label: '最大增益',
+                value: sub.boost,
+                min: mpv.AsubboostSettings.boostMin,
+                max: mpv.AsubboostSettings.boostMax,
+                format: (v) => '×${v.toStringAsFixed(1)}',
+                onChanged: (v) =>
+                    _patchFx(_editSubboost((s) => s.copyWith(boost: v))),
+                onChangeEnd: (_) => _commitFx(),
+                primary: primary,
+              ),
+              _SliderRow(
+                label: '截频',
+                value: sub.cutoff,
+                min: mpv.AsubboostSettings.cutoffMin,
+                max: mpv.AsubboostSettings.cutoffMax,
+                format: (v) => '${v.round()} Hz',
+                onChanged: (v) =>
+                    _patchFx(_editSubboost((s) => s.copyWith(cutoff: v))),
+                onChangeEnd: (_) => _commitFx(),
+                primary: primary,
+              ),
+              _SliderRow(
+                label: '干声',
+                value: sub.dry,
+                min: mpv.AsubboostSettings.dryMin,
+                max: mpv.AsubboostSettings.dryMax,
+                format: _percent,
+                onChanged: (v) =>
+                    _patchFx(_editSubboost((s) => s.copyWith(dry: v))),
+                onChangeEnd: (_) => _commitFx(),
+                primary: primary,
+              ),
+              _SliderRow(
+                label: '湿声',
+                value: sub.wet,
+                min: mpv.AsubboostSettings.wetMin,
+                max: mpv.AsubboostSettings.wetMax,
+                format: _percent,
+                onChanged: (v) =>
+                    _patchFx(_editSubboost((s) => s.copyWith(wet: v))),
+                onChangeEnd: (_) => _commitFx(),
+                primary: primary,
+              ),
+              _SliderRow(
+                label: '反馈',
+                value: sub.feedback,
+                min: mpv.AsubboostSettings.feedbackMin,
+                max: mpv.AsubboostSettings.feedbackMax,
+                format: _percent,
+                onChanged: (v) =>
+                    _patchFx(_editSubboost((s) => s.copyWith(feedback: v))),
+                onChangeEnd: (_) => _commitFx(),
+                primary: primary,
+              ),
+            ],
+          ),
+
+          // ── 高频谐波激励 aexciter ──
+          _module(
+            m: _Module.exciter,
+            icon: Icons.waves_rounded,
+            status: _exciterStatus(exc),
+            enabled: exc.enabled,
+            onEnabledChanged: (v) => _toggleFx(
+              _Module.exciter,
+              v,
+              _editExciter((s) => s.copyWith(enabled: v)),
+            ),
+            onReset: () => _applyFx(
+              _editExciter((s) => mpv.AexciterSettings(enabled: s.enabled)),
+            ),
+            note:
+                '生成谐波补回高频空气感。在起振频率以上生成谐波，'
+                '给码率偏低、听着发闷的稿件补一点空气感。激励量是谐波强度，'
+                '驱动决定谐波染色。开大了齿音会变重。',
+            primary: primary,
+            scheme: scheme,
+            controls: [
+              _SliderRow(
+                label: '激励量',
+                value: exc.amount,
+                min: mpv.AexciterSettings.amountMin,
+                max: mpv.AexciterSettings.amountMax,
+                format: (v) => '×${v.toStringAsFixed(1)}',
+                onChanged: (v) =>
+                    _patchFx(_editExciter((s) => s.copyWith(amount: v))),
+                onChangeEnd: (_) => _commitFx(),
+                primary: primary,
+              ),
+              _SliderRow(
+                label: '驱动',
+                value: exc.drive,
+                min: mpv.AexciterSettings.driveMin,
+                max: mpv.AexciterSettings.driveMax,
+                format: (v) => '×${v.toStringAsFixed(1)}',
+                onChanged: (v) =>
+                    _patchFx(_editExciter((s) => s.copyWith(drive: v))),
+                onChangeEnd: (_) => _commitFx(),
+                primary: primary,
+              ),
+              _SliderRow(
+                label: '起振频率',
+                value: exc.freq,
+                min: mpv.AexciterSettings.freqMin,
+                max: mpv.AexciterSettings.freqMax,
+                format: (v) => '${v.round()} Hz',
+                onChanged: (v) =>
+                    _patchFx(_editExciter((s) => s.copyWith(freq: v))),
+                onChangeEnd: (_) => _commitFx(),
+                primary: primary,
+              ),
+            ],
+          ),
+
+          // ── 回声 aecho ──
+          _module(
+            m: _Module.echo,
+            icon: Icons.repeat_rounded,
+            status: _echoStatus(echo),
+            enabled: echo.enabled,
+            onEnabledChanged: (v) => _toggleFx(
+              _Module.echo,
+              v,
+              _editEcho((s) => s.copyWith(enabled: v)),
+            ),
+            onReset: () => _applyFx(
+              _editEcho((s) => mpv.AechoSettings(enabled: s.enabled)),
+            ),
+            note:
+                '单次反射拉开空间感。延迟是回声晚多少毫秒到，'
+                '衰减是回声比原声响多少。输入/输出增益分别控制进、出滤镜的'
+                '电平，轻微回声能拉开空间。',
+            primary: primary,
+            scheme: scheme,
+            controls: [
+              _SliderRow(
+                label: '延迟',
+                // lavfi 上限 90000 ms，UI 卡在 5 s：音乐里超过几秒的回声
+                // 已经不是「空间感」而是另一段歌词了，留着会调出怪东西。
+                value: AechoParams.delayOf(echo),
+                min: 1,
+                max: 5000,
+                format: (v) => '${v.round()} ms',
+                onChanged: (v) => _patchFx(
+                  _editEcho((s) => s.copyWith(delays: AechoParams.single(v))),
+                ),
+                onChangeEnd: (_) => _commitFx(),
+                primary: primary,
+              ),
+              _SliderRow(
+                label: '衰减',
+                value: AechoParams.decayOf(echo),
+                // lavfi 声明的区间是 (0, 1.0]——0 不在区间内，下限取 0.01
+                // 免得写进一个 ffmpeg 直接拒收的值把整条 af 链搞挂。
+                min: 0.01,
+                max: 1,
+                format: _percent,
+                onChanged: (v) => _patchFx(
+                  _editEcho((s) => s.copyWith(decays: AechoParams.single(v))),
+                ),
+                onChangeEnd: (_) => _commitFx(),
+                primary: primary,
+              ),
+              _SliderRow(
+                label: '输入增益',
+                value: echo.in_gain,
+                min: mpv.AechoSettings.in_gainMin,
+                max: mpv.AechoSettings.in_gainMax,
+                format: _percent,
+                onChanged: (v) =>
+                    _patchFx(_editEcho((s) => s.copyWith(in_gain: v))),
+                onChangeEnd: (_) => _commitFx(),
+                primary: primary,
+              ),
+              _SliderRow(
+                label: '输出增益',
+                value: echo.out_gain,
+                min: mpv.AechoSettings.out_gainMin,
+                max: mpv.AechoSettings.out_gainMax,
+                format: _percent,
+                onChanged: (v) =>
+                    _patchFx(_editEcho((s) => s.copyWith(out_gain: v))),
+                onChangeEnd: (_) => _commitFx(),
+                primary: primary,
+              ),
+            ],
+          ),
+
+          // ── 限幅器 alimiter ──
+          _module(
+            m: _Module.limiter,
+            icon: Icons.speed_rounded,
+            status: _limiterStatus(lim),
+            enabled: lim.enabled,
+            onEnabledChanged: (v) => _toggleFx(
+              _Module.limiter,
+              v,
+              _editLimiter((s) => s.copyWith(enabled: v)),
+            ),
+            onReset: () => _applyFx(
+              _editLimiter((s) => mpv.AlimiterSettings(enabled: s.enabled)),
+            ),
+            note:
+                '输出天花板，防爆音。输出永远不会越过设定的'
+                '天花板，防止前面几级激励把峰值顶爆。启动/释放决定它压下去和'
+                '松开的快慢。作为链尾保险，前面调得激进时尤其值得开着。',
+            primary: primary,
+            scheme: scheme,
+            controls: [
+              _SliderRow(
+                label: '限幅',
+                // lavfi 的 limit 是线性振幅（0.0625..1.0），UI 一律用 dB——
+                // 换算复用 CompressorSettingsModel 的公开静态方法。
+                value: CompressorSettingsModel.amplitudeToDb(lim.limit),
+                min: CompressorSettingsModel.amplitudeToDb(
+                  mpv.AlimiterSettings.limitMin,
+                ),
+                max: CompressorSettingsModel.amplitudeToDb(
+                  mpv.AlimiterSettings.limitMax,
+                ),
+                format: (v) => '${v.round()} dB',
+                onChanged: (v) => _patchFx(
+                  _editLimiter(
+                    (s) => s.copyWith(
+                      limit: CompressorSettingsModel.dbToAmplitude(v).clamp(
+                        mpv.AlimiterSettings.limitMin,
+                        mpv.AlimiterSettings.limitMax,
+                      ),
+                    ),
+                  ),
+                ),
+                onChangeEnd: (_) => _commitFx(),
+                primary: primary,
+              ),
+              _SliderRow(
+                label: '启动时间',
+                value: lim.attack,
+                min: mpv.AlimiterSettings.attackMin,
+                max: mpv.AlimiterSettings.attackMax,
+                format: (v) => '${v.toStringAsFixed(1)} ms',
+                onChanged: (v) =>
+                    _patchFx(_editLimiter((s) => s.copyWith(attack: v))),
+                onChangeEnd: (_) => _commitFx(),
+                primary: primary,
+              ),
+              _SliderRow(
+                label: '释放时间',
+                value: lim.release,
+                min: mpv.AlimiterSettings.releaseMin,
+                max: mpv.AlimiterSettings.releaseMax,
+                format: (v) => '${v.round()} ms',
+                onChanged: (v) =>
+                    _patchFx(_editLimiter((s) => s.copyWith(release: v))),
+                onChangeEnd: (_) => _commitFx(),
+                primary: primary,
+              ),
+            ],
+          ),
+
+          // ── 立体声宽度 extrastereo ──
+          _module(
+            m: _Module.extrastereo,
+            icon: Icons.unfold_more_rounded,
+            status: _extrastereoStatus(st),
+            enabled: st.enabled,
+            onEnabledChanged: (v) => _toggleFx(
+              _Module.extrastereo,
+              v,
+              _editExtrastereo((s) => s.copyWith(enabled: v)),
+            ),
+            onReset: () => _applyFx(
+              _editExtrastereo(
+                (s) => mpv.ExtrastereoSettings(enabled: s.enabled),
+              ),
+            ),
+            note:
+                '放大左右差信号拉宽声场。把左右声道的差信号'
+                '放大后叠回两声道，直接拉宽声场：系数为正是增宽，为负会反相'
+                '收窄。单声道或假立体声录音加宽只会更糊。',
+            primary: primary,
+            scheme: scheme,
+            controls: [
+              _SliderRow(
+                label: '差分系数',
+                value: st.m,
+                min: mpv.ExtrastereoSettings.mMin,
+                max: mpv.ExtrastereoSettings.mMax,
+                format: (v) => v.toStringAsFixed(1),
+                onChanged: (v) =>
+                    _patchFx(_editExtrastereo((s) => s.copyWith(m: v))),
+                onChangeEnd: (_) => _commitFx(),
+                primary: primary,
+              ),
+            ],
+          ),
+
+          // ── 环绕上混 surround ──
+          _module(
+            m: _Module.surround,
+            icon: Icons.surround_sound_rounded,
+            status: _surroundStatus(su),
+            enabled: su.enabled,
+            onEnabledChanged: (v) => _toggleFx(
+              _Module.surround,
+              v,
+              _editSurround((s) => s.copyWith(enabled: v)),
+            ),
+            onReset: () => _applyFx(
+              _editSurround((s) => mpv.SurroundSettings(enabled: s.enabled)),
+            ),
+            note:
+                '立体声上混 5.1 再交回输出端。'
+                '角度是声场旋转方向，聚焦在前后声像之间取舍，'
+                '窗重叠与平滑控制变换的连续性。'
+                '相位会被改写，耳机上听感变化最大，且会加重 CPU 负担。',
+            primary: primary,
+            scheme: scheme,
+            controls: [
+              _SliderRow(
+                label: '角度',
+                value: su.angle,
+                min: mpv.SurroundSettings.angleMin,
+                max: mpv.SurroundSettings.angleMax,
+                format: (v) => '${v.round()}°',
+                onChanged: (v) =>
+                    _patchFx(_editSurround((s) => s.copyWith(angle: v))),
+                onChangeEnd: (_) => _commitFx(),
+                primary: primary,
+              ),
+              _SliderRow(
+                label: '聚焦',
+                value: su.focus,
+                min: mpv.SurroundSettings.focusMin,
+                max: mpv.SurroundSettings.focusMax,
+                format: _focusText,
+                onChanged: (v) =>
+                    _patchFx(_editSurround((s) => s.copyWith(focus: v))),
+                onChangeEnd: (_) => _commitFx(),
+                primary: primary,
+              ),
+              _SliderRow(
+                label: '窗重叠',
+                value: su.overlap,
+                min: mpv.SurroundSettings.overlapMin,
+                max: mpv.SurroundSettings.overlapMax,
+                format: _percent,
+                onChanged: (v) =>
+                    _patchFx(_editSurround((s) => s.copyWith(overlap: v))),
+                onChangeEnd: (_) => _commitFx(),
+                primary: primary,
+              ),
+              _SliderRow(
+                label: '平滑',
+                value: su.smooth,
+                min: mpv.SurroundSettings.smoothMin,
+                max: mpv.SurroundSettings.smoothMax,
+                format: _percent,
+                onChanged: (v) =>
+                    _patchFx(_editSurround((s) => s.copyWith(smooth: v))),
+                onChangeEnd: (_) => _commitFx(),
+                primary: primary,
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  // ── 均衡器段 ────────────────────────────────────────────────────────
-
-  Widget _buildEqualizerSection({
-    required Color primary,
-    required ColorScheme scheme,
-    required EqualizerBandModel model,
-    required bool enabled,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SwitchListTile(
-          secondary: Icon(Icons.equalizer, color: primary),
-          title: const Text('启用均衡器'),
-          subtitle: const Text('8 段可调频段均衡器（实时）'),
-          value: enabled,
-          onChanged: _toggleEqEnabled,
-        ),
-        const SizedBox(height: 4),
-        EqualizerCurve(
-          model: model,
-          enabled: enabled,
-          onBandChanged: _onEqBandChanged,
-          onDragEnd: _commitEqDraft,
-        ),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            PopupMenuButton<EqualizerPreset>(
-              tooltip: '预设',
-              onSelected: _applyEqPreset,
-              padding: EdgeInsets.zero,
-              position: PopupMenuPosition.under,
-              itemBuilder: (context) => [
-                for (final p in kBuiltInEqualizerPresets)
-                  PopupMenuItem<EqualizerPreset>(
-                    value: p,
-                    height: 56,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            p.name,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            p.description,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-              icon: const Icon(Icons.tune, size: 18),
-            ),
-            const Spacer(),
-            TextButton.icon(
-              onPressed: _resetEq,
-              icon: const Icon(Icons.restart_alt, size: 18),
-              label: const Text('重置'),
-            ),
-            Text(
-              '8 段 · ±12 dB',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-        Text(
-          '横向拖动节点调整频段中心频率，纵向拖动调整增益，双击节点将增益归零。'
-          '各频段按几何中点切分、互不重叠，并在边界处平滑衔接。',
-          style: Theme.of(context).textTheme.bodySmall
-              ?.copyWith(color: scheme.onSurfaceVariant),
-        ),
-      ],
-    );
-  }
-
-  // ── Crossfeed 段 ────────────────────────────────────────────────────
-
-  Widget _buildCrossfeedSection({
-    required Color primary,
-    required ColorScheme scheme,
-    required CrossfeedSettingsModel model,
-    required bool enabled,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SwitchListTile(
-          secondary: Icon(Icons.headphones_rounded, color: primary),
-          title: const Text('启用交叉回馈'),
-          subtitle: const Text('耳机左右声道串扰，模拟音箱的自然声场体验'),
-          value: enabled,
-          onChanged: _toggleCrossfeed,
-        ),
-        const SizedBox(height: 4),
-        CrossfeedDiagram(
-          strength: model.strength,
-          range: model.range,
-          enabled: enabled,
-        ),
-        const SizedBox(height: 4),
-        _SliderRow(
-          label: '强度',
-          value: model.strength,
-          min: 0,
-          max: 1,
-          format: (v) => '${(v * 100).round()}%',
-          onChanged: (v) => _setCrossfeedDraft(model.withStrength(v)),
-          onChangeEnd: (_) => _commitCrossfeedDraft(),
-          primary: primary,
-        ),
-        _SliderRow(
-          label: '范围',
-          value: model.range,
-          min: 0,
-          max: 1,
-          format: (v) => '${(v * 100).round()}%',
-          onChanged: (v) => _setCrossfeedDraft(model.withRange(v)),
-          onChangeEnd: (_) => _commitCrossfeedDraft(),
-          primary: primary,
-        ),
-        Row(
-          children: [
-            const Spacer(),
-            TextButton.icon(
-              onPressed: _resetCrossfeed,
-              icon: const Icon(Icons.restart_alt, size: 18),
-              label: const Text('重置'),
-            ),
-          ],
-        ),
-        Text(
-          '强度决定对侧混音量；范围决定低架截频对应的声场宽度。'
-          '对室内音箱摆放的录音有提升，对单声道/假立体声录音慎用。'
-          '打开后会产生一定延迟。',
-          style: Theme.of(context).textTheme.bodySmall
-              ?.copyWith(color: scheme.onSurfaceVariant),
-        ),
-      ],
-    );
-  }
-
-  // ── Compressor 段 ───────────────────────────────────────────────────
-
-  Widget _buildCompressorSection({
-    required Color primary,
-    required ColorScheme scheme,
-    required CompressorSettingsModel model,
-    required bool enabled,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SwitchListTile(
-          secondary: Icon(Icons.compress_rounded, color: primary),
-          title: const Text('启用压缩器'),
-          subtitle: const Text('动态范围压缩（古典 / 现场录音首选）'),
-          value: enabled,
-          onChanged: _toggleCompressor,
-        ),
-        const SizedBox(height: 4),
-        CompressorCurve(
-          threshold: CompressorSettingsModel.dbToAmplitude(model.thresholdDb),
-          ratio: model.ratio,
-          makeup: CompressorSettingsModel.dbToAmplitude(model.makeupDb),
-          enabled: enabled,
-        ),
-        const SizedBox(height: 4),
-        _SliderRow(
-          label: '阈值',
-          value: model.thresholdDb,
-          min: -60,
-          max: 0,
-          format: (v) => '${v.round()} dB',
-          onChanged: (v) => _setCompressorDraft(model.withThresholdDb(v)),
-          onChangeEnd: (_) => _commitCompressorDraft(),
-          primary: primary,
-        ),
-        _SliderRow(
-          label: '压缩比',
-          value: model.ratio,
-          min: 1,
-          max: 20,
-          format: (v) => '${v.toStringAsFixed(1)}:1',
-          onChanged: (v) => _setCompressorDraft(model.withRatio(v)),
-          onChangeEnd: (_) => _commitCompressorDraft(),
-          primary: primary,
-        ),
-        _SliderRow(
-          label: '启动时间',
-          value: model.attackMs,
-          min: 0.01,
-          max: 2000,
-          divisions: null,
-          format: (v) => '${v.round()} ms',
-          onChanged: (v) => _setCompressorDraft(model.withAttackMs(v)),
-          onChangeEnd: (_) => _commitCompressorDraft(),
-          primary: primary,
-        ),
-        _SliderRow(
-          label: '释放时间',
-          value: model.releaseMs,
-          min: 0.01,
-          max: 9000,
-          divisions: null,
-          format: (v) => '${v.round()} ms',
-          onChanged: (v) => _setCompressorDraft(model.withReleaseMs(v)),
-          onChangeEnd: (_) => _commitCompressorDraft(),
-          primary: primary,
-        ),
-        _SliderRow(
-          label: '补偿增益',
-          value: model.makeupDb,
-          min: 0,
-          max: 24,
-          format: (v) => '+${v.round()} dB',
-          onChanged: (v) => _setCompressorDraft(model.withMakeupDb(v)),
-          onChangeEnd: (_) => _commitCompressorDraft(),
-          primary: primary,
-        ),
-        Row(
-          children: [
-            const Spacer(),
-            TextButton.icon(
-              onPressed: _resetCompressor,
-              icon: const Icon(Icons.restart_alt, size: 18),
-              label: const Text('重置'),
-            ),
-          ],
-        ),
-        Text(
-          '阈值以上信号按压缩比折叠；补偿增益把压掉的响度补回来。'
-          '古典 / 现场录音：低阈值 + 较高压缩比 + 中等启动/释放 '
-          '+ 适当补偿增益，能让 ppp ↔ fff 整体可控。',
-          style: Theme.of(context).textTheme.bodySmall
-              ?.copyWith(color: scheme.onSurfaceVariant),
-        ),
-      ],
-    );
-  }
-
-  // ── 音效增强 / 立体声增强 ─────────────────────────────────────────
-
-  /// 可折叠的特性分组容器。
+  /// 组装一个折叠模块：头部（标题取自 [m]、展开态按 [_isOpen] 推导）
+  /// + 正文（[controls] → [footer] / 重置 → [note]）。
   ///
-  /// 折叠粒度取在「特性」这一层：组内效果卡全部平铺（逐卡再折一层会多出
-  /// 6 个只有一行的标题），组本身可以收起来（否则 6 张卡 × 3~5 条滑块
-  /// 要把页面拉到 6 屏以上）。
-  ///
-  /// 副标题是**动态**的——收起时副标题是唯一还能看出「这组到底开没开」的
-  /// 地方，所以列出已开启的效果名；一个都没开才回落到静态描述。
-  Widget _buildFxGroup({
+  /// 9 个模块全部走这里，结构差异只允许落在参数上——这是「统一风格」
+  /// 能被守住的原因：新增一个效果只要再填一次这些参数，不可能长歪。
+  Widget _module({
+    required _Module m,
     required IconData icon,
-    required String title,
-    required String fallback,
-    required List<(String, bool)> items,
-    required List<Widget> children,
-  }) {
-    final on = [
-      for (final (name, enabled) in items)
-        if (enabled) name,
-    ];
-    return ExpansionTile(
-      tilePadding: EdgeInsets.zero,
-      childrenPadding: const EdgeInsets.only(bottom: 4),
-      leading: Icon(icon),
-      title: Text(title),
-      subtitle: Text(on.isEmpty ? fallback : '已开启：${on.join(' · ')}'),
-      children: children,
-    );
-  }
-
-  /// 一张效果卡：开关行 + 参数滑块 + 重置 + 一句说明。
-  ///
-  /// 结构与上面三个模块的 section 完全一致（SwitchListTile → 控件 →
-  /// 右对齐重置 → bodySmall 说明），只是被 [_buildFxGroup] 包了一层。
-  Widget _buildFxCard({
-    required Color primary,
-    required ColorScheme scheme,
-    required IconData icon,
-    required String title,
-    required String subtitle,
+    required String status,
     required bool enabled,
-    required ValueChanged<bool> onToggled,
+    required ValueChanged<bool> onEnabledChanged,
     required VoidCallback onReset,
-    required List<Widget> controls,
     required String note,
+    required Color primary,
+    required ColorScheme scheme,
+    required List<Widget> controls,
+    Widget? footer,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SwitchListTile(
-          secondary: Icon(icon, color: primary),
-          title: Text(title),
-          subtitle: Text(subtitle),
-          value: enabled,
-          onChanged: onToggled,
-        ),
-        ...controls,
-        Row(
-          children: [
-            const Spacer(),
-            TextButton.icon(
-              onPressed: onReset,
-              icon: const Icon(Icons.restart_alt, size: 18),
-              label: const Text('重置'),
-            ),
-          ],
-        ),
-        Text(
-          note,
-          style: Theme.of(context).textTheme.bodySmall
-              ?.copyWith(color: scheme.onSurfaceVariant),
-        ),
-      ],
+    return _FxModule(
+      icon: icon,
+      title: m.title,
+      status: status,
+      enabled: enabled,
+      expanded: _isOpen(m, enabled),
+      primary: primary,
+      scheme: scheme,
+      onEnabledChanged: onEnabledChanged,
+      onExpandedChanged: (v) => _setOpen(m, v),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ...controls,
+          footer ?? _resetRow(onReset),
+          _note(note, scheme),
+        ],
+      ),
     );
   }
 
-  /// 音效增强：低频激励 → 高频谐波 → 回声 → 限幅。
-  ///
-  /// **顺序是有意的**：先激励（把能量抬起来）→ 回声（造空间）→ 限幅
-  /// （兜底防爆）。限幅压轴，前面调得多激进都不会把峰值顶爆。
-  Widget _buildEnhancementGroup({
-    required Color primary,
-    required ColorScheme scheme,
-    required mpv.AudioEffects fx,
-  }) {
-    final sub = fx.asubboost ?? const mpv.AsubboostSettings();
-    final exc = fx.aexciter ?? const mpv.AexciterSettings();
-    final echo = fx.aecho ?? const mpv.AechoSettings();
-    final lim = fx.alimiter ?? const mpv.AlimiterSettings();
+  Widget _resetRow(VoidCallback onReset) => Row(
+    children: [
+      const Spacer(),
+      TextButton.icon(
+        onPressed: onReset,
+        icon: const Icon(Icons.restart_alt, size: 18),
+        label: const Text('重置'),
+      ),
+    ],
+  );
 
-    return _buildFxGroup(
-      icon: Icons.auto_awesome_rounded,
-      title: '音效增强',
-      fallback: '低频激励 · 高频谐波 · 回声 · 限幅',
-      items: [
-        ('低频激励', sub.enabled),
-        ('高频谐波', exc.enabled),
-        ('回声', echo.enabled),
-        ('限幅', lim.enabled),
-      ],
-      children: [
-        // ── 低频激励 asubboost ──
-        _buildFxCard(
-          primary: primary,
-          scheme: scheme,
-          icon: Icons.graphic_eq_rounded,
-          title: '低频激励',
-          subtitle: 'asubboost · 补回下潜不足的低频',
-          enabled: sub.enabled,
-          onToggled: (v) =>
-              _applyFx(_editSubboost((s) => s.copyWith(enabled: v))),
-          onReset: () => _applyFx(
-            _editSubboost((s) => mpv.AsubboostSettings(enabled: s.enabled)),
-          ),
-          controls: [
-            _SliderRow(
-              label: '最大增益',
-              value: sub.boost,
-              min: mpv.AsubboostSettings.boostMin,
-              max: mpv.AsubboostSettings.boostMax,
-              format: (v) => '×${v.toStringAsFixed(1)}',
-              onChanged: (v) =>
-                  _patchFx(_editSubboost((s) => s.copyWith(boost: v))),
-              onChangeEnd: (_) => _commitFx(),
-              primary: primary,
-            ),
-            _SliderRow(
-              label: '截频',
-              value: sub.cutoff,
-              min: mpv.AsubboostSettings.cutoffMin,
-              max: mpv.AsubboostSettings.cutoffMax,
-              format: (v) => '${v.round()} Hz',
-              onChanged: (v) =>
-                  _patchFx(_editSubboost((s) => s.copyWith(cutoff: v))),
-              onChangeEnd: (_) => _commitFx(),
-              primary: primary,
-            ),
-            _SliderRow(
-              label: '干声',
-              value: sub.dry,
-              min: mpv.AsubboostSettings.dryMin,
-              max: mpv.AsubboostSettings.dryMax,
-              format: _percent,
-              onChanged: (v) =>
-                  _patchFx(_editSubboost((s) => s.copyWith(dry: v))),
-              onChangeEnd: (_) => _commitFx(),
-              primary: primary,
-            ),
-            _SliderRow(
-              label: '湿声',
-              value: sub.wet,
-              min: mpv.AsubboostSettings.wetMin,
-              max: mpv.AsubboostSettings.wetMax,
-              format: _percent,
-              onChanged: (v) =>
-                  _patchFx(_editSubboost((s) => s.copyWith(wet: v))),
-              onChangeEnd: (_) => _commitFx(),
-              primary: primary,
-            ),
-            _SliderRow(
-              label: '反馈',
-              value: sub.feedback,
-              min: mpv.AsubboostSettings.feedbackMin,
-              max: mpv.AsubboostSettings.feedbackMax,
-              format: _percent,
-              onChanged: (v) =>
-                  _patchFx(_editSubboost((s) => s.copyWith(feedback: v))),
-              onChangeEnd: (_) => _commitFx(),
-              primary: primary,
-            ),
-          ],
-          note:
-              '增益是最大提升倍数，截频决定抬哪一段以下，干/湿是原声与'
-              '激励声的配比，反馈让提升带上延音。耳机低频发虚时效果明显，'
-              '音箱上开大容易轰头。',
-        ),
-        const SizedBox(height: 8),
+  Widget _note(String text, ColorScheme scheme) => Padding(
+    padding: const EdgeInsets.only(top: 6),
+    child: Text(
+      text,
+      style: Theme.of(context).textTheme.bodySmall
+          ?.copyWith(color: scheme.onSurfaceVariant, height: 1.5),
+    ),
+  );
 
-        // ── 高频谐波激励 aexciter ──
-        _buildFxCard(
-          primary: primary,
-          scheme: scheme,
-          icon: Icons.waves_rounded,
-          title: '高频谐波激励',
-          subtitle: 'aexciter · 生成谐波补回高频空气感',
-          enabled: exc.enabled,
-          onToggled: (v) =>
-              _applyFx(_editExciter((s) => s.copyWith(enabled: v))),
-          onReset: () => _applyFx(
-            _editExciter((s) => mpv.AexciterSettings(enabled: s.enabled)),
-          ),
-          controls: [
-            _SliderRow(
-              label: '激励量',
-              value: exc.amount,
-              min: mpv.AexciterSettings.amountMin,
-              max: mpv.AexciterSettings.amountMax,
-              format: (v) => '×${v.toStringAsFixed(1)}',
-              onChanged: (v) =>
-                  _patchFx(_editExciter((s) => s.copyWith(amount: v))),
-              onChangeEnd: (_) => _commitFx(),
-              primary: primary,
-            ),
-            _SliderRow(
-              label: '驱动',
-              value: exc.drive,
-              min: mpv.AexciterSettings.driveMin,
-              max: mpv.AexciterSettings.driveMax,
-              format: (v) => '×${v.toStringAsFixed(1)}',
-              onChanged: (v) =>
-                  _patchFx(_editExciter((s) => s.copyWith(drive: v))),
-              onChangeEnd: (_) => _commitFx(),
-              primary: primary,
-            ),
-            _SliderRow(
-              label: '起振频率',
-              value: exc.freq,
-              min: mpv.AexciterSettings.freqMin,
-              max: mpv.AexciterSettings.freqMax,
-              format: (v) => '${v.round()} Hz',
-              onChanged: (v) =>
-                  _patchFx(_editExciter((s) => s.copyWith(freq: v))),
-              onChangeEnd: (_) => _commitFx(),
-              primary: primary,
-            ),
-          ],
-          note:
-              '在起振频率以上生成谐波，给码率偏低、听着发闷的稿件补一点'
-              '空气感。激励量是谐波强度，驱动决定谐波染色。开大了齿音会变重。',
-        ),
-        const SizedBox(height: 8),
+  /// 0..1 → 百分比读数，几个效果的干湿 / 衰减 / 比例共用。
+  static String _percent(double v) => '${(v * 100).round()}%';
+}
 
-        // ── 回声 aecho ──
-        _buildFxCard(
-          primary: primary,
-          scheme: scheme,
-          icon: Icons.repeat_rounded,
-          title: '回声',
-          subtitle: 'aecho · 单次反射拉开空间感',
-          enabled: echo.enabled,
-          onToggled: (v) => _applyFx(_editEcho((s) => s.copyWith(enabled: v))),
-          onReset: () =>
-              _applyFx(_editEcho((s) => mpv.AechoSettings(enabled: s.enabled))),
-          controls: [
-            _SliderRow(
-              label: '延迟',
-              // lavfi 上限 90000 ms，UI 卡在 5 s：音乐里超过几秒的回声
-              // 已经不是「空间感」而是另一段歌词了，留着只会调出怪东西。
-              value: AechoParams.delayOf(echo),
-              min: 1,
-              max: 5000,
-              format: (v) => '${v.round()} ms',
-              onChanged: (v) => _patchFx(
-                _editEcho((s) => s.copyWith(delays: AechoParams.single(v))),
-              ),
-              onChangeEnd: (_) => _commitFx(),
-              primary: primary,
-            ),
-            _SliderRow(
-              label: '衰减',
-              value: AechoParams.decayOf(echo),
-              // lavfi 声明的区间是 (0, 1.0]——0 不在区间内，下限取 0.01
-              // 免得写进一个 ffmpeg 直接拒收的值把整条 af 链搞挂。
-              min: 0.01,
-              max: 1,
-              format: _percent,
-              onChanged: (v) => _patchFx(
-                _editEcho((s) => s.copyWith(decays: AechoParams.single(v))),
-              ),
-              onChangeEnd: (_) => _commitFx(),
-              primary: primary,
-            ),
-            _SliderRow(
-              label: '输入增益',
-              value: echo.in_gain,
-              min: mpv.AechoSettings.in_gainMin,
-              max: mpv.AechoSettings.in_gainMax,
-              format: _percent,
-              onChanged: (v) =>
-                  _patchFx(_editEcho((s) => s.copyWith(in_gain: v))),
-              onChangeEnd: (_) => _commitFx(),
-              primary: primary,
-            ),
-            _SliderRow(
-              label: '输出增益',
-              value: echo.out_gain,
-              min: mpv.AechoSettings.out_gainMin,
-              max: mpv.AechoSettings.out_gainMax,
-              format: _percent,
-              onChanged: (v) =>
-                  _patchFx(_editEcho((s) => s.copyWith(out_gain: v))),
-              onChangeEnd: (_) => _commitFx(),
-              primary: primary,
-            ),
-          ],
-          note:
-              '延迟是回声晚多少毫秒到，衰减是回声比原声响多少。输入/输出'
-              '增益分别控制进、出滤镜的电平。轻微回声能拉开空间，长延迟大'
-              '衰减就变成混响拖尾了。',
-        ),
-        const SizedBox(height: 8),
+/// 页面上的 9 个折叠模块，也是展开态覆盖表 [_AudioDspPageState._open] 的键。
+///
+/// 标题放这里而不是散在 build 里：头部文案与折叠状态的键**必须**指向
+/// 同一个模块，分开写迟早会漏改一边。
+enum _Module {
+  eq('均衡器'),
+  crossfeed('交叉回馈'),
+  compressor('压缩器'),
+  subboost('低频激励'),
+  exciter('高频谐波激励'),
+  echo('回声'),
+  limiter('限幅器'),
+  extrastereo('立体声宽度'),
+  surround('环绕上混');
 
-        // ── 砖墙限幅 alimiter ──
-        _buildFxCard(
-          primary: primary,
-          scheme: scheme,
-          icon: Icons.speed_rounded,
-          title: '砖墙限幅',
-          subtitle: 'alimiter · 输出不超过天花板，防爆音',
-          enabled: lim.enabled,
-          onToggled: (v) =>
-              _applyFx(_editLimiter((s) => s.copyWith(enabled: v))),
-          onReset: () => _applyFx(
-            _editLimiter((s) => mpv.AlimiterSettings(enabled: s.enabled)),
-          ),
-          controls: [
-            _SliderRow(
-              label: '限幅',
-              // lavfi 的 limit 是线性振幅（0.0625..1.0），UI 一律用 dB——
-              // 换算复用 CompressorSettingsModel 的公开静态方法。
-              value: CompressorSettingsModel.amplitudeToDb(lim.limit),
-              min: CompressorSettingsModel.amplitudeToDb(
-                mpv.AlimiterSettings.limitMin,
-              ),
-              max: CompressorSettingsModel.amplitudeToDb(
-                mpv.AlimiterSettings.limitMax,
-              ),
-              format: (v) => '${v.round()} dB',
-              onChanged: (v) => _patchFx(
-                _editLimiter(
-                  (s) => s.copyWith(
-                    limit: CompressorSettingsModel.dbToAmplitude(v).clamp(
-                      mpv.AlimiterSettings.limitMin,
-                      mpv.AlimiterSettings.limitMax,
+  const _Module(this.title);
+
+  /// 头部第一行。
+  final String title;
+}
+
+/// 一个同构折叠模块：**头部**（图标 · 名称 · 参数快照 · 展开箭头 · 启用
+/// 开关）+ **可折叠正文**。
+///
+/// 页面上 9 个模块只有正文内容不同，头部结构与交互完全一致：
+///
+/// - **两个互不重叠的手势目标**：左侧整块（图标 / 标题 / 快照）与右端
+///   箭头都只做展开 / 收起，`Switch` 独立在点击区**之外**。开关若嵌进
+///   同一个 InkWell，点开关会顺带触发一次展开——手势竞技场里两个
+///   `TapGestureRecognizer` 抢同一个指针，行为依赖命中顺序，不能靠运气。
+/// - **收起 = 正文整棵卸载**，不是 `opacity: 0`：收起的模块不该占布局，
+///   更不该让 `Slider` / `EqualizerCurve` 的手势区继续留在命中测试里
+///   （等价于 `ExpansionTile` 的 `maintainState: false`）。
+/// - 高度过渡走 [AnimatedSize]，外面套一层 `ClipRect` 兜住收缩过程中
+///   正文绘制超出的部分。
+class _FxModule extends StatelessWidget {
+  const _FxModule({
+    required this.icon,
+    required this.title,
+    required this.status,
+    required this.enabled,
+    required this.expanded,
+    required this.primary,
+    required this.scheme,
+    required this.onEnabledChanged,
+    required this.onExpandedChanged,
+    required this.body,
+  });
+
+  final IconData icon;
+  final String title;
+
+  /// 头部第二行：当前参数快照（开关已经表达了开 / 关，这里不重复）。
+  final String status;
+  final bool enabled;
+  final bool expanded;
+  final Color primary;
+  final ColorScheme scheme;
+  final ValueChanged<bool> onEnabledChanged;
+  final ValueChanged<bool> onExpandedChanged;
+  final Widget body;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final onVariant = scheme.onSurfaceVariant;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── 头部 ──
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+                  onTap: () => onExpandedChanged(!expanded),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(icon, size: 22, color: primary),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 1),
+                              Text(
+                                status,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: onVariant,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
-              onChangeEnd: (_) => _commitFx(),
-              primary: primary,
-            ),
-            _SliderRow(
-              label: '启动时间',
-              value: lim.attack,
-              min: mpv.AlimiterSettings.attackMin,
-              max: mpv.AlimiterSettings.attackMax,
-              format: (v) => '${v.toStringAsFixed(1)} ms',
-              onChanged: (v) =>
-                  _patchFx(_editLimiter((s) => s.copyWith(attack: v))),
-              onChangeEnd: (_) => _commitFx(),
-              primary: primary,
-            ),
-            _SliderRow(
-              label: '释放时间',
-              value: lim.release,
-              min: mpv.AlimiterSettings.releaseMin,
-              max: mpv.AlimiterSettings.releaseMax,
-              format: (v) => '${v.round()} ms',
-              onChanged: (v) =>
-                  _patchFx(_editLimiter((s) => s.copyWith(release: v))),
-              onChangeEnd: (_) => _commitFx(),
-              primary: primary,
-            ),
-          ],
-          note:
-              '输出永远不会越过设定的天花板，防止前面几级激励把峰值顶爆。'
-              '启动/释放决定它压下去和松开的快慢。作为链尾保险，前面调得'
-              '激进时尤其值得开着。',
-        ),
-      ],
-    );
-  }
+              Switch(value: enabled, onChanged: onEnabledChanged),
+              // 展开箭头单独一个点击区，与 Switch 平级，不抢手势。
+              InkWell(
+                borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                onTap: () => onExpandedChanged(!expanded),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(2, 8, 8, 8),
+                  child: Icon(
+                    expanded ? Icons.expand_less : Icons.expand_more,
+                    size: 20,
+                    color: onVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
 
-  /// 立体声增强：立体声宽度 → 环绕上混。
-  Widget _buildStereoGroup({
-    required Color primary,
-    required ColorScheme scheme,
-    required mpv.AudioEffects fx,
-  }) {
-    final st = fx.extrastereo ?? const mpv.ExtrastereoSettings();
-    final su = fx.surround ?? const mpv.SurroundSettings();
-
-    return _buildFxGroup(
-      icon: Icons.center_focus_weak_rounded,
-      title: '立体声增强',
-      fallback: '立体声宽度 · 环绕上混',
-      items: [('立体声宽度', st.enabled), ('环绕上混', su.enabled)],
-      children: [
-        // ── 立体声宽度 extrastereo ──
-        _buildFxCard(
-          primary: primary,
-          scheme: scheme,
-          icon: Icons.unfold_more_rounded,
-          title: '立体声宽度',
-          subtitle: 'extrastereo · 放大左右差信号拉宽声场',
-          enabled: st.enabled,
-          onToggled: (v) =>
-              _applyFx(_editExtrastereo((s) => s.copyWith(enabled: v))),
-          onReset: () => _applyFx(
-            _editExtrastereo(
-              (s) => mpv.ExtrastereoSettings(enabled: s.enabled),
+          // ── 正文 ──
+          if (expanded) const Divider(height: 1, indent: 12, endIndent: 12),
+          ClipRect(
+            child: AnimatedSize(
+              duration: AppTokens.standardDuration,
+              curve: AppTokens.standardEasing,
+              alignment: Alignment.topCenter,
+              child: expanded
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                      child: body,
+                    )
+                  : const SizedBox(width: double.infinity),
             ),
           ),
-          controls: [
-            _SliderRow(
-              label: '差分系数',
-              value: st.m,
-              min: mpv.ExtrastereoSettings.mMin,
-              max: mpv.ExtrastereoSettings.mMax,
-              format: (v) => v.toStringAsFixed(1),
-              onChanged: (v) =>
-                  _patchFx(_editExtrastereo((s) => s.copyWith(m: v))),
-              onChangeEnd: (_) => _commitFx(),
-              primary: primary,
-            ),
-          ],
-          note:
-              '把左右声道的差信号放大后叠回两声道，直接拉宽声场：系数为正'
-              '是增宽，为负会反相收窄。单声道或假立体声录音加宽只会更糊。',
-        ),
-        const SizedBox(height: 8),
-
-        // ── 环绕上混 surround ──
-        _buildFxCard(
-          primary: primary,
-          scheme: scheme,
-          icon: Icons.surround_sound_rounded,
-          title: '环绕上混',
-          subtitle: 'surround · 立体声上混 5.1 再交回输出端',
-          enabled: su.enabled,
-          onToggled: (v) =>
-              _applyFx(_editSurround((s) => s.copyWith(enabled: v))),
-          onReset: () => _applyFx(
-            _editSurround((s) => mpv.SurroundSettings(enabled: s.enabled)),
-          ),
-          controls: [
-            _SliderRow(
-              label: '角度',
-              value: su.angle,
-              min: mpv.SurroundSettings.angleMin,
-              max: mpv.SurroundSettings.angleMax,
-              format: (v) => '${v.round()}°',
-              onChanged: (v) =>
-                  _patchFx(_editSurround((s) => s.copyWith(angle: v))),
-              onChangeEnd: (_) => _commitFx(),
-              primary: primary,
-            ),
-            _SliderRow(
-              label: '聚焦',
-              value: su.focus,
-              min: mpv.SurroundSettings.focusMin,
-              max: mpv.SurroundSettings.focusMax,
-              format: (v) => v > 0.005
-                  ? '前 ${v.toStringAsFixed(2)}'
-                  : v < -0.005
-                  ? '后 ${(-v).toStringAsFixed(2)}'
-                  : '居中',
-              onChanged: (v) =>
-                  _patchFx(_editSurround((s) => s.copyWith(focus: v))),
-              onChangeEnd: (_) => _commitFx(),
-              primary: primary,
-            ),
-            _SliderRow(
-              label: '窗重叠',
-              value: su.overlap,
-              min: mpv.SurroundSettings.overlapMin,
-              max: mpv.SurroundSettings.overlapMax,
-              format: _percent,
-              onChanged: (v) =>
-                  _patchFx(_editSurround((s) => s.copyWith(overlap: v))),
-              onChangeEnd: (_) => _commitFx(),
-              primary: primary,
-            ),
-            _SliderRow(
-              label: '平滑',
-              value: su.smooth,
-              min: mpv.SurroundSettings.smoothMin,
-              max: mpv.SurroundSettings.smoothMax,
-              format: _percent,
-              onChanged: (v) =>
-                  _patchFx(_editSurround((s) => s.copyWith(smooth: v))),
-              onChangeEnd: (_) => _commitFx(),
-              primary: primary,
-            ),
-          ],
-          note:
-              '把立体声上混到 5.1 再交回输出端（非 5.1 设备由 mpv 下混），'
-              '用空间位置而不是电平差造声场：角度是声场旋转方向，聚焦在前后'
-              '声像之间取舍，窗重叠与平滑控制变换的连续性。相位会被改写，'
-              '耳机上听感变化最大，且会多吃一份 CPU。',
-        ),
-      ],
+        ],
+      ),
     );
   }
-
-  /// 0..1 → 百分比读数，几个效果的干湿 / 衰减 / 比例共用。
-  static String _percent(double v) => '${(v * 100).round()}%';
 }
 
 /// 单条参数滑块：label / 当前值 / 进度条 / 右侧数字读数。

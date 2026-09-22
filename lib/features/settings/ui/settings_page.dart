@@ -137,7 +137,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ListTile(
               leading: Icon(Icons.equalizer, color: _getPrimaryColor(context)),
               title: Text('音效与均衡器'),
-              subtitle: Text('8 段可调频段可视化均衡器'),
+              subtitle: Text('均衡器、音效、DSP 等音频处理设置'),
               trailing: Icon(Icons.arrow_forward_ios_rounded),
               onTap: () {
                 ShellPageManager.instance.push(ShellPage.audioDsp);
