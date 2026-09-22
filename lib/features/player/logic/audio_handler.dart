@@ -5,6 +5,9 @@ import 'package:bilimusic/features/playlist/playlist_service.dart';
 
 /// 音频处理器
 /// 适配 audio_service 接口
+///
+/// 本类同时是**系统侧事件的落点**：通知栏 / 锁屏 / 耳机键 / 车机 / 蓝牙按键
+/// 全都从这里进来。
 class AudioHandlerConnector extends BaseAudioHandler {
   final PlayerCoordinator playerCoordinator;
   final PlaylistService playlistService;

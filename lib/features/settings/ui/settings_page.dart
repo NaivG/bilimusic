@@ -304,6 +304,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               },
             ),
 
+            // 诊断
+            _buildSectionTitle('诊断'),
+            ListTile(
+              leading: Icon(
+                Icons.monitor_heart,
+                color: _getPrimaryColor(context),
+              ),
+              title: Text('音频后端'),
+              subtitle: Text('播放引擎 / 媒体会话 / 音频焦点现场与日志'),
+              trailing: Icon(Icons.arrow_forward_ios_rounded),
+              onTap: () {
+                ShellPageManager.instance.push(ShellPage.audioBackend);
+              },
+            ),
+
             // 关于
             _buildSectionTitle('关于'),
             ListTile(

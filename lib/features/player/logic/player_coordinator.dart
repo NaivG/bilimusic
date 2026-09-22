@@ -915,6 +915,9 @@ class PlayerCoordinator {
     _notificationService.updatePlaybackState(
       playing: _audioService.isPlaying,
       position: _audioService.currentPosition,
+      // 首次填上真实缓冲位置（mpv demuxer-cache-time）；换引擎前这里恒为
+      // Duration.zero。
+      bufferedPosition: _audioService.currentBufferedPosition,
       controls: controls,
     );
   }

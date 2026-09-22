@@ -3,8 +3,26 @@ import 'package:bilimusic/domain/music.dart';
 
 /// 通知管理服务
 /// 职责：管理音频通知的更新和显示
+///
+/// 它同时是**我们上报给系统媒体会话的唯一出口**：`playbackState` / `mediaItem`
+/// 进到这里，audio_service 再转给 Android 的 MediaSession。系统对媒体键
+/// （耳机键）的方向判定用的就是这个状态，所以这里留了一份"最后上报值"给
+/// 诊断测试页读。
 class NotificationService {
   BaseAudioHandler? _audioHandler;
+
+  /// 最后一次上报给系统的媒体会话状态（null = 还没上报过）。
+  PlaybackState? _lastPlaybackState;
+
+  /// 最后一次上报的曲目。
+  MediaItem? _lastMediaItem;
+
+  /// 上报次数（含只改进度的那些，用于判断会话是否还在被喂）。
+  int _playbackStatePushCount = 0;
+
+  PlaybackState? get lastPlaybackState => _lastPlaybackState;
+  MediaItem? get lastMediaItem => _lastMediaItem;
+  int get playbackStatePushCount => _playbackStatePushCount;
 
   NotificationService();
 
@@ -25,6 +43,7 @@ class NotificationService {
       artUri: Uri.parse(music.coverUrl),
     );
 
+    _lastMediaItem = mediaItem;
     _audioHandler?.mediaItem.add(mediaItem);
   }
 
@@ -37,16 +56,18 @@ class NotificationService {
     AudioProcessingState processingState = AudioProcessingState.ready,
     List<MediaControl> controls = const [],
   }) {
-    _audioHandler?.playbackState.add(
-      PlaybackState(
-        controls: controls,
-        playing: playing,
-        updatePosition: position,
-        bufferedPosition: bufferedPosition ?? Duration.zero,
-        speed: speed,
-        processingState: processingState,
-      ),
+    final state = PlaybackState(
+      controls: controls,
+      playing: playing,
+      updatePosition: position,
+      bufferedPosition: bufferedPosition ?? Duration.zero,
+      speed: speed,
+      processingState: processingState,
     );
+
+    _lastPlaybackState = state;
+    _playbackStatePushCount++;
+    _audioHandler?.playbackState.add(state);
   }
 
   /// 获取媒体控制按钮
@@ -89,13 +110,14 @@ class NotificationService {
 
   /// 停止通知
   void stop() {
-    _audioHandler?.playbackState.add(
-      PlaybackState(
-        controls: [],
-        processingState: AudioProcessingState.idle,
-        playing: false,
-        updatePosition: Duration.zero,
-      ),
+    final state = PlaybackState(
+      controls: [],
+      processingState: AudioProcessingState.idle,
+      playing: false,
+      updatePosition: Duration.zero,
     );
+    _lastPlaybackState = state;
+    _playbackStatePushCount++;
+    _audioHandler?.playbackState.add(state);
   }
 }

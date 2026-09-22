@@ -423,6 +423,20 @@ class DualAudioService {
   /// 获取当前音频时长(同步)
   Duration get currentDuration => _activePlayer.player.state.duration;
 
+  /// 当前已缓冲到的绝对位置（mpv `demuxer-cache-time`）。
+  ///
+  /// mpv_audio_kit 的 `PlayerState.buffer` 文档明确：这是从曲目开头的绝对
+  /// 时间戳，可直接用作 audio_service 的 bufferedPosition（不要再加
+  /// position）。取与 position 的较大者，避免 demuxer 抖动瞬间出现
+  /// bufferedPosition < updatePosition；未装载时两者都是零，天然退化为
+  /// 旧行为。
+  Duration get currentBufferedPosition {
+    final state = _activePlayer.player.state;
+    final position = state.position;
+    final buffer = state.buffer;
+    return buffer > position ? buffer : position;
+  }
+
   /// 获取播放进度百分比
   double get progressPercentage {
     final state = _activePlayer.player.state;
@@ -445,6 +459,15 @@ class DualAudioService {
 
   /// 当前实际输出音量 = 用户值 × 相对比率
   double get effectiveVolume => _numericalValue.value * _relativeVolume.value;
+
+  /// 当前 fade 相对比率（实际输出 = 用户音量 × 它）。诊断用。
+  double get relativeVolume => _relativeVolume.value;
+
+  /// 诊断用：当前出声的那路播放器（测试页读引擎快照，不参与播放逻辑）。
+  PlayerStateInfo get activePlayerInfo => _activePlayer;
+
+  /// 诊断用：待命（预加载）的那路播放器。
+  PlayerStateInfo get standbyPlayerInfo => _standbyPlayer;
 
   /// 写状态机：替代 setPreloading + 直接赋值 crossfadeState/_isCrossfading
   void setPlayerState(PlayerState state) {

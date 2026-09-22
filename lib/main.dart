@@ -127,6 +127,11 @@ Future<void> _bootstrapApp() async {
   // 读取 playerCoordinator（首次读取会触发依赖图所有服务初始化）
   final coordinator = container.read(playerCoordinatorProvider);
 
+  // 音频焦点补偿：由 audio_session 在启动期补齐引擎侧焦点管理
+  //（configure + 打断/拔耳机监听）。Provider 是惰性的，
+  //必须在这里显式读取一次才会在首播前就绪。
+  container.read(audioFocusServiceProvider);
+
   // 播放列表初始化（等 AppDatabase.instance.database）。
   //
   // **刻意不 await**：等在这里会把窗口的出现推迟到开库、甚至搬库之后。UI 读到的
