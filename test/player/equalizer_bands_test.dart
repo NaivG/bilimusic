@@ -328,16 +328,35 @@ void main() {
   });
 
   group('AudioDspPage 冒烟', () {
-    testWidgets('默认渲染：开关 + 曲线 + 重置 + 预设入口，无引擎写入路径', (tester) async {
+    testWidgets('默认渲染：3 个模块各 1 个开关 + 重置入口，无引擎写入路径', (tester) async {
+      // 给一个较高的 viewport，避免 ListView 懒构建导致远端模块没渲染
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
       await tester.pumpWidget(
         const ProviderScope(child: MaterialApp(home: AudioDspPage())),
       );
       expect(tester.takeException(), isNull);
+
+      // ── 均衡器段 ──────────────────────────────────────────────
       expect(find.text('启用均衡器'), findsOneWidget);
       expect(find.byType(EqualizerCurve), findsOneWidget);
-      expect(find.text('重置'), findsOneWidget);
       // 「预设」入口存在（PopupMenuButton 自身是 IconButton，不显示文本）。
       expect(find.byTooltip('预设'), findsOneWidget);
+
+      // ── Crossfeed 段 ──────────────────────────────────────────
+      expect(find.text('启用 Crossfeed'), findsOneWidget);
+
+      // ── Compressor 段 ─────────────────────────────────────────
+      expect(find.text('启用压缩器'), findsOneWidget);
+
+      // 三个模块共用一个「重置」文案，找 3 个。
+      expect(find.text('重置'), findsNWidgets(3));
+
       // 默认（未配置过 anequalizer）开关应为关
       final sw = tester.widget<SwitchListTile>(
         find.ancestor(
