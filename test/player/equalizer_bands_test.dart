@@ -328,7 +328,7 @@ void main() {
   });
 
   group('AudioDspPage 冒烟', () {
-    testWidgets('默认渲染：3 个模块各 1 个开关 + 重置入口，无引擎写入路径', (tester) async {
+    testWidgets('默认渲染：3 个平铺模块 + 2 个折叠分组，无引擎写入路径', (tester) async {
       // 给一个较高的 viewport，避免 ListView 懒构建导致远端模块没渲染
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 1;
@@ -349,12 +349,20 @@ void main() {
       expect(find.byTooltip('预设'), findsOneWidget);
 
       // ── Crossfeed 段 ──────────────────────────────────────────
-      expect(find.text('启用 Crossfeed'), findsOneWidget);
+      expect(find.text('启用交叉回馈'), findsOneWidget);
 
       // ── Compressor 段 ─────────────────────────────────────────
       expect(find.text('启用压缩器'), findsOneWidget);
 
-      // 三个模块共用一个「重置」文案，找 3 个。
+      // ── 音效增强 / 立体声增强（组级折叠，默认收起）──────────────
+      expect(find.text('音效增强'), findsOneWidget);
+      expect(find.text('立体声增强'), findsOneWidget);
+      // 收起时 ExpansionTile 走 maintainState: false，子效果卡根本不在树上
+      // ——既看不到它们的开关，也看不到它们的「重置」。
+      expect(find.text('低频激励'), findsNothing);
+      expect(find.text('立体声宽度'), findsNothing);
+
+      // 三个平铺模块共用一个「重置」文案，找 3 个（新分组未展开，不计入）。
       expect(find.text('重置'), findsNWidgets(3));
 
       // 默认（未配置过 anequalizer）开关应为关
@@ -365,6 +373,47 @@ void main() {
         ),
       );
       expect(sw.value, false);
+    });
+
+    testWidgets('展开两个分组后渲染全部 6 张效果卡（含开关与重置入口）', (tester) async {
+      // 两组全展开后的页面高度远超 2400，viewport 直接给足，
+      // 免得 ListView 懒构建把卡片挡在视口外、断言扑空。
+      tester.view.physicalSize = const Size(1080, 6000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        const ProviderScope(child: MaterialApp(home: AudioDspPage())),
+      );
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.text('音效增强'));
+      await tester.pumpAndSettle();
+
+      // ── 音效增强 4 张卡（激励 → 回声 → 限幅，顺序即信号链顺序）──
+      expect(find.text('低频激励'), findsOneWidget);
+      expect(find.text('高频谐波激励'), findsOneWidget);
+      expect(find.text('回声'), findsOneWidget);
+      expect(find.text('砖墙限幅'), findsOneWidget);
+
+      await tester.tap(find.text('立体声增强'));
+      await tester.pumpAndSettle();
+
+      // ── 立体声增强 2 张卡 ─────────────────────────────────────
+      expect(find.text('立体声宽度'), findsOneWidget);
+      expect(find.text('环绕上混'), findsOneWidget);
+
+      // 3 个平铺模块 + 6 张效果卡，每张一个「重置」。
+      expect(find.text('重置'), findsNWidgets(9));
+
+      // 每张卡一个开关，加上平铺的 3 个，共 9 个 SwitchListTile。
+      expect(find.byType(SwitchListTile), findsNWidgets(9));
+
+      // 新增的滑块渲染时不应抛异常（收起状态下这些子树根本没建过）。
+      expect(tester.takeException(), isNull);
     });
   });
 }

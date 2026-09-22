@@ -21,6 +21,14 @@ void main() {
       expect(e.crystalizer?.enabled, false);
       expect(e.extrastereo?.enabled, false);
       expect(e.asubboost?.enabled, false);
+      expect(e.aexciter?.enabled, false);
+      expect(e.aecho?.enabled, false);
+      expect(e.aecho?.delays, const AechoSettings().delays);
+      expect(e.aecho?.decays, const AechoSettings().decays);
+      expect(e.alimiter?.enabled, false);
+      expect(e.alimiter?.limit, AlimiterSettings.limitDefault);
+      expect(e.surround?.enabled, false);
+      expect(e.surround?.angle, SurroundSettings.angleDefault);
       expect(e.loudnorm?.enabled, false);
       expect(e.loudnorm?.linear, true);
     });
@@ -72,6 +80,20 @@ void main() {
       expect(e.anequalizer?.params, isEmpty);
     });
 
+    test('缺 exciter / echo / limiter / surround 键的旧数据按默认值补齐', () {
+      final e = EffectsCodec.decode({
+        'subboost': {'enabled': true, 'boost': 4},
+      });
+
+      expect(e.asubboost?.enabled, true);
+      expect(e.aexciter?.enabled, false);
+      expect(e.aecho?.enabled, false);
+      expect(e.alimiter?.enabled, false);
+      expect(e.surround?.enabled, false);
+      // 未提到的槽位（连 subboost 之外的新键都没有）不影响已有槽位
+      expect(e.aexciter?.amount, AexciterSettings.amountDefault);
+    });
+
     test('aneq 槽位编码 / 解码往返（params 字符串透传）', () {
       final settings = const AnequalizerSettings()
           .withBands([
@@ -116,6 +138,52 @@ void main() {
       expect(decoded.bass?.enabled, false);
       expect(decoded.bass?.gain, 6.0);
     });
+
+    test('echo 存 lavfi 原始列表串（不拆成数字，roundtrip 才不会被格式化改动）', () {
+      final base = EffectsCodec.decode(const {});
+      final edited = base.copyWith(
+        aecho: (base.aecho!).copyWith(enabled: true, delays: '250'),
+      );
+
+      final json = EffectsCodec.encode(edited);
+      expect(json['echo'], {
+        'enabled': true,
+        'decays': const AechoSettings().decays,
+        'delays': '250',
+        'in_gain': AechoSettings.in_gainDefault,
+        'out_gain': AechoSettings.out_gainDefault,
+      });
+      // 多段列表原样往返
+      final multi = base.copyWith(
+        aecho: (base.aecho!).copyWith(delays: '1000|250'),
+      );
+      final decoded = EffectsCodec.decode(EffectsCodec.encode(multi));
+      expect(decoded.aecho?.delays, '1000|250');
+    });
+
+    test('surround 只编码声场姿态四项，其余字段停在构造默认值', () {
+      final base = EffectsCodec.decode(const {});
+      final edited = base.copyWith(
+        surround: (base.surround!).copyWith(
+          enabled: true,
+          angle: 180,
+          focus: -0.5,
+          overlap: 0.8,
+          smooth: 0.3,
+        ),
+      );
+
+      final json = EffectsCodec.encode(edited);
+      expect(
+        (json['surround'] as Map).keys,
+        containsAll(<String>['enabled', 'angle', 'focus', 'overlap', 'smooth']),
+      );
+      // 未编码的字段（声道布局 / LFE / 窗函数…）在 decode 侧按构造默认重建
+      final decoded = EffectsCodec.decode(json);
+      expect(decoded, edited);
+      expect(decoded.surround?.chl_out, const SurroundSettings().chl_out);
+      expect(decoded.surround?.win_size, const SurroundSettings().win_size);
+    });
   });
 
   group('EffectsCodec roundtrip', () {
@@ -158,6 +226,32 @@ void main() {
             AnequalizerBand(frequency: 64, bandwidth: 36, gain: 4),
             AnequalizerBand(frequency: 3000, bandwidth: 1500, gain: -2),
           ]).params,
+        ),
+        aexciter: (base.aexciter!).copyWith(
+          enabled: true,
+          amount: 4,
+          drive: 6,
+          freq: 9000,
+        ),
+        aecho: (base.aecho!).copyWith(
+          enabled: true,
+          decays: '0.35',
+          delays: '480',
+          in_gain: 0.5,
+          out_gain: 0.4,
+        ),
+        alimiter: (base.alimiter!).copyWith(
+          enabled: true,
+          limit: 0.8,
+          attack: 2,
+          release: 120,
+        ),
+        surround: (base.surround!).copyWith(
+          enabled: true,
+          angle: 45,
+          focus: 0.6,
+          overlap: 0.9,
+          smooth: 0.2,
         ),
       );
 
