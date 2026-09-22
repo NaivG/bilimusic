@@ -9,6 +9,7 @@ import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bilimusic/domain/play_mode.dart';
 import 'package:bilimusic/features/player/models/player_state.dart';
+import 'package:bilimusic/features/settings/logic/audio_output_options.dart';
 
 /// 播放器角色枚举
 enum PlayerRole {
@@ -66,6 +67,15 @@ class DualAudioService {
   // 实时音质：实际命中的流音质代码（30xxx），由 PlayerCoordinator 取流后写入；
   // 空串表示尚未取流（UI 回退显示设置里的请求音质）。
   final ValueNotifier<String> _actualQualityId = ValueNotifier('');
+
+  // ── 音频输出观测（音频输出页消费）────────────────────────────────
+  // A/B 两路播放器的 `audio-device-list` 并集。mpv 在 core 初始化之后才
+  // 报真设备，起步阶段是空列表——页面据此显示「设备列表尚未就绪」。
+  final ValueNotifier<List<mpv.Device>> audioDevices = ValueNotifier(const []);
+
+  // 当前实际生效的输出设备。mpv 请求的设备不在时会**回退到 auto**，
+  // 这个回退必须让页面看见，否则用户会以为「我明明选了耳机」。
+  final ValueNotifier<mpv.Device> audioDevice = ValueNotifier(mpv.Device.auto);
 
   // 待命播放器的初始音量种子。equal-power 曲线从 0 起，AudioTrack 长时静音会卡顿，
   // 所以保留一个极小非零值让 AudioTrack 持续激活；0.01 听感上无影响。
@@ -135,6 +145,12 @@ class DualAudioService {
 
     _setupPlayerListeners(_playerA);
     _setupPlayerListeners(_playerB);
+
+    // 两路的设备订阅都挂好之后，再从同步快照建立基线（stream.* 不回放
+    // 当前值）。此后任何一侧的 audio-device-list / audio-device 变化都会
+    // 重走一遍这两行的逻辑，晚一步的事件覆盖这里的初值即可。
+    _publishAudioDevices();
+    audioDevice.value = _activePlayer.player.state.audioDevice;
 
     // 异步加载持久化音量（不影响初始化流程）
     _loadPersistedVolume();
@@ -243,7 +259,33 @@ class DualAudioService {
       ),
     );
 
+    // 输出设备清单：两路各报一份 `audio-device-list`，每次事件都按两路的
+    // 当前快照重算并集（增删都能反映，不只是追加）。
+    _subscriptions.add(
+      player.stream.audioDevices.listen((_) => _publishAudioDevices()),
+    );
+    // 当前设备只认**活跃那路**的事件：`_broadcast` 总是把两路设成同一个值，
+    // 由活跃路回读既不会串，也能把 mpv 的「请求的设备不存在，回退到 auto」
+    // 如实带出来。
+    _subscriptions.add(
+      player.stream.audioDevice.listen((device) {
+        if (playerInfo.role == PlayerRole.active) audioDevice.value = device;
+      }),
+    );
+
     _seedFromState(playerInfo);
+  }
+
+  /// 用 A/B 两路的当前快照重算 [audioDevices]。
+  ///
+  /// 取并集而不是「谁最后报的听谁的」：两路的清单应该一致，但更新时机
+  /// 会差一拍，取后者会让下拉在 crossfade 前后闪一下。
+  void _publishAudioDevices() {
+    if (!_initialized) return;
+    audioDevices.value = mergeAudioDevices([
+      _playerA.player.state.audioDevices,
+      _playerB.player.state.audioDevices,
+    ]);
   }
 
   /// 播种：mpv 的流不回放当前值，订阅之后先从同步快照推一次派生状态，
@@ -545,6 +587,58 @@ class DualAudioService {
       debugPrint('[DualAudioService] 待命播放器应用效果失败: $e');
     }
   }
+
+  // ============ 音频输出（延迟 / 独占 / 采样率 / 设备）============
+
+  /// 把一次输出属性写下发给 **A/B 两路**播放器。
+  ///
+  /// 与 [setAudioEffects] 同构，差别只在错误策略：效果包那边单路失败
+  /// 永远吞掉（事实来源在服务层，下次启动整体重放）；这里**两路都失败
+  /// 才 rethrow**——用户刚在设置页点了一下，一个 SnackBar 比静默失败诚实，
+  /// 而单路成功仍然值得继续用（另一路下次启动补上）。
+  ///
+  /// `_broadcast` 也是「逐字段下发」的落点：`audio-exclusive` /
+  /// `audio-samplerate` / `audio-device` 任一变更都会让 mpv **重建 AO**
+  /// （短暂静音），`audio-delay` 不会，所以调用方每次只推改动的那一项，
+  /// 不要图省事打包成一个 apply()。
+  Future<void> _broadcast(
+    String what,
+    Future<void> Function(mpv.PlayerApi player) apply,
+  ) async {
+    if (!_initialized) {
+      debugPrint('[DualAudioService] 未初始化，跳过$what 下发');
+      return;
+    }
+    Object? firstError;
+    var succeeded = false;
+    for (final info in [_activePlayer, _standbyPlayer]) {
+      try {
+        await apply(info.player);
+        succeeded = true;
+      } catch (e) {
+        firstError ??= e;
+        debugPrint('[DualAudioService] $what 下发失败（${info.role.name}）: $e');
+      }
+    }
+    if (!succeeded && firstError != null) throw firstError;
+  }
+
+  /// 音频延迟（正数＝声音延后）。改它不重建 AO，不产生断音。
+  Future<void> setAudioDelay(Duration delay) =>
+      _broadcast('音频延迟', (p) => p.setAudioDelay(delay));
+
+  /// 硬件直通 / 独占模式（WASAPI · ALSA · CoreAudio）。重建 AO。
+  Future<void> setAudioExclusive(bool exclusive) =>
+      _broadcast('硬件直通', (p) => p.setAudioExclusive(exclusive));
+
+  /// 强制 DAC 采样率，`0` 为自动。重建 AO。
+  Future<void> setAudioSampleRate(int rate) =>
+      _broadcast('采样率', (p) => p.setAudioSampleRate(rate));
+
+  /// 输出设备（mpv 的 `Device.name`）。重建 AO；请求的设备不在时 mpv 会
+  /// 回退到 auto，回读走 [audioDevice]。
+  Future<void> setAudioDevice(mpv.Device device) =>
+      _broadcast('输出设备', (p) => p.setAudioDevice(device));
 
   // ============ 播放控制方法 ============
 
@@ -922,6 +1016,9 @@ class DualAudioService {
         debugPrint('[DualAudioService] 释放播放器失败 $e');
       }
     }
+
+    audioDevices.dispose();
+    audioDevice.dispose();
 
     debugPrint('[DualAudioService] 资源释放完成');
   }

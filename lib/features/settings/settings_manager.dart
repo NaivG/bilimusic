@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:bilimusic/features/roam/models/roam_style.dart';
+import 'package:bilimusic/features/settings/logic/audio_output_options.dart';
 
 /// 设置管理器
 class SettingsManager extends ChangeNotifier {
@@ -17,9 +18,19 @@ class SettingsManager extends ChangeNotifier {
   static const String KEY_TABLET_MODE = 'tablet_mode'; // 平板模式设置项
   static const String KEY_FLUID_BACKGROUND = 'fluid_background';
   static const String KEY_BLUR_EFFECT = 'blur_effect'; // 新增毛玻璃取色效果设置项
-  static const String KEY_AUDIO_OUTPUT_MODE = 'audio_output_mode'; // 音频输出模式设置项
   static const String KEY_AUDIO_QUALITY = 'audio_quality'; // 播放音质设置项
   static const String KEY_VERSION_CODE = 'version_code';
+
+  // 音频输出设置键名（音频输出页的四项 + 一次性免责闸门）。
+  // 全是扁平标量，所以进 SettingsManager 而不是像 DSP 效果包那样单独开
+  // 一个服务——见 `AudioEffectsService.prefsKey` 的「嵌套 JSON、与扁平
+  // 设置不同源」那段注释，我们正好在它划的界线另一侧。
+  static const String KEY_AUDIO_OUTPUT_DISCLAIMER =
+      'audio_output_disclaimer_accepted';
+  static const String KEY_AUDIO_DELAY_MS = 'audio_delay_ms';
+  static const String KEY_AUDIO_EXCLUSIVE = 'audio_exclusive';
+  static const String KEY_AUDIO_SAMPLERATE = 'audio_samplerate';
+  static const String KEY_AUDIO_DEVICE = 'audio_device';
 
   // Crossfade相关设置键名
   static const String KEY_CROSSFADE_ENABLED = 'crossfade_enabled';
@@ -46,11 +57,16 @@ class SettingsManager extends ChangeNotifier {
   static const String DEFAULT_TABLET_MODE = 'auto';
   static const bool DEFAULT_FLUID_BACKGROUND = true;
   static const bool DEFAULT_BLUR_EFFECT = true;
-  static const String DEFAULT_AUDIO_OUTPUT_MODE =
-      'audiotrack'; // 默认使用AudioTrack
   static const String DEFAULT_AUDIO_QUALITY = '30280'; // 默认 192K 高品
   static const int DEFAULT_VERSION_CODE = 80;
   static const bool DEFAULT_PC_MODE = false;
+
+  // 音频输出默认值：延迟 0ms、不开独占、采样率跟随源、设备跟随系统。
+  static const bool DEFAULT_AUDIO_OUTPUT_DISCLAIMER = false;
+  static const int DEFAULT_AUDIO_DELAY_MS = 0;
+  static const bool DEFAULT_AUDIO_EXCLUSIVE = false;
+  static const int DEFAULT_AUDIO_SAMPLERATE = 0; // 0 = 自动
+  static const String DEFAULT_AUDIO_DEVICE = ''; // 空串 = mpv auto
 
   // Crossfade相关默认值
   static const bool DEFAULT_CROSSFADE_ENABLED = false; // 默认关闭
@@ -137,12 +153,22 @@ class SettingsManager extends ChangeNotifier {
         prefs.getBool(KEY_FLUID_BACKGROUND) ?? DEFAULT_FLUID_BACKGROUND;
     _cache[KEY_BLUR_EFFECT] =
         prefs.getBool(KEY_BLUR_EFFECT) ?? DEFAULT_BLUR_EFFECT; // 新增加载
-    _cache[KEY_AUDIO_OUTPUT_MODE] =
-        prefs.getString(KEY_AUDIO_OUTPUT_MODE) ??
-        DEFAULT_AUDIO_OUTPUT_MODE; // 加载音频输出模式
     _cache[KEY_AUDIO_QUALITY] =
         prefs.getString(KEY_AUDIO_QUALITY) ?? DEFAULT_AUDIO_QUALITY; // 加载播放音质
     _cache[KEY_VERSION_CODE] = DEFAULT_VERSION_CODE;
+
+    // 加载音频输出设置
+    _cache[KEY_AUDIO_OUTPUT_DISCLAIMER] =
+        prefs.getBool(KEY_AUDIO_OUTPUT_DISCLAIMER) ??
+        DEFAULT_AUDIO_OUTPUT_DISCLAIMER;
+    _cache[KEY_AUDIO_DELAY_MS] =
+        prefs.getInt(KEY_AUDIO_DELAY_MS) ?? DEFAULT_AUDIO_DELAY_MS;
+    _cache[KEY_AUDIO_EXCLUSIVE] =
+        prefs.getBool(KEY_AUDIO_EXCLUSIVE) ?? DEFAULT_AUDIO_EXCLUSIVE;
+    _cache[KEY_AUDIO_SAMPLERATE] =
+        prefs.getInt(KEY_AUDIO_SAMPLERATE) ?? DEFAULT_AUDIO_SAMPLERATE;
+    _cache[KEY_AUDIO_DEVICE] =
+        prefs.getString(KEY_AUDIO_DEVICE) ?? DEFAULT_AUDIO_DEVICE;
 
     // 加载Crossfade相关设置
     _cache[KEY_CROSSFADE_ENABLED] =
@@ -243,16 +269,6 @@ class SettingsManager extends ChangeNotifier {
   Future<void> setBlurEffect(bool value) async {
     await _saveSetting(KEY_BLUR_EFFECT, value);
     _cache[KEY_BLUR_EFFECT] = value;
-  }
-
-  /// 获取音频输出模式设置
-  String get audioOutputMode =>
-      _cache[KEY_AUDIO_OUTPUT_MODE] ?? DEFAULT_AUDIO_OUTPUT_MODE;
-
-  /// 设置音频输出模式
-  Future<void> setAudioOutputMode(String value) async {
-    await _saveSetting(KEY_AUDIO_OUTPUT_MODE, value);
-    _cache[KEY_AUDIO_OUTPUT_MODE] = value;
   }
 
   /// 获取播放音质设置 (30216=64K / 30232=132K / 30280=192K / 30250=杜比 / 30251=Hi-Res)
@@ -435,16 +451,50 @@ class SettingsManager extends ChangeNotifier {
     }
   }
 
-  /// 获取音频输出模式的文本描述
-  String getAudioOutputModeText(String mode) {
-    switch (mode) {
-      case 'aaudio':
-        return 'AAudio (推荐)';
-      case 'audiotrack':
-        return 'AudioTrack';
-      default:
-        return 'AudioTrack';
-    }
+  // ============ 音频输出相关设置 ============
+  //
+  // 这四项的**唯一写入口是 PlayerCoordinator**（落盘之后还要推 A/B 两路
+  // 播放器，见 `player_coordinator.dart` 的 setAudio* 系列）。这里的
+  // setter 只给「读不到引擎也要能写」的场景兜底——目前没有调用方。
+
+  /// 是否已同意音频输出页的免责说明（一次性闸门，同意后不再弹）。
+  bool get audioOutputDisclaimerAccepted =>
+      _cache[KEY_AUDIO_OUTPUT_DISCLAIMER] ?? DEFAULT_AUDIO_OUTPUT_DISCLAIMER;
+
+  /// 同意免责说明。只有这一个键由 UI 直接写，它不进引擎。
+  Future<void> setAudioOutputDisclaimerAccepted(bool value) async {
+    await _saveSetting(KEY_AUDIO_OUTPUT_DISCLAIMER, value);
+  }
+
+  /// 音频延迟（毫秒，正数＝声音延后）。
+  int get audioDelayMs => _cache[KEY_AUDIO_DELAY_MS] ?? DEFAULT_AUDIO_DELAY_MS;
+
+  Future<void> setAudioDelayMs(int value) async {
+    await _saveSetting(KEY_AUDIO_DELAY_MS, clampAudioDelay(value));
+  }
+
+  /// 硬件直通 / 独占模式（WASAPI · ALSA · CoreAudio）。
+  bool get audioExclusive =>
+      _cache[KEY_AUDIO_EXCLUSIVE] ?? DEFAULT_AUDIO_EXCLUSIVE;
+
+  Future<void> setAudioExclusive(bool value) async {
+    await _saveSetting(KEY_AUDIO_EXCLUSIVE, value);
+  }
+
+  /// 强制 DAC 采样率，`0` 表示跟随音源。
+  int get audioSampleRate =>
+      _cache[KEY_AUDIO_SAMPLERATE] ?? DEFAULT_AUDIO_SAMPLERATE;
+
+  Future<void> setAudioSampleRate(int value) async {
+    await _saveSetting(KEY_AUDIO_SAMPLERATE, value);
+  }
+
+  /// 输出设备的 mpv `Device.name`，空串表示跟随系统。
+  String get audioDeviceName =>
+      _cache[KEY_AUDIO_DEVICE] ?? DEFAULT_AUDIO_DEVICE;
+
+  Future<void> setAudioDeviceName(String value) async {
+    await _saveSetting(KEY_AUDIO_DEVICE, value);
   }
 
   /// 获取播放音质的文本描述

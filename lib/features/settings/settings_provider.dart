@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/features/settings/settings_manager.dart';
 
 final _settingsManagerProvider = settingsManagerProvider;
 
@@ -16,7 +17,6 @@ class SettingsState {
   final String tabletMode;
   final bool fluidBackground;
   final bool blurEffect;
-  final String audioOutputMode;
   final String audioQuality;
   final bool crossfadeEnabled;
   final int crossfadeDuration;
@@ -24,6 +24,19 @@ class SettingsState {
   final String lanSyncMode;
   final String lanSyncDeviceName;
   final String closeBehavior;
+
+  // 音频输出四项 + 免责说明。
+  //
+  // 这里**只镜像、不提供 setter**：四项的唯一写入口是 PlayerCoordinator
+  // （先落 SettingsManager 再推 A/B 两路播放器），UI 走
+  // `audioOutputCommandsProvider`；manager `notifyListeners` 之后
+  // [_onManagerChanged] 会把新值带回来。协议闸门是例外——它不进引擎，
+  // 由 [SettingsNotifier.acceptAudioOutputDisclaimer] 直接委托 manager。
+  final bool audioOutputDisclaimerAccepted;
+  final int audioDelayMs;
+  final bool audioExclusive;
+  final int audioSampleRate;
+  final String audioDeviceName;
 
   const SettingsState({
     this.notificationsEnabled = true,
@@ -34,7 +47,6 @@ class SettingsState {
     this.tabletMode = 'auto',
     this.fluidBackground = true,
     this.blurEffect = true,
-    this.audioOutputMode = 'audiotrack',
     this.audioQuality = '30280',
     this.crossfadeEnabled = false,
     this.crossfadeDuration = 3000,
@@ -42,6 +54,11 @@ class SettingsState {
     this.lanSyncMode = 'off',
     this.lanSyncDeviceName = '',
     this.closeBehavior = 'prompt',
+    this.audioOutputDisclaimerAccepted = false,
+    this.audioDelayMs = 0,
+    this.audioExclusive = false,
+    this.audioSampleRate = 0,
+    this.audioDeviceName = '',
   });
 
   SettingsState copyWith({
@@ -53,7 +70,6 @@ class SettingsState {
     String? tabletMode,
     bool? fluidBackground,
     bool? blurEffect,
-    String? audioOutputMode,
     String? audioQuality,
     bool? crossfadeEnabled,
     int? crossfadeDuration,
@@ -61,6 +77,11 @@ class SettingsState {
     String? lanSyncMode,
     String? lanSyncDeviceName,
     String? closeBehavior,
+    bool? audioOutputDisclaimerAccepted,
+    int? audioDelayMs,
+    bool? audioExclusive,
+    int? audioSampleRate,
+    String? audioDeviceName,
   }) {
     return SettingsState(
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
@@ -71,7 +92,6 @@ class SettingsState {
       tabletMode: tabletMode ?? this.tabletMode,
       fluidBackground: fluidBackground ?? this.fluidBackground,
       blurEffect: blurEffect ?? this.blurEffect,
-      audioOutputMode: audioOutputMode ?? this.audioOutputMode,
       audioQuality: audioQuality ?? this.audioQuality,
       crossfadeEnabled: crossfadeEnabled ?? this.crossfadeEnabled,
       crossfadeDuration: crossfadeDuration ?? this.crossfadeDuration,
@@ -79,6 +99,39 @@ class SettingsState {
       lanSyncMode: lanSyncMode ?? this.lanSyncMode,
       lanSyncDeviceName: lanSyncDeviceName ?? this.lanSyncDeviceName,
       closeBehavior: closeBehavior ?? this.closeBehavior,
+      audioOutputDisclaimerAccepted:
+          audioOutputDisclaimerAccepted ?? this.audioOutputDisclaimerAccepted,
+      audioDelayMs: audioDelayMs ?? this.audioDelayMs,
+      audioExclusive: audioExclusive ?? this.audioExclusive,
+      audioSampleRate: audioSampleRate ?? this.audioSampleRate,
+      audioDeviceName: audioDeviceName ?? this.audioDeviceName,
+    );
+  }
+
+  /// 从 manager 拉一份完整快照。[build] 与 [_onManagerChanged] 共用，
+  /// 否则加字段时两处必然漏一边（历史上漏过）。
+  factory SettingsState.fromManager(SettingsManager s) {
+    return SettingsState(
+      notificationsEnabled: s.notificationsEnabled,
+      appearance: s.appearance,
+      theme: s.theme,
+      autoPlayNext: s.autoPlayNext,
+      showLyrics: s.showLyrics,
+      tabletMode: s.tabletMode,
+      fluidBackground: s.fluidBackground,
+      blurEffect: s.blurEffect,
+      audioQuality: s.audioQuality,
+      crossfadeEnabled: s.crossfadeEnabled,
+      crossfadeDuration: s.crossfadeDuration,
+      preloadSeconds: s.preloadSeconds,
+      lanSyncMode: s.lanSyncMode,
+      lanSyncDeviceName: s.lanSyncDeviceName,
+      closeBehavior: s.closeBehavior,
+      audioOutputDisclaimerAccepted: s.audioOutputDisclaimerAccepted,
+      audioDelayMs: s.audioDelayMs,
+      audioExclusive: s.audioExclusive,
+      audioSampleRate: s.audioSampleRate,
+      audioDeviceName: s.audioDeviceName,
     );
   }
 }
@@ -89,46 +142,11 @@ class SettingsNotifier extends Notifier<SettingsState> {
     final s = ref.read(_settingsManagerProvider);
     s.addListener(_onManagerChanged);
     ref.onDispose(() => s.removeListener(_onManagerChanged));
-    return SettingsState(
-      notificationsEnabled: s.notificationsEnabled,
-      appearance: s.appearance,
-      theme: s.theme,
-      autoPlayNext: s.autoPlayNext,
-      showLyrics: s.showLyrics,
-      tabletMode: s.tabletMode,
-      fluidBackground: s.fluidBackground,
-      blurEffect: s.blurEffect,
-      audioOutputMode: s.audioOutputMode,
-      audioQuality: s.audioQuality,
-      crossfadeEnabled: s.crossfadeEnabled,
-      crossfadeDuration: s.crossfadeDuration,
-      preloadSeconds: s.preloadSeconds,
-      lanSyncMode: s.lanSyncMode,
-      lanSyncDeviceName: s.lanSyncDeviceName,
-      closeBehavior: s.closeBehavior,
-    );
+    return SettingsState.fromManager(s);
   }
 
   void _onManagerChanged() {
-    final s = ref.read(_settingsManagerProvider);
-    state = SettingsState(
-      notificationsEnabled: s.notificationsEnabled,
-      appearance: s.appearance,
-      theme: s.theme,
-      autoPlayNext: s.autoPlayNext,
-      showLyrics: s.showLyrics,
-      tabletMode: s.tabletMode,
-      fluidBackground: s.fluidBackground,
-      blurEffect: s.blurEffect,
-      audioOutputMode: s.audioOutputMode,
-      audioQuality: s.audioQuality,
-      crossfadeEnabled: s.crossfadeEnabled,
-      crossfadeDuration: s.crossfadeDuration,
-      preloadSeconds: s.preloadSeconds,
-      lanSyncMode: s.lanSyncMode,
-      lanSyncDeviceName: s.lanSyncDeviceName,
-      closeBehavior: s.closeBehavior,
-    );
+    state = SettingsState.fromManager(ref.read(_settingsManagerProvider));
   }
 
   Future<void> setNotificationsEnabled(bool value) async {
@@ -181,10 +199,13 @@ class SettingsNotifier extends Notifier<SettingsState> {
     await _save('blur_effect', value);
   }
 
-  Future<void> setAudioOutputMode(String? value) async {
-    if (value == null) return;
-    state = state.copyWith(audioOutputMode: value);
-    await _save('audio_output_mode', value);
+  /// 同意音频输出页的免责说明。不进引擎，直接委托 manager 落盘
+  /// （同 [setCloseBehavior] 的「委托 + 刷新其内存缓存」写法），
+  /// manager notify 之后 [_onManagerChanged] 会把新状态带回来。
+  Future<void> acceptAudioOutputDisclaimer() async {
+    await ref
+        .read(_settingsManagerProvider)
+        .setAudioOutputDisclaimerAccepted(true);
   }
 
   Future<void> setCrossfadeEnabled(bool value) async {

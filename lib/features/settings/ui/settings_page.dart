@@ -146,7 +146,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ListTile(
               leading: Icon(Icons.speaker, color: _getPrimaryColor(context)),
               title: Text('音频输出'),
-              subtitle: Text('输出模式等音频输出设置'),
+              subtitle: Text('延迟、独占模式、采样率与输出设备'),
               trailing: Icon(Icons.arrow_forward_ios_rounded),
               onTap: () {
                 ShellPageManager.instance.push(ShellPage.audioOutput);
