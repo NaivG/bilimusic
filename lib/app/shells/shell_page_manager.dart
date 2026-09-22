@@ -13,6 +13,7 @@ enum ShellPage {
   cookie,
   dataManagement,
   dataMigration,
+  audioBackend,
   login,
   favImport,
   roamOnboarding,

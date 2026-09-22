@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
-
 import 'package:bilimusic/shared/utils/platform_helper.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:bilimusic/app/app_lifecycle.dart';
@@ -12,7 +10,6 @@ import 'package:bilimusic/app/window_listener.dart';
 import 'package:flutter/material.dart';
 
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -23,7 +20,7 @@ import 'package:bilimusic/features/player/logic/audio_handler.dart';
 import 'package:bilimusic/core/network/network_config.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audio_service/audio_service.dart';
-import 'package:just_audio_media_kit/just_audio_media_kit.dart';
+import 'package:mpv_audio_kit/mpv_audio_kit.dart';
 
 import 'package:bilimusic/features/update/update_checker.dart';
 import 'package:bilimusic/features/update/ui/update_dialog.dart';
@@ -55,11 +52,7 @@ Future<void> _setupMainWindow() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (kIsWeb) {
-    // Web 端 sqflite FFI 初始化
-    databaseFactory = databaseFactoryFfiWeb;
-    debugPrint('Web 端 sqflite 为实验性功能，可能存在兼容性问题');
-  } else if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+  if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
     // 桌面端 sqflite FFI 初始化
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
@@ -110,10 +103,14 @@ Future<void> _bootstrapApp() async {
   // 初始化网络配置：只等读盘 + 旧格式迁移；设备标识 / bili_ticket 的自举放后台。
   await NetworkConfig.init(waitForBootstrap: false);
 
-  // 初始化just_audio_media_kit（仅在非Web和非Android/iOS平台上需要）
-  if (PlatformHelper.isDesktop) {
-    JustAudioMediaKit.ensureInitialized();
-  }
+  // 初始化 mpv_audio_kit（播放引擎）。
+  //
+  // **全平台无条件调用**，不再带 isDesktop 门：ensureInitialized 内部的平台
+  // quirk 要在 Linux/macOS/iOS 上执行 setlocale(LC_NUMERIC, "C")（libmpv 的
+  // API 契约，否则可能 abort），Windows/Android 跳过该步但孤儿句柄清理仍要
+  // 登记。位置保持在 ProviderContainer 之前——dualAudioServiceProvider 会
+  // 创建 Player。
+  MpvAudioKit.ensureInitialized();
 
   // 构造 Riverpod 容器，让依赖关系通过 ref.watch 编译期声明
   final container = ProviderContainer();
@@ -122,6 +119,11 @@ Future<void> _bootstrapApp() async {
 
   // 读取 playerCoordinator（首次读取会触发依赖图所有服务初始化）
   final coordinator = container.read(playerCoordinatorProvider);
+
+  // 音频焦点补偿：由 audio_session 在启动期补齐引擎侧焦点管理
+  //（configure + 打断/拔耳机监听）。Provider 是惰性的，
+  //必须在这里显式读取一次才会在首播前就绪。
+  container.read(audioFocusServiceProvider);
 
   // 播放列表初始化（等 AppDatabase.instance.database）。
   //

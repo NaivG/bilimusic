@@ -17,6 +17,7 @@ import 'package:bilimusic/features/update/ui/changelog_page.dart';
 import 'package:bilimusic/features/auth/ui/cookie_page.dart';
 import 'package:bilimusic/features/settings/ui/data_management_page.dart';
 import 'package:bilimusic/features/settings/ui/data_migration_page.dart';
+import 'package:bilimusic/features/diagnostics/ui/audio_backend_page.dart';
 import 'package:bilimusic/features/auth/ui/login_page.dart';
 import 'package:bilimusic/features/fav_sync/ui/fav_import_page.dart';
 import 'package:bilimusic/features/roam/ui/roam_onboarding_page.dart';
@@ -67,6 +68,8 @@ Widget buildShellPageContent({
       return const DataManagementPage();
     case ShellPage.dataMigration:
       return const DataMigrationPage();
+    case ShellPage.audioBackend:
+      return const AudioBackendPage();
     case ShellPage.favImport:
       return const FavImportPage();
     case ShellPage.login:

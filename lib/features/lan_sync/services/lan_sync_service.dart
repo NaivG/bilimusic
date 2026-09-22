@@ -13,7 +13,6 @@ import 'package:bilimusic/features/lan_sync/services/lan_session.dart';
 import 'package:bilimusic/features/lan_sync/services/mdns_service.dart';
 import 'package:bilimusic/features/lan_sync/services/pairing_service.dart';
 import 'package:bilimusic/features/player/logic/player_coordinator.dart';
-import 'package:bilimusic/shared/utils/platform_helper.dart';
 
 /// 远端对端推过来的"现在播放"快照。
 class RemoteNowPlaying {
@@ -114,8 +113,6 @@ class LanSyncService {
   Future<void> start() async {
     if (_started) return;
     _started = true;
-
-    if (PlatformHelper.isWeb) return;
 
     await identity.load();
     await pairing.load();

@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/domain/lan_sync_mode.dart';
 import 'package:bilimusic/features/lan_sync/ui/sync_page.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
-import 'package:bilimusic/shared/utils/platform_helper.dart';
 
 /// profile_page 上的"局域网同步"行。
 ///
@@ -15,9 +14,6 @@ class LanSyncSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Web 不支持 UDP/mDNS，直接隐藏入口
-    if (PlatformHelper.isWeb) return const SizedBox.shrink();
-
     final mode = LanSyncMode.fromString(
       ref.watch(settingsProvider).lanSyncMode,
     );

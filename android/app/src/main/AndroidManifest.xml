@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
@@ -59,6 +60,21 @@
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
             </intent-filter>
         </receiver>
+
+        <!-- mpv_audio_kit 的包清单会合并进它自己的媒体会话前台服务与 MEDIA_BUTTON
+             receiver（com.alesdrnz.mpv_audio_kit.media_session.MpvMediaSessionService /
+             androidx.media3.session.MediaButtonReceiver）。本应用的系统媒体会话由
+             audio_service 独占（MIGRATION_mpv_audio_kit.md R1/§5）：双 mediaPlayback
+             前台服务 + 双 MEDIA_BUTTON receiver 会让耳机键可能冷启动一个没有任何
+             会话的 mpv 服务。这里把包清单的这两条剥掉，audio_service 已提供等价能力。
+             验证：flutter build apk 后 aapt dump xmltree 确认合并结果只剩上面的
+             audio_service service / receiver。 -->
+        <service
+            android:name="com.alesdrnz.mpv_audio_kit.media_session.MpvMediaSessionService"
+            tools:node="remove" />
+        <receiver
+            android:name="androidx.media3.session.MediaButtonReceiver"
+            tools:node="remove" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

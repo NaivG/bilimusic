@@ -263,34 +263,32 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
             ),
 
-            // 局域网同步（仅非 Web 显示）
-            if (!PlatformHelper.isWeb) ...[
-              _buildSectionTitle('局域网同步 (Beta)'),
-              ListTile(
-                leading: Icon(
-                  Icons.wifi_tethering,
-                  color: _getPrimaryColor(context),
-                ),
-                title: const Text('同步模式'),
-                subtitle: Text(_lanSyncModeText(settings.lanSyncMode)),
-                trailing: DropdownButton<String>(
-                  value: settings.lanSyncMode,
-                  items: const [
-                    DropdownMenuItem(value: 'off', child: Text('关闭')),
-                    DropdownMenuItem(value: 'private', child: Text('私有')),
-                    DropdownMenuItem(value: 'public', child: Text('公共')),
-                  ],
-                  onChanged: notifier.setLanSyncMode,
-                ),
+            // 局域网同步
+            _buildSectionTitle('局域网同步 (Beta)'),
+            ListTile(
+              leading: Icon(
+                Icons.wifi_tethering,
+                color: _getPrimaryColor(context),
               ),
-              ListTile(
-                leading: Icon(Icons.devices, color: _getPrimaryColor(context)),
-                title: const Text('设备管理'),
-                subtitle: const Text('发现设备、配对、查看本机 PIN'),
-                trailing: const Icon(Icons.arrow_forward_ios_rounded),
-                onTap: openLanSyncPage,
+              title: const Text('同步模式'),
+              subtitle: Text(_lanSyncModeText(settings.lanSyncMode)),
+              trailing: DropdownButton<String>(
+                value: settings.lanSyncMode,
+                items: const [
+                  DropdownMenuItem(value: 'off', child: Text('关闭')),
+                  DropdownMenuItem(value: 'private', child: Text('私有')),
+                  DropdownMenuItem(value: 'public', child: Text('公共')),
+                ],
+                onChanged: notifier.setLanSyncMode,
               ),
-            ],
+            ),
+            ListTile(
+              leading: Icon(Icons.devices, color: _getPrimaryColor(context)),
+              title: const Text('设备管理'),
+              subtitle: const Text('发现设备、配对、查看本机 PIN'),
+              trailing: const Icon(Icons.arrow_forward_ios_rounded),
+              onTap: openLanSyncPage,
+            ),
 
             // 数据管理
             _buildSectionTitle('数据'),
@@ -301,6 +299,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               trailing: Icon(Icons.arrow_forward_ios_rounded),
               onTap: () {
                 ShellPageManager.instance.push(ShellPage.dataManagement);
+              },
+            ),
+
+            // 诊断
+            _buildSectionTitle('诊断'),
+            ListTile(
+              leading: Icon(
+                Icons.monitor_heart,
+                color: _getPrimaryColor(context),
+              ),
+              title: Text('音频后端'),
+              subtitle: Text('播放引擎 / 媒体会话 / 音频焦点现场与日志'),
+              trailing: Icon(Icons.arrow_forward_ios_rounded),
+              onTap: () {
+                ShellPageManager.instance.push(ShellPage.audioBackend);
               },
             ),
 

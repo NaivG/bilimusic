@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, Uint8List;
+import 'package:flutter/foundation.dart' show Uint8List;
 
 import 'dart:io' show File;
 
@@ -253,11 +253,7 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
 
       final jsonString = jsonEncode(exportData);
 
-      if (kIsWeb) {
-        _downloadWebFile(jsonString);
-      } else {
-        await _saveToFile(jsonString);
-      }
+      await _saveToFile(jsonString);
     } catch (e) {
       setState(() {
         _statusMessage = '导出失败: $e';
@@ -284,24 +280,6 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
         SettingsManager.DEFAULT_VERSION_CODE;
 
     return settings;
-  }
-
-  // Web端下载文件
-  @Deprecated('由于Web端跨域限制，目前无法实现完整功能')
-  void _downloadWebFile(String content) {
-    // 在Web上创建下载链接
-    final blob = Uint8List.fromList(utf8.encode(content));
-
-    // 显示成功消息
-    setState(() {
-      _statusMessage = '导出成功！请在浏览器下载中查看文件';
-      _isExporting = false;
-    });
-
-    // TODO: 实现Web端文件下载
-    // 这里需要使用js包来实现浏览器下载
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('Web端文件下载功能待完善')));
   }
 
   // 保存到文件（移动端/桌面端）

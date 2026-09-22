@@ -6,7 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   audio_service_win
   bonsoir_windows
   irondash_engine_context
-  media_kit_libs_windows_audio
+  mpv_audio_kit
   permission_handler_windows
   restart_app
   screen_retriever_windows
