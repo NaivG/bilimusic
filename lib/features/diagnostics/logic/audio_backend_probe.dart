@@ -319,9 +319,7 @@ class AudioBackendProbe {
     return DiagnosticRow(
       '两路播放器不打架',
       bothPlaying
-          ? (inFadeWindow
-                ? 'A=true B=true · crossfade 中'
-                : 'A=true B=true')
+          ? (inFadeWindow ? 'A=true B=true · crossfade 中' : 'A=true B=true')
           : 'A=$playerAPlayWhenReady B=$playerBPlayWhenReady',
       ok: !bothPlaying || inFadeWindow,
     );
