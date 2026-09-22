@@ -328,7 +328,7 @@ void main() {
   });
 
   group('AudioDspPage 冒烟', () {
-    testWidgets('默认渲染：开关 + 曲线 + 重置，无引擎写入路径', (tester) async {
+    testWidgets('默认渲染：开关 + 曲线 + 重置 + 预设入口，无引擎写入路径', (tester) async {
       await tester.pumpWidget(
         const ProviderScope(child: MaterialApp(home: AudioDspPage())),
       );
@@ -336,6 +336,8 @@ void main() {
       expect(find.text('启用均衡器'), findsOneWidget);
       expect(find.byType(EqualizerCurve), findsOneWidget);
       expect(find.text('重置'), findsOneWidget);
+      // 「预设」入口存在（PopupMenuButton 自身是 IconButton，不显示文本）。
+      expect(find.byTooltip('预设'), findsOneWidget);
       // 默认（未配置过 anequalizer）开关应为关
       final sw = tester.widget<SwitchListTile>(
         find.ancestor(

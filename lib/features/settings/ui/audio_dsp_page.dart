@@ -4,6 +4,7 @@ import 'package:mpv_audio_kit/mpv_audio_kit.dart' as mpv;
 
 import 'package:bilimusic/features/player/effects_providers.dart';
 import 'package:bilimusic/features/player/logic/equalizer_bands.dart';
+import 'package:bilimusic/features/player/logic/equalizer_presets.dart';
 import 'package:bilimusic/features/settings/ui/widgets/equalizer_curve.dart';
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 
@@ -85,6 +86,23 @@ class _AudioDspPageState extends ConsumerState<AudioDspPage> {
         );
   }
 
+  /// 应用内置预设：覆盖当前曲线，**不动**启用开关（用户决定开/关）。
+  ///
+  /// 走与「重置」一致的立即提交通路：清草稿 → 整包下发 anequalizer。
+  void _applyPreset(EqualizerPreset preset) {
+    setState(() => _draft = null);
+    final effects = ref.read(audioEffectsProvider);
+    ref
+        .read(audioEffectsCommandsProvider.notifier)
+        .setEffects(
+          effects.copyWith(
+            anequalizer: preset.model.toAnequalizerSettings(
+              enabled: _enabledOf(effects),
+            ),
+          ),
+        );
+  }
+
   EqualizerBandModel _currentModel() {
     final effects = ref.read(audioEffectsProvider);
     return _draft ??
@@ -124,12 +142,49 @@ class _AudioDspPageState extends ConsumerState<AudioDspPage> {
           const SizedBox(height: 4),
           Row(
             children: [
+              PopupMenuButton<EqualizerPreset>(
+                tooltip: '预设',
+                onSelected: _applyPreset,
+                // 较宽的弹窗让一行能放下「名称 + 描述」，避免文字截断。
+                padding: EdgeInsets.zero,
+                position: PopupMenuPosition.under,
+                itemBuilder: (context) => [
+                  for (final p in kBuiltInEqualizerPresets)
+                    PopupMenuItem<EqualizerPreset>(
+                      value: p,
+                      // 抬高默认行高，让两行文字不被裁。
+                      height: 56,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              p.name,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              p.description,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+                icon: const Icon(Icons.tune, size: 18),
+              ),
+              const Spacer(),
               TextButton.icon(
                 onPressed: _resetAll,
                 icon: const Icon(Icons.restart_alt, size: 18),
                 label: const Text('重置'),
               ),
-              const Spacer(),
               Text(
                 '8 段 · ±12 dB',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
