@@ -462,32 +462,48 @@ class _AudioDspPageState extends ConsumerState<AudioDspPage> {
                   padding: EdgeInsets.zero,
                   position: PopupMenuPosition.under,
                   itemBuilder: (context) => [
-                    for (final p in kBuiltInEqualizerPresets)
+                    for (final group in kEqualizerPresetGroups) ...[
+                      // 组标题：禁用的菜单项只作分隔，不参与选择。
                       PopupMenuItem<EqualizerPreset>(
-                        value: p,
-                        height: 56,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                p.name,
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(fontWeight: FontWeight.w600),
+                        enabled: false,
+                        height: 32,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          group.title,
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w600,
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                p.description,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ],
-                          ),
                         ),
                       ),
+                      for (final p in group.presets)
+                        PopupMenuItem<EqualizerPreset>(
+                          value: p,
+                          height: 56,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  p.name,
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  p.description,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
                   ],
                   icon: const Icon(Icons.tune, size: 18),
                 ),

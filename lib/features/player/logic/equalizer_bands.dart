@@ -196,6 +196,13 @@ class EqualizerBandModel {
     return EqualizerBandModel(frequencies: freqs, gainsDb: gains);
   }
 
+  /// 当前频点是否合法：全局界内、严格递增且满足最小间隔。
+  ///
+  /// 预设数据用它做构造期自检（assert），坏数据在开发/测试阶段即
+  /// 暴露，而不是下发到引擎侧才炸；引擎侧恢复的坏数据则走
+  /// [fromAnequalizerSettings] 的「退回平坦默认」路径。
+  bool get hasValidFrequencies => _isValid(_frequencies);
+
   /// 频点合法性校验：全局界内、严格递增且满足最小间隔。
   static bool _isValid(List<double> freqs) {
     for (var i = 0; i < freqs.length; i++) {
