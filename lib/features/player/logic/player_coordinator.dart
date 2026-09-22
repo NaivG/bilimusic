@@ -6,12 +6,14 @@ import 'package:bilimusic/features/roam/models/roam_style.dart';
 import 'package:flutter/foundation.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/player/models/player_state.dart';
+import 'package:bilimusic/features/player/logic/audio_effects_service.dart';
 import 'package:bilimusic/features/player/logic/dual_audio_service.dart';
 import 'package:bilimusic/features/playlist/playlist_service.dart';
 import 'package:bilimusic/features/player/logic/notification_service.dart';
 import 'package:bilimusic/core/network/api_service.dart';
 import 'package:bilimusic/features/roam/roaming_service.dart';
 import 'package:bilimusic/features/settings/settings_manager.dart';
+import 'package:mpv_audio_kit/mpv_audio_kit.dart' as mpv;
 
 /// 漫游会话：进入 roam 时创建，退出 roam 时置 null。
 ///
@@ -33,6 +35,7 @@ class _RoamSession {
 /// 职责: 协调各个服务的工作,提供统一的播放器接口,管理双播放器的切换和预加载
 class PlayerCoordinator {
   final DualAudioService _audioService;
+  final AudioEffectsService _audioEffectsService;
   final SettingsManager _settingsManager;
   final PlaylistService _playlistService;
   final NotificationService _notificationService;
@@ -70,12 +73,14 @@ class PlayerCoordinator {
 
   PlayerCoordinator({
     required DualAudioService audioService,
+    required AudioEffectsService audioEffectsService,
     required SettingsManager settingsManager,
     required PlaylistService playlistService,
     required NotificationService notificationService,
     required ApiService apiService,
     required RoamingService roamingService,
   }) : _audioService = audioService,
+       _audioEffectsService = audioEffectsService,
        _settingsManager = settingsManager,
        _playlistService = playlistService,
        _notificationService = notificationService,
@@ -107,7 +112,25 @@ class PlayerCoordinator {
     await _playlistService.initialize();
     await _settingsManager.init();
     _audioService.initialize();
+    // 音频效果链路的启动恢复：读盘（幂等）→ 首次整包下发。从这一笔起
+    // typed bundle 接管两个播放器的 mpv af 链（首笔写入即使全默认也会
+    // 覆盖 mpv.conf 可能残留的 af，包内 _afChainWritten 语义）。
+    await _audioEffectsService.initialize();
+    await _audioService.setAudioEffects(_audioEffectsService.effects.value);
     debugPrint('[PlayerCoordinator] 初始化完成');
+  }
+
+  /// 音频效果的统一写入口。
+  ///
+  /// 链路：调用方（UI / 遥控 / 预设）→ 这里 →
+  /// [AudioEffectsService]（内存状态 + 独立持久化，不进 SettingsManager）
+  /// → [DualAudioService]（A/B 两路播放器整包下发）。
+  ///
+  /// 先落服务再推引擎：效果包是事实来源，引擎写入失败（已被
+  /// DualAudioService 吞掉只记日志）不丢用户配置，下次启动重放。
+  Future<void> setAudioEffects(mpv.AudioEffects effects) async {
+    await _audioEffectsService.update(effects);
+    await _audioService.setAudioEffects(effects);
   }
 
   /// 播放音乐

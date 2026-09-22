@@ -506,6 +506,46 @@ class DualAudioService {
     }
   }
 
+  // ============ 音频效果（DSP af 链） ============
+
+  /// 最近一次下发给两个播放器的效果包（诊断用；事实来源在
+  /// `AudioEffectsService`）。
+  mpv.AudioEffects _audioEffects = const mpv.AudioEffects();
+  mpv.AudioEffects get audioEffects => _audioEffects;
+
+  /// 把整包效果原子地下发给 **两个** 播放器。
+  ///
+  /// **两路都必须写**：crossfade 交换角色后原 standby 变 active，只写
+  /// 一路会出现「切歌后效果凭空消失」的幽灵问题。`af` 是 per-instance
+  /// 属性、不随 loadfile 丢失，启动时由 PlayerCoordinator 恢复一次即可，
+  /// 不需要在每次 open 时重放。
+  ///
+  /// typed bundle 拥有整条 af 链（`setRawProperty('af', ...)` 会被包
+  /// 拒绝）；本类的首笔写入即使全默认也必须发出——包内 `_afChainWritten`
+  /// 语义要求第一次写覆盖 mpv.conf 里可能残留的 af。
+  ///
+  /// 单路失败只记日志不抛：效果包的事实来源在 AudioEffectsService，
+  /// 一路失败（另一路成功）会导致两路 af 不一致的瞬时偏差，但 crossfade
+  /// 只在两路都成功应用时才听感一致；下次启动会整体重放。调用方
+  /// （PlayerCoordinator）拿到的是已吞错的 Future，可安全 await。
+  Future<void> setAudioEffects(mpv.AudioEffects effects) async {
+    if (!_initialized) {
+      debugPrint('[DualAudioService] 未初始化，跳过效果下发');
+      return;
+    }
+    _audioEffects = effects;
+    try {
+      await _activePlayer.player.setAudioEffects(effects);
+    } catch (e) {
+      debugPrint('[DualAudioService] 活跃播放器应用效果失败: $e');
+    }
+    try {
+      await _standbyPlayer.player.setAudioEffects(effects);
+    } catch (e) {
+      debugPrint('[DualAudioService] 待命播放器应用效果失败: $e');
+    }
+  }
+
   // ============ 播放控制方法 ============
 
   /// 播放源是网络流还是本地文件路径（保留给回归测试用的纯判据）。

@@ -7,6 +7,7 @@ import 'package:bilimusic/core/network/passport_store.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/core/network/api_service.dart';
 import 'package:bilimusic/features/player/logic/audio_focus_service.dart';
+import 'package:bilimusic/features/player/logic/audio_effects_service.dart';
 import 'package:bilimusic/features/player/logic/dual_audio_service.dart';
 import 'package:bilimusic/features/player/logic/sleep_timer_service.dart';
 import 'package:bilimusic/features/lyrics/lyrics_service.dart';
@@ -68,6 +69,23 @@ final pipServiceProvider = Provider<PipService>((ref) {
 
 final dualAudioServiceProvider = Provider<DualAudioService>((ref) {
   final svc = DualAudioService();
+  svc.initialize();
+  ref.onDispose(svc.dispose);
+  return svc;
+});
+
+// ==================== 音频效果 ====================
+
+/// 音频效果（DSP af 链）的独立状态与持久化仓库。
+///
+/// 效果包是嵌套 JSON、配置项多，与扁平设置不同源，单独落盘
+/// （键见 [AudioEffectsService.prefsKey]）。
+/// 引擎应用链路在 PlayerCoordinator：
+/// 调用方 → PlayerCoordinator.setAudioEffects → DualAudioService（两路）。
+final audioEffectsServiceProvider = Provider<AudioEffectsService>((ref) {
+  final svc = AudioEffectsService();
+  // 幂等；PlayerCoordinator.initialize 也会 await 一次，提前触发读盘
+  // 只是收窄「UI 先于恢复读到默认值」的窗口。
   svc.initialize();
   ref.onDispose(svc.dispose);
   return svc;
@@ -145,6 +163,7 @@ final roamingServiceProvider = Provider<RoamingService>((ref) {
 final playerCoordinatorProvider = Provider<PlayerCoordinator>((ref) {
   final pc = PlayerCoordinator(
     audioService: ref.watch(dualAudioServiceProvider),
+    audioEffectsService: ref.watch(audioEffectsServiceProvider),
     settingsManager: ref.watch(settingsManagerProvider),
     playlistService: ref.watch(playlistServiceProvider),
     notificationService: ref.watch(notificationServiceProvider),

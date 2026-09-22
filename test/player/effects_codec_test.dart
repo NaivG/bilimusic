@@ -1,0 +1,151 @@
+import 'dart:convert';
+
+import 'package:bilimusic/features/player/logic/effects_codec.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mpv_audio_kit/mpv_audio_kit.dart';
+
+void main() {
+  group('EffectsCodec.decode', () {
+    test('空 Map 解码出全禁用的默认包（curated 槽位全部补齐）', () {
+      final e = EffectsCodec.decode(const {});
+
+      expect(e.superequalizer?.enabled, false);
+      expect(e.superequalizer?.params, isEmpty);
+      expect(e.acompressor?.enabled, false);
+      expect(e.acompressor?.threshold, AcompressorSettings.thresholdDefault);
+      expect(e.bass?.enabled, false);
+      expect(e.bass?.gain, 0.0);
+      expect(e.bass?.frequency, BassSettings.frequencyDefault);
+      expect(e.treble?.enabled, false);
+      expect(e.crossfeed?.enabled, false);
+      expect(e.crystalizer?.enabled, false);
+      expect(e.extrastereo?.enabled, false);
+      expect(e.asubboost?.enabled, false);
+      expect(e.loudnorm?.enabled, false);
+      expect(e.loudnorm?.linear, true);
+    });
+
+    test('部分键缺失时缺什么补什么默认值（向前向后兼容）', () {
+      final e = EffectsCodec.decode({
+        'bass': {'enabled': true, 'gain': 5.5},
+      });
+
+      expect(e.bass?.enabled, true);
+      expect(e.bass?.gain, 5.5);
+      // 缺失的键回默认
+      expect(e.bass?.frequency, BassSettings.frequencyDefault);
+      // 未提到的槽位仍是禁用默认
+      expect(e.treble?.enabled, false);
+      expect(e.loudnorm?.enabled, false);
+    });
+
+    test('类型不对的值不抛错，回默认', () {
+      final e = EffectsCodec.decode({
+        'bass': '不是 Map',
+        'eq': {'params': '也不是 Map'},
+      });
+
+      expect(e.bass?.enabled, false);
+      expect(e.superequalizer?.params, isEmpty);
+    });
+
+    test('eq params 的 num 值归一成 double，非法键忽略', () {
+      final e = EffectsCodec.decode({
+        'eq': {
+          'enabled': true,
+          'params': {'1b': 2, '9b': 0.5, 'bad': 'x'},
+        },
+      });
+
+      expect(e.superequalizer?.enabled, true);
+      expect(e.superequalizer?.params['1b'], 2.0);
+      expect(e.superequalizer?.params['9b'], 0.5);
+      expect(e.superequalizer?.params.containsKey('bad'), false);
+    });
+  });
+
+  group('EffectsCodec.encode', () {
+    test('编码结果是纯 JSON 可序列化的 Map', () {
+      final base = EffectsCodec.decode(const {});
+      final edited = base.copyWith(
+        bass: (base.bass!).copyWith(enabled: true, gain: 3.5, frequency: 120),
+      );
+
+      final json = EffectsCodec.encode(edited);
+      // 不抛 + 形状稳定
+      expect(jsonEncode(json), isA<String>());
+      expect(json['bass'], {'enabled': true, 'gain': 3.5, 'frequency': 120.0});
+    });
+
+    test('disabled 但配置过参数的槽位保留参数（关闭不丢配置）', () {
+      final base = EffectsCodec.decode(const {});
+      final edited = base.copyWith(
+        bass: (base.bass!).copyWith(enabled: false, gain: 6),
+      );
+
+      final decoded = EffectsCodec.decode(EffectsCodec.encode(edited));
+      expect(decoded.bass?.enabled, false);
+      expect(decoded.bass?.gain, 6.0);
+    });
+  });
+
+  group('EffectsCodec roundtrip', () {
+    test('默认补齐 → 编辑 → 编码 → 解码 保真', () {
+      final base = EffectsCodec.decode(const {});
+      final edited = base.copyWith(
+        superequalizer: (base.superequalizer!).copyWith(
+          enabled: true,
+          params: const {'1b': 1.5, '9b': 0.8, '18b': 0.6},
+        ),
+        acompressor: (base.acompressor!).copyWith(
+          enabled: true,
+          threshold: 0.1,
+          ratio: 4,
+          attack: 15,
+          release: 300,
+          makeup: 2,
+          knee: 3,
+        ),
+        bass: (base.bass!).copyWith(enabled: true, gain: 3.5, frequency: 120),
+        treble: (base.treble!).copyWith(
+          enabled: true,
+          gain: -2,
+          frequency: 4000,
+        ),
+        crossfeed: (base.crossfeed!).copyWith(enabled: true, strength: 0.4),
+        crystalizer: (base.crystalizer!).copyWith(enabled: true, i: 3),
+        extrastereo: (base.extrastereo!).copyWith(enabled: true, m: 3),
+        asubboost: (base.asubboost!).copyWith(enabled: true, boost: 4),
+        loudnorm: (base.loudnorm!).copyWith(
+          enabled: true,
+          i: -16,
+          lra: 11,
+          tp: -1.5,
+          linear: false,
+        ),
+      );
+
+      final decoded = EffectsCodec.decode(EffectsCodec.encode(edited));
+      expect(decoded, edited);
+    });
+
+    test('经 JSON 串一次往返（真实落盘路径）仍然保真', () {
+      final base = EffectsCodec.decode(const {});
+      final edited = base.copyWith(
+        loudnorm: (base.loudnorm!).copyWith(enabled: true, i: -18),
+      );
+
+      final raw = jsonEncode(EffectsCodec.encode(edited));
+      final restored = EffectsCodec.decode(
+        (jsonDecode(raw) as Map).cast<String, Object?>(),
+      );
+      expect(restored, edited);
+    });
+
+    test('与当前一致的重复提交不会改值（配合服务层相等短路）', () {
+      final e = EffectsCodec.decode(const {});
+      final again = EffectsCodec.decode(EffectsCodec.encode(e));
+      expect(again, e);
+    });
+  });
+}
