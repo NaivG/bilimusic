@@ -9,6 +9,10 @@ import 'package:mpv_audio_kit/mpv_audio_kit.dart';
 /// 只编码 UI 暴露的模块；bundle 里其余效果保持禁用默认值。解码空表 /
 /// 缺键的 Map 时缺什么补什么默认值，格式向前向后兼容——以后新增效果
 /// 配置项，只需扩展 encode/decode 两个方法，旧数据无损。
+///
+/// `aneq` 是本项目自己的扩展（8 段可调频段均衡器，见
+/// `EqualizerBandModel`），mpv_studio 的编解码器没有这个键；
+/// 旧版本落盘数据缺 `aneq` 时按默认值补齐。
 class EffectsCodec {
   EffectsCodec._();
 
@@ -23,6 +27,7 @@ class EffectsCodec {
     // 让落盘格式形状稳定；disabled 但配置过参数的槽位原样保留参数
     // （关闭只把它从 af 链摘掉，不丢参数）。
     final superequalizer = e.superequalizer ?? const SuperequalizerSettings();
+    final anequalizer = e.anequalizer ?? const AnequalizerSettings();
     final acompressor = e.acompressor ?? const AcompressorSettings();
     final bass = e.bass ?? const BassSettings();
     final treble = e.treble ?? const TrebleSettings();
@@ -36,6 +41,10 @@ class EffectsCodec {
         'enabled': superequalizer.enabled,
         'params': superequalizer.params,
       },
+      // 8 段可调频段均衡器（设置 → 音频 → 音效与均衡器）。频点 / 增益
+      // 存在 params CSV 里，带宽由 EqualizerBandModel 按切分实时推导，
+      // 所以这里只透传 params 字符串即可。
+      'aneq': {'enabled': anequalizer.enabled, 'params': anequalizer.params},
       'comp': {
         'enabled': acompressor.enabled,
         'threshold': acompressor.threshold,
@@ -82,6 +91,7 @@ class EffectsCodec {
 
   static AudioEffects decode(Map<String, Object?> json) {
     final eq = _m(json['eq']);
+    final aneq = _m(json['aneq']);
     final comp = _m(json['comp']);
     final bass = _m(json['bass']);
     final treble = _m(json['treble']);
@@ -100,6 +110,10 @@ class EffectsCodec {
       superequalizer: SuperequalizerSettings(
         enabled: _b(eq['enabled'], false),
         params: eqParams,
+      ),
+      anequalizer: AnequalizerSettings(
+        enabled: _b(aneq['enabled'], false),
+        params: (aneq['params'] as String?) ?? '',
       ),
       acompressor: AcompressorSettings(
         enabled: _b(comp['enabled'], false),

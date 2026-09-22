@@ -62,6 +62,35 @@ void main() {
       expect(e.superequalizer?.params['9b'], 0.5);
       expect(e.superequalizer?.params.containsKey('bad'), false);
     });
+
+    test('缺 aneq 键的旧数据按默认值补齐（向前兼容）', () {
+      final e = EffectsCodec.decode({
+        'eq': {'enabled': true},
+      });
+
+      expect(e.anequalizer?.enabled, false);
+      expect(e.anequalizer?.params, isEmpty);
+    });
+
+    test('aneq 槽位编码 / 解码往返（params 字符串透传）', () {
+      final settings = const AnequalizerSettings()
+          .withBands([
+            const AnequalizerBand(frequency: 32, bandwidth: 18, gain: 6),
+            const AnequalizerBand(frequency: 10000, bandwidth: 4000, gain: -3),
+          ])
+          .copyWith(enabled: true);
+
+      final json = EffectsCodec.encode(AudioEffects(anequalizer: settings));
+      expect(json['aneq'], {'enabled': true, 'params': settings.params});
+
+      final decoded = EffectsCodec.decode(json);
+      expect(decoded.anequalizer?.enabled, true);
+      expect(decoded.anequalizer?.params, settings.params);
+      // params 里的频段信息无损（经扩展解析回来仍是两段）
+      expect(decoded.anequalizer!.bands.length, 2);
+      expect(decoded.anequalizer!.bands[0].frequency, 32.0);
+      expect(decoded.anequalizer!.bands[1].gain, -3.0);
+    });
   });
 
   group('EffectsCodec.encode', () {
@@ -122,6 +151,13 @@ void main() {
           lra: 11,
           tp: -1.5,
           linear: false,
+        ),
+        anequalizer: (base.anequalizer!).copyWith(
+          enabled: true,
+          params: (const AnequalizerSettings()).withBands(const [
+            AnequalizerBand(frequency: 64, bandwidth: 36, gain: 4),
+            AnequalizerBand(frequency: 3000, bandwidth: 1500, gain: -2),
+          ]).params,
         ),
       );
 

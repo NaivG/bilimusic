@@ -108,8 +108,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
             ],
 
-            // 音质设置
-            _buildSectionTitle('音质'),
+            // 音频设置
+            _buildSectionTitle('音频'),
             ListTile(
               leading: Icon(
                 Icons.high_quality,
@@ -133,6 +133,24 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ],
                 onChanged: notifier.setAudioQuality,
               ),
+            ),
+            ListTile(
+              leading: Icon(Icons.equalizer, color: _getPrimaryColor(context)),
+              title: Text('音效与均衡器'),
+              subtitle: Text('8 段可调频段可视化均衡器'),
+              trailing: Icon(Icons.arrow_forward_ios_rounded),
+              onTap: () {
+                ShellPageManager.instance.push(ShellPage.audioDsp);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.speaker, color: _getPrimaryColor(context)),
+              title: Text('音频输出'),
+              subtitle: Text('输出模式等音频输出设置'),
+              trailing: Icon(Icons.arrow_forward_ios_rounded),
+              onTap: () {
+                ShellPageManager.instance.push(ShellPage.audioOutput);
+              },
             ),
 
             // 外观设置
@@ -238,30 +256,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
               ),
             ],
-
-            // 音频设置（仅在安卓平台可用）
-            _buildSectionTitle('音频'),
-            ListTile(
-              leading: Icon(Icons.volume_up, color: _getPrimaryColor(context)),
-              title: Text('音频输出模式'),
-              subtitle: Text(
-                ref
-                    .read(settingsManagerProvider)
-                    .getAudioOutputModeText(settings.audioOutputMode),
-              ),
-              enabled: PlatformHelper.isAndroid, // 仅在安卓平台启用
-              trailing: DropdownButton<String>(
-                value: settings.audioOutputMode,
-                items: [
-                  DropdownMenuItem(value: 'aaudio', child: Text('AAudio (推荐)')),
-                  DropdownMenuItem(
-                    value: 'audiotrack',
-                    child: Text('AudioTrack'),
-                  ),
-                ],
-                onChanged: notifier.setAudioOutputMode,
-              ),
-            ),
 
             // 局域网同步
             _buildSectionTitle('局域网同步 (Beta)'),

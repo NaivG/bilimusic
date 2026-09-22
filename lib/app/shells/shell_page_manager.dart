@@ -14,6 +14,8 @@ enum ShellPage {
   dataManagement,
   dataMigration,
   audioBackend,
+  audioDsp,
+  audioOutput,
   login,
   favImport,
   roamOnboarding,
