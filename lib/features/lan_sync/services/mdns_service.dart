@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart';
 import 'package:bilimusic/domain/lan_sync_mode.dart';
 import 'package:bilimusic/domain/peer_device.dart';
 import 'package:bilimusic/features/lan_sync/services/device_identity.dart';
-import 'package:bilimusic/shared/utils/platform_helper.dart';
 
 /// Bonsoir 包装：mDNS 广播 + 浏览。
 ///
@@ -22,7 +21,6 @@ import 'package:bilimusic/shared/utils/platform_helper.dart';
 ///   - [peerStream]：发现 / 解析完成 / 更新时发出 `PeerDevice`
 ///   - [lostStream]：对端消失时发出对端 id
 ///
-/// Web 平台无 mDNS；[start] 在 [PlatformHelper.isWeb] 下静默 no-op。
 class MdnsService {
   static const String serviceType = '_bilimusic-sync._tcp';
   static const int defaultPort = 47890;
@@ -55,8 +53,6 @@ class MdnsService {
     required LanSyncMode mode,
     int port = defaultPort,
   }) async {
-    if (PlatformHelper.isWeb) return;
-
     if (mode == LanSyncMode.off) {
       await stop();
       return;

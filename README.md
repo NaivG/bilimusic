@@ -18,7 +18,7 @@
 </div>
 
 
-BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。基于 Flutter 一次覆盖 Windows、Linux、Android，对 macOS、Web 提供实验性支持，同时支持 Xiaomi Vela 端。它不复制视频平台，只做播放器该做的事：搜索、整理、连续播放与跨设备同步。
+BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。基于 Flutter 一次覆盖 Windows、Linux、Android，对 macOS 提供实验性支持，同时支持 Xiaomi Vela 端。它不复制视频平台，只做播放器该做的事：搜索、整理、连续播放与跨设备同步。
 
 <div align="center">
   <sub>如果这个项目对你有帮助，欢迎 ⭐ Star 支持一下！</sub>
@@ -88,10 +88,10 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 | **Android** 12+ | ✅ 稳定 | 按设备架构选择 APK（`arm64-v8a` / `armeabi-v7a` / `x86_64`），或全平台 AAB |
 | **macOS 10.15+, with Metal Support** | ⚠️ 实验性 | CI 产出 ad-hoc 签名的未公证 `.app`，也可从源码构建 |
 | **iOS 13+** | ❓ 未经测试 | 可从源码构建无签名版本 |
-| **Web** | ⚠️ 实验性 | 解压后部署到 Web 服务器，需配置 CORS |
+| **Web** | ❌ 停止支持 | **1.9.2 为最后一个支持 Web 的版本**，解压后部署到 Web 服务器，需配置 CORS |
 | **Xiaomi Vela** | ✅ 稳定 | 适用于小米、红米手表系列（API 2+），下载安装`.rpk`，详见[小米 Vela 手表端](#小米-vela-手表端) |
 
-关于应用内更新：Android / Windows / Linux 支持；Web 与 macOS 跳转 Releases（见[更新与版本](#更新与版本)）。
+关于应用内更新：Android / Windows / Linux 支持；macOS 跳转 Releases（见[更新与版本](#更新与版本)）。
 
 ---
 
@@ -102,7 +102,7 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 前往 [Releases](https://github.com/NaivG/bilimusic/releases) 下载对应平台的最新版本，解压运行即可。
 
 - Android / Windows / Linux：启动时自动检查更新。
-- macOS / Web：需手动重新下载。
+- macOS：需手动重新下载。
 
 Linux 需要安装依赖：
 
@@ -131,13 +131,7 @@ flutter build linux
 flutter build apk
 flutter build macos
 flutter build ios
-
-# Web 需先生成 sqlite 资源
-flutter pub run sqflite_common_ffi_web:setup --force
-flutter build web
 ```
-
-> Web 端 sqlite 资源（`web/sqlite3.wasm`、`web/sqflite_sw.js`）不入库，必须由 `setup` 命令生成，否则构建产物无法初始化本地数据库。
 
 ### 终端客户端（TUI）
 
@@ -275,7 +269,7 @@ npm run build                     # 构建 RPK（aiot build）
 
 - **Android**：经 `flutter_app_update` 下载 APK 并拉起系统安装页；Android 13+ 会先申请通知权限以展示下载进度。
 - **Windows / Linux**：下载便携版 zip，校验 sha256 后原地替换文件并重启。
-- **Web / macOS**：不支持应用内更新，点击后跳转 Releases 页面手动下载。
+- **macOS**：不支持应用内更新，点击后跳转 Releases 页面手动下载。
 
 ---
 
@@ -364,7 +358,7 @@ bin/
 | [media_kit_libs_audio](https://pub.dev/packages/media_kit_libs_audio) | 桌面端 libmpv 原生库（TUI 亦复用其 libmpv 产物） |
 | [http](https://pub.dev/packages/http) | 统一 HTTP 客户端 |
 | [bonsoir](https://pub.dev/packages/bonsoir) | mDNS 局域网设备发现 |
-| [sqflite](https://pub.dev/packages/sqflite)（含 ffi / ffi_web 实现） | 本地 SQLite 数据存储 |
+| [sqflite](https://pub.dev/packages/sqflite)（含 ffi 实现） | 本地 SQLite 数据存储 |
 | [flutter_lyric](https://pub.dev/packages/flutter_lyric) · [lyrics_now](https://github.com/NaivG/lyrics_now) | 歌词渲染与歌词源检索 |
 | [color_thief_dart](https://pub.dev/packages/color_thief_dart) | 封面主色提取 |
 | [gt3_flutter_plugin](https://pub.dev/packages/gt3_flutter_plugin) | 登录极验验证码 |

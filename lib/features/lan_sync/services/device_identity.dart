@@ -89,7 +89,7 @@ class DeviceIdentity {
       PlatformType.windows => 'windows',
       PlatformType.macos => 'macos',
       PlatformType.linux => 'linux',
-      PlatformType.web => 'web',
+      PlatformType.unknown => 'unknown',
     };
   }
 }

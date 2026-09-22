@@ -41,7 +41,6 @@ dependencies:
   shared_preferences: ^2.5.3
   sqflite: ^2.4.2+1
   sqflite_common_ffi: ^2.4.0+3 # for Windows and Linux
-  sqflite_common_ffi_web: ^1.1.1 # for Experimental Web
   flutter_riverpod: ^3.3.2
   http: ^1.5.0
   mpv_audio_kit: ^0.4.6
@@ -99,19 +98,6 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   file: ^7.0.1
   sqlite3: ^3.6.0
-
-# nativeapi 0.3.0 unconditional imports dart:ffi, which is unavailable on
-# Flutter Web. tray_manager 0.7.0 rebuilt itself on top of nativeapi, so the
-# dart2js build for web breaks before user code is reached. We point to a
-# fork (../nativeapi-flutter, branch bilimusic/web-compat) that splits the
-# nativeapi barrel into a real io implementation and an inert web stub, so
-# web builds succeed and non-web platforms keep their existing behaviour.
-dependency_overrides:
-  nativeapi:
-    git: { url: https://github.com/NaivG/nativeapi-flutter.git, ref: bilimusic/web-compat, path: packages/nativeapi }
-  # cnativeapi 不 override：pub.dev 0.3.1 自带完整的 C++ 源与原生构建链，
-  # 桌面端 nativeapi_io.dart 仍然能 import 它。web 路径因为 nativeapi 条件
-  # 路由绕开 cnativeapi，根本不会被编译，所以它的 dart:ffi 导入不相关。
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

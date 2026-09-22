@@ -38,7 +38,6 @@ body:
         - Android
         - macOS
         - iOS
-        - Web
         - TUI（终端客户端）
     validations:
       required: true

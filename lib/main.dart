@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
-
 import 'package:bilimusic/shared/utils/platform_helper.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:bilimusic/app/app_lifecycle.dart';
@@ -12,7 +10,6 @@ import 'package:bilimusic/app/window_listener.dart';
 import 'package:flutter/material.dart';
 
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -55,11 +52,7 @@ Future<void> _setupMainWindow() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (kIsWeb) {
-    // Web 端 sqflite FFI 初始化
-    databaseFactory = databaseFactoryFfiWeb;
-    debugPrint('Web 端 sqflite 为实验性功能，可能存在兼容性问题');
-  } else if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+  if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
     // 桌面端 sqflite FFI 初始化
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
