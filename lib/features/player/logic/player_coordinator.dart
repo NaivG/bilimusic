@@ -6,12 +6,14 @@ import 'package:bilimusic/features/roam/models/roam_style.dart';
 import 'package:flutter/foundation.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/player/models/player_state.dart';
+import 'package:bilimusic/features/player/logic/audio_effects_service.dart';
 import 'package:bilimusic/features/player/logic/dual_audio_service.dart';
 import 'package:bilimusic/features/playlist/playlist_service.dart';
 import 'package:bilimusic/features/player/logic/notification_service.dart';
 import 'package:bilimusic/core/network/api_service.dart';
 import 'package:bilimusic/features/roam/roaming_service.dart';
 import 'package:bilimusic/features/settings/settings_manager.dart';
+import 'package:mpv_audio_kit/mpv_audio_kit.dart' as mpv;
 
 /// 漫游会话：进入 roam 时创建，退出 roam 时置 null。
 ///
@@ -33,6 +35,7 @@ class _RoamSession {
 /// 职责: 协调各个服务的工作,提供统一的播放器接口,管理双播放器的切换和预加载
 class PlayerCoordinator {
   final DualAudioService _audioService;
+  final AudioEffectsService _audioEffectsService;
   final SettingsManager _settingsManager;
   final PlaylistService _playlistService;
   final NotificationService _notificationService;
@@ -70,12 +73,14 @@ class PlayerCoordinator {
 
   PlayerCoordinator({
     required DualAudioService audioService,
+    required AudioEffectsService audioEffectsService,
     required SettingsManager settingsManager,
     required PlaylistService playlistService,
     required NotificationService notificationService,
     required ApiService apiService,
     required RoamingService roamingService,
   }) : _audioService = audioService,
+       _audioEffectsService = audioEffectsService,
        _settingsManager = settingsManager,
        _playlistService = playlistService,
        _notificationService = notificationService,
@@ -107,7 +112,104 @@ class PlayerCoordinator {
     await _playlistService.initialize();
     await _settingsManager.init();
     _audioService.initialize();
+    // 音频效果链路的启动恢复：读盘（幂等）→ 首次整包下发。从这一笔起
+    // typed bundle 接管两个播放器的 mpv af 链（首笔写入即使全默认也会
+    // 覆盖 mpv.conf 可能残留的 af，包内 _afChainWritten 语义）。
+    await _audioEffectsService.initialize();
+    await _audioService.setAudioEffects(_audioEffectsService.effects.value);
+    // 音频输出配置的启动重放（延迟 / 独占 / 采样率 / 设备）。此刻还没
+    // loadfile，AO 尚未打开，属性写入会在首次开 AO 时生效，不会断音。
+    await _replayAudioOutputSettings();
     debugPrint('[PlayerCoordinator] 初始化完成');
+  }
+
+  /// 把 SettingsManager 里的四项输出配置推给 A/B 两路播放器。
+  ///
+  /// **整体 try/catch 只记日志**：盘上一个坏值（手改 prefs 塞了个非法
+  /// 采样率之类）不该让协调器的 initialize 抛出去，更不该挡住启动——
+  /// 音频输出配错最坏是「不出声」，启动失败是「整个 App 白屏」。
+  Future<void> _replayAudioOutputSettings() async {
+    try {
+      await _audioService.setAudioDelay(
+        Duration(milliseconds: _settingsManager.audioDelayMs),
+      );
+      await _audioService.setAudioExclusive(_settingsManager.audioExclusive);
+      await _audioService.setAudioSampleRate(_settingsManager.audioSampleRate);
+      await _audioService.setAudioDevice(
+        _deviceByName(_settingsManager.audioDeviceName),
+      );
+    } catch (e) {
+      debugPrint('[PlayerCoordinator] 恢复音频输出配置失败（按当前值继续）: $e');
+    }
+  }
+
+  /// 设置里存的设备名 → mpv 的 [mpv.Device]。空串表示跟随系统。
+  ///
+  /// `description` 由 mpv 在回读时从自己的 `audio-device-list` 里查出来
+  /// （见 mpv_audio_kit 的 `_updateActiveAudioDevice`，传进去的会被忽略），
+  /// 这里填 name 只是为了让 `toString` 不至于是个空串。
+  mpv.Device _deviceByName(String name) => name.isEmpty
+      ? mpv.Device.auto
+      : mpv.Device(name: name, description: name);
+
+  // ============ 音频输出的统一写入口 ============
+  //
+  // 链路与 [setAudioEffects] 完全一致：调用方 → 这里 → SettingsManager
+  // （落盘，事实来源）→ DualAudioService（A/B 两路下发）。
+  //
+  // **先落服务再推引擎**：引擎写入失败时用户配置不丢，下次启动由
+  // [_replayAudioOutputSettings] 重放。四项各自独立下发，不要合并成
+  // 一个整包 apply——独占 / 采样率 / 设备任一变更都会重建 AO（短暂静音），
+  // 改个延迟不该顺手把设备重开一遍。
+
+  /// 音频延迟（毫秒，正数＝声音延后）。
+  Future<void> setAudioDelayMs(int ms) async {
+    await _settingsManager.setAudioDelayMs(ms);
+    await _audioService.setAudioDelay(
+      Duration(milliseconds: _settingsManager.audioDelayMs),
+    );
+  }
+
+  /// 硬件直通 / 独占模式（仅 Windows / Linux / macOS）。
+  Future<void> setAudioExclusive(bool value) async {
+    await _settingsManager.setAudioExclusive(value);
+    await _audioService.setAudioExclusive(value);
+  }
+
+  /// 强制 DAC 采样率，`0` 表示跟随音源。
+  Future<void> setAudioSampleRate(int rate) async {
+    await _settingsManager.setAudioSampleRate(rate);
+    await _audioService.setAudioSampleRate(rate);
+  }
+
+  /// 输出设备的 mpv `Device.name`，空串表示跟随系统。
+  Future<void> setAudioDeviceName(String name) async {
+    await _settingsManager.setAudioDeviceName(name);
+    await _audioService.setAudioDevice(_deviceByName(name));
+  }
+
+  /// 四项一起回默认。**不动免责闸门**——它是「是否看过风险提示」，
+  /// 跟配置值是两件事，恢复默认不该把协议重新弹一遍。
+  Future<void> resetAudioOutputDefaults() async {
+    final m = _settingsManager;
+    await m.setAudioDelayMs(SettingsManager.DEFAULT_AUDIO_DELAY_MS);
+    await m.setAudioExclusive(SettingsManager.DEFAULT_AUDIO_EXCLUSIVE);
+    await m.setAudioSampleRate(SettingsManager.DEFAULT_AUDIO_SAMPLERATE);
+    await m.setAudioDeviceName(SettingsManager.DEFAULT_AUDIO_DEVICE);
+    await _replayAudioOutputSettings();
+  }
+
+  /// 音频效果的统一写入口。
+  ///
+  /// 链路：调用方（UI / 遥控 / 预设）→ 这里 →
+  /// [AudioEffectsService]（内存状态 + 独立持久化，不进 SettingsManager）
+  /// → [DualAudioService]（A/B 两路播放器整包下发）。
+  ///
+  /// 先落服务再推引擎：效果包是事实来源，引擎写入失败（已被
+  /// DualAudioService 吞掉只记日志）不丢用户配置，下次启动重放。
+  Future<void> setAudioEffects(mpv.AudioEffects effects) async {
+    await _audioEffectsService.update(effects);
+    await _audioService.setAudioEffects(effects);
   }
 
   /// 播放音乐
@@ -915,6 +1017,9 @@ class PlayerCoordinator {
     _notificationService.updatePlaybackState(
       playing: _audioService.isPlaying,
       position: _audioService.currentPosition,
+      // 首次填上真实缓冲位置（mpv demuxer-cache-time）；换引擎前这里恒为
+      // Duration.zero。
+      bufferedPosition: _audioService.currentBufferedPosition,
       controls: controls,
     );
   }

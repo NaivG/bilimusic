@@ -4,7 +4,6 @@ import 'dart:math';
 import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_app_update/azhon_app_update.dart';
 import 'package:flutter_app_update/result_model.dart';
 import 'package:flutter_app_update/update_model.dart';
@@ -44,7 +43,7 @@ class UpdateInstaller {
 
   /// 当前平台是否支持应用内更新
   bool get isSupported =>
-      !kIsWeb && (Platform.isAndroid || Platform.isWindows || Platform.isLinux);
+      Platform.isAndroid || Platform.isWindows || Platform.isLinux;
 
   /// 解析当前平台应下载的资产（按 CI 产物命名规则匹配）
   Future<ReleaseAsset> resolveCurrentPlatformAsset() async {

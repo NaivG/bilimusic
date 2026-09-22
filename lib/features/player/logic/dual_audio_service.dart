@@ -4,11 +4,12 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
-import 'package:just_audio/just_audio.dart' as ja;
+import 'package:mpv_audio_kit/mpv_audio_kit.dart' as mpv;
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bilimusic/domain/play_mode.dart';
 import 'package:bilimusic/features/player/models/player_state.dart';
+import 'package:bilimusic/features/settings/logic/audio_output_options.dart';
 
 /// 播放器角色枚举
 enum PlayerRole {
@@ -18,7 +19,7 @@ enum PlayerRole {
 
 /// 播放器状态信息
 class PlayerStateInfo {
-  final ja.AudioPlayer player;
+  final mpv.PlayerApi player;
   PlayerRole role;
   double volume;
   String? currentUrl;
@@ -40,8 +41,19 @@ class PlayerStateInfo {
   }
 }
 
-/// 双播放器音频服务
-/// 管理两个AudioPlayer实例交替工作,实现真正的交叉淡入淡出
+/// 双播放器音频服务（引擎：mpv_audio_kit / libmpv）
+/// 管理两个Player实例交替工作,实现真正的交叉淡入淡出
+///
+/// 与 just_audio 的关键差异（换引擎后的常驻约定）：
+/// - 系统媒体会话（通知栏 / SMTC / MPRIS）由 `audio_service` 独占，
+///   两个 Player 不得调 `setMediaSession`（每进程单例，第二个持有者抛
+///   StateError）；
+/// - 播放/暂停认 `playWhenReady`（意图轴），`playing` 仅代表"真正出声"，
+///   seek/缓冲期间会瞬抖；
+/// - `stream.*` 不回放当前值，订阅前必须用 `player.state` 播种；
+/// - `open()` 返回只等 loadfile 回复，就绪以 `seekCompleted` 或首个非零
+///   `duration` 为准；
+/// - mpv 音量是 0–100 百分比，应用层 0.0–1.0 由 `_toMpvVolume` 单点换算。
 class DualAudioService {
   // 两个播放器实例(使用late延迟初始化)
   late PlayerStateInfo _playerA;
@@ -56,8 +68,18 @@ class DualAudioService {
   // 空串表示尚未取流（UI 回退显示设置里的请求音质）。
   final ValueNotifier<String> _actualQualityId = ValueNotifier('');
 
+  // ── 音频输出观测（音频输出页消费）────────────────────────────────
+  // A/B 两路播放器的 `audio-device-list` 并集。mpv 在 core 初始化之后才
+  // 报真设备，起步阶段是空列表——页面据此显示「设备列表尚未就绪」。
+  final ValueNotifier<List<mpv.Device>> audioDevices = ValueNotifier(const []);
+
+  // 当前实际生效的输出设备。mpv 请求的设备不在时会**回退到 auto**，
+  // 这个回退必须让页面看见，否则用户会以为「我明明选了耳机」。
+  final ValueNotifier<mpv.Device> audioDevice = ValueNotifier(mpv.Device.auto);
+
   // 待命播放器的初始音量种子。equal-power 曲线从 0 起，AudioTrack 长时静音会卡顿，
   // 所以保留一个极小非零值让 AudioTrack 持续激活；0.01 听感上无影响。
+  // （换算成 mpv 百分比是 1.0，语义不变。）
   final double _standbyVolume = 0.01;
   // 音频轨道启动的额外延迟。配合上面的极小种子音量，50ms 已足够稳定。
   final int _audioTrackStartupDelay = 50;
@@ -80,19 +102,55 @@ class DualAudioService {
 
   DualAudioService();
 
-  /// 初始化两个播放器实例
+  // initialize() 是否已跑过（见其注释里的幂等说明）。
+  bool _initialized = false;
+
+  /// 应用层音量是 0.0–1.0 线性值，mpv 的 `volume` 是 0–100 百分比。
+  /// 全链路**只此一处换算**，所有调用点一律传应用层值。
+  /// `volume-max` 默认 130，应用层 clamp 后天然 ≤100，不需要 setVolumeMax。
+  double _toMpvVolume(double v01) => v01 * 100;
+
+  /// 创建播放器。**两个 Player 都不得调用 setMediaSession**：
+  /// mpv_audio_kit 的媒体会话是每进程单例（Player._mediaSessionOwner），
+  /// A/B 双播放器下第二个持有者会直接抛 StateError。系统媒体会话
+  /// （通知栏 / SMTC / MPRIS）由 audio_service 独占。
+  ///
+  /// `resumePlayback` 显式关闭：音乐播放器语义是「每次 open 都从头播」，
+  /// 绝不静默续播（虽然我们从不调 writeResumeConfig，这是双保险）。
+  /// `autoPlay` 保持默认 false：open 只装载不播放，播放由 play() 显式发起。
+  mpv.PlayerApi _createPlayer() => mpv.Player(
+    configuration: const mpv.PlayerConfiguration(resumePlayback: false),
+  );
+
+  /// 初始化两个播放器实例。
+  ///
+  /// **幂等**：组合根（`dualAudioServiceProvider`）和 `PlayerCoordinator.initialize`
+  /// 会各调一次。历史上第二次调用会默默重建一对播放器、丢弃旧的一对——
+  /// just_audio 时代只是白建两个 AudioPlayer，mpv 时代等于白养两份 libmpv
+  /// 句柄与事件 isolate（还要重复挂监听），必须拦下。
   void initialize() {
+    if (_initialized) {
+      debugPrint('[DualAudioService] 已初始化，跳过重复 initialize');
+      return;
+    }
+    _initialized = true;
     _playerA = PlayerStateInfo(
-      player: ja.AudioPlayer(),
+      player: _createPlayer(),
       role: PlayerRole.active,
     );
     _playerB = PlayerStateInfo(
-      player: ja.AudioPlayer(),
+      player: _createPlayer(),
       role: PlayerRole.standby,
     );
 
     _setupPlayerListeners(_playerA);
     _setupPlayerListeners(_playerB);
+
+    // 两路的设备订阅都挂好之后，再从同步快照建立基线（stream.* 不回放
+    // 当前值）。此后任何一侧的 audio-device-list / audio-device 变化都会
+    // 重走一遍这两行的逻辑，晚一步的事件覆盖这里的初值即可。
+    _publishAudioDevices();
+    audioDevice.value = _activePlayer.player.state.audioDevice;
 
     // 异步加载持久化音量（不影响初始化流程）
     _loadPersistedVolume();
@@ -107,8 +165,8 @@ class DualAudioService {
       final v = (prefs.getDouble(KEY_VOLUME) ?? DEFAULT_VOLUME).clamp(0.0, 1.0);
       _numericalValue.value = v;
       if (v > 0) _previousNonZeroValue = v;
-      await _activePlayer.player.setVolume(v);
-      await _standbyPlayer.player.setVolume(v);
+      await _activePlayer.player.setVolume(_toMpvVolume(v));
+      await _standbyPlayer.player.setVolume(_toMpvVolume(v));
       debugPrint('[DualAudioService] 恢复音量 $v');
     } catch (e) {
       debugPrint('[DualAudioService] 恢复音量失败 $e');
@@ -125,51 +183,140 @@ class DualAudioService {
     return _playerA.role == PlayerRole.standby ? _playerA : _playerB;
   }
 
-  /// 为播放器设置监听器
+  /// 为播放器建立监听。
+  ///
+  /// 与 just_audio 的 BehaviorSubject 相反，mpv_audio_kit 的 `stream.*`
+  /// **不回放当前值**——订阅瞬间不会收到当前值，只收之后的增量。
+  /// 所以末尾必须先播种一次；否则 crossfade 交换角色、standby 复用时
+  /// 状态机会停在旧值。事件回调里一律读 `player.state` 同步快照（包保证
+  /// 快照先于对应流事件更新）。
   void _setupPlayerListeners(PlayerStateInfo playerInfo) {
-    // 监听播放状态
-    final stateSub = playerInfo.player.playerStateStream.listen((state) {
-      _handlePlayerStateChange(playerInfo, state);
-    });
+    final player = playerInfo.player;
 
-    // 监听播放位置(使用节流减少更新频率)
-    final positionSub = playerInfo.player.positionStream
-        .transform(
-          ThrottleStreamTransformer<Duration>(
-            (_) => Stream<Duration>.periodic(
-              const Duration(milliseconds: 200),
-              (_) => Duration.zero,
+    // 播放/暂停意图轴：状态机、通知栏都认它；跨 seek 与缓冲稳定。
+    _subscriptions.add(
+      player.stream.playWhenReady.listen(
+        (_) => _recomputeAudioState(playerInfo),
+      ),
+    );
+    // 实际出声轴 + 两种"卡"。`playing` 在 seek/缓冲期间会瞬抖，
+    // 绝不拿来判播放/暂停，只在派生状态时经由 state 快照参与 spinner 判定。
+    _subscriptions.add(
+      player.stream.playing.listen((_) => _recomputeAudioState(playerInfo)),
+    );
+    _subscriptions.add(
+      player.stream.buffering.listen((_) => _recomputeAudioState(playerInfo)),
+    );
+    _subscriptions.add(
+      player.stream.pausedForCache.listen(
+        (_) => _recomputeAudioState(playerInfo),
+      ),
+    );
+    // 自然 EOF（keep-open 策略下 mpv 停在末尾，completed 是权威"播完"信号）。
+    _subscriptions.add(
+      player.stream.completed.listen((_) => _recomputeAudioState(playerInfo)),
+    );
+    // 每次 loadfile / seek 后 mpv 重新初始化播放环（PLAYBACK_RESTART）
+    // 都会触发 seekCompleted——「文件就绪」的权威信号，standby 的 isReady 由它置位。
+    _subscriptions.add(
+      player.stream.seekCompleted.listen(
+        (_) => _markReadyIfPreloaded(playerInfo),
+      ),
+    );
+    // duration 也是 standby 就绪的兜底信号（首个非零时长）；同时喂给 UI。
+    _subscriptions.add(
+      player.stream.duration.listen((duration) {
+        _markReadyIfPreloaded(playerInfo);
+        if (playerInfo.role == PlayerRole.active && duration > Duration.zero) {
+          _duration.value = duration;
+        }
+      }),
+    );
+    // 监听播放位置(保留 200ms 节流；mpv 侧约 30Hz)
+    _subscriptions.add(
+      player.stream.position
+          .transform(
+            ThrottleStreamTransformer<Duration>(
+              (_) => Stream<Duration>.periodic(
+                const Duration(milliseconds: 200),
+                (_) => Duration.zero,
+              ),
             ),
-          ),
-        )
-        .listen((position) {
-          if (playerInfo.role == PlayerRole.active) {
-            _position.value = position;
-            onPositionChanged?.call(position);
-          }
-        });
+          )
+          .listen((position) {
+            if (playerInfo.role == PlayerRole.active) {
+              _position.value = position;
+              onPositionChanged?.call(position);
+            }
+          }),
+    );
+    // 引擎侧终态错误（装载/解码失败）：mpv 的 open() 只等命令回复，装载失败
+    // 是异步 end-file 事件——不像 just_audio 的 setUrl 会直接抛。不接住的话
+    // active 会永远停在 PlayerBuffering，standby 的 isReady 永不置位。
+    _subscriptions.add(
+      player.stream.error.listen(
+        (error) => _handleEngineError(playerInfo, error),
+      ),
+    );
 
-    // 监听时长变化
-    final durationSub = playerInfo.player.durationStream.listen((duration) {
-      if (duration != null && playerInfo.role == PlayerRole.active) {
-        _duration.value = duration;
-      }
-    });
+    // 输出设备清单：两路各报一份 `audio-device-list`，每次事件都按两路的
+    // 当前快照重算并集（增删都能反映，不只是追加）。
+    _subscriptions.add(
+      player.stream.audioDevices.listen((_) => _publishAudioDevices()),
+    );
+    // 当前设备只认**活跃那路**的事件：`_broadcast` 总是把两路设成同一个值，
+    // 由活跃路回读既不会串，也能把 mpv 的「请求的设备不存在，回退到 auto」
+    // 如实带出来。
+    _subscriptions.add(
+      player.stream.audioDevice.listen((device) {
+        if (playerInfo.role == PlayerRole.active) audioDevice.value = device;
+      }),
+    );
 
-    _subscriptions.addAll([stateSub, positionSub, durationSub]);
+    _seedFromState(playerInfo);
   }
 
-  /// 处理播放器状态变化
-  void _handlePlayerStateChange(
-    PlayerStateInfo playerInfo,
-    ja.PlayerState state,
-  ) {
-    final processingState = state.processingState;
-    final isPlaying = state.playing;
+  /// 用 A/B 两路的当前快照重算 [audioDevices]。
+  ///
+  /// 取并集而不是「谁最后报的听谁的」：两路的清单应该一致，但更新时机
+  /// 会差一拍，取后者会让下拉在 crossfade 前后闪一下。
+  void _publishAudioDevices() {
+    if (!_initialized) return;
+    audioDevices.value = mergeAudioDevices([
+      _playerA.player.state.audioDevices,
+      _playerB.player.state.audioDevices,
+    ]);
+  }
 
-    // 检测播放完成
-    if (processingState == ja.ProcessingState.completed &&
-        playerInfo.role == PlayerRole.active) {
+  /// 播种：mpv 的流不回放当前值，订阅之后先从同步快照推一次派生状态，
+  /// 让状态机 / _position / _duration 从真实状态出发，而不是停在默认值。
+  void _seedFromState(PlayerStateInfo playerInfo) {
+    _recomputeAudioState(playerInfo);
+    if (playerInfo.role == PlayerRole.active) {
+      final state = playerInfo.player.state;
+      _position.value = state.position;
+      if (state.duration > Duration.zero) {
+        _duration.value = state.duration;
+      }
+    }
+  }
+
+  /// 从 mpv 的同步状态快照派生应用层状态机（只在事件到达时调用）。
+  ///
+  /// 轴语义：
+  /// - `playWhenReady`  = 播放/暂停意图（按钮、通知栏、状态机都认它）
+  /// - `playing`        = 真正出声（mpv `core-idle` 取反；seek/缓冲期间瞬抖）
+  /// - `buffering`      = start-file → file-loaded 的装载缓冲
+  /// - `pausedForCache` = 播放中网络断流卡顿（mpv 的 paused-for-cache）
+  /// - `completed`      = 自然 EOF
+  void _recomputeAudioState(PlayerStateInfo playerInfo) {
+    final state = playerInfo.player.state;
+
+    // 检测播放完成——只认活跃播放器，且只在进入该状态时触发一次
+    // （completed 流本身去重，这里再加状态机守卫，防止重复回调 Coordinator）。
+    if (state.completed &&
+        playerInfo.role == PlayerRole.active &&
+        _playerState.value is! PlayerCompleted) {
       debugPrint('[DualAudioService] 检测到播放完成');
       _playerState.value = PlayerCompleted();
       onPlaybackCompleted?.call();
@@ -179,24 +326,24 @@ class DualAudioService {
     // 更新内部状态(只报告活跃播放器的状态)
     if (playerInfo.role == PlayerRole.active) {
       AudioState newState;
-      if (processingState == ja.ProcessingState.completed) {
+      if (state.completed) {
+        // 已处于 PlayerCompleted 时的后续事件维持 stopped，不翻回 paused
         newState = AudioState.stopped;
-      } else if (processingState == ja.ProcessingState.buffering ||
-          processingState == ja.ProcessingState.loading) {
+      } else if (state.buffering || state.pausedForCache) {
         newState = AudioState.buffering;
-      } else if (processingState == ja.ProcessingState.ready ||
-          processingState == ja.ProcessingState.idle) {
-        // ready或idle状态下，根据isPlaying判断
-        newState = isPlaying ? AudioState.playing : AudioState.paused;
       } else {
-        // 其他状态（如idle）
-        newState = isPlaying ? AudioState.playing : AudioState.paused;
+        // 意图轴：playWhenReady 才是"要不要播"。mpv 的 `playing` 是实际出声，
+        // seek/缓冲期间会瞬抖——用它会让 UI 每次 seek 闪一下暂停。
+        newState = state.playWhenReady ? AudioState.playing : AudioState.paused;
       }
 
       // 只在状态真正改变时才更新，避免不必要的通知
       if (_audioStateOf(_playerState.value) != newState) {
         debugPrint(
-          '[DualAudioService] 状态变更 ${_audioStateOf(_playerState.value)} -> $newState (processing=$processingState, playing=$isPlaying)',
+          '[DualAudioService] 状态变更 ${_audioStateOf(_playerState.value)} -> $newState '
+          '(intent=${state.playWhenReady}, output=${state.playing}, '
+          'buffering=${state.buffering}, stalled=${state.pausedForCache}, '
+          'completed=${state.completed})',
         );
         _syncPlayerStateFromAudio(newState);
         onStateChanged?.call(newState);
@@ -204,7 +351,49 @@ class DualAudioService {
     }
   }
 
-  /// 从 just_audio 的 AudioState 推导 PlayerState，保留 fadeCountdown
+  /// standby 的就绪门。
+  ///
+  /// `open()` 返回只代表 loadfile 回复落地、文件还没解码；若照旧立即置位
+  /// isReady，crossfade 会在静音里开始（fade 进去听不到声）。现在由两个
+  /// 就绪信号置位：
+  /// - `seekCompleted`（PLAYBACK_RESTART，每次 loadfile 后必触发一次）；
+  /// - 首个非零 `duration`（FILE_LOADED 时到达，兜底）。
+  /// 只认「预加载过且未就绪」的 standby，避免 seek / 角色复用误置位。
+  void _markReadyIfPreloaded(PlayerStateInfo playerInfo) {
+    if (playerInfo.role != PlayerRole.standby) return;
+    if (playerInfo.currentUrl == null || playerInfo.isReady) return;
+    if (playerInfo.player.state.duration > Duration.zero) {
+      playerInfo.isReady = true;
+      debugPrint(
+        '[DualAudioService] 待命播放器就绪 (${playerInfo.player.state.duration})',
+      );
+    }
+  }
+
+  /// 引擎装载失败的兜底：mpv 把装载失败异步化（end-file error 事件），
+  /// 不接住的话 active 会永远停在 PlayerBuffering。stop 的 reason=0 不进
+  /// 这条流（只报真失败），所以正常停止/切歌不会误触。
+  void _handleEngineError(
+    PlayerStateInfo playerInfo,
+    mpv.MpvPlayerError error,
+  ) {
+    if (playerInfo.currentUrl == null) return;
+    if (error is! mpv.MpvEndFileError) return;
+    debugPrint(
+      '[DualAudioService] 装载失败 (${playerInfo.role}): ${error.message} '
+      '(code=${error.code})',
+    );
+    if (playerInfo.role == PlayerRole.standby) {
+      playerInfo.isReady = false;
+    } else if (_playerState.value is! PlayerIdle &&
+        _playerState.value is! PlayerCompleted) {
+      // 与 playActive 的 catch 同一语义：回到 Idle，让 UI 可重试
+      _playerState.value = PlayerIdle();
+      onStateChanged?.call(AudioState.stopped);
+    }
+  }
+
+  /// 从 AudioState 推导 PlayerState，保留 fadeCountdown
   void _syncPlayerStateFromAudio(AudioState audioState) {
     final current = _playerState.value;
     final fadeCountdown = current is PlayerPlaying
@@ -241,10 +430,10 @@ class DualAudioService {
   // ============ 公开API ============
 
   /// 获取活跃播放器
-  ja.AudioPlayer get activePlayer => _activePlayer.player;
+  mpv.PlayerApi get activePlayer => _activePlayer.player;
 
   /// 获取待命播放器
-  ja.AudioPlayer get standbyPlayer => _standbyPlayer.player;
+  mpv.PlayerApi get standbyPlayer => _standbyPlayer.player;
 
   /// 获取当前播放状态（PlayerState sealed class 单一状态机）
   ValueListenable<PlayerState> get playerState => _playerState;
@@ -264,23 +453,39 @@ class DualAudioService {
   /// 当前实际播放流的音质代码（30xxx）；空串表示尚未取流。
   ValueListenable<String> get actualQualityId => _actualQualityId;
 
-  /// 获取是否正在播放
-  bool get isPlaying => _activePlayer.player.playing;
+  /// 获取是否正在播放 —— 意图轴。
+  ///
+  /// 通知栏 / OS 媒体控件认这个，不认"真正出声"的 `playing`
+  /// （那会在 seek 与缓冲期间瞬抖）。
+  bool get isPlaying => _activePlayer.player.state.playWhenReady;
 
   /// 获取当前播放位置(同步)
-  Duration get currentPosition => _activePlayer.player.position;
+  Duration get currentPosition => _activePlayer.player.state.position;
 
   /// 获取当前音频时长(同步)
-  Duration get currentDuration =>
-      _activePlayer.player.duration ?? Duration.zero;
+  Duration get currentDuration => _activePlayer.player.state.duration;
+
+  /// 当前已缓冲到的绝对位置（mpv `demuxer-cache-time`）。
+  ///
+  /// mpv_audio_kit 的 `PlayerState.buffer` 文档明确：这是从曲目开头的绝对
+  /// 时间戳，可直接用作 audio_service 的 bufferedPosition（不要再加
+  /// position）。取与 position 的较大者，避免 demuxer 抖动瞬间出现
+  /// bufferedPosition < updatePosition；未装载时两者都是零，天然退化为
+  /// 旧行为。
+  Duration get currentBufferedPosition {
+    final state = _activePlayer.player.state;
+    final position = state.position;
+    final buffer = state.buffer;
+    return buffer > position ? buffer : position;
+  }
 
   /// 获取播放进度百分比
   double get progressPercentage {
-    final dur = _activePlayer.player.duration;
-    if (dur == null || dur.inMilliseconds == 0) {
+    final state = _activePlayer.player.state;
+    if (state.duration.inMilliseconds == 0) {
       return 0.0;
     }
-    return _activePlayer.player.position.inMilliseconds / dur.inMilliseconds;
+    return state.position.inMilliseconds / state.duration.inMilliseconds;
   }
 
   /// 是否处于淡入淡出中（替代旧 isCrossfading + crossfadeState）
@@ -296,6 +501,15 @@ class DualAudioService {
 
   /// 当前实际输出音量 = 用户值 × 相对比率
   double get effectiveVolume => _numericalValue.value * _relativeVolume.value;
+
+  /// 当前 fade 相对比率（实际输出 = 用户音量 × 它）。诊断用。
+  double get relativeVolume => _relativeVolume.value;
+
+  /// 诊断用：当前出声的那路播放器（测试页读引擎快照，不参与播放逻辑）。
+  PlayerStateInfo get activePlayerInfo => _activePlayer;
+
+  /// 诊断用：待命（预加载）的那路播放器。
+  PlayerStateInfo get standbyPlayerInfo => _standbyPlayer;
 
   /// 写状态机：替代 setPreloading + 直接赋值 crossfadeState/_isCrossfading
   void setPlayerState(PlayerState state) {
@@ -315,8 +529,8 @@ class DualAudioService {
     _numericalValue.value = v;
     if (v > 0) _previousNonZeroValue = v;
     final effective = v * _relativeVolume.value;
-    await _activePlayer.player.setVolume(effective);
-    await _standbyPlayer.player.setVolume(effective);
+    await _activePlayer.player.setVolume(_toMpvVolume(effective));
+    await _standbyPlayer.player.setVolume(_toMpvVolume(effective));
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setDouble(KEY_VOLUME, v);
@@ -334,30 +548,130 @@ class DualAudioService {
     }
   }
 
+  // ============ 音频效果（DSP af 链） ============
+
+  /// 最近一次下发给两个播放器的效果包（诊断用；事实来源在
+  /// `AudioEffectsService`）。
+  mpv.AudioEffects _audioEffects = const mpv.AudioEffects();
+  mpv.AudioEffects get audioEffects => _audioEffects;
+
+  /// 把整包效果原子地下发给 **两个** 播放器。
+  ///
+  /// **两路都必须写**：crossfade 交换角色后原 standby 变 active，只写
+  /// 一路会出现「切歌后效果凭空消失」的幽灵问题。`af` 是 per-instance
+  /// 属性、不随 loadfile 丢失，启动时由 PlayerCoordinator 恢复一次即可，
+  /// 不需要在每次 open 时重放。
+  ///
+  /// typed bundle 拥有整条 af 链（`setRawProperty('af', ...)` 会被包
+  /// 拒绝）；本类的首笔写入即使全默认也必须发出——包内 `_afChainWritten`
+  /// 语义要求第一次写覆盖 mpv.conf 里可能残留的 af。
+  ///
+  /// 单路失败只记日志不抛：效果包的事实来源在 AudioEffectsService，
+  /// 一路失败（另一路成功）会导致两路 af 不一致的瞬时偏差，但 crossfade
+  /// 只在两路都成功应用时才听感一致；下次启动会整体重放。调用方
+  /// （PlayerCoordinator）拿到的是已吞错的 Future，可安全 await。
+  Future<void> setAudioEffects(mpv.AudioEffects effects) async {
+    if (!_initialized) {
+      debugPrint('[DualAudioService] 未初始化，跳过效果下发');
+      return;
+    }
+    _audioEffects = effects;
+    try {
+      await _activePlayer.player.setAudioEffects(effects);
+    } catch (e) {
+      debugPrint('[DualAudioService] 活跃播放器应用效果失败: $e');
+    }
+    try {
+      await _standbyPlayer.player.setAudioEffects(effects);
+    } catch (e) {
+      debugPrint('[DualAudioService] 待命播放器应用效果失败: $e');
+    }
+  }
+
+  // ============ 音频输出（延迟 / 独占 / 采样率 / 设备）============
+
+  /// 把一次输出属性写下发给 **A/B 两路**播放器。
+  ///
+  /// 与 [setAudioEffects] 同构，差别只在错误策略：效果包那边单路失败
+  /// 永远吞掉（事实来源在服务层，下次启动整体重放）；这里**两路都失败
+  /// 才 rethrow**——用户刚在设置页点了一下，一个 SnackBar 比静默失败诚实，
+  /// 而单路成功仍然值得继续用（另一路下次启动补上）。
+  ///
+  /// `_broadcast` 也是「逐字段下发」的落点：`audio-exclusive` /
+  /// `audio-samplerate` / `audio-device` 任一变更都会让 mpv **重建 AO**
+  /// （短暂静音），`audio-delay` 不会，所以调用方每次只推改动的那一项，
+  /// 不要图省事打包成一个 apply()。
+  Future<void> _broadcast(
+    String what,
+    Future<void> Function(mpv.PlayerApi player) apply,
+  ) async {
+    if (!_initialized) {
+      debugPrint('[DualAudioService] 未初始化，跳过$what 下发');
+      return;
+    }
+    Object? firstError;
+    var succeeded = false;
+    for (final info in [_activePlayer, _standbyPlayer]) {
+      try {
+        await apply(info.player);
+        succeeded = true;
+      } catch (e) {
+        firstError ??= e;
+        debugPrint('[DualAudioService] $what 下发失败（${info.role.name}）: $e');
+      }
+    }
+    if (!succeeded && firstError != null) throw firstError;
+  }
+
+  /// 音频延迟（正数＝声音延后）。改它不重建 AO，不产生断音。
+  Future<void> setAudioDelay(Duration delay) =>
+      _broadcast('音频延迟', (p) => p.setAudioDelay(delay));
+
+  /// 硬件直通 / 独占模式（WASAPI · ALSA · CoreAudio）。重建 AO。
+  Future<void> setAudioExclusive(bool exclusive) =>
+      _broadcast('硬件直通', (p) => p.setAudioExclusive(exclusive));
+
+  /// 强制 DAC 采样率，`0` 为自动。重建 AO。
+  Future<void> setAudioSampleRate(int rate) =>
+      _broadcast('采样率', (p) => p.setAudioSampleRate(rate));
+
+  /// 输出设备（mpv 的 `Device.name`）。重建 AO；请求的设备不在时 mpv 会
+  /// 回退到 auto，回读走 [audioDevice]。
+  Future<void> setAudioDevice(mpv.Device device) =>
+      _broadcast('输出设备', (p) => p.setAudioDevice(device));
+
   // ============ 播放控制方法 ============
 
-  /// 播放源是网络流还是本地文件路径。
+  /// 播放源是网络流还是本地文件路径（保留给回归测试用的纯判据）。
   ///
   /// 判据用 `://` 而不是 `Uri.parse(...).scheme`：`C:\Users\...` 会被解析成
   /// "scheme = c"，据此判断必然误判。网络流（http/https/rtmp/content/asset…）
   /// 一定带 `://`；本地绝对路径（`C:\...`、`/home/...`、`\\server\share\...`）
-  /// 都不带。给单测锁定用，故用 `@visibleForTesting` 暴露。
+  /// 都不带。
+  ///
+  /// 判据用 `://` 而不是 `Uri.parse(...).scheme`：`C:\Users\...` 会被解析成
+  /// "scheme = c"，据此判断必然误判。网络流（http/https/rtmp/content/asset…）
+  /// 一定带 `://`；本地绝对路径（`C:\...`、`/home/...`、`\\server\share\...`）
+  /// 都不带。
+  ///
+  /// just_audio 时代它决定走 `setUrl` 还是 `setFilePath`（本地路径必须
+  /// 绕开 setUrl 的百分号编码）；mpv 的 `open(Media(...))` 网络与本地统一入口，
+  /// 生产代码不再分支，判据保留给单测。
   @visibleForTesting
   static bool isRemoteSource(String source) => source.contains('://');
 
-  /// 把播放源交给播放器：网络流走 `setUrl`，本地文件走 `setFilePath`。
+  /// 把播放源交给播放器：mpv 对网络 URL 与本地路径统一入口。
   ///
-  /// **本地路径绝不能走 `setUrl`**：它内部是 `Uri.parse`，会把路径里的空格、
-  /// 中文、方括号一律百分号编码（`MIMI_music%20-%20%E3%80%90...%5D.m4a`），
-  /// 而媒体后端（just_audio_media_kit → media_kit → libmpv）拿到的只是这个
-  /// 编码后的"字面路径"，于是 `Cannot open file ...: No such file or directory`。
-  /// 离线文件名固定是 `<歌手> - <标题> [cid].m4a`，必然带空格与方括号，
-  /// 所以每个离线文件都会踩这个坑。`setFilePath` 内部走 `Uri.file`，
-  /// media_kit 的 `normalizeURI` 能把它正确还原成真实路径。
-  static Future<void> _setSource(ja.AudioPlayer player, String source) {
-    return isRemoteSource(source)
-        ? player.setUrl(source)
-        : player.setFilePath(source);
+  /// mpv_audio_kit 的 uri_resolver 只转换 `asset://` 与 Android `content://`，
+  /// 其余——包括**裸文件系统路径**（`C:\...`、`/data/user/0/...`）——原样透传给
+  /// loadfile。离线命名 `<歌手> - <标题> [cid].m4a`（空格/中文/方括号）
+  /// 直接可开，见 `test/player/mpv_path_preflight_test.dart`。
+  ///
+  /// **历史包袱已卸下**：just_audio 的 `setUrl` 曾把本地路径百分号编码
+  /// （`MIMI_music%20-%20%E3%80%90...%5D.m4a`）导致 `Cannot open file`，
+  /// 那时需要 `setFilePath` 分支绕行；换 mpv 后这条约束消失，不再区分。
+  static Future<void> _setSource(mpv.PlayerApi player, String source) {
+    return player.open(mpv.Media(source));
   }
 
   /// 使用活跃播放器播放URL（或本地文件路径）
@@ -366,10 +680,12 @@ class DualAudioService {
       debugPrint('[DualAudioService] 开始播放 $url');
       _playerState.value = PlayerBuffering();
       await _setSource(_activePlayer.player, url);
-      await _activePlayer.player.seek(Duration.zero);
+      // 注意：这里**不能**再 seek(0)。open() 返回只等 loadfile 回复，此刻文件
+      // 尚未解码，mpv 对加载中的 seek 直接抛错（实测 MpvException code=-12）。
+      // 新 loadfile 本来就从 0 开始（工厂里已关 resumePlayback）。
       _relativeVolume.value = 1.0;
       final v = _numericalValue.value;
-      await _activePlayer.player.setVolume(v);
+      await _activePlayer.player.setVolume(_toMpvVolume(v));
       _activePlayer.volume = v;
       _activePlayer.currentUrl = url;
       _activePlayer.isReady = true;
@@ -391,11 +707,14 @@ class DualAudioService {
 
       await _setSource(_standbyPlayer.player, url);
       _standbyPlayer.currentUrl = url;
-      _standbyPlayer.isReady = true;
+      // **不能**在这里置位 isReady——open() 返回时文件还没解码，照旧置位
+      // 会让 crossfade 在静音里开始。isReady 改由就绪信号置位（seekCompleted /
+      // 首个非零 duration，见 _markReadyIfPreloaded）；executeCrossfade 的
+      // isReady 守卫保持不变。
       // 不在这里设置音量为0.0，避免AudioTrack进入长时间mute状态
       // 音量将在executeCrossfade时设置
 
-      debugPrint('[DualAudioService] 预加载完成');
+      debugPrint('[DualAudioService] 预加载已发起，等待就绪信号');
     } catch (e) {
       debugPrint('[DualAudioService] 预加载失败 $e');
       _standbyPlayer.isReady = false;
@@ -445,15 +764,18 @@ class DualAudioService {
   /// 进入长时间 mute；乘上用户音量，确保不会超过用户设定的听感峰值。
   Future<void> _primeStandby() async {
     final primeVolume = _standbyVolume * _numericalValue.value;
-    await _standbyPlayer.player.setVolume(primeVolume);
+    await _standbyPlayer.player.setVolume(_toMpvVolume(primeVolume));
     _standbyPlayer.volume = primeVolume;
     _relativeVolume.value = 0.0;
+    // 走到这里 isReady 已由就绪信号置位（executeCrossfade 守卫过），文件已解码，
+    // seek 不会再撞"加载中"窗口（加载中的 seek 会抛 MpvException）。
+    // 位置本就在 0，这里是契约保底。
     await _standbyPlayer.player.seek(Duration.zero);
 
-    // 我不知道just_audio和media_kit是怎么协调的
-    // 这里不能使用异步 await , just_audio的实现会阻塞代码进行
-    // 但是media_kit的实现不会阻塞代码进行, 神金
-    // 你们两个库都给我飞起来
+    // mpv 的 play() 是乐观写入（意图轴同步置位）+ 异步命令：内部先等 bring-up
+    // 再发 pause=no，命令回复在事件 isolate 上异步落地。这里保持 fire-and-forget，
+    // 与 just_audio 时代一致：fade 曲线紧随其后，await 反而让 standby 的启动
+    // 延迟叠加进 fade 时间轴。
     _standbyPlayer.player.play();
   }
 
@@ -477,9 +799,9 @@ class DualAudioService {
     final standbyVolume = userVolume * gains.standby;
     final activeVolume = userVolume * gains.active;
 
-    unawaited(_standbyPlayer.player.setVolume(standbyVolume));
+    unawaited(_standbyPlayer.player.setVolume(_toMpvVolume(standbyVolume)));
     _standbyPlayer.volume = standbyVolume;
-    unawaited(_activePlayer.player.setVolume(activeVolume));
+    unawaited(_activePlayer.player.setVolume(_toMpvVolume(activeVolume)));
     _activePlayer.volume = activeVolume;
   }
 
@@ -520,19 +842,19 @@ class DualAudioService {
     // 重置相对比率为 1.0，active 拉回到用户音量
     _relativeVolume.value = 1.0;
     final v = _numericalValue.value;
-    await _activePlayer.player.setVolume(v);
+    await _activePlayer.player.setVolume(_toMpvVolume(v));
     _activePlayer.volume = v;
 
-    // 确保新 active 仍在播放
-    if (!_activePlayer.player.playing) {
+    // 确保新 active 仍在播放（意图轴判断）
+    if (!_activePlayer.player.state.playWhenReady) {
       debugPrint('[DualAudioService] 新active播放器未播放，重新启动');
       await _activePlayer.player.play();
     }
 
-    // 停止原 active（现在角色是 standby）
+    // 停止原 active（现在角色是 standby）。mpv 的 stop 会卸载文件并归零播放头，
+    // 所以不再补 seek(0)——空载播放器上的 seek 会抛 MpvException。
     await Future.delayed(const Duration(milliseconds: 100));
     await _standbyPlayer.player.stop();
-    await _standbyPlayer.player.seek(Duration.zero);
     _standbyPlayer.reset();
 
     debugPrint('[DualAudioService] Crossfade完成,角色已交换');
@@ -555,12 +877,13 @@ class DualAudioService {
     debugPrint('[DualAudioService] 从Crossfade错误中恢复');
     _relativeVolume.value = 1.0;
 
-    // 确保至少有一个播放器在播放
-    if (!_activePlayer.player.playing && _standbyPlayer.player.playing) {
+    // 确保至少有一个播放器在播放（意图轴判断）
+    if (!_activePlayer.player.state.playWhenReady &&
+        _standbyPlayer.player.state.playWhenReady) {
       _swapPlayers();
-      await _activePlayer.player.setVolume(_numericalValue.value);
+      await _activePlayer.player.setVolume(_toMpvVolume(_numericalValue.value));
       await _standbyPlayer.player.stop();
-    } else if (!_standbyPlayer.player.playing) {
+    } else if (!_standbyPlayer.player.state.playWhenReady) {
       await stop();
       return;
     }
@@ -580,11 +903,10 @@ class DualAudioService {
       _playerState.value = PlayerPlaying();
     }
 
-    // 清空待命播放器
+    // 清空待命播放器。stop 会卸载文件并归零播放头，不再补 seek(0)。
     _relativeVolume.value = 1.0;
     await _standbyPlayer.player.stop();
-    await _standbyPlayer.player.seek(Duration.zero);
-    await _standbyPlayer.player.setVolume(_numericalValue.value);
+    await _standbyPlayer.player.setVolume(_toMpvVolume(_numericalValue.value));
     _standbyPlayer.reset();
 
     // 如果提供了URL，则播放新歌曲
@@ -599,9 +921,9 @@ class DualAudioService {
       // fade 中断：先把两路音量归位到稳定的"active 静音 / standby 用户音量"状态，
       // 避免残留 fade 中间值；再切到 Paused，_performFadeCurve 下一个 tick 自行退出。
       final v = _numericalValue.value;
-      await _activePlayer.player.setVolume(0);
+      await _activePlayer.player.setVolume(_toMpvVolume(0));
       _activePlayer.volume = 0;
-      await _standbyPlayer.player.setVolume(v);
+      await _standbyPlayer.player.setVolume(_toMpvVolume(v));
       _standbyPlayer.volume = v;
       _relativeVolume.value = 1.0;
       _playerState.value = PlayerPaused();
@@ -609,7 +931,7 @@ class DualAudioService {
     } else {
       await _activePlayer.player.pause();
     }
-    // 不在这里手动设置状态，让 playerStateStream 监听器自动处理
+    // 不在这里手动设置状态，让意图轴监听器自动处理
     // 这样可以避免手动设置与监听器回调之间的竞态条件
   }
 
@@ -620,17 +942,18 @@ class DualAudioService {
     // 确保音量为用户设定值
     _relativeVolume.value = 1.0;
     final v = _numericalValue.value;
-    await _activePlayer.player.setVolume(v);
+    await _activePlayer.player.setVolume(_toMpvVolume(v));
     _activePlayer.volume = v;
 
-    // 不在这里手动设置状态，让 playerStateStream 监听器自动处理
+    // 不在这里手动设置状态，让意图轴监听器自动处理
   }
 
   /// 停止播放
   Future<void> stop() async {
     await _activePlayer.player.stop();
     await _standbyPlayer.player.stop();
-    await _activePlayer.player.seek(Duration.zero);
+    // mpv 的 stop 会卸载文件并归零播放头，不需要（也不能）再 seek(0)：
+    // 空载播放器上的 seek 会抛 MpvException。
     _activePlayer.reset();
     _standbyPlayer.reset();
     _relativeVolume.value = 1.0;
@@ -680,6 +1003,7 @@ class DualAudioService {
 
     // 停止并释放两个播放器：即使上一步出过问题也必须走到这里，
     // 否则 libmpv 线程会带着活跃解码器被进程退出拆掉。
+    // dispose() 幂等，且内部会先摘媒体会话再拆 libmpv（不需要手动清理）。
     for (final info in [_playerA, _playerB]) {
       try {
         await info.player.stop();
@@ -692,6 +1016,9 @@ class DualAudioService {
         debugPrint('[DualAudioService] 释放播放器失败 $e');
       }
     }
+
+    audioDevices.dispose();
+    audioDevice.dispose();
 
     debugPrint('[DualAudioService] 资源释放完成');
   }

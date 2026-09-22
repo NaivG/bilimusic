@@ -108,8 +108,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
             ],
 
-            // 音质设置
-            _buildSectionTitle('音质'),
+            // 音频设置
+            _buildSectionTitle('音频'),
             ListTile(
               leading: Icon(
                 Icons.high_quality,
@@ -133,6 +133,24 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ],
                 onChanged: notifier.setAudioQuality,
               ),
+            ),
+            ListTile(
+              leading: Icon(Icons.equalizer, color: _getPrimaryColor(context)),
+              title: Text('音效与均衡器'),
+              subtitle: Text('均衡器、音效、DSP 等音频处理设置'),
+              trailing: Icon(Icons.arrow_forward_ios_rounded),
+              onTap: () {
+                ShellPageManager.instance.push(ShellPage.audioDsp);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.speaker, color: _getPrimaryColor(context)),
+              title: Text('音频输出'),
+              subtitle: Text('延迟、独占模式、采样率与输出设备'),
+              trailing: Icon(Icons.arrow_forward_ios_rounded),
+              onTap: () {
+                ShellPageManager.instance.push(ShellPage.audioOutput);
+              },
             ),
 
             // 外观设置
@@ -239,58 +257,32 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
             ],
 
-            // 音频设置（仅在安卓平台可用）
-            _buildSectionTitle('音频'),
+            // 局域网同步
+            _buildSectionTitle('局域网同步 (Beta)'),
             ListTile(
-              leading: Icon(Icons.volume_up, color: _getPrimaryColor(context)),
-              title: Text('音频输出模式'),
-              subtitle: Text(
-                ref
-                    .read(settingsManagerProvider)
-                    .getAudioOutputModeText(settings.audioOutputMode),
+              leading: Icon(
+                Icons.wifi_tethering,
+                color: _getPrimaryColor(context),
               ),
-              enabled: PlatformHelper.isAndroid, // 仅在安卓平台启用
+              title: const Text('同步模式'),
+              subtitle: Text(_lanSyncModeText(settings.lanSyncMode)),
               trailing: DropdownButton<String>(
-                value: settings.audioOutputMode,
-                items: [
-                  DropdownMenuItem(value: 'aaudio', child: Text('AAudio (推荐)')),
-                  DropdownMenuItem(
-                    value: 'audiotrack',
-                    child: Text('AudioTrack'),
-                  ),
+                value: settings.lanSyncMode,
+                items: const [
+                  DropdownMenuItem(value: 'off', child: Text('关闭')),
+                  DropdownMenuItem(value: 'private', child: Text('私有')),
+                  DropdownMenuItem(value: 'public', child: Text('公共')),
                 ],
-                onChanged: notifier.setAudioOutputMode,
+                onChanged: notifier.setLanSyncMode,
               ),
             ),
-
-            // 局域网同步（仅非 Web 显示）
-            if (!PlatformHelper.isWeb) ...[
-              _buildSectionTitle('局域网同步 (Beta)'),
-              ListTile(
-                leading: Icon(
-                  Icons.wifi_tethering,
-                  color: _getPrimaryColor(context),
-                ),
-                title: const Text('同步模式'),
-                subtitle: Text(_lanSyncModeText(settings.lanSyncMode)),
-                trailing: DropdownButton<String>(
-                  value: settings.lanSyncMode,
-                  items: const [
-                    DropdownMenuItem(value: 'off', child: Text('关闭')),
-                    DropdownMenuItem(value: 'private', child: Text('私有')),
-                    DropdownMenuItem(value: 'public', child: Text('公共')),
-                  ],
-                  onChanged: notifier.setLanSyncMode,
-                ),
-              ),
-              ListTile(
-                leading: Icon(Icons.devices, color: _getPrimaryColor(context)),
-                title: const Text('设备管理'),
-                subtitle: const Text('发现设备、配对、查看本机 PIN'),
-                trailing: const Icon(Icons.arrow_forward_ios_rounded),
-                onTap: openLanSyncPage,
-              ),
-            ],
+            ListTile(
+              leading: Icon(Icons.devices, color: _getPrimaryColor(context)),
+              title: const Text('设备管理'),
+              subtitle: const Text('发现设备、配对、查看本机 PIN'),
+              trailing: const Icon(Icons.arrow_forward_ios_rounded),
+              onTap: openLanSyncPage,
+            ),
 
             // 数据管理
             _buildSectionTitle('数据'),
@@ -301,6 +293,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               trailing: Icon(Icons.arrow_forward_ios_rounded),
               onTap: () {
                 ShellPageManager.instance.push(ShellPage.dataManagement);
+              },
+            ),
+
+            // 诊断
+            _buildSectionTitle('诊断'),
+            ListTile(
+              leading: Icon(
+                Icons.monitor_heart,
+                color: _getPrimaryColor(context),
+              ),
+              title: Text('音频后端'),
+              subtitle: Text('播放引擎 / 媒体会话 / 音频焦点现场与日志'),
+              trailing: Icon(Icons.arrow_forward_ios_rounded),
+              onTap: () {
+                ShellPageManager.instance.push(ShellPage.audioBackend);
               },
             ),
 
@@ -400,7 +407,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     showAboutDialog(
       context: context,
       applicationName: 'BiliMusic',
-      applicationVersion: '1.9.1',
+      applicationVersion: '1.10.0.preview',
       applicationIcon: Image.asset(
         "assets/ic_launcher.png",
         width: 84,

@@ -115,19 +115,16 @@ class OfflineCacheService extends ChangeNotifier {
   /// - iOS：file_picker 给的是 security-scoped URL，`dart:io` 拿不到持久访问权，
   ///   所以不暴露这个入口。
   ///
-  /// 平台判断用 `defaultTargetPlatform` 而非 `Platform.isX`：本文件已经
-  /// import 了 `dart:io`（文件操作必需），再用 PlatformHelper 会让 Web 构建
-  /// 多背一层 dart:io 依赖，没必要。
-  static bool get supportsDirectoryPicker =>
-      !kIsWeb && (_isDesktop || _isAndroid);
+  /// 平台判断用 `defaultTargetPlatform` 而非 `Platform.isX`：
+  /// 测试里可用 `debugDefaultTargetPlatformOverride` 覆盖。
+  static bool get supportsDirectoryPicker => _isDesktop || _isAndroid;
 
   static bool get _isDesktop =>
       defaultTargetPlatform == TargetPlatform.windows ||
       defaultTargetPlatform == TargetPlatform.linux ||
       defaultTargetPlatform == TargetPlatform.macOS;
 
-  static bool get _isAndroid =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  static bool get _isAndroid => defaultTargetPlatform == TargetPlatform.android;
 
   Future<void> initialize() async {
     if (_initialized) return;

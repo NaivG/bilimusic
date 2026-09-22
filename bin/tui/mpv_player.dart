@@ -37,8 +37,9 @@ final class MpvState {
 
 /// 纯 Dart 的 libmpv FFI 封装(Windows,spike 用)。
 ///
-/// App 的 just_audio 依赖 Flutter 平台通道,纯 Dart 进程里跑不了;
-/// 这里直接 FFI 驱动 media_kit_libs_windows_audio 附带的 libmpv-2.dll,
+/// App 的 mpv_audio_kit 经 Flutter 插件构建链装载 libmpv,纯 Dart 进程里
+/// 跑不了;这里直接 FFI 驱动 App 构建产物里的 libmpv.dll(mpv_audio_kit
+/// 构建期下载,旧产物里是 media_kit 留下的 libmpv-2.dll,两者都认),
 /// 不需要用户安装 mpv.exe。轮询属性而非注册回调,避免事件结构体解析。
 class MpvPlayer {
   bool _ready = false;
@@ -61,12 +62,12 @@ class MpvPlayer {
 
   bool get isReady => _ready;
 
-  /// 加载 DLL 并初始化 mpv 核心。libmpv-2.dll 依次查找
-  /// 构建产物目录,依赖 DLL 由 SetDllDirectoryW 保证可解析。
+  /// 加载 DLL 并初始化 mpv 核心。依次查找构建产物目录里的
+  /// libmpv.dll / libmpv-2.dll,依赖 DLL 由 SetDllDirectoryW 保证可解析。
   void load({bool nullAudio = false}) {
-    final dir = _locateDllDir();
+    final dll = _locateDll();
     // SetDllDirectoryW 需要绝对路径,否则依赖 DLL(avcodec 等)解析失败(error 126)
-    final absDir = Directory(dir).absolute.path;
+    final absDir = dll.parent.absolute.path;
 
     final kernel32 = DynamicLibrary.open('kernel32.dll');
     final setDllDirectory = kernel32
@@ -78,7 +79,7 @@ class MpvPlayer {
     setDllDirectory(dirPtr);
     calloc.free(dirPtr);
 
-    _lib = DynamicLibrary.open('$absDir\\libmpv-2.dll');
+    _lib = DynamicLibrary.open(dll.absolute.path);
     _mpvCreate = _lib
         .lookupFunction<Pointer<Void> Function(), Pointer<Void> Function()>(
           'mpv_create',
@@ -136,18 +137,33 @@ class MpvPlayer {
     _ready = true;
   }
 
-  static String _locateDllDir() {
-    final candidates = <String>[
-      ?Platform.environment['BILIMUSIC_MPV_DIR'],
+  /// 定位 libmpv 动态库:优先 mpv_audio_kit 的 libmpv.dll,回退旧 media_kit
+  /// 留下的 libmpv-2.dll(未重建的产物目录里可能只有它)。BILIMUSIC_MPV_DIR
+  /// 指定的目录里有任一文件名即整体接管,否则按固定目录顺序查找。
+  static File _locateDll() {
+    const dllNames = <String>['libmpv.dll', 'libmpv-2.dll'];
+    const candidates = <String>[
       'build\\windows\\x64\\libmpv',
       'build\\windows\\x64\\runner\\Release',
       'build\\windows\\x64\\runner\\Debug',
     ];
-    for (final dir in candidates) {
-      if (File('$dir\\libmpv-2.dll').existsSync()) return dir;
+    final envDir = Platform.environment['BILIMUSIC_MPV_DIR'];
+    if (envDir != null) {
+      for (final name in dllNames) {
+        final file = File('$envDir\\$name');
+        if (file.existsSync()) return file;
+      }
+    }
+    // 文件名外层优先:别让 libmpv 目录里仅存的旧 libmpv-2.dll
+    // 抢在 Release 里正式的 libmpv.dll 之前。
+    for (final name in dllNames) {
+      for (final dir in candidates) {
+        final file = File('$dir\\$name');
+        if (file.existsSync()) return file;
+      }
     }
     throw StateError(
-      '未找到 libmpv-2.dll:请先执行 flutter build windows,'
+      '未找到 libmpv.dll / libmpv-2.dll:请先执行 flutter build windows,'
       '或将 BILIMUSIC_MPV_DIR 指向包含该 DLL 的目录',
     );
   }

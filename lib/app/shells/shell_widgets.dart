@@ -17,6 +17,9 @@ import 'package:bilimusic/features/update/ui/changelog_page.dart';
 import 'package:bilimusic/features/auth/ui/cookie_page.dart';
 import 'package:bilimusic/features/settings/ui/data_management_page.dart';
 import 'package:bilimusic/features/settings/ui/data_migration_page.dart';
+import 'package:bilimusic/features/diagnostics/ui/audio_backend_page.dart';
+import 'package:bilimusic/features/settings/ui/audio_dsp_page.dart';
+import 'package:bilimusic/features/settings/ui/audio_output_page.dart';
 import 'package:bilimusic/features/auth/ui/login_page.dart';
 import 'package:bilimusic/features/fav_sync/ui/fav_import_page.dart';
 import 'package:bilimusic/features/roam/ui/roam_onboarding_page.dart';
@@ -25,7 +28,7 @@ import 'package:bilimusic/features/lan_sync/ui/sync_page.dart';
 /// 竖屏与横屏两个壳共享的页面渲染逻辑。
 ///
 /// 两个壳的差异点（home 是包不包 AppBar）通过
-/// 参数注入；剩余的 11 个 ShellPage 走完全相同的渲染管线，
+/// 参数注入；其余的 ShellPage 走完全相同的渲染管线，
 /// 新加页面只需在这里加一行。
 ///
 /// [args] 必须传页面自己那一帧的参数（横竖屏壳均传
@@ -67,6 +70,12 @@ Widget buildShellPageContent({
       return const DataManagementPage();
     case ShellPage.dataMigration:
       return const DataMigrationPage();
+    case ShellPage.audioBackend:
+      return const AudioBackendPage();
+    case ShellPage.audioDsp:
+      return const AudioDspPage();
+    case ShellPage.audioOutput:
+      return const AudioOutputPage();
     case ShellPage.favImport:
       return const FavImportPage();
     case ShellPage.login:

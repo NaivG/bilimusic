@@ -6,6 +6,8 @@ import 'package:bilimusic/core/network/bili_client.dart';
 import 'package:bilimusic/core/network/passport_store.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/core/network/api_service.dart';
+import 'package:bilimusic/features/player/logic/audio_focus_service.dart';
+import 'package:bilimusic/features/player/logic/audio_effects_service.dart';
 import 'package:bilimusic/features/player/logic/dual_audio_service.dart';
 import 'package:bilimusic/features/player/logic/sleep_timer_service.dart';
 import 'package:bilimusic/features/lyrics/lyrics_service.dart';
@@ -67,6 +69,23 @@ final pipServiceProvider = Provider<PipService>((ref) {
 
 final dualAudioServiceProvider = Provider<DualAudioService>((ref) {
   final svc = DualAudioService();
+  svc.initialize();
+  ref.onDispose(svc.dispose);
+  return svc;
+});
+
+// ==================== 音频效果 ====================
+
+/// 音频效果（DSP af 链）的独立状态与持久化仓库。
+///
+/// 效果包是嵌套 JSON、配置项多，与扁平设置不同源，单独落盘
+/// （键见 [AudioEffectsService.prefsKey]）。
+/// 引擎应用链路在 PlayerCoordinator：
+/// 调用方 → PlayerCoordinator.setAudioEffects → DualAudioService（两路）。
+final audioEffectsServiceProvider = Provider<AudioEffectsService>((ref) {
+  final svc = AudioEffectsService();
+  // 幂等；PlayerCoordinator.initialize 也会 await 一次，提前触发读盘
+  // 只是收窄「UI 先于恢复读到默认值」的窗口。
   svc.initialize();
   ref.onDispose(svc.dispose);
   return svc;
@@ -144,6 +163,7 @@ final roamingServiceProvider = Provider<RoamingService>((ref) {
 final playerCoordinatorProvider = Provider<PlayerCoordinator>((ref) {
   final pc = PlayerCoordinator(
     audioService: ref.watch(dualAudioServiceProvider),
+    audioEffectsService: ref.watch(audioEffectsServiceProvider),
     settingsManager: ref.watch(settingsManagerProvider),
     playlistService: ref.watch(playlistServiceProvider),
     notificationService: ref.watch(notificationServiceProvider),
@@ -153,6 +173,20 @@ final playerCoordinatorProvider = Provider<PlayerCoordinator>((ref) {
   pc.initialize();
   ref.onDispose(pc.dispose);
   return pc;
+});
+
+// ==================== 音频焦点 ====================
+
+/// 音频焦点补偿：系统媒体会话由 audio_service 独占之后，来电 / 拔耳机等打断行为
+/// 由 audio_session 在这里补齐（语义见服务注释）。main.dart 在启动期读取，
+/// 保证任何播放开始前 configure 与监听都已就位。
+final audioFocusServiceProvider = Provider<AudioFocusService>((ref) {
+  final svc = AudioFocusService(
+    coordinator: ref.watch(playerCoordinatorProvider),
+  );
+  ref.onDispose(svc.dispose);
+  svc.initialize();
+  return svc;
 });
 
 // ==================== 定时关闭 ====================

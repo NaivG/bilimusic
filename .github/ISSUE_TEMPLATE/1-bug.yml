@@ -18,7 +18,6 @@ body:
         - Android
         - macOS
         - iOS
-        - Web
         - TUI（终端客户端）
         - 其他
     validations:

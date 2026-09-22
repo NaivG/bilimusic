@@ -4,7 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   irondash_engine_context
-  media_kit_libs_linux
+  mpv_audio_kit
   restart_app
   screen_retriever_linux
   super_native_extensions
