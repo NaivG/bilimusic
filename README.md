@@ -70,7 +70,7 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 
 主流 B 站客户端是完整的视频平台，对「只想听声音」的场景并不友好：后台播放受限、歌单能力弱、跨设备体验割裂。BiliMusic 把 B 站视为音乐内容源，专注于播放器的本职——搜索、整理、播放、漫游、同步。
 
-技术选型上，Flutter 提供一套代码覆盖桌面与移动端；Riverpod 承担状态管理与依赖注入；just_audio 与 libmpv 负责音频解码；局域网同步通过 mDNS 与 TCP 配对实现。代码按 UI / 状态 / 编排 / 领域模型 / 基础设施分层，核心网络与存储层保持纯 Dart，以便 TUI 复用。
+技术选型上，Flutter 提供一套代码覆盖桌面与移动端；Riverpod 承担状态管理与依赖注入；mpv_audio_kit（libmpv）负责音频解码；局域网同步通过 mDNS 与 TCP 配对实现。代码按 UI / 状态 / 编排 / 领域模型 / 基础设施分层，核心网络与存储层保持纯 Dart，以便 TUI 复用。
 
 > 作者本人也是重度听歌爱好者，软件的开发会注重使用体验，在上线新功能时会反复打磨<s>（其实是听了半天）</s>，这一块不用担心。
 
@@ -86,8 +86,8 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 | **Windows** 10+ | ✅ 稳定 | 解压即用，`x64`架构 |
 | **Linux** | ✅ 稳定 | Ubuntu 20.04+ 或主流发行版，`x64`或`arm64`架构；需要[安装依赖](#直接安装) |
 | **Android** 12+ | ✅ 稳定 | 按设备架构选择 APK（`arm64-v8a` / `armeabi-v7a` / `x86_64`），或全平台 AAB |
-| **macOS 10.15+, with Metal Support** | ⚠️ 实验性 | CI 产出 ad-hoc 签名的未公证 `.app`，也可从源码构建 |
-| **iOS 13+** | ❓ 未经测试 | 可从源码构建无签名版本 |
+| **macOS 12+, with Metal Support** | ⚠️ 实验性 | CI 产出 ad-hoc 签名的未公证 `.app`，也可从源码构建 |
+| **iOS 15+** | ❓ 未经测试 | 可从源码构建无签名版本 |
 | **Web** | ❌ 停止支持 | **1.9.2 为最后一个支持 Web 的版本**，解压后部署到 Web 服务器，需配置 CORS |
 | **Xiaomi Vela** | ✅ 稳定 | 适用于小米、红米手表系列（API 2+），下载安装`.rpk`，详见[小米 Vela 手表端](#小米-vela-手表端) |
 
@@ -107,9 +107,10 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 Linux 需要安装依赖：
 
 ```bash
-sudo apt install libmpv-dev # Linux 因为打包时不含libmpv，需要先安装
 sudo apt install libgtk-3-dev libx11-dev libxi-dev # tray_manager 依赖，一般桌面端运行时都能满足，如果看不到托盘请自行安装
 ```
+
+> libmpv 不再需要预装：播放引擎 mpv_audio_kit 会在构建期自动下载 libmpv 并随产物打包。
 
 ### 从源码运行
 
@@ -218,7 +219,7 @@ npm run build                     # 构建 RPK（aiot build）
 
 **终端客户端（TUI）**
 - 主页与搜索结果两页布局，支持关键词 / `BV` / `AV` 搜索、播放、暂停与切歌，键盘与鼠标可用。
-- FFI 直驱 libmpv（复用 media_kit 的 Windows 库产物），与 App 共享登录态与网络层。
+- FFI 直驱 libmpv（复用 App 构建产物里的 libmpv），与 App 共享登录态与网络层。
 - 附带 `--probe` / `--smoke` / `--preview` 自检、驱动与预览模式。
 
 ---
@@ -351,11 +352,9 @@ bin/
 | --- | --- |
 | [Flutter](https://flutter.dev/) | 跨平台 UI 框架 |
 | [Riverpod](https://riverpod.dev/) | 状态管理与依赖注入 |
-| [just_audio](https://pub.dev/packages/just_audio) · [audio_service](https://pub.dev/packages/audio_service) | 音频播放 + 后台与系统媒体控制 |
+| [mpv_audio_kit](https://pub.dev/packages/mpv_audio_kit) · [audio_service](https://pub.dev/packages/audio_service) | 音频播放（libmpv 引擎）+ 后台与系统媒体控制 |
 | [audio_service_win](https://github.com/NaivG/audio_service_win) · [audio_service_mpris](https://pub.dev/packages/audio_service_mpris) | Windows SMTC + Linux MPRIS 媒体控制 |
-| [just_audio_media_kit](https://pub.dev/packages/just_audio_media_kit) | 桌面端 libmpv 音频后端 |
 | [tray_manager](https://pub.dev/packages/tray_manager) | 桌面系统托盘 |
-| [media_kit_libs_audio](https://pub.dev/packages/media_kit_libs_audio) | 桌面端 libmpv 原生库（TUI 亦复用其 libmpv 产物） |
 | [http](https://pub.dev/packages/http) | 统一 HTTP 客户端 |
 | [bonsoir](https://pub.dev/packages/bonsoir) | mDNS 局域网设备发现 |
 | [sqflite](https://pub.dev/packages/sqflite)（含 ffi 实现） | 本地 SQLite 数据存储 |
