@@ -177,7 +177,7 @@ npm run build                     # 构建 RPK（aiot build）
 | 搜索 | 通过关键词 / BV / AV 查找 B 站音乐内容 |
 | 歌单 | 管理本地歌单与导入的收藏夹 |
 | 个人中心 | 用户信息、收藏、历史、漫游、设备同步 |
-| 设置 | 主题、外观、播放、缓存等偏好 |
+| 设置 | 主题、外观、播放、音效与均衡器、音频输出、缓存等偏好 |
 
 ### 漫游模式
 
@@ -205,6 +205,8 @@ npm run build                     # 构建 RPK（aiot build）
 - 多 P 视频切换、顺序 / 随机 / 单曲循环。
 - A/B 双播放器 + equal-power 曲线的交叉淡入淡出。
 - 多档音质选择，DASH 音频流按选择取流并回显实际生效音质。
+- 音效与均衡器（设置 → 音效与均衡器）：8 段参数化自定义频点均衡器、压缩器、交叉回馈、立体声增强、回声/混响；内置听感预设与耳机校准预设（Harman Over-Ear 2018 / Harman In-Ear 2019 / AutoEq In-Ear），按目标响应曲线对锚点采样得到目标增益。
+- 音频输出（设置 → 音频输出）：输出设备切换、音频延迟、硬件直通（独占模式）、强制 DAC 采样率。
 - 后台播放、系统媒体通知、桌面托盘、Windows SMTC 与 Linux MPRIS 媒体键控制、音量持久化。
 - 详情页与长按菜单支持一键打开 B 站原网页。
 - 动态歌词：自动匹配、逐字点亮、辉光效果。
@@ -317,7 +319,8 @@ lib/
 │   └── storage/               # AppDatabase(SQLite) 与 CacheManager
 ├── domain/                    # 纯共享模型：Music、Playlist、BiliItem、PeerDevice 等
 ├── features/                  # 功能模块，内部按 logic/ models/ ui/ 分层
-│   ├── player/                # PlayerCoordinator、DualAudioService、通知、PiP、正在播放页
+│   ├── player/                # PlayerCoordinator、DualAudioService、通知、PiP、正在播放页；
+│   │                          # 音频输出 providers、均衡器 / 压缩器 / 交叉回馈 / 回声 / 立体声效果链与预设
 │   ├── lyrics/                # 歌词检索、多源匹配与逐字渲染
 │   ├── playlist/              # 歌单 / 收藏 / 历史的单一数据源
 │   ├── roam/                  # 漫游模式：simhash 排序、种子多样性与风格策略
@@ -326,7 +329,7 @@ lib/
 │   ├── auth/                  # 扫码登录、验证码与 Cookie 管理
 │   ├── fav_sync/              # B 站收藏夹导入与同步状态跟踪
 │   ├── home/ search/ profile/ # 首页推荐、搜索、个人中心
-│   └── settings/ update/      # 设置、数据迁移；更新检查、Release 解析、应用内更新与更新日志
+│   └── settings/ update/      # 设置（含音效与均衡器 / 音频输出页）、数据迁移；更新检查、Release 解析、应用内更新与更新日志
 └── shared/                    # 跨模块共享：widgets/、theme/(Lucent/Nocturne/Verdant/Gruvbox/Nord/Solarized)、utils/
 
 vela/                           # 小米 Vela JS 快应用手表端
