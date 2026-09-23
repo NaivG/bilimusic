@@ -60,9 +60,10 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 ## 安全
 
 > [!IMPORTANT]
-> BiliMusic 仅供学习交流使用，不得用于**任何**商业用途。项目只提供音频播放能力，不提供任何视听内容；音乐及视频内容的版权归原作者所有，请尊重版权并合理使用。
+> BiliMusic 仅供学习交流使用，不得用于**任何**商业用途。所有数据和文档均使用网络公开资源，本项目不进行任何逆向、修改、破解等行为。
 >
-> 由于不可抗拒力，请勿在其他平台宣传或讨论本项目。
+> BiliMusic 只提供音频播放能力，不提供任何视听内容；音乐及视频内容的版权归原作者所有，请尊重版权并合理使用。
+
 
 ---
 
@@ -88,7 +89,7 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 | **Android** 12+ | ✅ 稳定 | 按设备架构选择 APK（`arm64-v8a` / `armeabi-v7a` / `x86_64`），或全平台 AAB |
 | **macOS 12+, with Metal Support** | ⚠️ 实验性 | CI 产出 ad-hoc 签名的未公证 `.app`，也可从源码构建 |
 | **iOS 15+** | ❓ 未经测试 | 可从源码构建无签名版本 |
-| **Web** | ❌ 停止支持 | **1.9.2 为最后一个支持 Web 的版本**，解压后部署到 Web 服务器，需配置 CORS |
+| **Web** | ⏸️ 暂停支持 | **1.9.2 为支持 Web 的最新版本**，解压后部署到 Web 服务器，需配置 CORS |
 | **Xiaomi Vela** | ✅ 稳定 | 适用于小米、红米手表系列（API 2+），下载安装`.rpk`，详见[小米 Vela 手表端](#小米-vela-手表端) |
 
 关于应用内更新：Android / Windows / Linux 支持；macOS 跳转 Releases（见[更新与版本](#更新与版本)）。
@@ -104,10 +105,10 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 - Android / Windows / Linux：启动时自动检查更新。
 - macOS：需手动重新下载。
 
-Linux 需要安装依赖：
+Linux 需要安装 tray_manager 依赖（一般桌面端运行时都能满足，如果看不到托盘请自行安装）：
 
 ```bash
-sudo apt install libgtk-3-dev libx11-dev libxi-dev # tray_manager 依赖，一般桌面端运行时都能满足，如果看不到托盘请自行安装
+sudo apt install libgtk-3-dev libx11-dev libxi-dev
 ```
 
 > libmpv 不再需要预装：播放引擎 mpv_audio_kit 会在构建期自动下载 libmpv 并随产物打包。
@@ -211,6 +212,7 @@ npm run build                     # 构建 RPK（aiot build）
 - 详情页与长按菜单支持一键打开 B 站原网页。
 - 动态歌词：自动匹配、逐字点亮、辉光效果。
 - 主题系统：Lucent / Nocturne / Verdant / Gruvbox / Nord / Solarized 六套主题，运行时切换并按封面主色适配。
+- 标题元数据过滤（实验性）：基于 AST 树解析标题结构，从 B 站标题中剥离【MV】【中字】等视频平台元信息，同时保留 Hi-Res / 杜比等音质标识。
 - 离线缓存：歌曲可下载到本地，断网也能继续播放。
 
 **整理与同步**
@@ -223,6 +225,9 @@ npm run build                     # 构建 RPK（aiot build）
 - 主页与搜索结果两页布局，支持关键词 / `BV` / `AV` 搜索、播放、暂停与切歌，键盘与鼠标可用。
 - FFI 直驱 libmpv（复用 App 构建产物里的 libmpv），与 App 共享登录态与网络层。
 - 附带 `--probe` / `--smoke` / `--preview` 自检、驱动与预览模式。
+
+> [!NOTE]
+> 我们不考虑做对接音乐平台的歌曲元数据匹配，介于视频平台的内容差距较大，相对来说性价比过低。
 
 ---
 
@@ -361,7 +366,7 @@ bin/
 | [http](https://pub.dev/packages/http) | 统一 HTTP 客户端 |
 | [bonsoir](https://pub.dev/packages/bonsoir) | mDNS 局域网设备发现 |
 | [sqflite](https://pub.dev/packages/sqflite)（含 ffi 实现） | 本地 SQLite 数据存储 |
-| [flutter_lyric](https://pub.dev/packages/flutter_lyric) · [lyrics_now](https://github.com/NaivG/lyrics_now) | 歌词渲染与歌词源检索 |
+| [flutter_lyric](https://pub.dev/packages/flutter_lyric) · [lyrics_now](https://github.com/NaivG/lyrics_now) | 歌词渲染与多平台歌词源检索 |
 | [color_thief_dart](https://pub.dev/packages/color_thief_dart) | 封面主色提取 |
 | [gt3_flutter_plugin](https://pub.dev/packages/gt3_flutter_plugin) | 登录极验验证码 |
 | [window_manager](https://pub.dev/packages/window_manager) | 桌面窗口管理 |
@@ -397,7 +402,7 @@ flutter run           # 调试运行
 ## 致谢
 
 - UI 设计灵感：Apple Music, 某云音乐, [ParticleMusic](https://github.com/AfalpHy/ParticleMusic)
-- 歌词获取：[lyrics_now](https://github.com/NaivG/lyrics_now)
+- 多平台歌词获取：[lyrics_now](https://github.com/NaivG/lyrics_now)
 - 歌词渲染：[coriander_player](https://github.com/Ferry-200/coriander_player), [flutter_lyric](https://pub.dev/packages/flutter_lyric)
 - GitHub Actions：[FlutterHub](https://github.com/xmaihh/FlutterHub)
 - README 规范：[standard-readme](https://github.com/RichardLitt/standard-readme)
