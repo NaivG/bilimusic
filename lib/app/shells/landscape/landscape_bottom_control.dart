@@ -401,7 +401,9 @@ class LandscapeBottomControl extends ConsumerWidget {
             icon: Icon(
               isFav ? Icons.favorite : Icons.favorite_border,
               size: 22,
-              color: isFav ? Colors.red.withValues(alpha: 0.7) : iconColor.withValues(alpha: 0.7),
+              color: isFav
+                  ? Colors.red.withValues(alpha: 0.7)
+                  : iconColor.withValues(alpha: 0.7),
             ),
             splashRadius: 18,
           ),
