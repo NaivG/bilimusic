@@ -127,6 +127,11 @@ jobs:
           # macOS 需要在 Apple 主机上编译（Xcode），runner 为 Apple Silicon(arm64)
           - name: macos
             os: macos-latest
+          # 实验性 iOS 构建
+          # iOS 需要在 Apple 主机上编译（Xcode），runner 为 Apple Silicon(arm64)
+          # CI 没有签名证书，走 --no-codesign 产出无签名 .app（与 README「无签名版本」对齐）
+          - name: ios
+            os: macos-latest
           # Linux arm64
           - name: linux-arm
             os: ubuntu-24.04-arm
@@ -275,6 +280,44 @@ jobs:
           /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP_PATH/Contents/Info.plist"
           /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP_PATH/Contents/Info.plist"
 
+      # iOS 构建：CI 无签名证书，--no-codesign 直接产出无签名 .app
+      # flutter --no-codesign 内部会透传给 xcodebuild：
+      #   CODE_SIGNING_ALLOWED=NO / CODE_SIGNING_REQUIRED=NO / CODE_SIGN_IDENTITY=""
+      # 绕开项目里 Automatic 签名设置，避免 "No signing certificate" 失败
+      # 注意：依赖 pubspec.yaml 里 flutter.config.enable-swift-package-manager=false。
+      # 3.47 默认开 SPM，但 flutter_app_update 插件的 iOS 目录布局（嵌套目录+仅 podspec）
+      # 让 Xcode 解析包失败，必须走 CocoaPods 链路（podspec 正常）。
+      - name: Build iOS
+        if: matrix.name == 'ios'
+        env:
+          # CocoaPods 统计上报会同步阻塞构建；SSL_CERT_FILE 规避 pod 拉取时的证书校验失败
+          COCOAPODS_DISABLE_STATS: '1'
+          SSL_CERT_FILE: /etc/ssl/cert.pem
+        run: |
+          sw_vers
+          xcodebuild -version
+          pod --version
+          flutter doctor -v
+          # ios/Podfile 未入库，Flutter 会在 Apple 主机上按模板自动生成并执行 pod install
+          flutter build ios --release --no-codesign
+
+          APP_PATH="build/ios/iphoneos/Runner.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "未找到构建产物，实际目录内容："
+            ls -la build/ios/iphoneos || true
+            exit 1
+          fi
+
+          # 校验签名状态：--no-codesign 时 codesign -dv 应报 "code object is not signed at all"
+          codesign -dv --verbose=4 "$APP_PATH" 2>&1 || true
+          # 校验架构（Apple Silicon runner 默认 arm64）
+          lipo -archs "$APP_PATH/Runner"
+          # 校验版本号确实来自 CI 改写后的 pubspec（iOS 的 Info.plist 在 .app 根目录，不在 Contents/）
+          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP_PATH/Info.plist"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP_PATH/Info.plist"
+          # 校验 minimumOSVersion（project.pbxproj 锁的是 15.0）
+          /usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" "$APP_PATH/Info.plist"
+
       # 根据平台压缩构建产物，为上传做准备
       # 使用不同的命令和文件路径根据平台进行压缩
       # 这里使用了不同的shell命令和条件判断来处理不同的操作系统和构建产物
@@ -297,6 +340,17 @@ jobs:
             ditto -c -k --sequesterRsrc --keepParent \
               build/macos/Build/Products/Release/bilimusic.app \
               bilimusic_macos-$(uname -m)-${{ steps.read_build_env.outputs.FULL_VERSION }}.zip
+          elif [ "${{ matrix.name }}" = "ios" ]; then
+            # iOS 安装包（ipa）= Payload/Runner.app 的 zip。
+            # 复制 .app 仍走 ditto：cp -R 会跟随 Frameworks/ 下的符号链接把内容物拷实，破坏 .app 结构；
+            # 无签名 ipa 装不上设备，但 AltStore / Xcode 等工具可消费。
+            rm -rf Payload
+            mkdir -p Payload
+            ditto build/ios/iphoneos/Runner.app Payload/Runner.app
+            ditto -c -k --sequesterRsrc --keepParent \
+              Payload \
+              bilimusic_ios-nosign-$(uname -m)-${{ steps.read_build_env.outputs.FULL_VERSION }}.ipa
+            rm -rf Payload
           fi
         shell: bash
 
