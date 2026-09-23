@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:bilimusic/features/roam/models/roam_style.dart';
 import 'package:bilimusic/features/settings/logic/audio_output_options.dart';
+import 'package:bilimusic/shared/utils/title_meta_filter.dart';
 
 /// 设置管理器
 class SettingsManager extends ChangeNotifier {
@@ -48,6 +49,9 @@ class SettingsManager extends ChangeNotifier {
   // 窗口行为设置键名
   static const String KEY_CLOSE_BEHAVIOR = 'close_behavior';
 
+  // 标题元数据过滤（实验性）设置键名
+  static const String KEY_TITLE_META_FILTER = 'title_meta_filter';
+
   // 默认值
   static const bool DEFAULT_NOTIFICATIONS_ENABLED = true;
   static const String DEFAULT_APPEARANCE = 'system';
@@ -88,6 +92,9 @@ class SettingsManager extends ChangeNotifier {
 
   // 窗口行为默认值：关闭时弹窗询问
   static const String DEFAULT_CLOSE_BEHAVIOR = CLOSE_BEHAVIOR_PROMPT;
+
+  // 标题元数据过滤默认值：实验性功能，默认关闭
+  static const bool DEFAULT_TITLE_META_FILTER = false;
 
   // 单例实例
   static final SettingsManager _instance = SettingsManager._internal();
@@ -195,6 +202,14 @@ class SettingsManager extends ChangeNotifier {
     // 加载窗口行为设置
     _cache[KEY_CLOSE_BEHAVIOR] =
         prefs.getString(KEY_CLOSE_BEHAVIOR) ?? DEFAULT_CLOSE_BEHAVIOR;
+
+    // 加载标题元数据过滤（实验性），并同步静态开关：
+    // API 解析在 domain 层（fromArchiveJson / fromViewApi 等），
+    // 那里读不到 SettingsManager，只能读 TitleMetaFilter.enabled。
+    final titleMetaFilter =
+        prefs.getBool(KEY_TITLE_META_FILTER) ?? DEFAULT_TITLE_META_FILTER;
+    _cache[KEY_TITLE_META_FILTER] = titleMetaFilter;
+    TitleMetaFilter.enabled = titleMetaFilter;
   }
 
   /// 获取通知设置
@@ -421,6 +436,22 @@ class SettingsManager extends ChangeNotifier {
       default:
         return '弹出提示';
     }
+  }
+
+  // ============ 标题元数据过滤（实验性） ============
+
+  /// 是否启用标题元数据过滤（实验性，默认关闭）。
+  bool get titleMetaFilterEnabled =>
+      _cache[KEY_TITLE_META_FILTER] ?? DEFAULT_TITLE_META_FILTER;
+
+  /// 设置标题元数据过滤开关。
+  ///
+  /// 必须先同步 [TitleMetaFilter.enabled] 再落盘：标题过滤发生在 API
+  /// 响应解析时（domain 层的解析工厂），那里读不到 Riverpod /
+  /// SettingsManager，只能读纯 Dart 的静态标志。
+  Future<void> setTitleMetaFilterEnabled(bool value) async {
+    TitleMetaFilter.enabled = value;
+    await _saveSetting(KEY_TITLE_META_FILTER, value);
   }
 
   /// 获取外观的文本描述

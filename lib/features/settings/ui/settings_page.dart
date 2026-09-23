@@ -6,6 +6,7 @@ import 'package:bilimusic/features/settings/settings_provider.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/theme/theme_registry.dart';
 import 'package:bilimusic/shared/utils/platform_helper.dart';
+import 'package:bilimusic/shared/utils/title_meta_filter.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/features/lan_sync/ui/sync_page.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -107,6 +108,22 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
               ),
             ],
+
+            // 标题元数据过滤（实验性）：点按行本身查看示例预览，
+            // 开关负责切换设置
+            ListTile(
+              leading: Icon(
+                Icons.filter_alt_outlined,
+                color: _getPrimaryColor(context),
+              ),
+              title: const Text('标题元数据过滤（实验性）'),
+              subtitle: const Text('过滤 B 站标题中的元信息，点按查看示例'),
+              trailing: Switch(
+                value: settings.titleMetaFilterEnabled,
+                onChanged: notifier.setTitleMetaFilterEnabled,
+              ),
+              onTap: _showTitleFilterPreview,
+            ),
 
             // 音频设置
             _buildSectionTitle('音频'),
@@ -370,6 +387,61 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       'public' => '公共：仅对局域网暴露正在播放',
       _ => '关闭',
     };
+  }
+
+  /// 标题元数据过滤的示例预览：样本实时跑一遍 [TitleMetaFilter.clean]，
+  /// 让用户在开启前看清效果。只做展示，与开关状态无关。
+  void _showTitleFilterPreview() {
+    const samples = <String>[
+      '【 作者 / MV 】Starlight【中字】',
+      '【Hi-Res】夜に駆ける【官方MV】',
+      'MV / 打上花火【自翻】',
+    ];
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        final captionColor = Theme.of(ctx).colorScheme.onSurfaceVariant;
+        return AlertDialog(
+          title: const Text('标题元数据过滤示例'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('开启后，新从 B 站拉取的标题会清理掉这类元信息：'),
+                const SizedBox(height: 12),
+                for (final sample in samples) ...[
+                  Text(sample, style: const TextStyle(fontSize: 14)),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8, top: 2),
+                    child: Text(
+                      '→ ${TitleMetaFilter.clean(sample).cleaned}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: _getPrimaryColor(ctx),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                const SizedBox(height: 2),
+                Text(
+                  '音质信息（Hi-Res / 杜比等）不会被误删；'
+                  '已保存到歌单与历史的标题不回溯修改。',
+                  style: TextStyle(fontSize: 12, color: captionColor),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('知道了'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildSectionTitle(String title) {

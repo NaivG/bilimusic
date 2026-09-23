@@ -25,6 +25,9 @@ class SettingsState {
   final String lanSyncDeviceName;
   final String closeBehavior;
 
+  /// 标题元数据过滤（实验性）。
+  final bool titleMetaFilterEnabled;
+
   // 音频输出四项 + 免责说明。
   //
   // 这里**只镜像、不提供 setter**：四项的唯一写入口是 PlayerCoordinator
@@ -54,6 +57,7 @@ class SettingsState {
     this.lanSyncMode = 'off',
     this.lanSyncDeviceName = '',
     this.closeBehavior = 'prompt',
+    this.titleMetaFilterEnabled = false,
     this.audioOutputDisclaimerAccepted = false,
     this.audioDelayMs = 0,
     this.audioExclusive = false,
@@ -77,6 +81,7 @@ class SettingsState {
     String? lanSyncMode,
     String? lanSyncDeviceName,
     String? closeBehavior,
+    bool? titleMetaFilterEnabled,
     bool? audioOutputDisclaimerAccepted,
     int? audioDelayMs,
     bool? audioExclusive,
@@ -99,6 +104,8 @@ class SettingsState {
       lanSyncMode: lanSyncMode ?? this.lanSyncMode,
       lanSyncDeviceName: lanSyncDeviceName ?? this.lanSyncDeviceName,
       closeBehavior: closeBehavior ?? this.closeBehavior,
+      titleMetaFilterEnabled:
+          titleMetaFilterEnabled ?? this.titleMetaFilterEnabled,
       audioOutputDisclaimerAccepted:
           audioOutputDisclaimerAccepted ?? this.audioOutputDisclaimerAccepted,
       audioDelayMs: audioDelayMs ?? this.audioDelayMs,
@@ -127,6 +134,7 @@ class SettingsState {
       lanSyncMode: s.lanSyncMode,
       lanSyncDeviceName: s.lanSyncDeviceName,
       closeBehavior: s.closeBehavior,
+      titleMetaFilterEnabled: s.titleMetaFilterEnabled,
       audioOutputDisclaimerAccepted: s.audioOutputDisclaimerAccepted,
       audioDelayMs: s.audioDelayMs,
       audioExclusive: s.audioExclusive,
@@ -248,6 +256,14 @@ class SettingsNotifier extends Notifier<SettingsState> {
   Future<void> setCloseBehavior(String? value) async {
     if (value == null) return;
     await ref.read(_settingsManagerProvider).setCloseBehavior(value);
+  }
+
+  /// 委托给 SettingsManager：除了落盘还要同步 TitleMetaFilter 静态开关
+  /// （API 解析入口读的是它），manager notify 之后 [_onManagerChanged]
+  /// 会把新状态带回来。不要绕过 manager 直接写 prefs——那样静态开关
+  /// 与 manager 缓存都会漏更新。
+  Future<void> setTitleMetaFilterEnabled(bool value) async {
+    await ref.read(_settingsManagerProvider).setTitleMetaFilterEnabled(value);
   }
 
   Future<void> _save(String key, dynamic value) async {
