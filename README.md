@@ -10,6 +10,7 @@
     <a href="https://github.com/NaivG/bilimusic/stargazers"><img src="https://img.shields.io/github/stars/NaivG/bilimusic?style=flat" alt="Stars"></a>
     <a href="https://github.com/NaivG/bilimusic/network/members"><img src="https://img.shields.io/github/forks/NaivG/bilimusic?style=flat" alt="Forks"></a>
     <a href="https://github.com/NaivG/bilimusic/issues"><img src="https://img.shields.io/github/issues/NaivG/bilimusic" alt="Issues"></a>
+    <a href="https://github.com/NaivG/bilimusic/discussions"><img src="https://img.shields.io/github/discussions/NaivG/bilimusic?label=discussions&logo=github&logoColor=white" alt="Discussions"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue" alt="License"></a>
     <a href="https://flutter.dev/"><img src="https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white" alt="Flutter"></a>
     <a href="https://riverpod.dev/"><img src="https://img.shields.io/badge/Riverpod-3.x-3D5AFE?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0NSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSI4Ii8+PC9zdmc+" alt="Riverpod"></a>
@@ -49,8 +50,10 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 - [代码导航](#代码导航)
 - [主要依赖](#主要依赖)
 - [开发命令](#开发命令)
+- [路线图](#路线图)
 - [维护者](#维护者)
 - [致谢](#致谢)
+- [社区与讨论](#社区与讨论)
 - [如何贡献](#如何贡献)
 - [许可证](#许可证)
 - [Star History](#star-history)
@@ -391,6 +394,31 @@ flutter run           # 调试运行
 
 ---
 
+## 路线图
+
+正在维护/新版本的计划与进度见 [BiliMusic 路线图](https://github.com/NaivG/bilimusic/discussions/29)。
+
+---
+
+## 社区与讨论
+
+日常交流、提问与想法都欢迎到 [GitHub Discussions](https://github.com/NaivG/bilimusic/discussions)：
+
+| 想做的事 | 去哪里 |
+| --- | --- |
+| 随便聊、展示使用场景 | [General](https://github.com/NaivG/bilimusic/discussions/categories/general) |
+| 提出功能建议 | [Ideas](https://github.com/NaivG/bilimusic/discussions/categories/ideas) |
+| 参与投票 | [Polls](https://github.com/NaivG/bilimusic/discussions/categories/polls) |
+| 提问求助（支持采纳答案） | [Q&A](https://github.com/NaivG/bilimusic/discussions/categories/q-a) |
+| 分享自建主题、脚本或玩法 | [Show and tell](https://github.com/NaivG/bilimusic/discussions/categories/show-and-tell) |
+| 报可以复现的异常现象 | [Troubleshooting](https://github.com/NaivG/bilimusic/discussions/categories/troubleshooting) |
+| 查看版本发布与项目公告 | [Announcements](https://github.com/NaivG/bilimusic/discussions/categories/announcements) |
+
+> [!TIP]
+> 已经能稳定复现、确认是缺陷的问题，请直接开 [Issue](https://github.com/NaivG/bilimusic/issues/new/choose)，Issue 模板会引导你补齐平台与版本。**发帖前请先搜索**，也**不要在公开帖子里粘贴 Cookie、账号信息等敏感数据**。
+
+---
+
 ## 维护者
 
 <a href="https://github.com/NaivG/bilimusic/graphs/contributors">
@@ -411,7 +439,7 @@ flutter run           # 调试运行
 
 ## 如何贡献
 
-欢迎通过 [Issue](https://github.com/NaivG/bilimusic/issues) 报告问题，或提交 Pull Request 改进功能。提交前请尽量：
+欢迎通过 [Issue](https://github.com/NaivG/bilimusic/issues) 报告问题、在 [Discussions](https://github.com/NaivG/bilimusic/discussions) 参与讨论（分类与用法见[社区与讨论](#社区与讨论)），或提交 Pull Request 改进功能。提交前请尽量：
 
 1. 说明复现环境、平台与具体步骤。
 2. 保持改动聚焦，并遵循现有 Flutter / Dart 代码风格。
