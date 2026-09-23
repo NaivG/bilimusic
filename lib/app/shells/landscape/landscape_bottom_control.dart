@@ -98,7 +98,7 @@ class LandscapeBottomControl extends ConsumerWidget {
                         playerState,
                       ),
                     ),
-                    // Right: lyrics + volume (desktop only)
+                    // Right: favorite + lyrics + volume (desktop only)
                     if (PlatformHelper.isDesktop)
                       Expanded(
                         flex: 3,
@@ -107,6 +107,7 @@ class LandscapeBottomControl extends ConsumerWidget {
                           ref,
                           iconColor,
                           volumeBarColor,
+                          currentMusic,
                         ),
                       ),
                   ],
@@ -378,14 +379,34 @@ class LandscapeBottomControl extends ConsumerWidget {
     WidgetRef ref,
     Color iconColor,
     Color volumeBarColor,
+    Music? music,
   ) {
     final volume = ref.watch(volumeProvider);
     final commands = ref.read(playbackCommandsProvider.notifier);
     final isMuted = volume == 0;
+    // 收藏态：跟随当前歌曲（无歌曲时按钮置灰不可点）
+    final isFav = music != null && ref.watch(isFavoriteProvider(music));
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
+        ScaleOnHover(
+          hoverScale: 1.1,
+          child: IconButton(
+            onPressed: music == null
+                ? null
+                : () => ref
+                      .read(playlistCommandsProvider.notifier)
+                      .toggleFavorite(music),
+            icon: Icon(
+              isFav ? Icons.favorite : Icons.favorite_border,
+              size: 22,
+              color: isFav ? Colors.red.withValues(alpha: 0.7) : iconColor.withValues(alpha: 0.7),
+            ),
+            splashRadius: 18,
+          ),
+        ),
+        const SizedBox(width: 4),
         ScaleOnHover(
           hoverScale: 1.1,
           child: IconButton(
