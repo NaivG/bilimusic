@@ -48,6 +48,15 @@
           </div>
           <text class="menu-arrow">›</text>
         </list-item>
+        <!-- 本地收藏：手表本机的收藏夹，与登录无关（收藏数据在 @system.storage 上，
+             不进 B 站账号）。免登录可直接进，入口副标题是当前收藏数。 -->
+        <list-item class="menu-item" type="menu" onclick="goLocalFav">
+          <div class="menu-main">
+            <text class="menu-name">本地收藏</text>
+            <text class="menu-desc">{{ localFavDesc }}</text>
+          </div>
+          <text class="menu-arrow">›</text>
+        </list-item>
 
         <!-- 设置项 -->
         <list-item class="section-wrap" type="section">
@@ -98,6 +107,7 @@ import authService from "../../services/authService";
 import session from "../../services/session";
 import deviceService from "../../services/deviceService";
 import * as audioCache from "../../services/audioCache";
+import * as favorites from "../../services/favorites";
 import { normalizeCoverUrl } from "../../common/device";
 
 export default {
@@ -112,6 +122,8 @@ export default {
     // 音频缓存行：onShow 时显示占用概况，点击后短暂显示清理结果
     cacheTip: "清理落盘的音频文件",
     cacheTipTimer: null,
+    // 本地收藏行的副标题：onShow 时按收藏数生成（本地收藏页里增删后回来要跟上）
+    localFavDesc: "播放时点 ♥ 收藏歌曲",
     // 左右安全内缩 px：先按 480 宽矩形屏兜底，getInfo 回来后再重算
     // （机制见 common/device.js 的 safeHorizontalInsetPx 注释）
     safeInsetPx: 29,
@@ -135,6 +147,7 @@ export default {
       this.loopOn = playerService.getSnapshot().loop;
     });
     this.refreshCacheTip();
+    this.refreshLocalFav();
   },
 
   refreshCacheTip() {
@@ -205,6 +218,20 @@ export default {
       return;
     }
     router.push({ uri: "/pages/fav" });
+  },
+
+  goLocalFav() {
+    // 本地收藏存在手表上，与登录态无关：不判登录，未登录也能进
+    router.push({ uri: "/pages/localfav" });
+  },
+
+  /** 「本地收藏」入口的副标题：有收藏显示数量，空着教一次怎么收 */
+  refreshLocalFav() {
+    favorites.favCount().then((n) => {
+      this.localFavDesc = n
+        ? "已收藏 " + n + " 首歌"
+        : "播放时点 ♥ 收藏歌曲";
+    });
   },
 
   /* ---------------------------- 设置项 ---------------------------- */

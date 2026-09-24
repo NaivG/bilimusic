@@ -73,6 +73,9 @@
       "pages/favDetail": {
         "component": "favDetail"
       },
+      "pages/localfav": {
+        "component": "localfav"
+      },
       "pages/login": {
         "component": "login"
       },

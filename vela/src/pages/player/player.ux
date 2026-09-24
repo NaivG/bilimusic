@@ -116,9 +116,17 @@
             >{{ notice }}</marquee>
             <text class="notice" else>{{ notice }}</text>
           </div>
-          <!-- 底部操作按钮 -->
+          <!-- 底部操作按钮：音量 / ♥ 本地收藏 / 更多。
+               ♥ 是**手表本机**的收藏夹（services/favorites，与 B 站账号收藏夹无关）：
+               收藏的是「当前正在播的这首」，实心红心 = 已收藏。
+               没在播任何曲目时点击静默忽略（没有可收藏的对象）。 -->
           <div class="footer">
             <image class="icon" src="/common/icon/volume.png" onclick="goToVolume" />
+            <image
+              class="icon"
+              src="{{ isFav ? '/common/icon/heart-fill.png' : '/common/icon/heart.png' }}"
+              onclick="toggleFav"
+            />
             <image class="icon" src="/common/icon/more.png" onclick="goToMore" />
           </div>
         </div>
@@ -192,8 +200,10 @@ import router from "@system.router";
 import playerService from "../../services/playerService";
 import session from "../../services/session";
 import deviceService from "../../services/deviceService";
+import * as favorites from "../../services/favorites";
 import { normalizeCoverUrl } from "../../common/device";
 import { formatClockParts } from "../../common/clock";
+import { sameTrack } from "../../common/tracks";
 
 const STATE_HINT = {
   idle: "点「更多」选歌播放",
@@ -230,6 +240,9 @@ export default {
     coverUrl: "",
     // 第 2 屏播放队列的展示条目（由 syncQueue 从本 VM 的 playerService 重建）
     queueItems: [],
+    // 当前曲目是否已加入本地收藏（♥ 图标跟着它切空心/实心；
+    // 由 syncFavState 对账 —— storage 是真相，本 VM 不留收藏缓存）
+    isFav: false,
   },
 
   onInit() {
@@ -264,11 +277,14 @@ export default {
         // 队列内容 / 当前曲目变化时重建第 2 屏条目；
         // progress/volume 这类高频事件不重建，别每秒白渲染一遍列表
         if (type === "queue" || type === "track") this.syncQueue(snap);
+        // 换歌 → ♥ 图标跟着对账（读 storage；换歌是低频事件，无所谓）
+        if (type === "track") this.syncFavState();
       });
       // 本 VM 的 playerService 是独立实例，先跟共享态对账再渲染
       await playerService.adopt();
       this.applySnapshot(playerService.getSnapshot());
       this.syncQueue();
+      this.syncFavState();
     });
   },
 
@@ -296,6 +312,9 @@ export default {
       await playerService.adopt();
       this.applySnapshot(playerService.getSnapshot());
       this.syncQueue();
+      // 从别的页面回来：收藏可能在那边被动过（本地收藏页移除）、队列也可能换了歌，
+      // ♥ 图标跟着对一次账
+      this.syncFavState();
     });
   },
 
@@ -483,6 +502,47 @@ export default {
 
   onNext() {
     playerService.next();
+  },
+
+  /* ------------------------------ 本地收藏（♥） ------------------------------ */
+
+  /**
+   * ♥ 点击：收藏 / 取消收藏**当前正在播**的曲目（手表本机的收藏夹，
+   * 与 B 站账号收藏夹无关，免登录可用）。写走 services/favorites.toggleFav，
+   * 本页不留收藏缓存 —— 图标状态以 toggle 的返回为准。
+   * 没在播任何曲目时没有可收藏的对象，静默忽略（底部 ♥ 常驻，不做显隐）。
+   */
+  async toggleFav() {
+    const track = playerService.getSnapshot().track;
+    if (!track) return;
+    try {
+      const res = await favorites.toggleFav(track);
+      this.setField("isFav", !!res.added);
+    } catch (e) {
+      console.error("[Player] 本地收藏切换失败:", e);
+    }
+  },
+
+  /**
+   * ♥ 图标对账：当前曲目在本地收藏里吗。
+   * 触发点：换歌（track 事件）、页面回到前台（onShow）、初始对账后。
+   * storage 是唯一真相 —— 收藏页那边移除了、上次运行留下的收藏，这里都能对上。
+   * 异步读回来时可能已经切歌：只有「还是这首」才落图标（sameTrack 按键比对，
+   * 不依赖对象引用 —— 对账回来的队列条目是 storage 里的新对象）。
+   */
+  async syncFavState() {
+    const track = playerService.getSnapshot().track;
+    if (!track) {
+      this.setField("isFav", false);
+      return;
+    }
+    try {
+      const fav = await favorites.isFav(track);
+      const cur = playerService.getSnapshot().track;
+      if (cur && sameTrack(cur, track)) this.setField("isFav", fav);
+    } catch (e) {
+      console.warn("[Player] 读取本地收藏状态失败:", e);
+    }
   },
 
   /* ------------------------------ 表冠旋转焦点管理 ------------------------------ */
