@@ -428,6 +428,7 @@ class _AudioDspPageState extends ConsumerState<AudioDspPage> {
 
     return Scaffold(
       appBar: AutoAppBar.generateAppBar(title: '音效与均衡器'),
+      backgroundColor: Colors.transparent,
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
         children: [
