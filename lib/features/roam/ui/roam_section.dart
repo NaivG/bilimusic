@@ -10,7 +10,7 @@ import 'package:bilimusic/app/shells/shell_page_manager.dart';
 /// UI 风格与 `_buildFunctionList` 中的其他条目一致（圆角图标块 + 标题 +
 /// trailing）：
 /// - 未漫游：trailing 为右箭头，点击进入 [ShellPage.roamOnboarding]。
-/// - 漫游中：trailing 为紫色设置按钮，点击 [showRoamInfoDialog]
+/// - 漫游中：trailing 为主题色设置按钮，点击 [showRoamInfoDialog]
 ///   （详情框内可导出配置或停止漫游）。
 ///
 /// 漫游状态订阅 [isRoamingProvider]：除了本行的入口，被控端收到遥控指令、
@@ -21,20 +21,21 @@ class RoamSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isRoaming = ref.watch(isRoamingProvider);
+    final accent = Theme.of(context).colorScheme.primary;
 
     return ListTile(
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.purple.withValues(alpha: 0.1),
+          color: accent.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Icon(Icons.explore_outlined, color: Colors.purple),
+        child: Icon(Icons.explore_outlined, color: accent),
       ),
       title: const Text('漫游模式'),
       trailing: isRoaming
           ? IconButton(
-              icon: const Icon(Icons.tune, color: Colors.purple),
+              icon: Icon(Icons.tune, color: accent),
               tooltip: '漫游设置',
               onPressed: () => showRoamInfoDialog(context, ref),
             )
