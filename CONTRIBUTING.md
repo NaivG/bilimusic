@@ -289,8 +289,8 @@ UI / Riverpod Provider → PlayerCoordinator → DualAudioService → ApiService
 
 ```json
 {
-  "version": "1.10.0",
-  "date": "2026-09-22",
+  "version": "1.10.1",
+  "date": "2026-09-24",
   "changes": [
     "新增……",
     "修复……",
