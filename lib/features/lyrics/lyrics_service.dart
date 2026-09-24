@@ -89,6 +89,10 @@ class LyricsService extends ChangeNotifier {
   String? _prefetchKey;
   VoidCallback? _removeIndexListener;
 
+  /// dispose 后置位。预热 / 切源都是 fire-and-forget,退出应用时可能有任务仍在途:
+  /// 它们会在容器释放完成后才跑完,迟到的 [notifyListeners] 不能再发。
+  bool _disposed = false;
+
   // ==================== 绑定 PlayerCoordinator ====================
 
   void bind(PlayerCoordinator coordinator) {
@@ -118,8 +122,19 @@ class LyricsService extends ChangeNotifier {
 
   @override
   void dispose() {
+    // 幂等:双 dispose 走到 super.dispose() 会抛
+    // "A LyricsService was used after being disposed"。
+    if (_disposed) return;
+    _disposed = true;
     _unbind();
     super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    // 释放后仍可能在途的任务(预热 / 切源)跑完时会迟到地 notify,直接吞掉。
+    if (_disposed) return;
+    super.notifyListeners();
   }
 
   void _maybePrefetch(Music music) {

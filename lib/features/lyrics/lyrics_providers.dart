@@ -9,9 +9,13 @@ import 'package:bilimusic/features/lyrics/lyrics_service.dart';
 
 /// 把 `LyricsService` 重新以 `ChangeNotifierProvider` 暴露,使 UI providers
 /// 在歌词缓存更新时自动重建(预热 / 切源完成都会触发 [ChangeNotifier.notifyListeners])。
+///
+/// 实例的所有权在 `lyricsServiceProvider`(它的 `ref.onDispose` 负责 dispose)。
+/// `ChangeNotifierProvider` 默认会在自己被释放时再 dispose 一次返回的 notifier
+/// ——退出应用释放容器时就成了双 dispose。共享实例必须关掉这个默认行为。
 final lyricsRevisionProvider = ChangeNotifierProvider<LyricsService>((ref) {
   return ref.watch(lyricsServiceProvider);
-});
+}, disposeNotifier: false);
 
 /// 用户手动指定的歌词来源。
 ///
