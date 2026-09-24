@@ -36,6 +36,7 @@ class SettingsManager extends ChangeNotifier {
   // Crossfade相关设置键名
   static const String KEY_CROSSFADE_ENABLED = 'crossfade_enabled';
   static const String KEY_CROSSFADE_DURATION = 'crossfade_duration';
+  static const String KEY_CROSSFADE_AUTO = 'crossfade_auto';
   static const String KEY_PRELOAD_SECONDS = 'preload_seconds';
 
   // 漫游模式设置键名
@@ -75,6 +76,7 @@ class SettingsManager extends ChangeNotifier {
   // Crossfade相关默认值
   static const bool DEFAULT_CROSSFADE_ENABLED = false; // 默认关闭
   static const int DEFAULT_CROSSFADE_DURATION = 3000; // 3秒
+  static const bool DEFAULT_CROSSFADE_AUTO = false; // 自动过渡默认关闭
   static const int DEFAULT_PRELOAD_SECONDS = 10; // 剩10秒时预加载
 
   // 漫游模式默认值
@@ -182,6 +184,8 @@ class SettingsManager extends ChangeNotifier {
         prefs.getBool(KEY_CROSSFADE_ENABLED) ?? DEFAULT_CROSSFADE_ENABLED;
     _cache[KEY_CROSSFADE_DURATION] =
         prefs.getInt(KEY_CROSSFADE_DURATION) ?? DEFAULT_CROSSFADE_DURATION;
+    _cache[KEY_CROSSFADE_AUTO] =
+        prefs.getBool(KEY_CROSSFADE_AUTO) ?? DEFAULT_CROSSFADE_AUTO;
     _cache[KEY_PRELOAD_SECONDS] =
         prefs.getInt(KEY_PRELOAD_SECONDS) ?? DEFAULT_PRELOAD_SECONDS;
 
@@ -325,6 +329,16 @@ class SettingsManager extends ChangeNotifier {
   Future<void> setCrossfadeEnabled(bool value) async {
     await _saveSetting(KEY_CROSSFADE_ENABLED, value);
     _cache[KEY_CROSSFADE_ENABLED] = value;
+  }
+
+  /// 获取是否启用自动Crossfade（过渡位置与时长按曲目时长推导）
+  bool get crossfadeAuto =>
+      _cache[KEY_CROSSFADE_AUTO] ?? DEFAULT_CROSSFADE_AUTO;
+
+  /// 设置是否启用自动Crossfade
+  Future<void> setCrossfadeAuto(bool value) async {
+    await _saveSetting(KEY_CROSSFADE_AUTO, value);
+    _cache[KEY_CROSSFADE_AUTO] = value;
   }
 
   /// 获取Crossfade时长(毫秒)

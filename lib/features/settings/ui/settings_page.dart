@@ -64,27 +64,37 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
             // 仅在启用crossfade时显示详细设置
             if (settings.crossfadeEnabled) ...[
-              // Crossfade时长滑块
-              ListTile(
-                leading: Icon(Icons.timer, color: _getPrimaryColor(context)),
-                title: Text('淡入淡出时长'),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('当前: ${settings.crossfadeDuration ~/ 1000}秒'),
-                    Slider(
-                      value: settings.crossfadeDuration.toDouble(),
-                      min: 1000,
-                      max: 10000,
-                      divisions: 9,
-                      label: '${settings.crossfadeDuration ~/ 1000}秒',
-                      onChanged: (value) {
-                        notifier.setCrossfadeDuration(value.toInt());
-                      },
-                    ),
-                  ],
-                ),
+              // 自动过渡：过渡位置与时长按歌曲时长推导
+              _buildSwitchListTile(
+                icon: Icons.auto_awesome,
+                title: '自动过渡（跟随歌曲时长）',
+                subtitle: '过渡时长取歌曲时长的3%（1-10秒）',
+                value: settings.crossfadeAuto,
+                onChanged: notifier.setCrossfadeAuto,
               ),
+
+              // Crossfade时长滑块（自动模式下时长由歌曲推导，不显示）
+              if (!settings.crossfadeAuto)
+                ListTile(
+                  leading: Icon(Icons.timer, color: _getPrimaryColor(context)),
+                  title: Text('淡入淡出时长'),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('当前: ${settings.crossfadeDuration ~/ 1000}秒'),
+                      Slider(
+                        value: settings.crossfadeDuration.toDouble(),
+                        min: 1000,
+                        max: 10000,
+                        divisions: 9,
+                        label: '${settings.crossfadeDuration ~/ 1000}秒',
+                        onChanged: (value) {
+                          notifier.setCrossfadeDuration(value.toInt());
+                        },
+                      ),
+                    ],
+                  ),
+                ),
 
               // 预加载时间滑块
               ListTile(
