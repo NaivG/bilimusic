@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:bilimusic/features/roam/models/roam_style.dart';
 import 'package:bilimusic/features/settings/logic/audio_output_options.dart';
+import 'package:bilimusic/shared/utils/title_meta_filter.dart';
 
 /// 设置管理器
 class SettingsManager extends ChangeNotifier {
@@ -35,6 +36,7 @@ class SettingsManager extends ChangeNotifier {
   // Crossfade相关设置键名
   static const String KEY_CROSSFADE_ENABLED = 'crossfade_enabled';
   static const String KEY_CROSSFADE_DURATION = 'crossfade_duration';
+  static const String KEY_CROSSFADE_AUTO = 'crossfade_auto';
   static const String KEY_PRELOAD_SECONDS = 'preload_seconds';
 
   // 漫游模式设置键名
@@ -47,6 +49,9 @@ class SettingsManager extends ChangeNotifier {
 
   // 窗口行为设置键名
   static const String KEY_CLOSE_BEHAVIOR = 'close_behavior';
+
+  // 标题元数据过滤（实验性）设置键名
+  static const String KEY_TITLE_META_FILTER = 'title_meta_filter';
 
   // 默认值
   static const bool DEFAULT_NOTIFICATIONS_ENABLED = true;
@@ -71,6 +76,7 @@ class SettingsManager extends ChangeNotifier {
   // Crossfade相关默认值
   static const bool DEFAULT_CROSSFADE_ENABLED = false; // 默认关闭
   static const int DEFAULT_CROSSFADE_DURATION = 3000; // 3秒
+  static const bool DEFAULT_CROSSFADE_AUTO = false; // 自动过渡默认关闭
   static const int DEFAULT_PRELOAD_SECONDS = 10; // 剩10秒时预加载
 
   // 漫游模式默认值
@@ -88,6 +94,9 @@ class SettingsManager extends ChangeNotifier {
 
   // 窗口行为默认值：关闭时弹窗询问
   static const String DEFAULT_CLOSE_BEHAVIOR = CLOSE_BEHAVIOR_PROMPT;
+
+  // 标题元数据过滤默认值：实验性功能，默认关闭
+  static const bool DEFAULT_TITLE_META_FILTER = false;
 
   // 单例实例
   static final SettingsManager _instance = SettingsManager._internal();
@@ -175,6 +184,8 @@ class SettingsManager extends ChangeNotifier {
         prefs.getBool(KEY_CROSSFADE_ENABLED) ?? DEFAULT_CROSSFADE_ENABLED;
     _cache[KEY_CROSSFADE_DURATION] =
         prefs.getInt(KEY_CROSSFADE_DURATION) ?? DEFAULT_CROSSFADE_DURATION;
+    _cache[KEY_CROSSFADE_AUTO] =
+        prefs.getBool(KEY_CROSSFADE_AUTO) ?? DEFAULT_CROSSFADE_AUTO;
     _cache[KEY_PRELOAD_SECONDS] =
         prefs.getInt(KEY_PRELOAD_SECONDS) ?? DEFAULT_PRELOAD_SECONDS;
 
@@ -195,6 +206,14 @@ class SettingsManager extends ChangeNotifier {
     // 加载窗口行为设置
     _cache[KEY_CLOSE_BEHAVIOR] =
         prefs.getString(KEY_CLOSE_BEHAVIOR) ?? DEFAULT_CLOSE_BEHAVIOR;
+
+    // 加载标题元数据过滤（实验性），并同步静态开关：
+    // API 解析在 domain 层（fromArchiveJson / fromViewApi 等），
+    // 那里读不到 SettingsManager，只能读 TitleMetaFilter.enabled。
+    final titleMetaFilter =
+        prefs.getBool(KEY_TITLE_META_FILTER) ?? DEFAULT_TITLE_META_FILTER;
+    _cache[KEY_TITLE_META_FILTER] = titleMetaFilter;
+    TitleMetaFilter.enabled = titleMetaFilter;
   }
 
   /// 获取通知设置
@@ -312,6 +331,16 @@ class SettingsManager extends ChangeNotifier {
     _cache[KEY_CROSSFADE_ENABLED] = value;
   }
 
+  /// 获取是否启用自动Crossfade（过渡位置与时长按曲目时长推导）
+  bool get crossfadeAuto =>
+      _cache[KEY_CROSSFADE_AUTO] ?? DEFAULT_CROSSFADE_AUTO;
+
+  /// 设置是否启用自动Crossfade
+  Future<void> setCrossfadeAuto(bool value) async {
+    await _saveSetting(KEY_CROSSFADE_AUTO, value);
+    _cache[KEY_CROSSFADE_AUTO] = value;
+  }
+
   /// 获取Crossfade时长(毫秒)
   int get crossfadeDuration =>
       _cache[KEY_CROSSFADE_DURATION] ?? DEFAULT_CROSSFADE_DURATION;
@@ -421,6 +450,22 @@ class SettingsManager extends ChangeNotifier {
       default:
         return '弹出提示';
     }
+  }
+
+  // ============ 标题元数据过滤（实验性） ============
+
+  /// 是否启用标题元数据过滤（实验性，默认关闭）。
+  bool get titleMetaFilterEnabled =>
+      _cache[KEY_TITLE_META_FILTER] ?? DEFAULT_TITLE_META_FILTER;
+
+  /// 设置标题元数据过滤开关。
+  ///
+  /// 必须先同步 [TitleMetaFilter.enabled] 再落盘：标题过滤发生在 API
+  /// 响应解析时（domain 层的解析工厂），那里读不到 Riverpod /
+  /// SettingsManager，只能读纯 Dart 的静态标志。
+  Future<void> setTitleMetaFilterEnabled(bool value) async {
+    TitleMetaFilter.enabled = value;
+    await _saveSetting(KEY_TITLE_META_FILTER, value);
   }
 
   /// 获取外观的文本描述

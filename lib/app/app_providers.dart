@@ -1,3 +1,4 @@
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lyrics_now/lyrics_now.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -218,9 +219,16 @@ final lyricsFinderProvider = Provider<LyricFinder>((ref) {
   return finder;
 });
 
+/// 歌词缓存管理器。
+///
+/// 包一层 provider 让测试可以 override 成内存实现。
+final lyricsCacheManagerProvider = Provider<CacheManager>((ref) {
+  return lyricsCacheManager;
+});
+
 final lyricsServiceProvider = Provider<LyricsService>((ref) {
   final svc = LyricsService(
-    cache: lyricsCacheManager,
+    cache: ref.watch(lyricsCacheManagerProvider),
     finder: ref.watch(lyricsFinderProvider),
   );
   svc.bind(ref.watch(playerCoordinatorProvider));

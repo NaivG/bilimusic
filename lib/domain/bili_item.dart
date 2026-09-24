@@ -1,4 +1,5 @@
 import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/shared/utils/title_meta_filter.dart';
 
 /// BiliItem - 视频级模型，用于卡片展示
 /// 每个视频（bvid）对应一个 BiliItem，包含视频基础信息和分P列表 List<Music>
@@ -83,11 +84,18 @@ class BiliItem {
       Music.isValidImageUrl(pic) ? pic : fallbackCoverUrl;
 
   /// 从 API x/web-interface/view 响应构造
+  ///
+  /// 视频标题与多P分P标题过 [TitleMetaFilter.maybeClean]：设置开启时
+  /// 清掉【MV】【中字】这类元信息，关闭时原样返回（实验性）。
+  /// album 语义是视频标题，同样过滤。
   factory BiliItem.fromViewApi(Map<String, dynamic> data) {
     final pagesData = (data['pages'] ?? []) as List;
     final ownerData = data['owner'] ?? {};
     final statData = data['stat'] ?? {};
     final pic = data['pic'] as String? ?? '';
+    final videoTitle = TitleMetaFilter.maybeClean(
+      data['title']?.toString() ?? '',
+    );
 
     final pages = pagesData.asMap().entries.map<Music>((entry) {
       final idx = entry.key;
@@ -99,10 +107,12 @@ class BiliItem {
         id: data['bvid'] ?? '',
         cid: pageCid,
         title: isSingle
-            ? (data['title'] ?? '')
-            : (pageJson['part'] ?? pageJson['title'] ?? ''),
+            ? videoTitle
+            : TitleMetaFilter.maybeClean(
+                (pageJson['part'] ?? pageJson['title'])?.toString() ?? '',
+              ),
         artist: ownerData['name'] ?? '未知艺术家',
-        album: data['title'] ?? '未知专辑',
+        album: data['title'] == null ? '未知专辑' : videoTitle,
         coverUrl: pic.isNotEmpty ? '$pic$biliCoverThumbSuffix' : '',
         duration: Duration(
           seconds: int.tryParse(pageJson['duration']?.toString() ?? '0') ?? 0,
@@ -116,7 +126,7 @@ class BiliItem {
 
     return BiliItem(
       bvid: data['bvid'] ?? '',
-      title: data['title'] ?? '',
+      title: videoTitle,
       pic: pic,
       owner: Owner(
         mid: ownerData['mid']?.toString() ?? '0',

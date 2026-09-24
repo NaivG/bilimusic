@@ -428,6 +428,7 @@ class _AudioDspPageState extends ConsumerState<AudioDspPage> {
 
     return Scaffold(
       appBar: AutoAppBar.generateAppBar(title: '音效与均衡器'),
+      backgroundColor: Colors.transparent,
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
         children: [
@@ -440,9 +441,10 @@ class _AudioDspPageState extends ConsumerState<AudioDspPage> {
             onEnabledChanged: _toggleEqEnabled,
             onReset: _resetEq,
             note:
-                '8 段可调频段均衡器（实时）。横向拖动节点调整'
-                '频段中心频率，纵向拖动调整增益，双击节点将增益归零。'
-                '各频段按几何中点切分、互不重叠，并在边界处平滑衔接。',
+                '8 段可调频段均衡器（实时）。按住节点拖动：横向调频段'
+                '中心频率，纵向调增益，双击节点将增益归零；'
+                '横向滚动使用曲线顶部的专用滑动条。各频段按几何'
+                '中点切分、互不重叠，并在边界处平滑衔接。',
             primary: primary,
             scheme: scheme,
             controls: [

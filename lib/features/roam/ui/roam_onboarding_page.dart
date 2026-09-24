@@ -125,7 +125,10 @@ class _PlaylistStepState extends ConsumerState<_PlaylistStep> {
     return Column(
       children: [
         ListTile(
-          leading: const Icon(Icons.content_paste_go, color: Colors.purple),
+          leading: Icon(
+            Icons.content_paste_go,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           title: const Text('导入配置'),
           subtitle: const Text('粘贴已保存的漫游配置直接开始'),
           onTap: _onImportTap,

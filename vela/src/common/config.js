@@ -207,6 +207,10 @@ export const CONFIG = {
     // header 打包形态」是**这台机的运行时事实**，不是这次网络的状态 —— 探明一次就写下来，
     // 以后每个页面 VM、每次启动都不再把整条探测阶梯撞一遍（蓝牙上那是好几秒的白白下载）。
     DL_CAPS: 'bilimusic_dl_caps',
+    // 本地收藏表：手表本机的收藏夹（与 B 站账号收藏夹无关，免登录可用）。
+    // 存的是归一化条目数组（common/favorites.js 定形状），每个 VM 操作前整表读、
+    // 改完整表写（改动低频且由点击触发，不上播放态那套 ver 水位协议）。
+    LOCAL_FAVS: 'bilimusic_local_favs',
     // 历史遗留：老版本把音量存在 `bilimusic_settings_volume`（SETTINGS + '_volume'）里，
     // 现已废弃（启动时清理，见 retireLegacyVolume）
     LEGACY_VOLUME: 'bilimusic_settings_volume',

@@ -1,3 +1,5 @@
+import 'package:bilimusic/shared/utils/title_meta_filter.dart';
+
 /// 音乐渲染样式枚举
 enum MusicRenderStyle {
   /// 卡片样式 - 响应式卡片（Mobile/Tablet/Desktop自适应）
@@ -105,6 +107,9 @@ class Music {
   /// 完整详情（含分P列表）的 view 端点请走 `BiliItem.fromViewApi`：
   /// 它逐分P构造（cid/title/duration 来自 pages 数组），album 语义为
   /// 视频标题，与稿件卡片（分区名）不同，属有意区分。
+  ///
+  /// 标题过 [TitleMetaFilter.maybeClean]：设置开启时清掉【MV】【中字】
+  /// 这类元信息，关闭时原样返回（实验性，见 title_meta_filter.dart）。
   factory Music.fromArchiveJson(Map<String, dynamic> json) {
     final owner = json['owner'];
     final author = json['author'];
@@ -113,7 +118,7 @@ class Music {
     final cover = (json['pic'] ?? json['cover']) as String? ?? '';
     return Music(
       id: (json['bvid'] as String?) ?? json['aid']?.toString() ?? '',
-      title: json['title'] as String? ?? '',
+      title: TitleMetaFilter.maybeClean(json['title'] as String? ?? ''),
       artist: authorName ?? ownerName ?? '未知艺术家',
       album: json['tname'] as String? ?? '未知专辑',
       coverUrl: cover.isNotEmpty ? '$cover$biliCoverThumbSuffix' : '',

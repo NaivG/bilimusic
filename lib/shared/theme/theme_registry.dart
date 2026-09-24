@@ -30,7 +30,7 @@ class _LucentDescriptor extends AppThemeDescriptor {
   @override
   String get label => 'Lucent (默认)';
   @override
-  String? get subtitle => 'iOS 风格 · 暖灰底 · 紫色 accent';
+  String? get subtitle => 'iOS 风格 · 暖灰底 · 湖水青 accent';
 
   @override
   ThemeData light() => LucentTheme.lightTheme();
@@ -38,12 +38,14 @@ class _LucentDescriptor extends AppThemeDescriptor {
   ThemeData dark() => LucentTheme.darkTheme();
 
   @override
-  Color paletteAccent(Brightness brightness) => LucentColors.accentPrimary;
+  Color paletteAccent(Brightness brightness) => brightness == Brightness.light
+      ? LucentColors.primaryLight
+      : LucentColors.primaryDark;
 
   @override
   Color paletteSurface(Brightness brightness) => brightness == Brightness.light
-      ? LucentColors.lightSurfaceBase
-      : LucentColors.darkSurfaceBase;
+      ? LucentColors.surfaceLight
+      : LucentColors.surfaceDark;
 }
 
 class _NocturneDescriptor extends AppThemeDescriptor {

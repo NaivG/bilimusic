@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.10.0+191
+version: 1.10.1+230
 
 environment:
   sdk: ^3.13.0
@@ -104,6 +104,17 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+
+  # 临时禁用 Swift Package Manager：flutter_app_update 插件的 iOS 目录结构
+  # （嵌套的 ios/flutter_app_update/ + 仅 podspec、无 Package.swift）无法被
+  # Xcode 的 SPM resolver 识别，会在 SPM 集成阶段直接失败。
+  # 关闭 SPM 后回退到 CocoaPods：flutter_app_update 用 podspec 注册，链路通；
+  # 其它 iOS 插件也都提供 podspec，CocoaPods 链路不受影响。
+  # **NOTE**: CocoaPods 注册表 2026-12-02 只读、后续会禁止禁用 SPM——届时要么把
+  # flutter_app_update 换成支持 SPM 的等价物，要么用 path 覆盖一份裁掉 iOS 的本地
+  # 分支再开回这个开关。
+  config:
+    enable-swift-package-manager: false
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/player/models/player_state.dart';
 import 'package:bilimusic/features/player/logic/audio_effects_service.dart';
+import 'package:bilimusic/features/player/logic/crossfade_auto.dart';
 import 'package:bilimusic/features/player/logic/dual_audio_service.dart';
 import 'package:bilimusic/features/playlist/playlist_service.dart';
 import 'package:bilimusic/features/player/logic/notification_service.dart';
@@ -47,6 +48,7 @@ class PlayerCoordinator {
   Timer? _debounceTimer;
   Timer? _countdownTimer; // 倒计时定时器
   DateTime? _crossfadeStartTime; // crossfade开始时间戳
+  int? _activeCrossfadeMs; // 本次 crossfade 实际采用的 fade 时长（倒计时展示用）
   bool _isCountdownActive = false; // 防止重复触发
   bool _isPreloading = false; // 预加载中（coordinator 侧）
   Music? _preloadedMusic; // 记录已预加载的音乐
@@ -473,6 +475,17 @@ class PlayerCoordinator {
 
   // ============ Crossfade相关方法 ============
 
+  /// 本曲应使用的 fade 时长（毫秒）。每次触发时现算，实时反映设置与曲目：
+  /// - 自动模式（[SettingsManager.crossfadeAuto]）：按当前曲目时长推导
+  ///   （[CrossfadeAuto.fadeDurationMs]，短曲短过渡、长曲长过渡）；
+  /// - 手动模式：设置里的固定值。
+  int get _effectiveFadeMs {
+    if (_settingsManager.crossfadeAuto) {
+      return CrossfadeAuto.fadeDurationMs(_audioService.currentDuration);
+    }
+    return _settingsManager.crossfadeDuration;
+  }
+
   /// 检查预加载触发条件
   void _checkPreloadTrigger() {
     // 定时关闭（播完整首）：不让 crossfade 抢先切歌，等本曲自然播完
@@ -499,40 +512,68 @@ class PlayerCoordinator {
     if (currentDuration.inMilliseconds == 0) return;
 
     final remaining = currentDuration - currentPosition;
-    final preloadThreshold = Duration(seconds: _settingsManager.preloadSeconds);
 
-    // 如果剩余时间 <= 预加载阈值
-    if (remaining <= preloadThreshold) {
-      // 如果standby未就绪且未在预加载中，先预加载
+    // 本曲的 fade 参数：自动模式按时长推导，手动模式用固定设置值。
+    final fadeMs = _effectiveFadeMs;
+
+    // 过渡位置：曲目结尾往前 fadeMs，fade-out 恰好覆盖本曲结尾。
+    // 旧行为是「剩余时间 ≤ 预加载阈值就立刻开切」，会把提前加载窗口误当成
+    // 过渡起点——默认设置下每首歌的最后 7 秒都被切掉。
+    final fadeLead = Duration(milliseconds: fadeMs);
+
+    // 预加载窗口：不晚于过渡位置前 2 秒（过渡一开始下一首必须已就绪），
+    // 再保留原有的 5 秒网络余量。
+    final preloadLead =
+        Duration(
+          seconds: max(
+            _settingsManager.preloadSeconds,
+            (fadeMs / 1000).ceil() + 2,
+          ),
+        ) +
+        const Duration(seconds: 5);
+
+    if (remaining <= fadeLead) {
+      // 已到达过渡位置
       if (!_audioService.isStandbyReady && !_isPreloading) {
-        debugPrint('[PlayerCoordinator] 到达阈值但standby未就绪，先触发预加载');
+        // 窗口开了还没装好：立刻补装，就绪后 fade 会收紧到剩余时间
+        debugPrint('[PlayerCoordinator] 过渡位置已到但standby未就绪，补触发预加载');
         _triggerPreload();
-      }
-      // 如果standby已就绪，启动crossfade
-      else if (_audioService.isStandbyReady && !_isCountdownActive) {
+      } else if (_audioService.isStandbyReady) {
         if (!_settingsManager.autoPlayNext) return;
-        debugPrint('[PlayerCoordinator] 到达阈值且standby已就绪，启动基于时间的Crossfade');
-        _startTimeBasedCrossfade();
+        debugPrint('[PlayerCoordinator] 到达过渡位置，启动基于时间的Crossfade');
+        _startTimeBasedCrossfade(fadeMs);
       }
-    }
-    // 如果距离阈值还有一段距离（提前preloadThreshold + 5秒），且standby未就绪，触发预加载
-    else if (remaining <= preloadThreshold + const Duration(seconds: 5) &&
-        remaining > preloadThreshold &&
+    } else if (remaining <= preloadLead &&
         !_audioService.isStandbyReady &&
         !_isPreloading) {
+      // 还没到过渡位置：提前预加载下一首
       debugPrint('[PlayerCoordinator] 提前预加载下一首');
       _triggerPreload();
     }
   }
 
   /// 启动基于时间的Crossfade切换
-  Future<void> _startTimeBasedCrossfade() async {
+  ///
+  /// [fadeMs] 为本次过渡的 fade 时长（毫秒），触发位置在「曲目结尾往前
+  /// fadeMs」处（见 [_checkPreloadTrigger]）。若预加载比预期慢、真正开切时
+  /// 剩余时间已不足 fadeMs，则收紧到剩余时间：fade-out 恰好落在曲目结尾，
+  /// 既不吃掉结尾，也不会明显拖过 EOF（旧曲此时已切成 standby，其 EOF
+  /// 会被状态机忽略，见 DualAudioService._recomputeAudioState）。
+  Future<void> _startTimeBasedCrossfade(int fadeMs) async {
     // 定时关闭（播完整首）：抑制自动切换，等本曲自然播完
     if (pauseAfterCurrentTrack.value) return;
 
     if (_isCountdownActive) return;
 
-    debugPrint('[PlayerCoordinator] 启动基于时间的Crossfade');
+    // 剩余时间不足或已到结尾（预加载比预期慢）：放弃时间触发，交给
+    // 播放完成路径在 EOF 处无缝切换
+    final remainingMs =
+        _audioService.currentDuration.inMilliseconds -
+        _audioService.currentPosition.inMilliseconds;
+    if (remainingMs <= 0) return;
+    final actualMs = min(fadeMs, remainingMs);
+
+    debugPrint('[PlayerCoordinator] 启动基于时间的Crossfade (${actualMs}ms)');
 
     try {
       // 使用预加载的索引，确保预加载和 crossfade 的歌曲一致
@@ -546,8 +587,10 @@ class PlayerCoordinator {
         _playlistService.setCurrentIndex(nextIndex);
       }
 
-      // 记录开始时间
+      // 记录开始时间与实际 fade 时长——倒计时展示认这份快照，
+      // 过渡进行中改设置不影响本次过渡
       _crossfadeStartTime = DateTime.now();
+      _activeCrossfadeMs = actualMs;
       _isCountdownActive = true;
 
       // 启动倒计时定时器（每100ms更新一次）
@@ -557,7 +600,7 @@ class PlayerCoordinator {
       });
 
       // 立即执行crossfade
-      await _audioService.executeCrossfade(_settingsManager.crossfadeDuration);
+      await _audioService.executeCrossfade(actualMs);
 
       // crossfade完成后清理；听感已切换为预加载流，实时音质随之更新
       final standbyQuality = _standbyQualityId;
@@ -582,12 +625,16 @@ class PlayerCoordinator {
   }
 
   /// 更新倒计时值
+  ///
+  /// 认 [_activeCrossfadeMs] 这份启动时的快照，不现读设置：自动模式下
+  /// fade 时长随曲目推导，中途改设置也不该让正在进行的过渡跳变。
   void _updateCountdownValue() {
     if (_crossfadeStartTime == null) return;
+    final activeMs = _activeCrossfadeMs;
+    if (activeMs == null) return;
 
     final elapsed = DateTime.now().difference(_crossfadeStartTime!);
-    final duration = Duration(milliseconds: _settingsManager.crossfadeDuration);
-    final remaining = duration - elapsed;
+    final remaining = Duration(milliseconds: activeMs) - elapsed;
 
     final secs = remaining.inSeconds <= 0 ? 0 : remaining.inSeconds;
     _audioService.setPlayerState(PlayerPlaying(fadeCountdown: secs));
@@ -598,6 +645,7 @@ class PlayerCoordinator {
     _countdownTimer?.cancel();
     _countdownTimer = null;
     _crossfadeStartTime = null;
+    _activeCrossfadeMs = null;
     _isCountdownActive = false;
     // 清掉 fade 子态
     if (_audioService.playerState.value is PlayerPlaying) {
@@ -725,10 +773,8 @@ class PlayerCoordinator {
           _playlistService.setCurrentIndex(nextIndex);
         }
 
-        // 执行crossfade
-        await _audioService.executeCrossfade(
-          _settingsManager.crossfadeDuration,
-        );
+        // 执行crossfade（fade 时长实时结算：自动模式按刚播完的曲目时长推导）
+        await _audioService.executeCrossfade(_effectiveFadeMs);
 
         // 更新预加载状态；听感已切换为预加载流，实时音质随之更新
         final standbyQuality = _standbyQualityId;

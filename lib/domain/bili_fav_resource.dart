@@ -1,3 +1,5 @@
+import 'package:bilimusic/shared/utils/title_meta_filter.dart';
+
 /// 收藏夹资源分页结果。
 class FavResourcePage {
   final List<FavResource> resources;
@@ -70,7 +72,9 @@ class FavResource {
     return FavResource(
       id: json['id'] is int ? json['id'] as int : 0,
       type: json['type'] is int ? json['type'] as int : 0,
-      title: json['title']?.toString() ?? '',
+      // 实验性标题元数据过滤：设置开启时清掉【MV】【中字】这类元信息，
+      // 关闭时原样返回（收藏夹列表展示与 fav_sync 导入共用这里）。
+      title: TitleMetaFilter.maybeClean(json['title']?.toString() ?? ''),
       cover: json['cover']?.toString() ?? '',
       intro: json['intro']?.toString() ?? '',
       page: json['page'] is int ? json['page'] as int : 1,

@@ -1,0 +1,373 @@
+<template>
+  <div class="lf-page">
+    <!-- 安全区容器：左右内缩同一个 px 值（见 common/device.js safeHorizontalInsetPx） -->
+    <div
+      class="safe"
+      style="padding-left: {{ safeInsetPx }}px; padding-right: {{ safeInsetPx }}px"
+    >
+      <!-- 头部：官方手表小程序样式 —— 贴顶、居中「‹ 本地收藏」红色返回，上下不做安全区 -->
+      <div class="header">
+        <text class="header-back" onclick="goBack">‹ 本地收藏</text>
+      </div>
+
+      <list class="list" if="{{ tracks.length }}">
+        <!-- 播放全部：用当前收藏表建队列，从第 1 首连播，然后回播放器 -->
+        <list-item class="play-all" type="playall" onclick="playAll">
+          <text class="play-all-text">▶ 播放全部</text>
+          <text class="play-all-desc">已收藏 {{ tracks.length }} 首</text>
+        </list-item>
+
+        <!-- 条目内不嵌套点击：与播放队列同一条纪律 —— 点歌区（中段）与 ♥
+             （取消收藏）是兄弟节点，两者的 onclick 互不嵌套，不依赖事件拦截 -->
+        <list-item
+          for="{{(index, item) in tracks}}"
+          class="item"
+          tid="key"
+          type="song"
+        >
+          <text class="item-index {{ index === currentIndex ? 'item-index-current' : '' }}">
+            {{ index === currentIndex ? '♪' : index + 1 }}
+          </text>
+          <div class="detail" onclick="play(index)">
+            <text
+              class="item-title"
+              style="color: {{ index === currentIndex ? '#ff3a3a' : '#ffffff' }};"
+            >{{ item.title }}</text>
+            <text class="item-subtitle">{{ item.artist }}</text>
+          </div>
+          <image
+            class="item-fav"
+            src="/common/icon/heart-fill.png"
+            onclick="removeFav(index)"
+          />
+        </list-item>
+      </list>
+
+      <text class="state" if="{{ loaded && !tracks.length }}">还没有本地收藏</text>
+      <text class="state hint" if="{{ loaded && !tracks.length }}">在播放页点 ♥ 收藏正在听的歌</text>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from "@system.router";
+import * as favorites from "../../services/favorites";
+import playerService from "../../services/playerService";
+import deviceService from "../../services/deviceService";
+import { findTrackIndex } from "../../common/tracks";
+
+/**
+ * 本地收藏页（更多 → 本地收藏）
+ *
+ * 数据在手表本机的 @system.storage 上（services/favorites），与 B 站账号收藏夹
+ * （pages/fav / favDetail）完全无关，免登录可用。
+ *
+ * 本页是独立 JS VM：
+ *   - onInit / onShow 都整表重读一遍 —— 播放页 ♥ 加的、别的 VM 动的，回来都对得上；
+ *   - 高亮「队列里正在播的是哪一行」按曲目同一性匹配（列表 ≠ 队列，不能按下标对齐），
+ *     与 favDetail / recommend 同款。
+ *
+ * 页面栈纪律：入口链固定为 player → more → localfav，播放全部后
+ * router.back({ step: 2 }) 固定步数回播放器，不 push/replace 别的页。
+ */
+export default {
+  data: {
+    tracks: [],
+    // 首次收藏表读完才置 true：空态文案不在首帧闪出来（读盘虽快，也是异步 IPC）
+    loaded: false,
+    currentIndex: -1,
+    // 左右安全内缩 px：先按 480 宽矩形屏兜底，getInfo 回来后再重算
+    // （机制见 common/device.js 的 safeHorizontalInsetPx 注释）
+    safeInsetPx: 29,
+  },
+
+  onInit() {
+    // 屏幕形状只影响左右内缩 px，先落保守值再刷新（详见 player.ux 同名处注释）
+    this.safeInsetPx = deviceService.capabilities().safeInsetPx;
+    deviceService.whenReady().then(() => {
+      this.safeInsetPx = deviceService.capabilities().safeInsetPx;
+    });
+
+    // 高亮订阅：切歌 / 队列变化时重算「正在播的是哪一行」
+    this._unsub = playerService.subscribe((type) => {
+      if (type === "track" || type === "queue") this.syncHighlight();
+    });
+
+    // 本页是独立 VM：先把共享态读回来（高亮才准），再读收藏表。
+    // 不等 session.ready()：本地收藏与登录态无关。
+    playerService.adopt().then(() => {
+      this.syncHighlight();
+      this.loadFavs();
+    });
+  },
+
+  onShow() {
+    // 播放页可能刚 ♥ 收藏了一首、或对队列动了刀：对账 + 重读收藏表
+    playerService.adopt().then(() => this.syncHighlight());
+    this.loadFavs();
+  },
+
+  onDestroy() {
+    if (this._unsub) {
+      this._unsub();
+      this._unsub = null;
+    }
+  },
+
+  /* ---------------------------- 数据加载 ---------------------------- */
+
+  async loadFavs() {
+    try {
+      const list = await favorites.listFavs();
+      // 整表替换触发一次重渲染，量级是几 KB 的列表，直接落即可
+      this.tracks = list;
+    } catch (e) {
+      console.error("[LocalFav] 读取本地收藏失败:", e);
+    }
+    this.loaded = true;
+    this.syncHighlight();
+  },
+
+  /* ---------------------------- 播放（解耦语义） ---------------------------- */
+
+  syncHighlight() {
+    // 列表 ≠ 队列：按曲目同一性找「队列里正在播的」在本列表里的位置
+    this.currentIndex = findTrackIndex(this.tracks, playerService.getSnapshot().track);
+  },
+
+  /**
+   * 单曲点播：插到队列当前曲目之后立即播放（队列原有内容保留），留在本页。
+   * 与 favDetail / recommend 同一条语义：来源页只选歌，绝不整份替换队列。
+   */
+  async play(index) {
+    const track = this.tracks[index];
+    if (!track) return;
+    await playerService.playTrackNow(track);
+    this.syncHighlight();
+  },
+
+  /** 播放全部：明确地用这份收藏表建队列，回播放器（入口链 player → more → localfav） */
+  async playAll() {
+    if (!this.tracks.length) return;
+    await playerService.setQueue(this.tracks, 0);
+    router.back({ step: 2 });
+  },
+
+  /* ---------------------------- 收藏管理 ---------------------------- */
+
+  /** ♥ → 取消收藏并移除这一行（表里其它的不动） */
+  async removeFav(index) {
+    const track = this.tracks[index];
+    if (!track) return;
+    try {
+      await favorites.removeFav(track);
+      this.tracks.splice(index, 1);
+      this.syncHighlight();
+    } catch (e) {
+      console.error("[LocalFav] 取消收藏失败:", e);
+    }
+  },
+
+  goBack() {
+    router.back();
+  },
+};
+</script>
+
+<style>
+.lf-page {
+  width: 100%;
+  height: 100%;
+  padding: 20px 0;
+  flex-direction: column;
+  align-items: center;
+  background-color: black;
+}
+
+/* 安全区容器：占满整屏宽，左右内缩是同一个 px 值（模板内联 style 绑定）。
+   不用「百分比宽 + 交叉轴居中」的盒子：渲染层会左锚定，见 common/device.js。 */
+.safe {
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 头部：贴顶、居中「‹ 本地收藏」红色返回（官方手表小程序样式，上下不做安全区） */
+.header {
+  width: 100%;
+  height: 64px;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
+
+.header-back {
+  font-size: 30px;
+  color: #ff3a3a;
+  padding: 8px 20px;
+}
+
+.list {
+  width: 100%;
+  margin-top: 10px;
+  flex: 1;
+}
+
+/* 播放全部行：主题红描边卡片，与 favDetail / recommend 同款 */
+.play-all {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  height: 88px;
+  margin-bottom: 14px;
+  padding-left: 20px;
+  padding-right: 14px;
+  border: 1px solid rgba(255, 58, 58, 0.6);
+  border-radius: 18px;
+  background-color: rgba(255, 58, 58, 0.12);
+}
+
+.play-all-text {
+  flex: 1;
+  font-size: 30px;
+  color: #ff3a3a;
+}
+
+.play-all-desc {
+  font-size: 22px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.item {
+  display: flex;
+  width: 100%;
+  height: 100px;
+  padding-bottom: 8px;
+}
+
+.item-index {
+  width: 50px;
+  height: 100%;
+  text-align: center;
+  color: white;
+  font-size: 26px;
+}
+
+.item-index-current {
+  color: #ff3a3a;
+}
+
+/* 点歌点击区：与播放队列的 .q-detail 同构（中段独立成点击区，
+   ♥ 是兄弟节点 —— 条目内不嵌套点击，见模板注释） */
+.detail {
+  flex: 1;
+  height: 100%;
+  flex-direction: column;
+}
+
+.item-title {
+  width: 100%;
+  font-size: 30px;
+  height: 52px;
+  line-height: 52px;
+  color: #ffffff;
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.item-subtitle {
+  width: 100%;
+  font-size: 24px;
+  height: 40px;
+  line-height: 40px;
+  color: rgba(255, 255, 255, 0.6);
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+/* ♥ 取消收藏按钮：实心红心（本列表里所有条目都是已收藏的）；
+   本体 40px 里留 padding 扩大点击热区（与队列的 × 同款做法） */
+.item-fav {
+  width: 40px;
+  height: 40px;
+  padding: 10px;
+  opacity: 0.7;
+}
+
+.state {
+  width: 100%;
+  margin-top: 20px;
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+}
+
+.state.hint {
+  margin-top: 8px;
+  font-size: 20px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* 胶囊屏（手环 9 / 10）不是本项目的设计目标，这块只是老版本的兜底；
+   圆屏安全区不走 @media（对 S1 Pro / Redmi Watch 4 不支持），走 .shape-* class。
+   详见 player.ux 同名注释与 common/device.js 顶部说明。 */
+@media (shape: pill-shaped) or (max-width: 106) {
+  .lf-page {
+    padding: 10px;
+  }
+
+  .header {
+    height: 48px;
+  }
+
+  .header-back {
+    font-size: 24px;
+  }
+
+  .play-all {
+    height: 72px;
+    border-radius: 12px;
+  }
+
+  .play-all-text {
+    font-size: 24px;
+  }
+
+  .play-all-desc {
+    font-size: 18px;
+  }
+
+  .item {
+    height: 80px;
+  }
+
+  .item-index {
+    width: 34px;
+    font-size: 20px;
+  }
+
+  .item-title {
+    font-size: 22px;
+    height: 42px;
+    line-height: 42px;
+  }
+
+  .item-subtitle {
+    font-size: 18px;
+    height: 32px;
+    line-height: 32px;
+  }
+
+  .item-fav {
+    width: 44px;
+    height: 44px;
+    padding: 8px;
+  }
+
+  .state {
+    font-size: 18px;
+  }
+}
+</style>

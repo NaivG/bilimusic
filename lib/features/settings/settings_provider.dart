@@ -20,10 +20,16 @@ class SettingsState {
   final String audioQuality;
   final bool crossfadeEnabled;
   final int crossfadeDuration;
+
+  /// 自动过渡：过渡位置与时长按曲目时长推导，忽略 [crossfadeDuration]。
+  final bool crossfadeAuto;
   final int preloadSeconds;
   final String lanSyncMode;
   final String lanSyncDeviceName;
   final String closeBehavior;
+
+  /// 标题元数据过滤（实验性）。
+  final bool titleMetaFilterEnabled;
 
   // 音频输出四项 + 免责说明。
   //
@@ -50,10 +56,12 @@ class SettingsState {
     this.audioQuality = '30280',
     this.crossfadeEnabled = false,
     this.crossfadeDuration = 3000,
+    this.crossfadeAuto = false,
     this.preloadSeconds = 10,
     this.lanSyncMode = 'off',
     this.lanSyncDeviceName = '',
     this.closeBehavior = 'prompt',
+    this.titleMetaFilterEnabled = false,
     this.audioOutputDisclaimerAccepted = false,
     this.audioDelayMs = 0,
     this.audioExclusive = false,
@@ -73,10 +81,12 @@ class SettingsState {
     String? audioQuality,
     bool? crossfadeEnabled,
     int? crossfadeDuration,
+    bool? crossfadeAuto,
     int? preloadSeconds,
     String? lanSyncMode,
     String? lanSyncDeviceName,
     String? closeBehavior,
+    bool? titleMetaFilterEnabled,
     bool? audioOutputDisclaimerAccepted,
     int? audioDelayMs,
     bool? audioExclusive,
@@ -95,10 +105,13 @@ class SettingsState {
       audioQuality: audioQuality ?? this.audioQuality,
       crossfadeEnabled: crossfadeEnabled ?? this.crossfadeEnabled,
       crossfadeDuration: crossfadeDuration ?? this.crossfadeDuration,
+      crossfadeAuto: crossfadeAuto ?? this.crossfadeAuto,
       preloadSeconds: preloadSeconds ?? this.preloadSeconds,
       lanSyncMode: lanSyncMode ?? this.lanSyncMode,
       lanSyncDeviceName: lanSyncDeviceName ?? this.lanSyncDeviceName,
       closeBehavior: closeBehavior ?? this.closeBehavior,
+      titleMetaFilterEnabled:
+          titleMetaFilterEnabled ?? this.titleMetaFilterEnabled,
       audioOutputDisclaimerAccepted:
           audioOutputDisclaimerAccepted ?? this.audioOutputDisclaimerAccepted,
       audioDelayMs: audioDelayMs ?? this.audioDelayMs,
@@ -123,10 +136,12 @@ class SettingsState {
       audioQuality: s.audioQuality,
       crossfadeEnabled: s.crossfadeEnabled,
       crossfadeDuration: s.crossfadeDuration,
+      crossfadeAuto: s.crossfadeAuto,
       preloadSeconds: s.preloadSeconds,
       lanSyncMode: s.lanSyncMode,
       lanSyncDeviceName: s.lanSyncDeviceName,
       closeBehavior: s.closeBehavior,
+      titleMetaFilterEnabled: s.titleMetaFilterEnabled,
       audioOutputDisclaimerAccepted: s.audioOutputDisclaimerAccepted,
       audioDelayMs: s.audioDelayMs,
       audioExclusive: s.audioExclusive,
@@ -174,8 +189,12 @@ class SettingsNotifier extends Notifier<SettingsState> {
   }
 
   Future<void> setAutoPlayNext(bool value) async {
-    state = state.copyWith(autoPlayNext: value);
-    await _save('auto_play_next', value);
+    // 委托给 SettingsManager：PlayerCoordinator 触发切歌时读的是
+    // manager 的内存缓存（settings_manager.dart），绕过 manager 直接写
+    // prefs 会让播放器一直用启动时的旧值——「改设置要重启才生效」。
+    // manager notify 之后 [_onManagerChanged] 会把新状态带回来，
+    // 所以这里不要再 copyWith + 直接 _save。crossfade 系列同因。
+    await ref.read(_settingsManagerProvider).setAutoPlayNext(value);
   }
 
   Future<void> setShowLyrics(bool value) async {
@@ -208,39 +227,40 @@ class SettingsNotifier extends Notifier<SettingsState> {
         .setAudioOutputDisclaimerAccepted(true);
   }
 
+  /// 委托给 SettingsManager（理由见 [setAutoPlayNext]）：
+  /// PlayerCoordinator 每次触发过渡都读 manager.crossfadeEnabled /
+  /// crossfadeDuration / preloadSeconds 的内存缓存。
   Future<void> setCrossfadeEnabled(bool value) async {
-    state = state.copyWith(crossfadeEnabled: value);
-    await _save('crossfade_enabled', value);
+    await ref.read(_settingsManagerProvider).setCrossfadeEnabled(value);
   }
 
+  /// 委托给 SettingsManager：夹取范围（1–10 秒）与「时长不得超过预加载
+  /// 时间」的不变量由 manager 统一维护，别在本类再抄一份。
   Future<void> setCrossfadeDuration(int value) async {
-    final clamped = value.clamp(1000, 10000);
-    final crossfadeSec = (clamped / 1000).ceil();
-    if (crossfadeSec > state.preloadSeconds) {
-      state = state.copyWith(preloadSeconds: crossfadeSec);
-      await _save('preload_seconds', crossfadeSec);
-    }
-    state = state.copyWith(crossfadeDuration: clamped);
-    await _save('crossfade_duration', clamped);
+    await ref.read(_settingsManagerProvider).setCrossfadeDuration(value);
   }
 
+  /// 委托给 SettingsManager（理由见 [setAutoPlayNext]）。
+  Future<void> setCrossfadeAuto(bool value) async {
+    await ref.read(_settingsManagerProvider).setCrossfadeAuto(value);
+  }
+
+  /// 委托给 SettingsManager：夹取范围（5–30 秒）与「不得小于淡入淡出
+  /// 时长」的不变量由 manager 统一维护。
   Future<void> setPreloadSeconds(int value) async {
-    final clamped = value.clamp(5, 30);
-    final crossfadeSec = (state.crossfadeDuration / 1000).ceil();
-    final finalValue = clamped < crossfadeSec ? crossfadeSec : clamped;
-    state = state.copyWith(preloadSeconds: finalValue);
-    await _save('preload_seconds', finalValue);
+    await ref.read(_settingsManagerProvider).setPreloadSeconds(value);
   }
 
+  /// 委托给 SettingsManager（理由见 [setAutoPlayNext]）：
+  /// LanSyncService 监听 manager 的 notifyListeners 在运行时切换模式，
+  /// 绕过 manager 直接写 prefs 会让服务一直停在启动时的旧模式。
   Future<void> setLanSyncMode(String? value) async {
     if (value == null) return;
-    state = state.copyWith(lanSyncMode: value);
-    await _save('lan_sync_mode', value);
+    await ref.read(_settingsManagerProvider).setLanSyncMode(value);
   }
 
   Future<void> setLanSyncDeviceName(String value) async {
-    state = state.copyWith(lanSyncDeviceName: value);
-    await _save('lan_sync_device_name', value);
+    await ref.read(_settingsManagerProvider).setLanSyncDeviceName(value);
   }
 
   /// 委托给 SettingsManager 落盘并刷新其内存缓存：
@@ -248,6 +268,14 @@ class SettingsNotifier extends Notifier<SettingsState> {
   Future<void> setCloseBehavior(String? value) async {
     if (value == null) return;
     await ref.read(_settingsManagerProvider).setCloseBehavior(value);
+  }
+
+  /// 委托给 SettingsManager：除了落盘还要同步 TitleMetaFilter 静态开关
+  /// （API 解析入口读的是它），manager notify 之后 [_onManagerChanged]
+  /// 会把新状态带回来。不要绕过 manager 直接写 prefs——那样静态开关
+  /// 与 manager 缓存都会漏更新。
+  Future<void> setTitleMetaFilterEnabled(bool value) async {
+    await ref.read(_settingsManagerProvider).setTitleMetaFilterEnabled(value);
   }
 
   Future<void> _save(String key, dynamic value) async {

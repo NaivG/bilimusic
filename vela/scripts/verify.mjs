@@ -25,6 +25,8 @@
  *  12. B 档音频链路（第 16-19 节：v4 开放长度流的 CRC32 / 乱序重组 / go-back-N 重传 /
  *      取消与空闲超时；audioCache 缓存管理的复用 / .part 转正 / 清理 / 预取取消；
  *      网桥机型「落盘 → 播本地文件 → 预取下一首」的端到端）
+ *  13. 本地收藏（第 20 节：条目归一化剥掉易变的取流字段 / toggle 纯逻辑 /
+ *      跨 VM 走 storage 的整表读写 / 播放页 ♥ 与更多页、本地收藏页的接线）
  */
 
 import { md5, deriveMixinKey, signWbi, signApp } from '../src/services/crypto.js'
@@ -50,6 +52,13 @@ import {
   parsePopularItem,
 } from '../src/common/parse.js'
 import { trackKey, sameTrack, findTrackIndex } from '../src/common/tracks.js'
+import {
+  FAV_LIST_MAX,
+  normalizeFavTrack,
+  normalizeFavList,
+  toggleInFavList,
+  isFavInList,
+} from '../src/common/favorites.js'
 import {
   BRIDGE_ERRORS,
   buildLocalCaps,
@@ -95,7 +104,7 @@ import {
   normalizeCoverUrl,
 } from '../src/common/device.js'
 import { register } from 'node:module'
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { CONFIG, PLAY } from '../src/common/config.js'
 
 // Node 加载 src/**.js 时会先按 CommonJS 试解析、失败后再按 ESM 重解析，于是每次都提示
@@ -1221,6 +1230,7 @@ ok('入口仍是播放页', manifest.router.entry === 'pages/player', manifest.r
   'pages/recommend',
   'pages/fav',
   'pages/favDetail',
+  'pages/localfav',
   'pages/login',
   'pages/volume',
   'pages/about',
@@ -1229,13 +1239,13 @@ ok(
   '旧播放列表页已从路由移除（pages/list → pages/more，收藏夹不再兼任播放列表）',
   ROUTER_PAGES.indexOf('pages/list') < 0
 )
-;['more', 'recommend', 'fav', 'favDetail'].forEach((name) => {
+;['more', 'recommend', 'fav', 'favDetail', 'localfav'].forEach((name) => {
   const src = readFileSync(new URL(`../src/pages/${name}/${name}.ux`, import.meta.url), 'utf8')
   ok(
     name + '.ux 不直接碰 @system.audio（临时页面不绑音频事件）',
     src.indexOf('@system.audio') < 0
   )
-  // fav 页只列收藏夹文件夹，不碰播放；其余三页经 playerService 消费播放能力
+  // fav 页只列收藏夹文件夹，不碰播放；其余页面经 playerService 消费播放能力
   if (name !== 'fav') {
     ok(name + '.ux 走 playerService 消费播放能力', src.indexOf('services/playerService') >= 0)
     ok(
@@ -1643,6 +1653,7 @@ const SAFE_WIRED_PAGES = [
   'recommend/recommend',
   'fav/fav',
   'favDetail/favDetail',
+  'localfav/localfav',
   'login/login',
   'about/about',
 ]
@@ -1772,6 +1783,7 @@ const HEADER_BACK_PAGES = [
   'recommend/recommend',
   'fav/fav',
   'favDetail/favDetail',
+  'localfav/localfav',
   'login/login',
   'about/about',
 ]
@@ -3978,6 +3990,273 @@ ok(
 
 audioStub.__reset()
 fetchFeatureAvailable = true // 还原：网桥窗口结束（B 档用例全部跑完）
+
+/* --------- 20. 本地收藏（@system.storage 落盘 · 播放页 ♥ · 更多页入口） --------- */
+
+// 「本地收藏」是手表本机的收藏夹（bilimusic_local_favs），与 B 站账号收藏夹无关：
+// 播放页 ♥ 收藏当前曲目，更多 → 本地收藏 页回听。数据形状在 common/favorites.js
+// （纯函数），storage 读写收在 services/favorites.js（每 VM 一份实例、无内存缓存）。
+//
+// 重点盯三件事：
+//   1. **易变字段绝不进盘** —— 队列里的曲目对象会被 resolveTrackUrl 挂上带时效的
+//      CDN 直链（streams/playUrl/url，120 分钟过期），收藏是长期落盘数据，
+//      白名单重建把它们挡在盘外（过期地址回 403，排查时纯粹误导）；
+//   2. toggle 的纯逻辑（去重 / 倒序 / 重收藏提到最前 / 没键的曲目动不了表）；
+//   3. 跨 VM 一致性 —— 两个 VM 先后改收藏表，后者必须读到前者刚写的整表
+//      （「每次操作整表读 → 改 → 整表写」这条纪律的回归）。
+
+console.log('\n[20] 本地收藏')
+
+// 前面各节留下的播放态/队列与本章无关，清空后从零开始（本节之后只剩汇总）
+storageStub.__reset()
+
+const FAVS_KEY = CONFIG.STORAGE_KEYS.LOCAL_FAVS
+eq('storage 键固定为 bilimusic_local_favs', FAVS_KEY, 'bilimusic_local_favs')
+
+/* ---- 20a. 条目归一化（白名单重建：易变字段进不了盘） ---- */
+
+const favNow = 1700000000000
+const favTrackFull = {
+  bvid: 'BVfav01',
+  id: 111,
+  cid: 555,
+  title: '收藏甲',
+  artist: 'u1',
+  cover: 'http://i0.hdslb.com/c1.jpg',
+  duration: 180,
+  // 队列条目被 resolveTrackUrl 挂上的易变字段（真实形状）
+  streams: ['https://upos.example/1.m4s', 'https://upos.example/1b.m4s'],
+  playUrl: 'https://mcdn.example/1.m4s',
+  url: 'https://legacy.example/1',
+}
+const favEntry = normalizeFavTrack(favTrackFull, favNow)
+eq('key 由 bvid 派生', favEntry.key, 'bv:BVfav01')
+eq('favTime 用注入时刻', favEntry.favTime, favNow)
+eq(
+  '★ 白名单重建：易变的取流字段进不了收藏条目',
+  ['streams', 'playUrl', 'url'].filter((k) => k in favEntry),
+  []
+)
+eq(
+  '播放需要的字段全保留',
+  [favEntry.bvid, favEntry.id, favEntry.cid, favEntry.title, favEntry.artist, favEntry.duration],
+  ['BVfav01', 111, 555, '收藏甲', 'u1', 180]
+)
+eq('封面保留（本地收藏页要显示）', favEntry.cover, 'http://i0.hdslb.com/c1.jpg')
+
+// 只有 avid 的条目（收藏夹接口的 toTrack 形状）也收得进来
+const avidOnly = normalizeFavTrack({ id: 222, title: '收藏乙', artist: 'u2' }, favNow + 1)
+eq('avid 条目的 key', avidOnly.key, 'av:222')
+eq('avid 条目 bvid 落空串', avidOnly.bvid, '')
+
+// 已经是收藏形状的条目（重入归一化）favTime 不被顶掉
+eq('已有 favTime 保留', normalizeFavTrack(favEntry, favNow + 9).favTime, favNow)
+// favTime 脏值 → 用注入时刻兜底
+eq('脏 favTime 用注入时刻兜底', normalizeFavTrack({ bvid: 'BVx', favTime: 'oops' }, favNow).favTime, favNow)
+
+// 没有键（既没 bvid 也没 avid）的曲目收藏不了 —— 收藏了也找不回来，直接丢
+eq('无键曲目归一化为 null', normalizeFavTrack({ title: '只有名字' }, favNow), null)
+eq('null 输入不炸', normalizeFavTrack(null, favNow), null)
+eq('原始类型输入不炸', normalizeFavTrack('BVxx', favNow), null)
+
+/* ---- 20b. 整表归一化与 toggle（纯逻辑） ---- */
+
+eq('null 表归一化为空数组', normalizeFavList(null), [])
+eq('垃圾表归一化为空数组', normalizeFavList(['x', 42, {}, undefined]), [])
+// {} 没有 bvid/avid/id → trackKey 为 '' → 丢弃（字符串 'x' / 42 同理）
+eq('混入的无键条目被丢弃', normalizeFavList([{ title: '只有名字' }]), [])
+
+const seeded = normalizeFavList([
+  { key: 'av:1', bvid: '', id: 1, title: '旧一', artist: 'a', favTime: 100 },
+  { key: 'av:2', bvid: '', id: 2, title: '旧二', artist: 'b', favTime: 300 },
+  { key: 'av:3', bvid: '', id: 3, title: '旧三', artist: 'c', favTime: 200 },
+])
+eq('按 favTime 倒序（最新的在最前）', seeded.map((t) => t.id), [2, 3, 1])
+
+const toggleSrc = [{ bvid: 'BVt1', title: 'T1' }, { bvid: 'BVt2', title: 'T2' }]
+const on1 = toggleInFavList([], toggleSrc[0], 1000)
+eq('toggle 加入', [on1.added, on1.changed, on1.list.length], [true, true, 1])
+const on2 = toggleInFavList(on1.list, toggleSrc[1], 2000)
+eq('第二首排在最前（favTime 更新）', on2.list.map((t) => t.title), ['T2', 'T1'])
+const off1 = toggleInFavList(on2.list, toggleSrc[1], 3000)
+eq('toggle 移除', [off1.added, off1.changed, off1.list.map((t) => t.title)], [false, true, ['T1']])
+const reOn = toggleInFavList(off1.list, toggleSrc[1], 4000)
+eq('重收藏后回到最前', reOn.list.map((t) => t.title), ['T2', 'T1'])
+const keyless = toggleInFavList(on1.list, { title: '没键' }, 5000)
+eq('没键的曲目动不了表（changed=false，不必写盘）', [keyless.added, keyless.changed], [false, false])
+eq('没键的 toggle 不改表', keyless.list.map((t) => t.title), ['T1'])
+
+eq('isFav 命中', isFavInList(on1.list, { bvid: 'BVt1' }), true)
+eq('isFav 未命中', isFavInList(on1.list, { bvid: 'BVother' }), false)
+eq('isFav 没键一律 false', isFavInList(on1.list, { title: '没键' }), false)
+
+// 截断是 services 层的职责（写盘前 capFavList），纯归一化不丢条目：
+// 505 条进去还是 505 条出来，顺序照旧
+const overList = normalizeFavList(
+  Array.from({ length: FAV_LIST_MAX + 5 }, (_, i) => ({ bvid: 'BVc' + i, favTime: i }))
+)
+eq('纯归一化不截断（截断发生在写盘前）', [overList.length, overList[0].bvid], [
+  FAV_LIST_MAX + 5,
+  'BVc' + (FAV_LIST_MAX + 4),
+])
+
+/* ---- 20c. 服务跨 VM 端到端（storage 是唯一通道，整表读写纪律） ---- */
+
+// 两个 ?vm= 实例 = 真机上「播放页 VM」与「本地收藏页 VM」，storage 桩对应全局原生服务
+const favVmA = await import('../src/services/favorites.js?vm=favPlayer')
+const favVmB = await import('../src/services/favorites.js?vm=favList')
+
+eq('空表：listFavs 为空数组', await favVmA.listFavs(), [])
+eq('空表：favCount 为 0', await favVmA.favCount(), 0)
+eq('空表：isFav 为 false', await favVmA.isFav(favTrackFull), false)
+
+// 播放页 VM ♥ 收藏（曲目带着队列里挂上的 streams —— 真实形状）
+const tRes = await favVmA.toggleFav(favTrackFull)
+eq('播放页 toggle 加入', [tRes.added, tRes.count], [true, 1])
+eq(
+  '★ 落盘的整表都不带易变的取流字段（逐键检查 storage 原文）',
+  JSON.parse(storageStub.__dump()[FAVS_KEY]).every(
+    (t) => !('streams' in t) && !('playUrl' in t) && !('url' in t)
+  ),
+  true
+)
+// 本地收藏页 VM 立刻读到（无内存缓存：每次操作都整表读 storage）
+eq('★ 本地收藏页 VM 读到播放页刚收藏的', (await favVmB.listFavs()).map((t) => t.title), ['收藏甲'])
+eq('本地收藏页 isFav 跟上', await favVmB.isFav(favTrackFull), true)
+eq('更多页计数跟上', await favVmB.favCount(), 1)
+
+// 收藏页 VM 再收藏一首：它的整表写入必须带上播放页 VM 刚写的那条（先后写不互冲）
+const favTrackSecond = { bvid: 'BVfav02', id: 112, title: '收藏乙', artist: 'u2', duration: 200 }
+const aRes = await favVmB.addFav(favTrackSecond)
+eq('第二首加入', [aRes.added, aRes.count], [true, 2])
+eq('★ 两首都在（后写的整表包含先写的）', (await favVmA.listFavs()).map((t) => t.title), [
+  '收藏乙',
+  '收藏甲',
+])
+// 重收藏 = 提到最前 + favTime 刷新
+await favVmA.addFav(favTrackFull)
+eq('★ 重收藏提到最前', (await favVmB.listFavs()).map((t) => t.title), ['收藏甲', '收藏乙'])
+
+// 收藏页 ♥ 取消：播放页 VM 读回来是「未收藏」（反向一致性）
+const rRes = await favVmB.removeFav(favTrackFull)
+eq('移除生效', [rRes.removed, rRes.count], [true, 1])
+eq('播放页 VM isFav 跟上', await favVmA.isFav(favTrackFull), false)
+eq('移除不存在的曲目是 no-op', (await favVmB.removeFav(favTrackFull)).removed, false)
+
+// toggle 移除路径 + 没键的曲目 toggle 不写盘（storage 里不该多出垃圾键）
+const dumpBefore = JSON.stringify(storageStub.__dump()[FAVS_KEY])
+const kRes = await favVmA.toggleFav({ title: '没键的曲目' })
+eq('没键的 toggle added=false', kRes.added, false)
+eq('没键的 toggle 不写盘', JSON.stringify(storageStub.__dump()[FAVS_KEY]), dumpBefore)
+const offRes = await favVmB.toggleFav(favTrackSecond)
+eq('toggle 移除生效', [offRes.added, offRes.count], [false, 0])
+eq('清空后落盘的是空数组（不是键消失）', storageStub.__dump()[FAVS_KEY], '[]')
+
+// 满表再加一首：写盘前截断丢最旧（防止单键 storage 被极端收藏量撑爆）
+const capSeed = {}
+capSeed[FAVS_KEY] = JSON.stringify(
+  Array.from({ length: FAV_LIST_MAX }, (_, i) => ({
+    bvid: 'BVold' + i,
+    id: 1000 + i,
+    title: '旧' + i,
+    favTime: i,
+  }))
+)
+storageStub.__seed(capSeed)
+const capRes = await favVmA.addFav({ bvid: 'BVnew', title: '新' })
+eq('满表再加一首：count 封在上限', capRes.count, FAV_LIST_MAX)
+const capList = await favVmB.listFavs()
+eq('★ 截断丢的是最旧的（最新的在最前）', [capList[0].title, capList[capList.length - 1].title], [
+  '新',
+  '旧1',
+])
+storageStub.__reset() // 截断用的满表清掉，别带进下面的接线断言
+
+/* ---- 20d. 页面接线（播放页 ♥ / 更多页入口 / 本地收藏页） ---- */
+
+const localfavUxSource = readFileSync(
+  new URL('../src/pages/localfav/localfav.ux', import.meta.url),
+  'utf8'
+)
+ok(
+  '♥ 图标已就位（heart.png 空心 / heart-fill.png 实心）',
+  existsSync(new URL('../src/common/icon/heart.png', import.meta.url)) &&
+    existsSync(new URL('../src/common/icon/heart-fill.png', import.meta.url))
+)
+ok(
+  'player.ux ♥ 走 favorites 服务（本地收藏与 B 站收藏夹无关）',
+  playerUxSrc.indexOf('services/favorites') >= 0 && playerUxSrc.indexOf('toggleFav') >= 0
+)
+ok(
+  'player.ux ♥ 图标随收藏态切换（空心/实心都出现在模板里）',
+  playerUxSrc.indexOf('heart-fill.png') >= 0 && playerUxSrc.indexOf('heart.png') >= 0
+)
+ok(
+  'player.ux 换歌与回前台都对账 ♥（track 事件 + onShow 里 syncFavState）',
+  /if \(type === "track"\) this\.syncFavState\(\)/.test(playerUxSrc) &&
+    playerUxSrc.indexOf('this.syncFavState()') >= 0
+)
+ok(
+  'player.ux 没在播时 ♥ 是 no-op（无曲可收藏，图标常驻不做显隐）',
+  /toggleFav\(\)\s*\{[\s\S]*?if \(!track\) return/.test(playerUxSrc)
+)
+ok(
+  'player.ux ♥ 对账防切歌竞态（sameTrack 按键比对，不依赖对象引用）',
+  /sameTrack\(cur, track\)/.test(playerUxSrc)
+)
+
+ok(
+  'more.ux 有「本地收藏」入口（免登录直达）',
+  moreUxSrc.indexOf('本地收藏') >= 0 &&
+    moreUxSrc.indexOf('goLocalFav') >= 0 &&
+    moreUxSrc.indexOf('uri: "/pages/localfav"') >= 0
+)
+ok(
+  'more.ux 本地收藏入口不判登录态（收藏在手表上，与账号无关）',
+  /goLocalFav\(\)\s*\{[^}]*\}/.exec(moreUxSrc)[0].indexOf('isLoggedIn') < 0
+)
+ok(
+  'more.ux 入口副标题按收藏数生成（refreshLocalFav → favCount）',
+  moreUxSrc.indexOf('refreshLocalFav') >= 0 && moreUxSrc.indexOf('favCount') >= 0
+)
+
+ok(
+  'localfav.ux 走 favorites 服务读收藏表',
+  localfavUxSource.indexOf('services/favorites') >= 0 && localfavUxSource.indexOf('listFavs') >= 0
+)
+ok(
+  'localfav.ux 单曲点播走 playTrackNow（来源页只选歌，与 favDetail/recommend 同一条解耦语义）',
+  localfavUxSource.indexOf('services/playerService') >= 0 &&
+    localfavUxSource.indexOf('playTrackNow') >= 0
+)
+ok(
+  'localfav.ux 播放全部走 setQueue 并按固定步数回播放器（player → more → localfav）',
+  /setQueue\(this\.tracks,\s*0\)/.test(localfavUxSource) &&
+    /router\.back\(\{\s*step:\s*2\s*\}\)/.test(localfavUxSource)
+)
+// 条目模板不嵌套点击：歌条目的 list-item 开标签上没有 onclick，
+// 点歌在 .detail 区、取消收藏在 .item-fav（两者是兄弟节点，与播放队列同一条纪律）
+const lfSongTag = /<list-item\s+for="\{\{\(index, item\) in tracks\}\}"[\s\S]*?type="song"\s*>/.exec(
+  localfavUxSource
+)
+ok(
+  'localfav.ux 条目内不嵌套点击（点歌区与 ♥ 是兄弟节点，与播放队列同一条纪律）',
+  !!lfSongTag &&
+    lfSongTag[0].indexOf('onclick') < 0 &&
+    /<div class="detail" onclick="play\(index\)">/.test(localfavUxSource) &&
+    /class="item-fav"\s*src="\/common\/icon\/heart-fill\.png"\s*onclick="removeFav\(index\)"/.test(
+      localfavUxSource
+    )
+)
+ok(
+  'localfav.ux onShow 重读收藏表（播放页 ♥ 加的、别的 VM 删的，回来都对上）',
+  /onShow\(\)\s*\{[\s\S]*?loadFavs\(\)/.test(localfavUxSource)
+)
+ok(
+  'localfav.ux 空态教一次怎么收藏（还没有本地收藏 + ♥ 提示）',
+  localfavUxSource.indexOf('还没有本地收藏') >= 0 &&
+    localfavUxSource.indexOf('在播放页点 ♥ 收藏正在听的歌') >= 0
+)
 
 /* ---------------------------- 汇总 ---------------------------- */
 

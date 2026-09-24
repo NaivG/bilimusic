@@ -6,6 +6,7 @@ import 'package:bilimusic/features/settings/settings_provider.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/theme/theme_registry.dart';
 import 'package:bilimusic/shared/utils/platform_helper.dart';
+import 'package:bilimusic/shared/utils/title_meta_filter.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/features/lan_sync/ui/sync_page.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -63,27 +64,37 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
             // 仅在启用crossfade时显示详细设置
             if (settings.crossfadeEnabled) ...[
-              // Crossfade时长滑块
-              ListTile(
-                leading: Icon(Icons.timer, color: _getPrimaryColor(context)),
-                title: Text('淡入淡出时长'),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('当前: ${settings.crossfadeDuration ~/ 1000}秒'),
-                    Slider(
-                      value: settings.crossfadeDuration.toDouble(),
-                      min: 1000,
-                      max: 10000,
-                      divisions: 9,
-                      label: '${settings.crossfadeDuration ~/ 1000}秒',
-                      onChanged: (value) {
-                        notifier.setCrossfadeDuration(value.toInt());
-                      },
-                    ),
-                  ],
-                ),
+              // 自动过渡：过渡位置与时长按歌曲时长推导
+              _buildSwitchListTile(
+                icon: Icons.auto_awesome,
+                title: '自动过渡（跟随歌曲时长）',
+                subtitle: '过渡时长取歌曲时长的3%（1-10秒）',
+                value: settings.crossfadeAuto,
+                onChanged: notifier.setCrossfadeAuto,
               ),
+
+              // Crossfade时长滑块（自动模式下时长由歌曲推导，不显示）
+              if (!settings.crossfadeAuto)
+                ListTile(
+                  leading: Icon(Icons.timer, color: _getPrimaryColor(context)),
+                  title: Text('淡入淡出时长'),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('当前: ${settings.crossfadeDuration ~/ 1000}秒'),
+                      Slider(
+                        value: settings.crossfadeDuration.toDouble(),
+                        min: 1000,
+                        max: 10000,
+                        divisions: 9,
+                        label: '${settings.crossfadeDuration ~/ 1000}秒',
+                        onChanged: (value) {
+                          notifier.setCrossfadeDuration(value.toInt());
+                        },
+                      ),
+                    ],
+                  ),
+                ),
 
               // 预加载时间滑块
               ListTile(
@@ -107,6 +118,22 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
               ),
             ],
+
+            // 标题元数据过滤（实验性）：点按行本身查看示例预览，
+            // 开关负责切换设置
+            ListTile(
+              leading: Icon(
+                Icons.filter_alt_outlined,
+                color: _getPrimaryColor(context),
+              ),
+              title: const Text('标题元数据过滤（实验性）'),
+              subtitle: const Text('过滤 B 站标题中的元信息，点按查看示例'),
+              trailing: Switch(
+                value: settings.titleMetaFilterEnabled,
+                onChanged: notifier.setTitleMetaFilterEnabled,
+              ),
+              onTap: _showTitleFilterPreview,
+            ),
 
             // 音频设置
             _buildSectionTitle('音频'),
@@ -372,6 +399,61 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     };
   }
 
+  /// 标题元数据过滤的示例预览：样本实时跑一遍 [TitleMetaFilter.clean]，
+  /// 让用户在开启前看清效果。只做展示，与开关状态无关。
+  void _showTitleFilterPreview() {
+    const samples = <String>[
+      '【 作者 / MV 】Starlight【中字】',
+      '【Hi-Res】夜に駆ける【官方MV】',
+      'MV / 打上花火【自翻】',
+    ];
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        final captionColor = Theme.of(ctx).colorScheme.onSurfaceVariant;
+        return AlertDialog(
+          title: const Text('标题元数据过滤示例'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('开启后，新从 B 站拉取的标题会清理掉这类元信息：'),
+                const SizedBox(height: 12),
+                for (final sample in samples) ...[
+                  Text(sample, style: const TextStyle(fontSize: 14)),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8, top: 2),
+                    child: Text(
+                      '→ ${TitleMetaFilter.clean(sample).cleaned}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: _getPrimaryColor(ctx),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                const SizedBox(height: 2),
+                Text(
+                  '音质信息（Hi-Res / 杜比等）不会被误删；'
+                  '已保存到歌单与历史的标题不回溯修改。',
+                  style: TextStyle(fontSize: 12, color: captionColor),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('知道了'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
@@ -407,7 +489,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     showAboutDialog(
       context: context,
       applicationName: 'BiliMusic',
-      applicationVersion: '1.10.0.preview',
+      applicationVersion: '1.10.1',
       applicationIcon: Image.asset(
         "assets/ic_launcher.png",
         width: 84,

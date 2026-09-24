@@ -328,6 +328,208 @@ void main() {
       expect(model.gainsDb[i], inInclusiveRange(-12.0, 12.0));
       expect(model.gainsDb[i], isNot(0.0), reason: '向下拖动应改变增益');
     });
+
+    testWidgets('窄视口：曲线区按下即抓最近频段；顶部滚动条只滚不抓，滚过后同一坐标抓到滚过来的频段', (tester) async {
+      // 竖屏手机（shortestSide < 600）→ 触屏档 → 内容被撑到 ~573dp > 视口：
+      // 可滚，顶部出现专用滚动条；曲线区按下即抓最近频段（没有热区）。
+      // 默认 800×600 视口走的是指针档，所以下面必须显式把视口拧到竖屏，
+      // 否则整个场景不会出现。
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      var model = EqualizerBandModel.flat();
+      final changedBands = <int>{};
+      var dragEnds = 0;
+
+      Future<void> pumpCurve() => tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: EqualizerCurve(
+                model: model,
+                enabled: true,
+                onBandChanged: (band, {frequency, gainDb}) {
+                  changedBands.add(band);
+                  model = model.withBand(
+                    band,
+                    frequency: frequency,
+                    gainDb: gainDb,
+                  );
+                },
+                onDragEnd: () => dragEnds++,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await pumpCurve();
+      expect(tester.takeException(), isNull);
+
+      // 触屏档布局契约（与 equalizer_curve.dart 的几何常量对齐，
+      // 改 _EqMetrics.touch.minBandSpacing 时这里跟着改）：
+      // _minDefaultDeltaT 取默认频点里**最紧的一对 64↔125**（不是 64↔32），
+      // 52dp ⇒ plot 宽 52/Δt ≈ 536.6dp；节点 x = 6 + t(f)·plotW，
+      // t = ln(f/20)/ln(1000)。
+      const spacing = 52.0;
+      const leftPad = 6.0;
+      const rightGutter = 30.0;
+      final dT = math.log(125 / 64) / math.log(1000);
+      final plotW = spacing / dT;
+      final contentW = plotW + leftPad + rightGutter;
+      final maxScroll = contentW - 360;
+      double flatNodeX(int i) =>
+          leftPad +
+          math.log(EqualizerBandModel.defaultFrequencies[i] / 20) /
+              math.log(1000) *
+              plotW;
+
+      final origin = tester.getTopLeft(find.byType(EqualizerCurve));
+      Future<TestGesture> pressAt(Offset local) =>
+          tester.startGesture(origin + local);
+
+      // ── ① 曲线区（旧版热区之间的「留白」）按下并横拖：现在就是抓最近 ──
+      var g = await pressAt(Offset((flatNodeX(0) + flatNodeX(1)) / 2, 118));
+      await tester.pump(const Duration(milliseconds: 400));
+      await g.moveBy(const Offset(-40, 0));
+      await tester.pump(const Duration(milliseconds: 400));
+      await g.moveBy(const Offset(-30, 0));
+      await tester.pump(const Duration(milliseconds: 400));
+      await g.up();
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pump();
+
+      expect(changedBands, isNotEmpty, reason: '曲线区按下即抓最近频段，不再按列收热区');
+      expect(dragEnds, 1);
+      final band = changedBands.first;
+      expect(model.gainsDb[band], 0.0, reason: '纯横向拖动不该改增益');
+      final (low, high) = model.frequencyRange(band);
+      expect(
+        model.frequencies[band],
+        inExclusiveRange(low - 1e-9, high + 1e-9),
+        reason: '频点被横向拖走并被收敛在该频段的合法区间',
+      );
+
+      // ── ② 顶部滚动条（触屏档 topPad=16，按进 y=8 就是点击带）：按在滑块
+      //       上（scroll=0 时滑块从 0 铺到 ~207dp，x=20 在其上）相对拖动
+      //       → 只有滚动：零频点回调、零提交。拖到换算超出 maxScroll，
+      //       收敛在滚到头。 ────────────────────────────────────────
+      g = await pressAt(const Offset(20, 8));
+      await tester.pump(const Duration(milliseconds: 400));
+      for (var k = 0; k < 4; k++) {
+        await g.moveBy(const Offset(60, 0));
+        await tester.pump(const Duration(milliseconds: 400));
+      }
+      await g.up();
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pump();
+
+      expect(changedBands, {band}, reason: '拖滚动条不该碰到任何频点');
+      expect(dragEnds, 1, reason: '拖滚动条不是编辑，不该提交');
+
+      // ── ③ 滚动真的发生了：滚到头后，10kHz 段被送到视口 x =
+      //       flatNodeX(7) − maxScroll 处；在这里按下抓到的必须是它，
+      //       而不是原来在那个坐标附近的 1kHz 段（已被滚出视口左侧）。
+      //       要 move **两次**：越过 slop 的那一下只触发 onPanStart，
+      //       频点回调在后续的 update 里发。 ────────────────────────
+      g = await pressAt(Offset(flatNodeX(7) - maxScroll, 118));
+      await tester.pump(const Duration(milliseconds: 400));
+      await g.moveBy(const Offset(0, 30));
+      await tester.pump(const Duration(milliseconds: 400));
+      await g.moveBy(const Offset(0, 20));
+      await tester.pump(const Duration(milliseconds: 400));
+      await g.up();
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pump();
+
+      expect(changedBands, {band, 7}, reason: '滚过来的是 10kHz 段，同一坐标抓到的应该是它');
+      expect(model.gainsDb[7], isNot(0.0), reason: '纵向拖动应改变增益');
+      expect(dragEnds, 2);
+    });
+
+    testWidgets('窄视口：按在滚动条轨道上（滑块之外）先跳转再拖动', (tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      var model = EqualizerBandModel.flat();
+      final changedBands = <int>{};
+      var dragEnds = 0;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: EqualizerCurve(
+                model: model,
+                enabled: true,
+                onBandChanged: (band, {frequency, gainDb}) {
+                  changedBands.add(band);
+                  model = model.withBand(
+                    band,
+                    frequency: frequency,
+                    gainDb: gainDb,
+                  );
+                },
+                onDragEnd: () => dragEnds++,
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+
+      const spacing = 52.0;
+      const leftPad = 6.0;
+      const rightGutter = 30.0;
+      final dT = math.log(125 / 64) / math.log(1000);
+      final plotW = spacing / dT;
+      final maxScroll = plotW + leftPad + rightGutter - 360;
+      double flatNodeX(int i) =>
+          leftPad +
+          math.log(EqualizerBandModel.defaultFrequencies[i] / 20) /
+              math.log(1000) *
+              plotW;
+
+      final origin = tester.getTopLeft(find.byType(EqualizerCurve));
+      Future<TestGesture> pressAt(Offset local) =>
+          tester.startGesture(origin + local);
+
+      // 滑块宽 ≈ 207dp：按 x=300 落在滑块之外 → 轨道跳转，滑块中心对齐到
+      // 按下处 ⇒ scroll = (300−103.7)/122.5 × 212.6 ≈ 340 → 钳到最大。
+      final g = await pressAt(const Offset(300, 8));
+      await tester.pump(const Duration(milliseconds: 400));
+      await g.moveBy(const Offset(20, 0));
+      await tester.pump(const Duration(milliseconds: 400));
+      await g.up();
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pump();
+
+      expect(changedBands, isEmpty, reason: '滚动条跳转不该碰到任何频点');
+      expect(dragEnds, 0, reason: '滚动条跳转不是编辑，不该提交');
+
+      // 跳转真的落到了头：10kHz 段出现在视口 x = flatNodeX(7) − maxScroll。
+      final g2 = await pressAt(Offset(flatNodeX(7) - maxScroll, 118));
+      await tester.pump(const Duration(milliseconds: 400));
+      await g2.moveBy(const Offset(0, 30));
+      await tester.pump(const Duration(milliseconds: 400));
+      await g2.moveBy(const Offset(0, 20));
+      await tester.pump(const Duration(milliseconds: 400));
+      await g2.up();
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pump();
+
+      expect(changedBands, {7}, reason: '跳转滚到头后，同一坐标抓到的应该是 10kHz 段');
+      expect(model.gainsDb[7], isNot(0.0));
+      expect(dragEnds, 1);
+    });
   });
 
   group('AudioDspPage 冒烟', () {

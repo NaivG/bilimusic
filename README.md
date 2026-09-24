@@ -10,6 +10,7 @@
     <a href="https://github.com/NaivG/bilimusic/stargazers"><img src="https://img.shields.io/github/stars/NaivG/bilimusic?style=flat" alt="Stars"></a>
     <a href="https://github.com/NaivG/bilimusic/network/members"><img src="https://img.shields.io/github/forks/NaivG/bilimusic?style=flat" alt="Forks"></a>
     <a href="https://github.com/NaivG/bilimusic/issues"><img src="https://img.shields.io/github/issues/NaivG/bilimusic" alt="Issues"></a>
+    <a href="https://github.com/NaivG/bilimusic/discussions"><img src="https://img.shields.io/github/discussions/NaivG/bilimusic?label=discussions&logo=github&logoColor=white" alt="Discussions"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue" alt="License"></a>
     <a href="https://flutter.dev/"><img src="https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white" alt="Flutter"></a>
     <a href="https://riverpod.dev/"><img src="https://img.shields.io/badge/Riverpod-3.x-3D5AFE?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0NSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSI4Ii8+PC9zdmc+" alt="Riverpod"></a>
@@ -18,7 +19,7 @@
 </div>
 
 
-BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。基于 Flutter 一次覆盖 Windows、Linux、Android，对 macOS 提供实验性支持，同时支持 Xiaomi Vela 端。它不复制视频平台，只做播放器该做的事：搜索、整理、连续播放与跨设备同步。
+BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。基于 Flutter 一次覆盖 Windows、Linux、Android，对 macOS、iOS 提供实验性支持，同时支持 Xiaomi Vela 端。它不复制视频平台，只做播放器该做的事：搜索、整理、连续播放与跨设备同步。
 
 <div align="center">
   <sub>如果这个项目对你有帮助，欢迎 ⭐ Star 支持一下！</sub>
@@ -49,8 +50,10 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 - [代码导航](#代码导航)
 - [主要依赖](#主要依赖)
 - [开发命令](#开发命令)
+- [路线图](#路线图)
 - [维护者](#维护者)
 - [致谢](#致谢)
+- [社区与讨论](#社区与讨论)
 - [如何贡献](#如何贡献)
 - [许可证](#许可证)
 - [Star History](#star-history)
@@ -60,9 +63,10 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 ## 安全
 
 > [!IMPORTANT]
-> BiliMusic 仅供学习交流使用，不得用于**任何**商业用途。项目只提供音频播放能力，不提供任何视听内容；音乐及视频内容的版权归原作者所有，请尊重版权并合理使用。
+> BiliMusic 仅供学习交流使用，不得用于**任何**商业用途。所有数据和文档均使用网络公开资源，本项目不进行任何逆向、修改、破解等行为。
 >
-> 由于不可抗拒力，请勿在其他平台宣传或讨论本项目。
+> BiliMusic 只提供音频播放能力，不提供任何视听内容；音乐及视频内容的版权归原作者所有，请尊重版权并合理使用。
+
 
 ---
 
@@ -87,8 +91,8 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 | **Linux** | ✅ 稳定 | Ubuntu 20.04+ 或主流发行版，`x64`或`arm64`架构；需要[安装依赖](#直接安装) |
 | **Android** 12+ | ✅ 稳定 | 按设备架构选择 APK（`arm64-v8a` / `armeabi-v7a` / `x86_64`），或全平台 AAB |
 | **macOS 12+, with Metal Support** | ⚠️ 实验性 | CI 产出 ad-hoc 签名的未公证 `.app`，也可从源码构建 |
-| **iOS 15+** | ❓ 未经测试 | 可从源码构建无签名版本 |
-| **Web** | ❌ 停止支持 | **1.9.2 为最后一个支持 Web 的版本**，解压后部署到 Web 服务器，需配置 CORS |
+| **iOS 15+** | ⚠️ 实验性 | CI 产出无签名 `.ipa`，也可从源码构建 |
+| **Web** | ⏸️ 暂停支持 | **1.9.2 为支持 Web 的最新版本**，解压后部署到 Web 服务器，需配置 CORS |
 | **Xiaomi Vela** | ✅ 稳定 | 适用于小米、红米手表系列（API 2+），下载安装`.rpk`，详见[小米 Vela 手表端](#小米-vela-手表端) |
 
 关于应用内更新：Android / Windows / Linux 支持；macOS 跳转 Releases（见[更新与版本](#更新与版本)）。
@@ -104,10 +108,10 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 - Android / Windows / Linux：启动时自动检查更新。
 - macOS：需手动重新下载。
 
-Linux 需要安装依赖：
+Linux 需要安装 tray_manager 依赖（一般桌面端运行时都能满足，如果看不到托盘请自行安装）：
 
 ```bash
-sudo apt install libgtk-3-dev libx11-dev libxi-dev # tray_manager 依赖，一般桌面端运行时都能满足，如果看不到托盘请自行安装
+sudo apt install libgtk-3-dev libx11-dev libxi-dev
 ```
 
 > libmpv 不再需要预装：播放引擎 mpv_audio_kit 会在构建期自动下载 libmpv 并随产物打包。
@@ -203,7 +207,7 @@ npm run build                     # 构建 RPK（aiot build）
 **播放体验**
 - 播放 / 暂停 / 上一首 / 下一首 / 进度跳转；定时关闭。
 - 多 P 视频切换、顺序 / 随机 / 单曲循环。
-- A/B 双播放器 + equal-power 曲线的交叉淡入淡出。
+- A/B 双播放器 + equal-power 曲线的交叉淡入淡出；可开启「自动淡入淡出」按曲目时长自动推导时长与触发位置。
 - 多档音质选择，DASH 音频流按选择取流并回显实际生效音质。
 - 音效与均衡器（设置 → 音效与均衡器）：8 段参数化自定义频点均衡器、压缩器、交叉回馈、立体声增强、回声/混响；内置听感预设与耳机校准预设（Harman Over-Ear 2018 / Harman In-Ear 2019 / AutoEq In-Ear），按目标响应曲线对锚点采样得到目标增益。
 - 音频输出（设置 → 音频输出）：输出设备切换、音频延迟、硬件直通（独占模式）、强制 DAC 采样率。
@@ -211,6 +215,7 @@ npm run build                     # 构建 RPK（aiot build）
 - 详情页与长按菜单支持一键打开 B 站原网页。
 - 动态歌词：自动匹配、逐字点亮、辉光效果。
 - 主题系统：Lucent / Nocturne / Verdant / Gruvbox / Nord / Solarized 六套主题，运行时切换并按封面主色适配。
+- 标题元数据过滤（实验性）：基于 AST 树解析标题结构，从 B 站标题中剥离【MV】【中字】等视频平台元信息，同时保留 Hi-Res / 杜比等音质标识。
 - 离线缓存：歌曲可下载到本地，断网也能继续播放。
 
 **整理与同步**
@@ -223,6 +228,9 @@ npm run build                     # 构建 RPK（aiot build）
 - 主页与搜索结果两页布局，支持关键词 / `BV` / `AV` 搜索、播放、暂停与切歌，键盘与鼠标可用。
 - FFI 直驱 libmpv（复用 App 构建产物里的 libmpv），与 App 共享登录态与网络层。
 - 附带 `--probe` / `--smoke` / `--preview` 自检、驱动与预览模式。
+
+> [!NOTE]
+> 我们不考虑做对接音乐平台的歌曲元数据匹配，介于视频平台的内容差距较大，相对来说性价比过低。
 
 ---
 
@@ -361,7 +369,7 @@ bin/
 | [http](https://pub.dev/packages/http) | 统一 HTTP 客户端 |
 | [bonsoir](https://pub.dev/packages/bonsoir) | mDNS 局域网设备发现 |
 | [sqflite](https://pub.dev/packages/sqflite)（含 ffi 实现） | 本地 SQLite 数据存储 |
-| [flutter_lyric](https://pub.dev/packages/flutter_lyric) · [lyrics_now](https://github.com/NaivG/lyrics_now) | 歌词渲染与歌词源检索 |
+| [flutter_lyric](https://pub.dev/packages/flutter_lyric) · [lyrics_now](https://github.com/NaivG/lyrics_now) | 歌词渲染与多平台歌词源检索 |
 | [color_thief_dart](https://pub.dev/packages/color_thief_dart) | 封面主色提取 |
 | [gt3_flutter_plugin](https://pub.dev/packages/gt3_flutter_plugin) | 登录极验验证码 |
 | [window_manager](https://pub.dev/packages/window_manager) | 桌面窗口管理 |
@@ -386,6 +394,31 @@ flutter run           # 调试运行
 
 ---
 
+## 路线图
+
+正在维护/新版本的计划与进度见 [BiliMusic 路线图](https://github.com/NaivG/bilimusic/discussions/29)。
+
+---
+
+## 社区与讨论
+
+日常交流、提问与想法都欢迎到 [GitHub Discussions](https://github.com/NaivG/bilimusic/discussions)：
+
+| 想做的事 | 去哪里 |
+| --- | --- |
+| 随便聊、展示使用场景 | [General](https://github.com/NaivG/bilimusic/discussions/categories/general) |
+| 提出功能建议 | [Ideas](https://github.com/NaivG/bilimusic/discussions/categories/ideas) |
+| 参与投票 | [Polls](https://github.com/NaivG/bilimusic/discussions/categories/polls) |
+| 提问求助（支持采纳答案） | [Q&A](https://github.com/NaivG/bilimusic/discussions/categories/q-a) |
+| 分享自建主题、脚本或玩法 | [Show and tell](https://github.com/NaivG/bilimusic/discussions/categories/show-and-tell) |
+| 报可以复现的异常现象 | [Troubleshooting](https://github.com/NaivG/bilimusic/discussions/categories/troubleshooting) |
+| 查看版本发布与项目公告 | [Announcements](https://github.com/NaivG/bilimusic/discussions/categories/announcements) |
+
+> [!TIP]
+> 已经能稳定复现、确认是缺陷的问题，请直接开 [Issue](https://github.com/NaivG/bilimusic/issues/new/choose)，Issue 模板会引导你补齐平台与版本。**发帖前请先搜索**，也**不要在公开帖子里粘贴 Cookie、账号信息等敏感数据**。
+
+---
+
 ## 维护者
 
 <a href="https://github.com/NaivG/bilimusic/graphs/contributors">
@@ -397,7 +430,7 @@ flutter run           # 调试运行
 ## 致谢
 
 - UI 设计灵感：Apple Music, 某云音乐, [ParticleMusic](https://github.com/AfalpHy/ParticleMusic)
-- 歌词获取：[lyrics_now](https://github.com/NaivG/lyrics_now)
+- 多平台歌词获取：[lyrics_now](https://github.com/NaivG/lyrics_now)
 - 歌词渲染：[coriander_player](https://github.com/Ferry-200/coriander_player), [flutter_lyric](https://pub.dev/packages/flutter_lyric)
 - GitHub Actions：[FlutterHub](https://github.com/xmaihh/FlutterHub)
 - README 规范：[standard-readme](https://github.com/RichardLitt/standard-readme)
@@ -406,12 +439,14 @@ flutter run           # 调试运行
 
 ## 如何贡献
 
-欢迎通过 [Issue](https://github.com/NaivG/bilimusic/issues) 报告问题，或提交 Pull Request 改进功能。提交前请尽量：
+欢迎通过 [Issue](https://github.com/NaivG/bilimusic/issues) 报告问题、在 [Discussions](https://github.com/NaivG/bilimusic/discussions) 参与讨论（分类与用法见[社区与讨论](#社区与讨论)），或提交 Pull Request 改进功能。提交前请尽量：
 
 1. 说明复现环境、平台与具体步骤。
 2. 保持改动聚焦，并遵循现有 Flutter / Dart 代码风格。
 3. 执行 `flutter analyze` 和相关测试。
 4. 不提交 Cookie、账号信息、构建产物或其他敏感数据。
+
+> 完整的开发环境、分支模型、提交规范、测试要求与代码硬性规则，见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
 
 ---
 

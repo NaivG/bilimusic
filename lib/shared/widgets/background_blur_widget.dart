@@ -39,7 +39,8 @@ class BackgroundBlurWidget extends StatelessWidget {
                 sigmaX: AppTokens.heavyGlassBlurSigma,
                 sigmaY: AppTokens.heavyGlassBlurSigma,
               ),
-              child: Container(color: color?.withValues(alpha: 0.6)),
+              // 模糊背景在暗色模式会让可读性大幅降低，这里选择设成 0.8
+              child: Container(color: color?.withValues(alpha: 0.8)),
             ),
           ],
         );
