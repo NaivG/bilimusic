@@ -446,6 +446,8 @@ flutter run           # 调试运行
 3. 执行 `flutter analyze` 和相关测试。
 4. 不提交 Cookie、账号信息、构建产物或其他敏感数据。
 
+> 完整的开发环境、分支模型、提交规范、测试要求与代码硬性规则，见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
+
 ---
 
 ## 许可证
