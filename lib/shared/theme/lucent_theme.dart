@@ -6,7 +6,7 @@ import 'app_tokens.dart';
 
 /// Lucent 主题颜色常量 —— iOS 风格,暖灰底 + 湖水青蓝 accent。
 /// 跨主题共享的颜色请通过 [AppPalette] 读取。
-/// 
+///
 /// 孩子们雷霆大紫色真的是太丑了，我能说什么呢。
 abstract class LucentColors {
   // ===== Accent —— 湖水青蓝 =====
