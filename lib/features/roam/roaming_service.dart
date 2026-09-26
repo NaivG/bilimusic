@@ -6,26 +6,36 @@ import 'package:bilimusic/core/network/bili_client.dart';
 import 'package:bilimusic/core/network/bili_exception.dart';
 import 'package:bilimusic/domain/bili_item.dart';
 import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/domain/taste_profile.dart';
 import 'package:bilimusic/features/roam/models/roam_style.dart';
 import 'package:bilimusic/features/playlist/playlist_service.dart';
 import 'package:bilimusic/domain/music_category.dart';
 import 'package:bilimusic/features/roam/logic/text_simhash.dart';
+import 'package:bilimusic/features/taste/logic/profile_ranker.dart';
+import 'package:bilimusic/features/taste/services/taste_profile_service.dart';
 
 /// 漫游服务：根据 seed 歌拉相关音乐、按 simhash 排序、按 RoamStyle 挑选。
 ///
 /// 由 PlayerCoordinator 在 `currentIndex` 接近队列末尾时调用。
 /// 返回的 Music 列表会被 `addAllToPlaylist` 自动按 (bvid, cid) 去重。
+///
+/// 画像融合：[tasteService] 可用时，排序按 `blendRoamScore` 融合
+/// 「像种子」（simhash 汉明距离）与「合口味」（画像权重）两路信号；
+/// 画像为空（冷启动）时退化为原 simhash 行为。
 class RoamingService {
   RoamingService({
     required BiliClient client,
     required PlaylistService playlistService,
+    TasteProfileService? tasteService,
     Random? random,
   }) : _client = client,
        _playlistService = playlistService,
+       _tasteService = tasteService,
        _random = random ?? Random();
 
   final BiliClient _client;
   final PlaylistService _playlistService;
+  final TasteProfileService? _tasteService;
   final Random _random;
 
   /// 拉一批候选候选。
@@ -56,7 +66,7 @@ class RoamingService {
         candidates.add(music);
       }
 
-      return _pick(candidates, seed: seed, style: style, size: size);
+      return await _pick(candidates, seed: seed, style: style, size: size);
     } on BiliException catch (e) {
       debugPrint('[RoamingService] fetch failed for ${seed.id}: $e');
       return const [];
@@ -67,12 +77,12 @@ class RoamingService {
   }
 
   /// 按 (bvid, cid) 去重 + simhash 排序 + 按 style 挑选 size 个。
-  List<Music> _pick(
+  Future<List<Music>> _pick(
     List<Music> candidates, {
     required Music seed,
     required RoamStyle style,
     required int size,
-  }) {
+  }) async {
     if (candidates.isEmpty) return const [];
 
     // dedup: 排除当前队列和播放历史
@@ -82,6 +92,18 @@ class RoamingService {
     };
     final fresh = candidates.where((m) => !existing.contains(m.key)).toList();
     if (fresh.isEmpty) return const [];
+
+    // 画像融合排序：画像建得起来才走，否则退化为纯 simhash
+    final taste = await _currentTaste();
+    if (taste != null) {
+      return _pickByTaste(
+        fresh,
+        seed: seed,
+        style: style,
+        size: size,
+        taste: taste,
+      );
+    }
 
     // simhash 排序
     final seedHash = TextSimHash.simhash(TextSimHash.musicToText(seed));
@@ -105,6 +127,49 @@ class RoamingService {
         // 反向排序后取 size 个（最不像的优先）
         return fresh.reversed.take(size).toList();
     }
+  }
+
+  /// 取当前画像；未配置服务、冷启动空画像或任何异常都返回 null（走老路）。
+  Future<TasteProfile?> _currentTaste() async {
+    final service = _tasteService;
+    if (service == null) return null;
+    try {
+      final profile = await service.ensureFresh();
+      return profile.isEmpty ? null : profile;
+    } catch (e) {
+      debugPrint('[RoamingService] 画像获取失败，退化为 simhash 排序: $e');
+      return null;
+    }
+  }
+
+  /// 画像融合排序：`blendRoamScore` 融合种子相似度与口味分，降序取 size 个。
+  Future<List<Music>> _pickByTaste(
+    List<Music> fresh, {
+    required Music seed,
+    required RoamStyle style,
+    required int size,
+    required TasteProfile taste,
+  }) async {
+    final scores = await tasteScoresFor(fresh, taste);
+    final seedHash = TextSimHash.simhash(TextSimHash.musicToText(seed));
+    // balanced 档的随机扰动：每首一份，排序比较期间保持一致
+    final noise = {for (final m in fresh) m.key: _random.nextDouble()};
+
+    double scoreOf(Music m) {
+      final h = TextSimHash.simhash(TextSimHash.musicToText(m));
+      final seedSim =
+          1 - TextSimHash.hammingFast(seedHash, h) / TextSimHash.dimensions;
+      return blendRoamScore(
+        seedSimilarity: seedSim,
+        tasteScore: scores[m.key] ?? 0,
+        style: style,
+        noise: noise[m.key] ?? 0,
+      );
+    }
+
+    final ranked = List<Music>.from(fresh)
+      ..sort((a, b) => scoreOf(b).compareTo(scoreOf(a)));
+    return ranked.take(size).toList();
   }
 
   /// 预取一轮候选的推荐（用于 onboarding step A.5/B）。

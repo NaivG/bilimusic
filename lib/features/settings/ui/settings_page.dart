@@ -314,6 +314,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             // 数据管理
             _buildSectionTitle('数据'),
             ListTile(
+              leading: Icon(Icons.insights, color: _getPrimaryColor(context)),
+              title: Text('音乐画像'),
+              subtitle: Text('口味关键词、推荐依据与手动重建'),
+              trailing: Icon(Icons.arrow_forward_ios_rounded),
+              onTap: () {
+                ShellPageManager.instance.push(ShellPage.tasteProfile);
+              },
+            ),
+            ListTile(
               leading: Icon(Icons.storage, color: _getPrimaryColor(context)),
               title: Text('数据管理'),
               subtitle: Text('查看详细数据、缓存信息与数据操作'),

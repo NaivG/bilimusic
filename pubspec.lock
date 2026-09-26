@@ -622,10 +622,10 @@ packages:
     dependency: "direct main"
     description:
       name: mpv_audio_kit
-      sha256: b7961b265f13ab6cbd7c27304af2cb004380c6ed9650d849f3ff94deefb3fee5
+      sha256: "2014dfafc20d7b28758fba8b5c08a0301a938f6af52123f55603461b29976a5f"
       url: "https://pub.dev"
     source: hosted
-    version: "0.4.6"
+    version: "0.4.8"
   native_toolchain_c:
     dependency: transitive
     description:
@@ -654,10 +654,10 @@ packages:
     dependency: transitive
     description:
       name: octo_image
-      sha256: "34faa6639a78c7e3cbe79be6f9f96535867e879748ade7d17c9b1ae7536293bd"
+      sha256: "66e8f59a538a9f9f53141bc22ec0a12f8e85f2ca3bfcacab6dd30315b2fc256d"
       url: "https://pub.dev"
     source: hosted
-    version: "2.1.0"
+    version: "2.1.1"
   package_config:
     dependency: transitive
     description:
@@ -862,10 +862,10 @@ packages:
     dependency: "direct main"
     description:
       name: restart_app
-      sha256: "3ea6b790dd88d7d927ed4792f3c6dd68e2fdffcbb1bf4df6d19313702e2d6387"
+      sha256: b7ab4ec8e35ac5a716939bb3aee10c56d24e8b5c4798682b7aacb523f67c9367
       url: "https://pub.dev"
     source: hosted
-    version: "1.9.1"
+    version: "1.10.1"
   riverpod:
     dependency: transitive
     description:
@@ -999,6 +999,15 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  snownlp:
+    dependency: "direct main"
+    description:
+      path: "."
+      ref: HEAD
+      resolved-ref: da8d19041236443c10d092aee8c6e1613e66fada
+      url: "https://github.com/NaivG/snownlp.git"
+    source: git
+    version: "1.2.0"
   source_span:
     dependency: transitive
     description:

@@ -20,6 +20,7 @@ enum ShellPage {
   favImport,
   roamOnboarding,
   lanSync,
+  tasteProfile,
 }
 
 /// 页面栈中的一帧：页面 + 该帧自己的导航参数。

@@ -17,6 +17,7 @@ import 'package:bilimusic/features/player/logic/player_coordinator.dart';
 import 'package:bilimusic/features/playlist/playlist_service.dart';
 import 'package:bilimusic/features/player/pip/pip_service.dart';
 import 'package:bilimusic/features/roam/roaming_service.dart';
+import 'package:bilimusic/features/taste/services/taste_profile_service.dart';
 import 'package:bilimusic/features/lan_sync/services/device_identity.dart';
 import 'package:bilimusic/features/lan_sync/services/lan_sync_service.dart';
 import 'package:bilimusic/features/lan_sync/services/pairing_service.dart';
@@ -150,12 +151,21 @@ final recommendationManagerProvider = Provider<RecommendationManager>((ref) {
   return RecommendationManager();
 });
 
+// ==================== 音乐画像 ====================
+
+final tasteProfileServiceProvider = Provider<TasteProfileService>((ref) {
+  return TasteProfileService(
+    playlistService: ref.watch(playlistServiceProvider),
+  );
+});
+
 // ==================== 漫游 ====================
 
 final roamingServiceProvider = Provider<RoamingService>((ref) {
   return RoamingService(
     client: BiliClient(),
     playlistService: ref.watch(playlistServiceProvider),
+    tasteService: ref.watch(tasteProfileServiceProvider),
   );
 });
 
