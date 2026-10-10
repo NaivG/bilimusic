@@ -13,7 +13,7 @@ class FollowingService {
   static const int followingPageSize = 50;
 
   /// 临时歌单最多装多少首。
-  /// 
+  ///
   /// 除了老登还有索大款，其他应该不会触碰这个。
   static const int maxSongs = 90;
 

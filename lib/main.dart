@@ -53,7 +53,7 @@ Future<void> _setupMainWindow() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // snownlp 模型文件懒加载。
   useFlutterAssetLoader();
 
