@@ -7,6 +7,7 @@ import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/domain/bili_following.dart';
+import 'package:bilimusic/domain/up_profile.dart';
 import 'package:bilimusic/features/following/following_service.dart';
 
 /// 「查看关注」页：列出自己关注的全部 UP 主。
@@ -30,12 +31,6 @@ class _FollowingPageState extends ConsumerState<FollowingPage> {
   int _total = 0;
   int _page = 0;
   String? _errorMessage;
-
-  /// 正在攒歌单的 UP 主 mid（行内转圈 + 拦住重复点击）
-  int? _openingMid;
-
-  /// 攒歌单的进度文案（如「已取 30 / 218 首」）
-  String? _openingHint;
 
   @override
   void initState() {
@@ -128,57 +123,9 @@ class _FollowingPageState extends ConsumerState<FollowingPage> {
     await _loadFirstPage();
   }
 
-  /// 把某位 UP 主的投稿攒成临时歌单并跳过去浏览。
-  Future<void> _openUserSongs(BiliFollowing user) async {
-    if (_openingMid != null) return;
-
-    setState(() {
-      _openingMid = user.mid;
-      _openingHint = '正在整理投稿…';
-    });
-
-    try {
-      final songs = await ref
-          .read(followingServiceProvider)
-          .collectUserSongs(
-            user,
-            onProgress: (loaded, total) {
-              if (!mounted) return;
-              setState(() {
-                _openingHint = total > 0
-                    ? '已取 $loaded / $total 首'
-                    : '已取 $loaded 首';
-              });
-            },
-          );
-      if (!mounted) return;
-
-      if (songs.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('没有取到投稿：可能撞上风控，或 TA 还没有可播的稿件')),
-        );
-        return;
-      }
-
-      ShellPageManager.instance.goToPlaylist(
-        playlistId: 'bili_up_${user.mid}',
-        songs: songs,
-        playlistName: '${user.name} 的投稿',
-      );
-    } catch (e) {
-      debugPrint('[FollowingPage] 加载投稿失败: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('加载投稿失败：$e')));
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _openingMid = null;
-          _openingHint = null;
-        });
-      }
-    }
+  /// 进这位 UP 主的歌手页看 TA 的投稿。
+  void _openArtist(BiliFollowing user) {
+    ShellPageManager.instance.goToArtist(up: UpProfile.fromFollowing(user));
   }
 
   @override
@@ -197,37 +144,7 @@ class _FollowingPageState extends ConsumerState<FollowingPage> {
               )
             : null,
       ),
-      body: Column(
-        children: [
-          if (_openingMid != null) _buildOpeningBanner(),
-          Expanded(child: _buildBody()),
-        ],
-      ),
-    );
-  }
-
-  /// 攒歌单时的顶部进度条：要翻好几页投稿，没有反馈会让人以为点了没反应。
-  Widget _buildOpeningBanner() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: Theme.of(context).colorScheme.surfaceContainerHighest
-          .withValues(alpha: 0.3),
-      child: Row(
-        children: [
-          const SizedBox(
-            width: 14,
-            height: 14,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              _openingHint ?? '正在整理投稿…',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-            ),
-          ),
-        ],
-      ),
+      body: _buildBody(),
     );
   }
 
@@ -288,8 +205,6 @@ class _FollowingPageState extends ConsumerState<FollowingPage> {
   }
 
   Widget _buildUserTile(BiliFollowing user) {
-    final isOpening = _openingMid == user.mid;
-    final busy = _openingMid != null;
     final subtitle = user.sign.isNotEmpty
         ? user.sign
         : (user.verifyDesc.isNotEmpty ? user.verifyDesc : '这个人很神秘，什么都没写');
@@ -318,14 +233,8 @@ class _FollowingPageState extends ConsumerState<FollowingPage> {
         overflow: TextOverflow.ellipsis,
         style: TextStyle(fontSize: 12, color: Colors.grey[600]),
       ),
-      trailing: isOpening
-          ? const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : Icon(Icons.queue_music, size: 20, color: Colors.grey[500]),
-      onTap: busy ? null : () => _openUserSongs(user),
+      trailing: Icon(Icons.chevron_right, size: 20, color: Colors.grey[500]),
+      onTap: () => _openArtist(user),
     );
   }
 

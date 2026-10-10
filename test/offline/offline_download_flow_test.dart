@@ -14,6 +14,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/core/network/api_service.dart';
 import 'package:bilimusic/core/network/bili_client.dart';
+import 'package:bilimusic/domain/artist.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/offline/offline_providers.dart';
 import 'package:bilimusic/features/offline/services/offline_cache_service.dart';
@@ -46,7 +47,7 @@ void main() {
     id: 'BV1xx411c7mD',
     cid: '12345',
     title: '晴天',
-    artist: '周杰伦',
+    artist: const Artist(name: '周杰伦'),
     album: '',
     coverUrl: '',
     audioUrl: '',

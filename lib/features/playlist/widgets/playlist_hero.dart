@@ -265,10 +265,10 @@ class PlaylistHero extends StatelessWidget {
           ],
         ),
         // Artist
-        if (songs.isNotEmpty && songs.first.artist.isNotEmpty) ...[
+        if (songs.isNotEmpty && songs.first.artist.name.isNotEmpty) ...[
           const SizedBox(height: 4),
           Text(
-            songs.first.artist,
+            songs.first.artist.name,
             style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

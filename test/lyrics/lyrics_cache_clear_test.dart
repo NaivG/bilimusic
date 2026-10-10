@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lyrics_now/lyrics_now.dart';
 import 'package:path/path.dart' as p;
 
+import 'package:bilimusic/domain/artist.dart' as domain;
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/lyrics/lyrics_service.dart';
 
@@ -26,7 +27,7 @@ void main() {
     id: 'BV1xx411c7mD',
     cid: '12345',
     title: '晴天',
-    artist: '周杰伦',
+    artist: const domain.Artist(name: '周杰伦'),
     album: '',
     coverUrl: '',
     audioUrl: '',

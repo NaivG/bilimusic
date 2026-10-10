@@ -1,3 +1,4 @@
+import 'package:bilimusic/domain/artist.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/shared/utils/title_meta_filter.dart';
 
@@ -15,7 +16,7 @@ class BiliItem {
   final String pic;
 
   /// UP主信息
-  final Owner owner;
+  final Artist owner;
 
   /// 视频统计数
   final Stat stat;
@@ -96,6 +97,8 @@ class BiliItem {
     final videoTitle = TitleMetaFilter.maybeClean(
       data['title']?.toString() ?? '',
     );
+    // 分P 与稿件头共用同一份创作者（view 只在 data.owner 给一次）。
+    final owner = Artist.fromOwner(ownerData is Map ? ownerData : const {});
 
     final pages = pagesData.asMap().entries.map<Music>((entry) {
       final idx = entry.key;
@@ -111,7 +114,7 @@ class BiliItem {
             : TitleMetaFilter.maybeClean(
                 (pageJson['part'] ?? pageJson['title'])?.toString() ?? '',
               ),
-        artist: ownerData['name'] ?? '未知艺术家',
+        artist: owner,
         album: data['title'] == null ? '未知专辑' : videoTitle,
         coverUrl: pic.isNotEmpty ? '$pic$biliCoverThumbSuffix' : '',
         duration: Duration(
@@ -128,11 +131,7 @@ class BiliItem {
       bvid: data['bvid'] ?? '',
       title: videoTitle,
       pic: pic,
-      owner: Owner(
-        mid: ownerData['mid']?.toString() ?? '0',
-        name: ownerData['name'] ?? '未知作者',
-        face: ownerData['face'] ?? '',
-      ),
+      owner: owner,
       stat: Stat(
         view: statData['view'] ?? 0,
         like: statData['like'] ?? 0,
@@ -180,7 +179,7 @@ class BiliItem {
     String? bvid,
     String? title,
     String? pic,
-    Owner? owner,
+    Artist? owner,
     Stat? stat,
     int? videos,
     String? tname,
@@ -203,25 +202,6 @@ class BiliItem {
       renderStyle: renderStyle ?? this.renderStyle,
     );
   }
-}
-
-/// UP主信息
-class Owner {
-  final String mid;
-  final String name;
-  final String face;
-
-  Owner({required this.mid, required this.name, required this.face});
-
-  factory Owner.fromJson(Map<String, dynamic> json) {
-    return Owner(
-      mid: json['mid']?.toString() ?? '0',
-      name: json['name'] ?? '未知作者',
-      face: json['face'] ?? '',
-    );
-  }
-
-  Map<String, dynamic> toJson() => {'mid': mid, 'name': name, 'face': face};
 }
 
 /// 视频统计数

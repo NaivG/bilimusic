@@ -1,4 +1,5 @@
 import 'package:dart_tui/dart_tui.dart';
+import 'package:bilimusic/domain/artist.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/search_result.dart';
 
@@ -656,7 +657,8 @@ final class AppModel extends Model {
         : paused
         ? ('⏸', Palette.yellow)
         : ('▶', Palette.green);
-    final artist = m.artist.isEmpty ? '' : ' — ${m.artist}';
+    final artist = m.artist.name.isEmpty ? '' : ' — ${m.artist.name}';
+
     final head =
         '${Style(foregroundRgb: iconColor).render(icon)} ${m.title}$artist';
 
@@ -797,7 +799,7 @@ final class AppModel extends Model {
     id: 'BV1xx411c7mD',
     cid: '1',
     title: '晴天',
-    artist: '周杰伦',
+    artist: const Artist(name: '周杰伦'),
     album: '叶惠美',
     coverUrl: '',
     duration: const Duration(seconds: 269),

@@ -1,3 +1,4 @@
+import 'package:bilimusic/domain/artist.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/taste/logic/profile_builder.dart';
 
@@ -28,7 +29,7 @@ Music music(
 }) => Music(
   id: id,
   title: title,
-  artist: artist,
+  artist: Artist(name: artist),
   album: album,
   coverUrl: '',
   audioUrl: '',

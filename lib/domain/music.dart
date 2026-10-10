@@ -1,3 +1,4 @@
+import 'package:bilimusic/domain/artist.dart';
 import 'package:bilimusic/shared/utils/title_meta_filter.dart';
 
 /// 音乐渲染样式枚举
@@ -23,7 +24,13 @@ class Music {
   final String id; // bvid
   final String cid; // 分P cid，音视频请求需要
   final String title;
-  final String artist;
+
+  /// 创作者（UP 主）：mid + 昵称 + 头像。
+  ///
+  /// 昵称是列表/播放页直接显示的那一份（用 `artist.displayName` 取）；
+  /// mid 决定能否进歌手页——`artist.hasMid` 为假时不展示「查看 UP 主」入口。
+  final Artist artist;
+
   final String album;
   final String coverUrl;
   final Duration? duration;
@@ -63,7 +70,7 @@ class Music {
       id: json['id'] ?? '',
       cid: json['cid'] ?? '',
       title: json['title'] ?? '',
-      artist: json['artist'] ?? '',
+      artist: _artistFromJson(json),
       album: json['album']?.toString() ?? '未知专辑',
       coverUrl: json['coverUrl']?.toString().trim().isEmpty ?? true
           ? fallbackCoverUrl
@@ -89,7 +96,7 @@ class Music {
       'id': id,
       'cid': cid,
       'title': title,
-      'artist': artist,
+      'artist': artist.toJson(),
       'album': album,
       'coverUrl': coverUrl,
       'duration': duration?.inSeconds.toString() ?? '300',
@@ -111,15 +118,11 @@ class Music {
   /// 标题过 [TitleMetaFilter.maybeClean]：设置开启时清掉【MV】【中字】
   /// 这类元信息，关闭时原样返回（实验性，见 title_meta_filter.dart）。
   factory Music.fromArchiveJson(Map<String, dynamic> json) {
-    final owner = json['owner'];
-    final author = json['author'];
-    final ownerName = owner is Map ? owner['name'] as String? : null;
-    final authorName = author is Map ? author['name'] as String? : null;
     final cover = (json['pic'] ?? json['cover']) as String? ?? '';
     return Music(
       id: (json['bvid'] as String?) ?? json['aid']?.toString() ?? '',
       title: TitleMetaFilter.maybeClean(json['title'] as String? ?? ''),
-      artist: authorName ?? ownerName ?? '未知艺术家',
+      artist: _artistFromCard(json),
       album: json['tname'] as String? ?? '未知专辑',
       coverUrl: cover.isNotEmpty ? '$cover$biliCoverThumbSuffix' : '',
       duration: json['duration'] is int
@@ -146,7 +149,7 @@ class Music {
     return Music(
       id: json['bvid']?.toString() ?? '',
       title: TitleMetaFilter.maybeClean(json['title'] as String? ?? ''),
-      artist: json['author']?.toString() ?? '未知艺术家',
+      artist: Artist.fromFlat(json, faceKey: 'face'),
       album: album,
       coverUrl: cover.isNotEmpty ? '$cover$biliCoverThumbSuffix' : '',
       duration: _parseLength(json['length']?.toString()),
@@ -162,7 +165,7 @@ class Music {
   String get key => '${id}_$cid';
 
   /// 「artist - album」副标题行（列表项通用，分隔符统一为 ` - `）。
-  String get subtitleText => '$artist - $album';
+  String get subtitleText => '${artist.displayName} - $album';
 
   /// 获取当前分P
   Page? get currentPage {
@@ -186,7 +189,7 @@ class Music {
     String? audioUrl,
     Duration? duration,
     String? title,
-    String? artist,
+    Artist? artist,
     String? album,
     String? coverUrl,
   }) {
@@ -223,6 +226,42 @@ class Music {
 
   String get safeCoverUrl =>
       isValidImageUrl(coverUrl) ? coverUrl : fallbackCoverUrl;
+}
+
+/// 解析落盘/传输 JSON 里的 `artist`。
+///
+/// 老数据（≤1.10.x）存的是昵称字符串，mid / 头像另在两个平铺字段里；
+/// 两种形状都认，缺的补空值。**只有读侧兼容，写侧统一是对象**。
+Artist _artistFromJson(Map<String, dynamic> json) {
+  final raw = json['artist'];
+  if (raw is Map) {
+    return Artist(
+      mid: (raw['mid'] as num?)?.toInt() ?? 0,
+      name: raw['name']?.toString() ?? '',
+      face: raw['face']?.toString() ?? '',
+    );
+  }
+  return Artist(
+    mid: (json['ownerMid'] as num?)?.toInt() ?? 0,
+    name: raw?.toString() ?? '',
+    face: json['ownerFace']?.toString() ?? '',
+  );
+}
+
+/// 解析稿件卡片 JSON 的创作者：优先 `owner` 对象，退回扁平的 `author` / `mid` / `upic`。
+Artist _artistFromCard(Map<String, dynamic> json) {
+  final owner = json['owner'];
+  if (owner is Map) return Artist.fromOwner(owner);
+
+  final author = json['author'];
+  final name = author is Map
+      ? author['name']?.toString() ?? ''
+      : author?.toString() ?? '';
+  return Artist(
+    mid: int.tryParse(json['mid']?.toString() ?? '') ?? 0,
+    name: name,
+    face: normalizeFaceUrl(json['upic']),
+  );
 }
 
 class Page {

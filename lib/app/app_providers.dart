@@ -28,6 +28,7 @@ import 'package:bilimusic/features/settings/settings_manager.dart';
 import 'package:bilimusic/features/auth/user_manager.dart';
 import 'package:bilimusic/features/fav_sync/fav_sync_manager.dart';
 import 'package:bilimusic/features/following/following_service.dart';
+import 'package:bilimusic/features/artist/artist_service.dart';
 
 /// 应用级服务 / 管理器的依赖容器。
 ///
@@ -146,9 +147,14 @@ final favSyncManagerProvider = Provider<FavSyncManager>((ref) {
   return mgr;
 });
 
-/// 「查看关注」的数据编排（关注列表分页 / UP 主投稿聚合）。
+/// 「查看关注」的数据编排（关注列表分页）。
 final followingServiceProvider = Provider<FollowingService>((ref) {
   return FollowingService(api: ref.watch(apiServiceProvider));
+});
+
+/// 歌手页（UP 页）的数据编排（投稿分页 / 攒队列聚合）。
+final artistServiceProvider = Provider<ArtistService>((ref) {
+  return ArtistService(api: ref.watch(apiServiceProvider));
 });
 
 // ==================== 推荐 ====================

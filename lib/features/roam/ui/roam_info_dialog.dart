@@ -161,7 +161,7 @@ class _SeedTile extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                music.artist.isEmpty ? '未知艺术家' : music.artist,
+                music.artist.displayName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(

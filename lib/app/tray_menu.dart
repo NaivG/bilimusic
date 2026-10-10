@@ -339,9 +339,9 @@ class TrayMenu implements TrayMenuContent {
   static MenuItemState _state(bool checked) =>
       checked ? MenuItemState.checked : MenuItemState.unchecked;
 
-  static String _trackLabel(Music music) => music.artist.isEmpty
+  static String _trackLabel(Music music) => music.artist.name.isEmpty
       ? '♪ ${music.title}'
-      : '♪ ${music.title} — ${music.artist}';
+      : '♪ ${music.title} — ${music.artist.name}';
 
   /// 菜单文案：先按菜单宽度截断，再按平台转义。
   ///

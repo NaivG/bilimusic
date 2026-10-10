@@ -295,7 +295,7 @@ class LyricsService extends ChangeNotifier {
     try {
       final results = await finder.searchSongs(
         SearchQuery(
-          keyword: '${music.title} ${music.artist}',
+          keyword: '${music.title} ${music.artist.displayName}',
           searchType: SearchType.song,
           durationMs: durationMs > 0 ? durationMs : null,
         ),
@@ -380,7 +380,9 @@ class LyricsService extends ChangeNotifier {
       // 没拿到歌词：进入冷却，阻断 notify → rebuild → 再搜索的风暴
       _failedAt[songKey] = DateTime.now();
     }
-    debugPrint('[LyricsService] prefetched: ${music.title} - ${music.artist}');
+    debugPrint(
+      '[LyricsService] prefetched: ${music.title} - ${music.artist.name}',
+    );
     notifyListeners();
     return LyricsResult(sources: sources, autoPayload: autoPayload);
   }
@@ -448,7 +450,7 @@ class LyricsService extends ChangeNotifier {
   /// 不该跟着变，否则用户刚选的来源会在回填那一刻失效。
   static String musicIdentityOf(Music m) {
     if (m.id.isNotEmpty) return m.id;
-    return 't:${m.title}|${m.artist}|${m.duration?.inSeconds ?? 0}';
+    return 't:${m.title}|${m.artist.displayName}|${m.duration?.inSeconds ?? 0}';
   }
 
   String _sourceKey(SongInfo song, int index) {

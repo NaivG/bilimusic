@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/domain/up_profile.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
@@ -23,6 +24,7 @@ import 'package:bilimusic/features/settings/ui/audio_output_page.dart';
 import 'package:bilimusic/features/auth/ui/login_page.dart';
 import 'package:bilimusic/features/fav_sync/ui/fav_import_page.dart';
 import 'package:bilimusic/features/following/ui/following_page.dart';
+import 'package:bilimusic/features/artist/ui/artist_page.dart';
 import 'package:bilimusic/features/roam/ui/roam_onboarding_page.dart';
 import 'package:bilimusic/features/lan_sync/ui/sync_page.dart';
 import 'package:bilimusic/features/taste/ui/taste_profile_page.dart';
@@ -82,6 +84,10 @@ Widget buildShellPageContent({
       return const FavImportPage();
     case ShellPage.following:
       return const FollowingPage();
+    case ShellPage.artist:
+      final up = args['up'] as UpProfile?;
+      // 没带资料就没有可展示的对象（正常入口只有关注页的 goToArtist）
+      return up == null ? const SizedBox.shrink() : ArtistPage(up: up);
     case ShellPage.login:
       return LoginPage();
     case ShellPage.roamOnboarding:

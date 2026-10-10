@@ -5,6 +5,7 @@ import 'package:bilimusic/core/network/bili_client.dart';
 import 'package:bilimusic/core/network/bili_exception.dart';
 import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/domain/artist.dart';
 import 'package:bilimusic/domain/bili_fav_folder.dart';
 import 'package:bilimusic/domain/bili_fav_resource.dart';
 import 'package:bilimusic/domain/bili_following.dart';
@@ -100,7 +101,7 @@ class ApiService {
     return Music(
       id: bvid,
       title: '未知标题',
-      artist: '未知作者',
+      artist: const Artist(),
       album: '',
       coverUrl: '',
       audioUrl: '',
@@ -310,9 +311,10 @@ class ApiService {
     final result = SearchResult(
       id: bvid,
       title: biliItem.title,
-      subtitle: biliItem.owner.name,
+      subtitle: biliItem.owner.displayName,
       coverUrl: cover.isNotEmpty ? '$cover$biliCoverThumbSuffix' : cover,
       type: SearchResultType.video,
+      artist: biliItem.owner,
     );
     return SearchResponse(
       keyword: bvid,

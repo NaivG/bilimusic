@@ -40,7 +40,7 @@ final RegExp bracketChars = RegExp(r'[【】\[\]（）()<>《》「」『』]');
 String tasteText(Music m) {
   final parts = <String>[
     m.title,
-    if (m.artist.isNotEmpty) m.artist,
+    if (m.artist.name.isNotEmpty) m.artist.name,
     if (m.album.isNotEmpty && m.album != '未知专辑') m.album,
   ];
   return parts.join(' ').replaceAll(bracketChars, ' ');

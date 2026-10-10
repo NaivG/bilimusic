@@ -91,7 +91,7 @@ class LandscapeDetailPage extends ConsumerWidget {
                       child: AlbumSection(
                         coverUrl: music.coverUrl,
                         title: music.title,
-                        artist: music.artist,
+                        artist: music.artist.displayName,
                         album: music.album,
                         dominantColor: dominantColor,
                         isFavorite: isFavorite,
@@ -114,7 +114,7 @@ class LandscapeDetailPage extends ConsumerWidget {
                     Expanded(
                       child: LyricSection(
                         title: music.title,
-                        artist: music.artist,
+                        artist: music.artist.displayName,
                         album: music.album,
                         lyricController: lyricController,
                         position: position,
@@ -236,7 +236,7 @@ class LandscapeDetailPage extends ConsumerWidget {
     showSongInfoDialog(
       context,
       title: music.title,
-      artist: music.artist,
+      artist: music.artist.displayName,
       album: music.album,
       duration: duration ?? Duration.zero,
     );

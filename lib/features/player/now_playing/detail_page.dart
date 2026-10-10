@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/features/lyrics/lyric_source.dart';
 import 'package:bilimusic/features/playlist/widgets/playlist_sheet.dart';
 import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/domain/artist.dart';
 import 'package:bilimusic/domain/music.dart' as model;
 import 'package:bilimusic/features/player/models/player_state.dart';
 import 'package:bilimusic/features/lyrics/lyrics_providers.dart';
@@ -60,7 +61,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
         model.Music(
           id: '',
           title: '未知标题',
-          artist: '未知艺术家',
+          artist: const Artist(),
           album: '未知专辑',
           coverUrl: '',
           duration: Duration.zero,

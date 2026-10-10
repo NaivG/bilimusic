@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/domain/up_profile.dart';
 
 enum ShellPage {
   home,
@@ -19,6 +20,7 @@ enum ShellPage {
   login,
   favImport,
   following,
+  artist,
   roamOnboarding,
   lanSync,
   tasteProfile,
@@ -167,6 +169,11 @@ class ShellPageManager extends ChangeNotifier {
 
   void goToDetail() {
     push(ShellPage.detail);
+  }
+
+  /// 打开歌手页（UP 页）：展示 [up] 的投稿。
+  void goToArtist({required UpProfile up}) {
+    push(ShellPage.artist, args: {'up': up});
   }
 
   /// 栈顶帧的参数。渲染 basePage 时不要用它（栈顶可能是 detail 等无参页面），

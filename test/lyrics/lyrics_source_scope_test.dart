@@ -12,6 +12,7 @@ import 'package:lyrics_now/lyrics_now.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/domain/artist.dart' as domain;
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/lyrics/lyric_source.dart';
 import 'package:bilimusic/features/lyrics/lyrics_providers.dart';
@@ -34,7 +35,7 @@ void main() {
     id: 'BV$title',
     cid: 'cid-$title',
     title: title,
-    artist: '$title歌手',
+    artist: domain.Artist(name: '$title歌手'),
     album: '',
     coverUrl: '',
     audioUrl: '',

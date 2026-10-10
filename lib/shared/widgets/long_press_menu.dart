@@ -9,6 +9,8 @@ import 'package:bilimusic/features/player/logic/player_coordinator.dart';
 import 'package:bilimusic/features/playlist/playlist_service.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/playlist.dart';
+import 'package:bilimusic/domain/up_profile.dart';
+import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/features/lan_sync/lan_sync_providers.dart';
 import 'package:bilimusic/features/offline/offline_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
@@ -96,6 +98,21 @@ FutureOr<Menu?> buildMusicContextMenu({
           }
         },
       ),
+      if (music.artist.hasMid) ...[
+        MenuSeparator(),
+        MenuAction(
+          title: '查看：${music.artist.displayName}',
+          image: MenuImage.icon(Icons.person_outline),
+          attributes: const MenuActionAttributes(),
+          callback: () => ShellPageManager.instance.goToArtist(
+            up: UpProfile(
+              mid: music.artist.mid,
+              name: music.artist.name,
+              face: music.artist.face,
+            ),
+          ),
+        ),
+      ],
       if (playlistService != null) ...[
         MenuSeparator(),
         _buildAddToPlaylistSubmenu(context, music, playlistService),

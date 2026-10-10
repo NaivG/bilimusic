@@ -338,7 +338,7 @@ class _SongInfo extends StatelessWidget {
             child: fading
                 ? const CrossfadeIndicator()
                 : Text(
-                    music!.artist,
+                    music!.artist.displayName,
                     key: const ValueKey('artist'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

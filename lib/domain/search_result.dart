@@ -1,3 +1,4 @@
+import 'package:bilimusic/domain/artist.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/shared/utils/title_meta_filter.dart';
 
@@ -19,6 +20,12 @@ class SearchResult {
   final String coverUrl;
   final SearchResultType type;
 
+  /// 创作者（视频条目是 UP 主，用户条目就是本人；其余类型为空）。
+  ///
+  /// 搜索端点把昵称/头像拍平成 `author` / `uname` + `upic`，这里收敛成 [Artist]，
+  /// 于是搜索结果也能直接进歌手页。
+  final Artist artist;
+
   /// 视频分P信息（延迟加载）
   List<Page> pages;
 
@@ -34,6 +41,7 @@ class SearchResult {
     required this.subtitle,
     required this.coverUrl,
     required this.type,
+    this.artist = const Artist(),
     List<Page>? pages,
   }) : pages = pages ?? [];
 
@@ -74,7 +82,25 @@ class SearchResult {
       subtitle: _buildSubtitle(json, type),
       coverUrl: coverUrl,
       type: type,
+      artist: _buildArtist(json, type),
     );
+  }
+
+  /// 取创作者：[SearchResultType.video] 是稿件的 UP 主（扁平 `author` + `mid` +
+  /// `upic`），[SearchResultType.upuser] 是用户本人（`uname` + `upic`）。
+  /// 其余类型（番剧 / 话题 / 合集）端点不给创作者，留空。
+  static Artist _buildArtist(Map<String, dynamic> json, SearchResultType type) {
+    switch (type) {
+      case SearchResultType.video:
+        return Artist.fromFlat(json);
+      case SearchResultType.upuser:
+        return Artist.fromFlat(json, nameKey: 'uname');
+      case SearchResultType.album:
+      case SearchResultType.author:
+      case SearchResultType.bangumi:
+      case SearchResultType.topic:
+        return const Artist();
+    }
   }
 
   static String _buildSubtitle(
@@ -106,7 +132,7 @@ class SearchResult {
       id: id,
       cid: firstCid,
       title: title,
-      artist: subtitle.split(' - ').first,
+      artist: artist,
       album: subtitle.split(' - ').last,
       coverUrl: coverUrl,
       duration: musicPages.isNotEmpty
@@ -125,6 +151,7 @@ class SearchResult {
       subtitle: subtitle,
       coverUrl: coverUrl,
       type: type,
+      artist: artist,
       pages: newPages,
     );
   }

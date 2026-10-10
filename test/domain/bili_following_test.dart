@@ -74,7 +74,8 @@ void main() {
 
       expect(music.id, 'BV1xx411c7mD');
       expect(music.title, 'Starlight【中字】');
-      expect(music.artist, '某UP主');
+      expect(music.artist.name, '某UP主');
+      expect(music.artist.mid, 1234);
       expect(music.album, '某UP主 的投稿');
       expect(music.coverUrl, endsWith('@672w_378h'));
       expect(music.duration, const Duration(minutes: 4, seconds: 23));
@@ -104,7 +105,8 @@ void main() {
 
       expect(music.coverUrl, '');
       expect(music.id, '');
-      expect(music.artist, '未知艺术家');
+      expect(music.artist.name, '');
+      expect(music.artist.displayName, '未知艺术家');
       expect(music.album, '');
     });
   });

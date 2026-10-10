@@ -682,7 +682,7 @@ class _RemoteNowPlayingCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      music.artist,
+                      music.artist.displayName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -964,7 +964,7 @@ class _RemoteQueue extends StatelessWidget {
                   ),
                 ),
                 subtitle: Text(
-                  music.artist,
+                  music.artist.displayName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: Colors.white38, fontSize: 11),
