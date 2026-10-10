@@ -22,6 +22,7 @@ import 'package:bilimusic/features/settings/ui/audio_dsp_page.dart';
 import 'package:bilimusic/features/settings/ui/audio_output_page.dart';
 import 'package:bilimusic/features/auth/ui/login_page.dart';
 import 'package:bilimusic/features/fav_sync/ui/fav_import_page.dart';
+import 'package:bilimusic/features/following/ui/following_page.dart';
 import 'package:bilimusic/features/roam/ui/roam_onboarding_page.dart';
 import 'package:bilimusic/features/lan_sync/ui/sync_page.dart';
 import 'package:bilimusic/features/taste/ui/taste_profile_page.dart';
@@ -79,6 +80,8 @@ Widget buildShellPageContent({
       return const AudioOutputPage();
     case ShellPage.favImport:
       return const FavImportPage();
+    case ShellPage.following:
+      return const FollowingPage();
     case ShellPage.login:
       return LoginPage();
     case ShellPage.roamOnboarding:

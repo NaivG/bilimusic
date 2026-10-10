@@ -7,6 +7,7 @@ import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/domain/bili_fav_folder.dart';
 import 'package:bilimusic/domain/bili_fav_resource.dart';
+import 'package:bilimusic/domain/bili_following.dart';
 import 'package:bilimusic/domain/bili_item.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/search_result.dart';
@@ -531,6 +532,102 @@ class ApiService {
     } on BiliException catch (e) {
       debugPrint('[FavAPI] batchFetchResourceDetails: $e');
       return const [];
+    }
+  }
+
+  // ====================================================================
+  //  关注 / UP 主投稿
+  // ====================================================================
+
+  /// 查询某个用户的关注列表（分页）。
+  ///
+  /// 只对**自己**的列表完整：查询他人时接口最多给前 100 个，翻过第 100 条后
+  /// 返回 `code: 0` + 空列表。
+  /// [byAttention] 为 true 时按最常访问排序（`order_type=attention`），
+  /// 只对自己有效。
+  Future<({List<BiliFollowing> items, int total})> fetchFollowings(
+    int vmid, {
+    int page = 1,
+    int pageSize = 50,
+    bool byAttention = false,
+  }) async {
+    try {
+      final data = await _client.get(
+        '/x/relation/followings',
+        query: {
+          'vmid': '$vmid',
+          'pn': '$page',
+          'ps': '$pageSize',
+          if (byAttention) 'order_type': 'attention',
+        },
+      );
+      final map = data is Map<String, dynamic> ? data : const {};
+      final list = map['list'];
+      final items = list is List
+          ? list
+                .whereType<Map>()
+                .map((e) => BiliFollowing.fromJson(_stringKeys(e)))
+                .toList()
+          : <BiliFollowing>[];
+      // 缺 total 时留 0
+      final total = map['total'] is int ? map['total'] as int : 0;
+      return (items: items, total: total);
+    } on BiliApiException catch (e) {
+      if (e.isNotLogin) {
+        debugPrint('[FollowingAPI] 未登录，无法获取关注列表');
+      } else {
+        debugPrint('[FollowingAPI] fetchFollowings($vmid): $e');
+      }
+      return (items: const <BiliFollowing>[], total: 0);
+    } on BiliException catch (e) {
+      debugPrint('[FollowingAPI] fetchFollowings($vmid): $e');
+      return (items: const <BiliFollowing>[], total: 0);
+    }
+  }
+
+  /// 查询 UP 主投稿明细（分页，需 WBI 签名）。
+  ///
+  /// [album] 会写进每条 [Music.album]（列表副标题的第二段），由调用方传来源名。
+  Future<({List<Music> songs, int total})> fetchUserSpaceVideos(
+    int mid, {
+    int page = 1,
+    int pageSize = 30,
+    String album = '',
+  }) async {
+    try {
+      final data = await _client.get(
+        '/x/space/wbi/arc/search',
+        query: {
+          'mid': '$mid',
+          'order': 'pubdate',
+          'pn': '$page',
+          'ps': '$pageSize',
+          'tid': '0',
+          'platform': 'web',
+        },
+        signed: true,
+      );
+      final map = data is Map<String, dynamic> ? data : const {};
+      final list = map['list'];
+      final vlist = list is Map ? list['vlist'] : null;
+      final songs = vlist is List
+          ? vlist
+                .whereType<Map>()
+                .map(
+                  (e) => Music.fromSpaceArcJson(_stringKeys(e), album: album),
+                )
+                .where((m) => m.id.isNotEmpty)
+                .toList()
+          : <Music>[];
+      // 缺 count 时留 0
+      final pageInfo = map['page'];
+      final total = pageInfo is Map && pageInfo['count'] is int
+          ? pageInfo['count'] as int
+          : 0;
+      return (songs: songs, total: total);
+    } on BiliException catch (e) {
+      debugPrint('[FollowingAPI] fetchUserSpaceVideos($mid): $e');
+      return (songs: const <Music>[], total: 0);
     }
   }
 }

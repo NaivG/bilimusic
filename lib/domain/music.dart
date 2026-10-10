@@ -129,6 +129,31 @@ class Music {
     );
   }
 
+  /// 从 B 站「UP 主投稿明细」条目构造（`space/wbi/arc/search` 的 `vlist`）。
+  ///
+  /// 与 [Music.fromArchiveJson] 有两处不同：
+  ///   - 时长的字段名是 `length`，值是 `MM:SS` / `H:MM:SS` **文本**，
+  ///     不是 `duration` 整数秒；
+  ///   - 条目里没有分区名 `tname`，[album] 由调用方传来源名
+  ///     （如「某某的投稿」）充当列表副标题的第二段。
+  ///
+  /// 与收藏夹导入一样不填 cid。
+  factory Music.fromSpaceArcJson(
+    Map<String, dynamic> json, {
+    String album = '',
+  }) {
+    final cover = json['pic']?.toString() ?? '';
+    return Music(
+      id: json['bvid']?.toString() ?? '',
+      title: TitleMetaFilter.maybeClean(json['title'] as String? ?? ''),
+      artist: json['author']?.toString() ?? '未知艺术家',
+      album: album,
+      coverUrl: cover.isNotEmpty ? '$cover$biliCoverThumbSuffix' : '',
+      duration: _parseLength(json['length']?.toString()),
+      audioUrl: '',
+    );
+  }
+
   /// 是否为系列（多P）视频
   bool get isSeries => pages.length > 1;
 
@@ -298,4 +323,22 @@ class Page {
       cachedAudioUrl: cachedAudioUrl ?? this.cachedAudioUrl,
     );
   }
+}
+
+/// 解析 B 站列表接口里的 `MM:SS` / `H:MM:SS` 时长文本。
+///
+/// 只认 `:` 分隔的 2~3 段数字，其余（空串、`--:--`、纯数字）一律返回 null——
+/// 猜错时长会让列表显示一个凭空的进度，宁可不显示。
+Duration? _parseLength(String? raw) {
+  if (raw == null) return null;
+  final parts = raw.split(':');
+  if (parts.length < 2 || parts.length > 3) return null;
+
+  var seconds = 0;
+  for (final part in parts) {
+    final value = int.tryParse(part.trim());
+    if (value == null || value < 0) return null;
+    seconds = seconds * 60 + value;
+  }
+  return Duration(seconds: seconds);
 }

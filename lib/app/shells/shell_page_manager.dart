@@ -18,6 +18,7 @@ enum ShellPage {
   audioOutput,
   login,
   favImport,
+  following,
   roamOnboarding,
   lanSync,
   tasteProfile,
