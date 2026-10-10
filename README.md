@@ -3,7 +3,7 @@
 
   # BiliMusic
   <p><strong>把哔哩哔哩里的声音，整理成一张属于你的播放桌面。</strong></p>
-  <p>基于 Flutter 的 B 站音乐播放器 · 跨平台 · GUI/TUI/Vela · 漫游发现 · 局域网同步</p>
+  <p>基于 Flutter 的 B 站音乐播放器 · 跨平台 · GUI/TUI/Vela/Extension · 漫游发现 · 局域网同步</p>
   
   <p>
     <a href="https://github.com/NaivG/bilimusic/releases"><img src="https://img.shields.io/github/v/release/NaivG/bilimusic?label=release&sort=semver" alt="Latest release"></a>
@@ -19,7 +19,8 @@
 </div>
 
 
-BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。基于 Flutter 一次覆盖 Windows、Linux、Android，对 macOS、iOS 提供实验性支持，同时支持 Xiaomi Vela 端。它不复制视频平台，只做播放器该做的事：搜索、整理、连续播放与跨设备同步。
+BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。基于 Flutter 一次覆盖 Windows、Linux、Android，对 macOS、iOS 提供实验性支持，同时支持 Xiaomi Vela, Chrome Extension 等平台。
+它不复制视频平台，只做播放器该做的事：搜索、整理、连续播放与跨设备同步。
 
 <div align="center">
   <sub>如果这个项目对你有帮助，欢迎 ⭐ Star 支持一下！</sub>
@@ -38,6 +39,7 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
   - [构建发布版本](#构建发布版本)
   - [终端客户端（TUI）](#终端客户端tui)
   - [小米 Vela 手表端](#小米-vela-手表端)
+  - [Chrome Extension](#chrome-extension)
 - [用法](#用法)
   - [常用入口](#常用入口)
   - [漫游模式](#漫游模式)
@@ -109,7 +111,7 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 - Android / Windows / Linux：启动时自动检查更新。
 - macOS：需手动重新下载。
 
-Linux 需要安装 tray_manager 依赖（一般桌面端运行时都能满足，如果看不到托盘请自行安装）：
+Linux 如果看不到托盘请自行 tray_manager 依赖（一般桌面端运行时都能满足）：
 
 ```bash
 sudo apt install libgtk-3-dev libx11-dev libxi-dev
@@ -223,7 +225,7 @@ BiliMusic 的 Chrome 扩展端（MV3 架构），与主项目**不共享代码�
 **发现与推荐**
 - 支持 `BV` 号、`AV` 号与关键词搜索。
 - 首页推荐、猜你喜欢、播放历史。
-- 基于 simhash 的相关度排序与漫游补队列。
+- 基于 simhash + SnowNLP 的相关度排序与漫游补队列。
 - 三种漫游风格：**相似 / 平衡 / 探索**。
 
 **播放体验**
@@ -456,6 +458,7 @@ flutter run           # 调试运行
 - 歌词渲染：[coriander_player](https://github.com/Ferry-200/coriander_player), [flutter_lyric](https://pub.dev/packages/flutter_lyric)
 - GitHub Actions：[FlutterHub](https://github.com/xmaihh/FlutterHub)
 - README 规范：[standard-readme](https://github.com/RichardLitt/standard-readme)
+- SnowNLP 文本处理：[SnowNLP](https://github.com/isnowfy/snownlp)
 
 ---
 
