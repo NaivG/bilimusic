@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="bilimusic">
+  <head>
+    <meta charset="utf-8" />
+    <title>BiliMusic 播放器</title>
+    <link rel="icon" href="../../icons/icon.png" />
+    <link rel="stylesheet" href="./vendor/fontawesome.subset.css" />
+    <link rel="stylesheet" href="./vendor/daisyui.subset.css" />
+    <link rel="stylesheet" href="./md3.tokens.css" />
+    <link rel="stylesheet" href="./md3.bridge.css" />
+    <link rel="stylesheet" href="./shared/common.css" />
+    <link rel="stylesheet" href="./player.css" />
+  </head>
+  <body>
+    <div class="app">
+      <!-- ============================== 导航轨 ============================== -->
+      <!-- MD3 navigation rail：图标 + 指示器胶囊 + 下方 label，窄屏折成导航栏 -->
+      <aside class="side" aria-label="主导航">
+        <div class="brand">
+          <span class="logo"><img src="../../icons/icon.png" alt="" /></span>
+          <span class="brandName">BiliMusic</span>
+        </div>
+
+        <nav class="nav">
+          <button data-tab="search" class="active" title="搜索">
+            <i class="fas fa-search"></i><span>搜索</span>
+          </button>
+          <button data-tab="queue" title="队列">
+            <i class="fas fa-list-ul"></i><span>队列</span>
+            <em id="queueBadge" class="navBadge" hidden></em>
+          </button>
+          <button data-tab="fav" title="收藏夹">
+            <i class="fas fa-heart"></i><span>收藏夹</span>
+          </button>
+          <button data-tab="mine" title="我的">
+            <i class="fas fa-user-circle"></i><span>我的</span>
+          </button>
+        </nav>
+
+        <div class="sideFoot">
+          <a class="btn btn-ghost btn-sm ghBtn" href="https://github.com/NaivG/bilimusic" target="_blank" rel="noreferrer" title="GitHub 仓库">
+            <i class="fa-brands fa-github"></i><span class="ghLabel">GitHub 仓库</span>
+          </a>
+        </div>
+      </aside>
+
+      <!-- ============================== 主区 ============================== -->
+      <div class="main">
+        <!-- 现在播放条：始终可见，翻页时也不丢 -->
+        <header class="now">
+          <div class="npLeft">
+            <div class="coverWrap npCoverWrap">
+              <i class="fas fa-music ph" aria-hidden="true"></i>
+              <img id="npCover" class="cover" alt="" />
+            </div>
+            <div class="npMeta">
+              <div id="npTitle" class="title">未在播放</div>
+              <div id="npSub" class="sub muted">—</div>
+            </div>
+          </div>
+
+          <div class="npCenter">
+            <!-- 与 popup 同款同序：循环模式 → 上一首 → 播放/暂停 → 下一首 → 收藏 -->
+            <div class="npCtl">
+              <button id="repeatBtn" class="btn btn-ghost btn-sm btn-circle" title="循环模式：不循环"><i class="fas fa-redo"></i></button>
+              <button id="btnPrev" class="btn btn-ghost btn-sm btn-circle" title="上一首"><i class="fas fa-step-backward"></i></button>
+              <button id="btnToggle" class="btn btn-primary btn-circle playBtn" title="播放"><i class="fas fa-play"></i></button>
+              <button id="btnNext" class="btn btn-ghost btn-sm btn-circle" title="下一首"><i class="fas fa-step-forward"></i></button>
+              <button id="btnFav" class="btn btn-ghost btn-sm btn-circle" title="收藏" disabled><i class="far fa-heart"></i></button>
+            </div>
+            <div class="npProgress">
+              <span id="npCur" class="t">0:00</span>
+              <input id="npSeek" class="range range-primary" type="range" min="0" max="1000" value="0" />
+              <span id="npDur" class="t">0:00</span>
+            </div>
+          </div>
+
+          <div class="npRight">
+            <button id="muteBtn" class="btn btn-ghost btn-sm btn-circle" title="静音"><i class="fas fa-volume-up"></i></button>
+            <input id="volume" class="range range-primary" type="range" min="0" max="100" value="100" title="音量" />
+          </div>
+        </header>
+
+        <div class="content">
+          <!-- ============================== 搜索 ============================== -->
+          <section id="tab-search" class="panel active">
+            <form id="searchForm" class="searchBar">
+              <div class="join">
+                <!-- MD3 search bar 的前置放大镜 -->
+                <i class="fas fa-search searchIcon" aria-hidden="true"></i>
+                <input id="q" class="input input-sm join-item" type="search" placeholder="关键词 / BV1xxx / AV号" autocomplete="off" />
+                <button type="submit" class="btn btn-primary btn-sm join-item"><i class="fas fa-search"></i> 搜索</button>
+              </div>
+            </form>
+            <div id="typeFilter" class="chips"></div>
+            <div id="searchResults" class="list"><div class="empty"><i class="fas fa-search emptyIcon"></i><div>输入关键词开始搜索</div></div></div>
+            <div class="moreWrap"><button id="loadMore" class="btn btn-ghost btn-sm" hidden><i class="fas fa-chevron-down"></i> 加载更多</button></div>
+          </section>
+
+          <!-- ============================== 队列 ============================== -->
+          <section id="tab-queue" class="panel">
+            <div class="panelBar">
+              <span id="queueInfo" class="muted"><i class="fas fa-list-ul barIcon"></i> 队列为空</span>
+              <button id="clearQueue" class="btn btn-ghost btn-sm"><i class="fas fa-trash-alt"></i> 清空队列</button>
+            </div>
+            <div id="queueList" class="list"><div class="empty"><i class="fas fa-list-ul emptyIcon"></i><div>还没有播放队列</div></div></div>
+          </section>
+
+          <!-- ============================== 收藏夹 ============================== -->
+          <section id="tab-fav" class="panel">
+            <div class="segBar">
+              <button id="segOnline" class="btn btn-sm btn-primary"><i class="fas fa-cloud"></i> B 站收藏夹</button>
+              <button id="segLocal" class="btn btn-sm btn-ghost"><i class="fas fa-bookmark"></i> 本地收藏</button>
+            </div>
+
+            <div id="onlinePane">
+              <div id="folderList" class="list"><div class="empty"><i class="fas fa-spinner fa-spin emptyIcon"></i><div>加载中…</div></div></div>
+              <div id="resourcePane" hidden>
+                <div class="panelBar">
+                  <button id="backFolders" class="btn btn-ghost btn-sm"><i class="fas fa-arrow-left"></i> 返回</button>
+                  <span id="folderTitle" class="muted"></span>
+                  <button id="playAllFolder" class="btn btn-primary btn-sm"><i class="fas fa-play"></i> 播放全部</button>
+                </div>
+                <div id="resourceList" class="list"></div>
+                <div class="moreWrap"><button id="loadMoreFav" class="btn btn-ghost btn-sm" hidden><i class="fas fa-chevron-down"></i> 加载更多</button></div>
+              </div>
+            </div>
+
+            <div id="localPane" hidden>
+              <div class="panelBar">
+                <span id="localInfo" class="muted"></span>
+                <button id="playAllLocal" class="btn btn-primary btn-sm"><i class="fas fa-play"></i> 播放全部</button>
+              </div>
+              <div id="localList" class="list"><div class="empty"><i class="fas fa-heart emptyIcon"></i><div>本地收藏为空</div></div></div>
+            </div>
+          </section>
+
+          <!-- ============================== 我的 ============================== -->
+          <section id="tab-mine" class="panel">
+            <div class="card card-border">
+              <div class="card-body">
+                <div class="cardTitle"><i class="fas fa-user-circle cardIcon"></i> 登录</div>
+                <div id="authStatus" class="muted">未登录</div>
+
+                <div id="qrBox" hidden>
+                  <div id="qrHolder" class="qrHolder"></div>
+                  <div id="qrHint" class="muted center"></div>
+                  <a id="qrLink" class="center link" target="_blank" rel="noreferrer" hidden><i class="fas fa-external-link-alt"></i> 在浏览器打开链接</a>
+                </div>
+
+                <div class="btnRow">
+                  <button id="btnQr" class="btn btn-primary btn-sm"><i class="fas fa-qrcode"></i> 扫码登录</button>
+                  <button id="btnImport" class="btn btn-sm"><i class="fas fa-file-import"></i> 从 Chrome 导入 Cookie</button>
+                  <button id="btnStopQr" class="btn btn-ghost btn-sm" hidden><i class="fas fa-stop"></i> 停止</button>
+                  <button id="btnLogout" class="btn btn-error btn-sm" hidden><i class="fas fa-sign-out-alt"></i> 退出登录</button>
+                </div>
+                <div id="authError" class="error"></div>
+                <div id="authDiag" class="muted diag"></div>
+              </div>
+            </div>
+
+            <div class="card card-border">
+              <div class="card-body">
+                <div class="cardTitle"><i class="fas fa-sliders-h cardIcon"></i> 播放设置</div>
+                <label class="field">
+                  <span><i class="fas fa-music fieldIcon"></i> 音质</span>
+                  <select id="qualitySel" class="select select-sm">
+                    <option value="30280">192K</option>
+                    <option value="30232">132K</option>
+                    <option value="30216">64K</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span><i class="fas fa-bell fieldIcon"></i> 系统通知</span>
+                  <input id="notifyChk" type="checkbox" class="toggle toggle-sm toggle-primary" />
+                </label>
+                <label class="field">
+                  <span><i class="fas fa-redo fieldIcon"></i> 循环模式</span>
+                  <select id="repeatSel2" class="select select-sm">
+                    <option value="off">不循环</option>
+                    <option value="all">列表循环</option>
+                    <option value="one">单曲循环</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span><i class="fas fa-palette fieldIcon"></i> 主题</span>
+                  <select id="themeSel" class="select select-sm">
+                    <option value="bilimusic">深色（B 站粉）</option>
+                    <option value="bilimusic-light">浅色</option>
+                  </select>
+                </label>
+                <div class="muted note"><i class="fas fa-info-circle"></i> 播放由后台文档承载，关闭本页或收起 popup 都不会中断。</div>
+              </div>
+            </div>
+
+            <div class="card card-border">
+              <div class="card-body">
+                <div class="cardTitle"><i class="fas fa-info-circle cardIcon"></i> 关于</div>
+                <div class="muted">
+                  BiliMusic v1.10.2 · Chrome 扩展 · 仅供学习交流，不得商用。<br />
+                  登录态只存本机（chrome.storage + 浏览器 Cookie），不上传。
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast toast-center" hidden></div>
+
+    <script type="module" src="./player.js"></script>
+  </body>
+</html>

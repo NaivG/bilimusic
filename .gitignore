@@ -50,6 +50,12 @@ app.*.map.json
 /web/sqlite3.wasm
 /web/sqflite_sw.js
 
+# extension web css
+extension/src/ui/vendor/**/*
+!extension/src/ui/vendor/**/.gitkeep
+# Chrome 自动生成的 DNR 规则索引
+extension/_metadata/
+
 # other
 bilibili-API-collect/
 ParticleMusic/

@@ -1,0 +1,57 @@
+{
+  "manifest_version": 3,
+  "name": "BiliMusic",
+  "version": "1.0.0",
+  "description": "B 站音乐播放器：搜索、播放、扫码/浏览器 Cookie 登录、收藏夹、系统媒体通知。仅供学习交流，不得商用。",
+  "minimum_chrome_version": "116",
+  "homepage_url": "https://github.com/NaivG/bilimusic",
+
+  "icons": {
+    "16": "icons/icon.png",
+    "32": "icons/icon.png",
+    "48": "icons/icon.png",
+    "128": "icons/icon.png"
+  },
+
+  "background": {
+    "service_worker": "src/bg/service_worker.js",
+    "type": "module"
+  },
+
+  "action": {
+    "default_popup": "src/ui/popup.html",
+    "default_title": "BiliMusic",
+    "default_icon": {
+      "16": "icons/icon.png",
+      "32": "icons/icon.png",
+      "48": "icons/icon.png"
+    }
+  },
+
+  "permissions": [
+    "storage",
+    "cookies",
+    "notifications",
+    "offscreen",
+    "declarativeNetRequest"
+  ],
+
+  "host_permissions": [
+    "https://*.bilibili.com/*",
+    "https://bilibili.com/*",
+    "https://*.hdslb.com/*",
+    "https://*.bilivideo.com/*",
+    "https://*.bilivideo.cn/*",
+    "https://*.acgvideo.com/*"
+  ],
+
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "bili_referer",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  }
+}

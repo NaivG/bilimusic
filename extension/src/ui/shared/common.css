@@ -1,0 +1,272 @@
+/* BiliMusic 扩展 UI 共用样式（popup 与全页播放器都引入）
+ *
+ * 分工：组件观感来自 daisyUI（vendor/daisyui.subset.css），它的主题变量由
+ * md3.bridge.css 从 MD3 角色（md3.tokens.css）改接而来；本文件只放两个页面
+ * 共用的少量自定义层（封面占位、列表行补充、空状态、range 的观感）。
+ * 次级文字 .muted 与滚动条在 md3.bridge.css（两页共用同一份，别在这里再写）。
+ * subset 里没有 Tailwind 布局工具类（flex/gap/text-center 都不可用），
+ * 需要的类在这里或页面 CSS 里手写。
+ */
+
+/* daisyUI reset 只给了系统字体栈，这里补中文字体链 */
+html {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+}
+
+/* daisyUI 组件类会设置 display（.toast 是 flex 等），会压过 hidden 属性的
+ * UA 样式——补上这条才能继续用 hidden 控制显隐（qrBox / loadMore / toast…） */
+[hidden] {
+  display: none !important;
+}
+
+/* 语义色工具类：subset 没带 daisyUI 的 colors/*.css，这两个手写够用
+ * （--color-error 与次级文字色在 md3.bridge.css 里已接到 MD3 角色 / on-surface-variant） */
+
+.error {
+  color: var(--md-error);
+}
+
+/* ------------------------------ 封面占位 ------------------------------ */
+/* img 没有载荷时露出底层的音符图标 */
+
+.coverWrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.coverWrap .ph {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-base-300);
+  border-radius: inherit;
+  color: color-mix(in oklab, var(--color-base-content) 55%, transparent);
+  font-size: 18px;
+  opacity: 0.85;
+}
+
+.coverWrap .cover {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  display: block;
+}
+
+/* ------------------------------ 列表行 ------------------------------ */
+/* daisyUI list 组件之上的补充：行内布局、hover、当前播放高亮。
+ * 点歌区（.meta）与操作按钮（.act）仍是兄弟节点，不嵌套点击
+ * （避免点 ♥ 时误触发播放）。 */
+
+.list .list-row {
+  cursor: pointer;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+}
+
+.list .list-row:hover {
+  background-color: color-mix(in oklab, var(--color-base-content) 5%, transparent);
+}
+
+.list .list-row.current {
+  background-color: color-mix(in oklab, var(--color-primary) 14%, transparent);
+}
+
+.list .list-row.current::after {
+  display: none; /* 当前行高亮时隐藏分隔线 */
+}
+
+.list .list-row .cover {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--color-base-300);
+  flex: none;
+}
+
+/* 没有封面的行（div.cover）：用 FA 画一个音符占位 */
+.list .list-row div.cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: color-mix(in oklab, var(--color-base-content) 55%, transparent);
+}
+
+.list .list-row div.cover::before {
+  content: '\f001';
+  font-family: 'Font Awesome 5 Free';
+  font-weight: 900;
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.list .list-row .meta {
+  min-width: 0;
+}
+
+.list .list-row .title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.list .list-row .title .txt {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list .list-row .sub {
+  font-size: 12px;
+  color: color-mix(in oklab, var(--color-base-content) 55%, transparent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list .list-row .act {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* 收藏夹行折叠进 .act 的静态箭头 */
+.chev {
+  color: color-mix(in oklab, var(--color-base-content) 45%, transparent);
+  font-size: 12px;
+}
+
+/* ------------------------------ 空状态 ------------------------------ */
+/* 图标 + 说明文字（图标由 JS 模板给出 FA 类名） */
+
+.empty {
+  color: color-mix(in oklab, var(--color-base-content) 55%, transparent);
+  text-align: center;
+  padding: 36px 16px;
+}
+
+.empty .emptyIcon {
+  display: block;
+  font-size: 30px;
+  margin: 0 auto 10px;
+  opacity: 0.55;
+}
+
+/* ------------------------------ 滚动条 ------------------------------ */
+/* daisyUI 的 scrollbar-color 需要 Chrome 121+，这里给 116-120 兜底；
+ * 121+ 设置 scrollbar-color 后会忽略 webkit 伪元素，两者不打架 */
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-base-300);
+  border-radius: 8px;
+  border: 2px solid var(--color-base-100);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--color-base-content) 20%, var(--color-base-300));
+}
+
+/* ------------------------------ 进度 / 音量条 ------------------------------ */
+/* 目标观感 = daisyUI 的 .progress：0.5rem 细条、radius-box 圆角、没走完的那段
+ * 用 base-content 20% 打底、走过的那段主色、没有旋钮。
+ *
+ * 不能真的套 .progress：它只认 <progress>/div，没有 input 的点击定位、拖动、
+ * 键盘语义，鼠标事件根本进不来。所以反过来把 .range 调成 progress 的样子
+ * （两个页面的 .range 只有进度与音量，没有别的用处）。
+ *
+ * 关键点：daisyUI range 的「走过的那段」不是独立元素，而是挂在滑块
+ * （::-webkit-slider-thumb / ::-moz-range-thumb）上的 box-shadow spread
+ * （--range-fill-x / --range-fill-spread），直接把滑块 display:none 会连填充
+ * 一起弄没。正确改法是让滑块「消失在填充里」：
+ *   - --range-thumb-size = 0.5rem   条高（= .progress 的 height），元素高度跟着走；
+ *   - --range-thumb = currentColor  滑块与填充同色（fill 用的就是 currentColor），
+ *                                   两者在滑块中线拼上，看不出接缝；
+ *   - --range-p = 0                 去掉滑块描边与立体内阴影留下的「旋钮」质感；
+ *   - 轨道底色换成 base-content 20%，对齐 .progress 的未完成段。
+ * 圆角取 --radius-box（.progress 同款）。条两端的圆角靠 .range 自带的
+ * overflow:hidden 裁出来——填充是一块远超元素宽度的阴影，不裁会盖住时间文本。
+ *
+ * 本文件没有 @layer，未分层声明优先级高于 subset 里 @layer utilities 包住的
+ * .range / .range-xs / .range-sm，所以这里直接压得过。 */
+.range {
+  --range-thumb-size: 0.5rem;
+  --range-thumb: currentColor;
+  --range-p: 0;
+  border-radius: var(--radius-box);
+}
+
+/* 轨道 = 未完成段。高度必须对齐条高，否则下半截会露出元素自身的透明底。
+ *
+ * -webkit- 与 -moz- 的伪元素必须拆成两条规则：Chrome 不认识 ::-moz-range-track，
+ * 而选择器列表是「一个不合法就整条作废」，写成
+ *   `.range::-webkit-slider-runnable-track, .range::-moz-range-track { … }`
+ * 会被静默丢掉。表现很隐蔽：元素级变量照旧生效、页面照常渲染，
+ * 只有轨道回到 daisyUI 的默认高度与底色。verify.mjs 有对应断言。 */
+.range::-webkit-slider-runnable-track {
+  height: var(--range-thumb-size);
+  border-radius: var(--radius-box);
+  background-color: color-mix(in oklab, var(--color-base-content) 20%, transparent);
+}
+
+.range::-moz-range-track {
+  height: var(--range-thumb-size);
+  border-radius: var(--radius-box);
+  background-color: color-mix(in oklab, var(--color-base-content) 20%, transparent);
+}
+
+/* 滑块只留填充那块阴影；默认的 box-shadow（描边 + 上下内阴影）是旋钮的立体感 */
+.range::-webkit-slider-thumb {
+  border-radius: var(--radius-box);
+  box-shadow: var(--range-fill-x) var(--range-fill-y) 0 var(--range-fill-spread);
+}
+
+.range::-moz-range-thumb {
+  border-radius: var(--radius-box);
+  box-shadow: var(--range-fill-x) var(--range-fill-y) 0 var(--range-fill-spread);
+}
+
+/* ------------------------------ 播放控制条共用件 ------------------------------ */
+/* 两页的播放控制条（.npCtl）同一套五键：循环模式 → 上一首 → 播放/暂停 → 下一首 → 收藏。
+ * 按钮的尺寸与图标色在页面 CSS 里各自定型（.npCtl .btn-ghost 直接给 color），
+ * 这里只放两页共用的两件：
+ *   - accentText：循环 all/one 与已收藏的主题色。单类写法压不过页面里的
+ *     .npCtl .btn-ghost（同为未分层，它的选择器更长），所以借按钮自带的 .btn
+ *     提到 0,3,0；hover 再提一档，主色不被 hover 的换色盖掉，状态层照旧由页面叠。
+ *   - oneMark：单曲循环的角标「1」，由 shared/playControls.js 渲染；
+ *     按钮要有 position:relative 做定位锚（页面 CSS 各自给出）。 */
+.accentText {
+  color: var(--md-primary);
+}
+
+.npCtl .btn.accentText {
+  color: var(--md-primary);
+}
+
+.npCtl .btn.accentText:hover {
+  color: var(--md-primary);
+}
+
+.oneMark {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 700;
+  font-style: normal;
+}

@@ -1,0 +1,1352 @@
+/* 全页播放器 · MD3（Material Design 3）
+ *
+ * 观感来源分三层：
+ *   1. md3.tokens.css（生成物）—— MD3 色彩角色：--md-primary / --md-surface-container-high / --md-outline…
+ *   2. md3.bridge.css（popup 与本页共用）—— 把 daisyUI 的主题变量（--color-* / --radius-* / --depth）
+ *      改接到 MD3 角色上，于是 daisyUI 组件的默认配色自动变 MD3。
+ *   3. 本文件 —— 本页专有的 MD3 组件形状与状态层（按钮五档、导航轨、列表项、chips、分段按钮、
+ *      开关、滑块、snackbar）。
+ *
+ * 几条硬约束：
+ *   - `--border: 0` + `--depth: 0` + `--noise: 0` 是 MD3 扁平观感的前提（在 md3.bridge.css 里）：
+ *     daisyUI 默认会画 1px 描边、按钮内高光与噪点纹理。
+ *   - 需要描边的地方（outlined 按钮 / chips / 分段按钮 / 开关 / 下拉）单独写 border，
+ *     不要把 --border 调回去——那会连带所有按钮都长出描边。
+ *   - 滑块的填充是挂在滑块上的 box-shadow，高度跟着元素高度走，手柄一拉高填充就变粗。
+ *     这里轨道自己画渐变（--pos 由 player.js 写入），所以必须把 --range-fill-* 三个变量
+ *     清零，否则那颗 100cqw 的阴影球会从滑块里漏出来（见 player.js 的 setRangePos）。
+ *   - 状态层（hover 8% / 按下 10%）一律用 color-mix 叠在 on-surface 或主色上，
+ *     不要用实心换色：MD3 的交互反馈是「叠一层半透明」而不是「换个颜色」。
+ */
+
+/* 令牌（--md-* / --color-* / --radius-* / --border / --depth / --noise）全部来自
+ * md3.tokens.css + md3.bridge.css，本文件只写本页专有的组件形状。 */
+
+/* 选中态的对勾（chips / 分段按钮 / 开关手柄共用）：mask 上色，跟着 currentColor 走。
+ * 尺寸与间距在各自的组件段里写，这里只管「内容 + 着色 + mask」三件事。 */
+.chips .btn.btn-primary::before,
+.segBar .btn.btn-primary::before,
+.toggle:checked::after,
+.toggle[aria-checked='true']::after {
+  content: '';
+  background-color: currentColor;
+  -webkit-mask-image: var(--md-icon-check);
+  mask-image: var(--md-icon-check);
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  overflow: hidden;
+  background: var(--md-surface);
+}
+
+/* ============================== 骨架 ============================== */
+/* 左侧是 MD3 导航轨（80px），窄屏折成导航栏（见文件末尾的响应式） */
+
+.app {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  height: 100vh;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ============================== 导航轨 ============================== */
+/* MD3 navigation rail：无描边、无分隔线（与页面同底），每项 = 56×32 的指示器胶囊 + 下方 label-medium。
+ * 选中项染 secondary-container，未选中是 on-surface-variant。 */
+
+.side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 8px;
+  background: var(--md-surface);
+  border-right: none;
+  min-height: 0;
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+}
+
+/* 扩展图标直接当 rail 顶部的品牌位（MD3 rail 顶部通常放 FAB，这里换成 logo） */
+.brand .logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--md-surface-container-high);
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.brand .logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 80px 的轨道放不下「BiliMusic」；窄屏折成导航栏时会回到标题位（见响应式） */
+.brandName {
+  display: none;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.nav button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 4px 0;
+  background: none;
+  border: none;
+  border-radius: 16px;
+  color: var(--md-on-surface-variant);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-align: center;
+  cursor: pointer;
+  transition: color var(--md-dur) var(--md-ease);
+}
+
+/* 指示器胶囊：图标 24dp 居中，胶囊 56×32、全圆 */
+.nav button i {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 32px;
+  border-radius: 16px;
+  font-size: 16px;
+  transition: background-color var(--md-dur) var(--md-ease), color var(--md-dur) var(--md-ease);
+}
+
+.nav button:hover {
+  color: var(--md-on-surface);
+}
+
+.nav button:hover i {
+  background: color-mix(in oklab, var(--md-on-surface) var(--md-state-hover), transparent);
+}
+
+.nav button:active i {
+  background: color-mix(in oklab, var(--md-on-surface) var(--md-state-press), transparent);
+}
+
+.nav button.active {
+  color: var(--md-on-surface);
+}
+
+.nav button.active i {
+  background: var(--md-secondary-container);
+  color: var(--md-on-secondary-container);
+}
+
+/* 队列数：MD3 badge 挂在图标右上角。指示器胶囊 56px 宽、在按钮里居中，
+ * 所以用 calc(50% - 28px) 对齐胶囊右缘——导航轨（按钮 64px）与窄屏导航栏
+ * （按钮更宽）共用同一条式子，不用分两个断点各写一遍。 */
+.navBadge {
+  position: absolute;
+  top: 0;
+  right: calc(50% - 28px);
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--md-error);
+  color: var(--md-on-error);
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  text-align: center;
+}
+
+.nav button:not(.active) .navBadge {
+  background: var(--md-error);
+  color: var(--md-on-error);
+}
+
+.sideFoot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  width: 100%;
+}
+
+/* 许可声明是脚注，不该占导航轨的地方：收成一行小字（完整文案在「关于」卡片里） */
+.sideNote {
+  font-size: 10px;
+  line-height: 1.4;
+  text-align: center;
+  letter-spacing: 0.4px;
+}
+
+.sideNote i {
+  display: none;
+}
+
+/* GitHub 入口：MD3 icon button（40dp 圆形、状态层、无描边）。
+ * 选择器带上 .sideFoot 与元素名是为了压过后面 .btn-ghost 那一套（同为未分层，
+ * 靠优先级分胜负，不靠先后顺序——GH 按钮在文件里出现得更早）。 */
+.sideFoot a.ghBtn {
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  gap: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--md-on-surface-variant);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.ghBtn .ghLabel {
+  display: none;
+}
+
+.sideFoot a.ghBtn:hover {
+  background: color-mix(in oklab, var(--md-on-surface) var(--md-state-hover), transparent);
+  color: var(--md-on-surface);
+}
+
+.sideFoot a.ghBtn i {
+  width: auto;
+  font-size: 16px;
+}
+
+/* ============================== 现在播放 ============================== */
+/* MD3 filled card：surface-container 底、16dp 圆角、无描边、无阴影 */
+
+.now {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(0, 2fr) minmax(150px, 1fr);
+  gap: 8px 20px;
+  align-items: center;
+  margin: 12px 16px 0;
+  padding: 12px 20px;
+  background: var(--md-surface-container-high);
+  border: none;
+  border-radius: 16px;
+  flex: 0 0 auto;
+}
+
+.npLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* 封面：MD3 shape scale 的 medium（12dp） */
+.npCoverWrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.npMeta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.npMeta .title {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+  letter-spacing: 0.15px;
+  color: var(--md-on-surface);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.npMeta .sub {
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.4px;
+  color: var(--md-on-surface-variant);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.npCenter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.npCtl {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 主播放键：MD3 FAB 的取色（primary-container + on-primary-container），56dp。
+ * 选择器带 .npCtl 是为了压过后面 .btn-primary / .btn-primary:hover（未分层同源，
+ * 靠优先级分胜负），否则 hover 会被 filled 按钮那套盖成实心主色。 */
+.npCtl .playBtn {
+  width: 56px;
+  height: 56px;
+  font-size: 20px;
+  margin: 0 4px;
+  --btn-bg: var(--md-primary-container);
+  --btn-fg: var(--md-on-primary-container);
+  --btn-border: transparent;
+  box-shadow: none;
+}
+
+.npCtl .playBtn:hover {
+  --btn-bg: color-mix(in oklab, var(--md-on-primary-container) var(--md-state-hover), var(--md-primary-container));
+}
+
+.npCtl .playBtn:active {
+  --btn-bg: color-mix(in oklab, var(--md-on-primary-container) var(--md-state-press), var(--md-primary-container));
+}
+
+.npCtl .playBtn:disabled {
+  --btn-bg: color-mix(in oklab, var(--md-on-surface) 12%, transparent);
+  --btn-fg: color-mix(in oklab, var(--md-on-surface) 38%, transparent);
+}
+
+.npProgress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 620px;
+}
+
+.npProgress .t {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  color: var(--md-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+  width: 42px;
+}
+
+.npProgress input[type='range'] {
+  flex: 1;
+  min-width: 0;
+}
+
+.npProgress .t:last-child {
+  text-align: right;
+}
+
+.npRight {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.npRight input[type='range'] {
+  width: 110px;
+}
+
+/* 单曲循环的角标「1」画在按钮右上角（.oneMark 的形状在 shared/common.css，这里给定位锚） */
+#repeatBtn {
+  position: relative;
+  margin-right: 4px;
+}
+
+/* ============================== 按钮 ============================== */
+/* MD3 五档里的四档（FAB 那档只有播放键用）：
+ *   filled        .btn-primary      —— 主行动（播放全部 / 搜索）
+ *   tonal         .btn（无修饰）     —— 次一级行动（从 Chrome 导入 Cookie）
+ *   outlined      .btn-outlined     —— 本页没用上，留给出描边的场景
+ *   text          .btn-ghost        —— 弱行动（清空队列 / 加载更多 / 停止）
+ *   icon          .btn-circle       —— 圆形图标按钮（40dp、状态层）
+ * 其余语义色（.btn-error）按 MD3 的 error container 处理，避免出现「红色实心块」。 */
+
+.btn {
+  --btn-p: 1.5rem;
+  height: 2.5rem;
+  border-radius: 1.25rem;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  box-shadow: none;
+  transition: background-color var(--md-dur) var(--md-ease), color var(--md-dur) var(--md-ease),
+    border-color var(--md-dur) var(--md-ease);
+}
+
+.btn-sm {
+  --btn-p: 1rem;
+  --size: 2rem;
+  height: 2rem;
+  border-radius: 1rem;
+  font-size: 14px;
+}
+
+.btn-xs {
+  --btn-p: 0.75rem;
+  --size: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.75rem;
+  font-size: 12px;
+}
+
+/* filled */
+.btn-primary {
+  --btn-bg: var(--md-primary);
+  --btn-fg: var(--md-on-primary);
+  --btn-border: transparent;
+}
+
+.btn-primary:hover {
+  --btn-bg: color-mix(in oklab, var(--md-on-primary) var(--md-state-hover), var(--md-primary));
+}
+
+.btn-primary:active {
+  --btn-bg: color-mix(in oklab, var(--md-on-primary) var(--md-state-press), var(--md-primary));
+}
+
+/* tonal（默认 .btn） */
+.btn:not(.btn-primary, .btn-ghost, .btn-error, .btn-circle) {
+  --btn-bg: var(--md-secondary-container);
+  --btn-fg: var(--md-on-secondary-container);
+  --btn-border: transparent;
+}
+
+.btn:not(.btn-primary, .btn-ghost, .btn-error, .btn-circle):hover {
+  --btn-bg: color-mix(
+    in oklab,
+    var(--md-on-secondary-container) var(--md-state-hover),
+    var(--md-secondary-container)
+  );
+}
+
+/* text */
+.btn-ghost {
+  --btn-bg: transparent;
+  --btn-border: transparent;
+  color: var(--md-primary);
+  box-shadow: none;
+}
+
+.btn-ghost:hover {
+  --btn-bg: color-mix(in oklab, var(--md-primary) var(--md-state-hover), transparent);
+  color: var(--md-primary);
+}
+
+.btn-ghost:active {
+  --btn-bg: color-mix(in oklab, var(--md-primary) var(--md-state-press), transparent);
+}
+
+/* error：MD3 没有「实心红按钮」，走 error container */
+.btn-error {
+  --btn-bg: var(--md-error-container);
+  --btn-fg: var(--md-on-error-container);
+  --btn-border: transparent;
+}
+
+.btn-error:hover {
+  --btn-bg: color-mix(in oklab, var(--md-on-error-container) var(--md-state-hover), var(--md-error-container));
+}
+
+/* icon button：40dp 圆形 + on-surface-variant，点击反馈是状态层而不是换色 */
+.btn-circle {
+  --size: 2.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border-radius: 999px;
+}
+
+.btn-circle.btn-sm {
+  --size: 2.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.btn-circle.btn-xs {
+  --size: 2.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+/* 播放控制 / 列表行里的图标按钮：颜色是 on-surface-variant（MD3 标准图标按钮），
+   不是 text 按钮那种主色 */
+.npCtl .btn-ghost,
+.npRight .btn-ghost,
+.list-row .act .btn-ghost {
+  --btn-bg: transparent;
+  color: var(--md-on-surface-variant);
+}
+
+.npCtl .btn-ghost:hover,
+.npRight .btn-ghost:hover,
+.list-row .act .btn-ghost:hover {
+  --btn-bg: color-mix(in oklab, var(--md-on-surface) var(--md-state-hover), transparent);
+  color: var(--md-on-surface);
+}
+
+.npCtl .btn-ghost:active,
+.npRight .btn-ghost:active,
+.list-row .act .btn-ghost:active {
+  --btn-bg: color-mix(in oklab, var(--md-on-surface) var(--md-state-press), transparent);
+}
+
+/* 空队列时禁用的收藏键：图标色是这里直接给的，daisyUI 的禁用色（在 @layer 里）
+ * 压不过，单独收口成 MD3 的 38% */
+.npCtl .btn-ghost:disabled,
+.npCtl .btn-ghost[disabled] {
+  color: color-mix(in oklab, var(--md-on-surface) 38%, transparent);
+}
+
+.btn:disabled,
+.btn[disabled] {
+  --btn-bg: color-mix(in oklab, var(--md-on-surface) 12%, transparent);
+  --btn-fg: color-mix(in oklab, var(--md-on-surface) 38%, transparent);
+  --btn-border: transparent;
+  box-shadow: none;
+}
+
+/* 键盘焦点圈：MD3 的 focus indicator 是主色 2px */
+.btn:focus-visible,
+.nav button:focus-visible,
+.ghBtn:focus-visible,
+.toggle:focus-visible,
+.input:focus-visible,
+.select:focus-visible {
+  outline: 2px solid var(--md-primary);
+  outline-offset: 2px;
+}
+
+/* ============================== 内容区 ============================== */
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 16px 64px;
+}
+
+.panel {
+  display: none;
+}
+
+.panel.active {
+  display: block;
+}
+
+/* 宽屏下别把列表拉成一条 2000px 的长条 */
+.panel .list,
+.panel .searchBar,
+.panel .chips,
+.panelBar,
+.segBar,
+.card {
+  max-width: 960px;
+}
+
+/* ============================== 搜索栏 ============================== */
+/* MD3 search bar：56dp 高、28dp 全圆、surface-container-high 底、左侧 24dp 放大镜 */
+
+.searchBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.searchBar .join {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+/* 放大镜压在输入框之上：daisyUI 的 .input 是 position:relative，
+ * 不抬 z-index 的话后出现的输入框会把图标整个盖住（图标定位正确、就是看不见）。 */
+.searchIcon {
+  position: absolute;
+  z-index: 1;
+  left: 18px;
+  top: 50%;
+  translate: 0 -50%;
+  font-size: 15px;
+  color: var(--md-on-surface-variant);
+  pointer-events: none;
+}
+
+.searchBar .input {
+  flex: 1;
+  min-width: 0;
+  height: 3.5rem;
+  padding-inline: 52px 20px;
+  border: none;
+  border-radius: 1.75rem;
+  background: var(--md-surface-container-high);
+  color: var(--md-on-surface);
+  font-size: 16px;
+  letter-spacing: 0.5px;
+  transition: background-color var(--md-dur) var(--md-ease), box-shadow var(--md-dur) var(--md-ease);
+}
+
+.searchBar .input::placeholder {
+  color: var(--md-on-surface-variant);
+}
+
+.searchBar .input:hover {
+  background: var(--md-surface-container-highest);
+}
+
+.searchBar .input:focus {
+  outline: none;
+  background: var(--md-surface-container-highest);
+  box-shadow: 0 0 0 2px var(--md-primary);
+}
+
+/* 提交键与搜索栏同高（56dp 胶囊），是这一行里唯一的 filled 按钮 */
+.searchBar .btn {
+  flex: none;
+  height: 3.5rem;
+  border-radius: 1.75rem;
+  --btn-p: 1.5rem;
+}
+
+.barIcon {
+  font-size: 11px;
+  margin-right: 4px;
+}
+
+/* ============================== 过滤 chips ============================== */
+/* MD3 filter chip：32dp 高、8dp 圆角、outline-variant 描边；选中 = secondary-container，
+ * 且前置图标换成对勾（MD3 的选中语义，顺便和未选中拉开差别） */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.chips .btn {
+  --btn-p: 0.875rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--md-outline-variant);
+  background: transparent;
+  color: var(--md-on-surface-variant);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.chips .btn i {
+  font-size: 12px;
+  margin-right: 6px;
+}
+
+.chips .btn:hover {
+  background: color-mix(in oklab, var(--md-on-surface) var(--md-state-hover), transparent);
+  color: var(--md-on-surface);
+}
+
+.chips .btn.btn-primary {
+  border-color: transparent;
+  background: var(--md-secondary-container);
+  color: var(--md-on-secondary-container);
+}
+
+.chips .btn.btn-primary:hover {
+  background: color-mix(
+    in oklab,
+    var(--md-on-secondary-container) var(--md-state-hover),
+    var(--md-secondary-container)
+  );
+}
+
+.chips .btn.btn-primary i {
+  display: none;
+}
+
+.chips .btn.btn-primary::before {
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  flex: none;
+}
+
+/* ============================== 分段按钮 ============================== */
+/* MD3 segmented button：整条 outline 描边 + 全圆外框，段间一条 1dp 分隔线，
+ * 选中段 = secondary-container（相邻分隔线跟着消失） */
+
+.segBar {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0;
+  height: 2.5rem;
+  margin-bottom: 16px;
+  border: 1px solid var(--md-outline);
+  border-radius: 1.25rem;
+  overflow: hidden;
+}
+
+.segBar .btn {
+  --btn-p: 1rem;
+  height: 100%;
+  border-radius: 0;
+  background: transparent;
+  color: var(--md-on-surface);
+  border: none;
+  font-weight: 500;
+}
+
+.segBar .btn + .btn {
+  box-shadow: inset 1px 0 0 0 var(--md-outline);
+}
+
+.segBar .btn:hover {
+  background: color-mix(in oklab, var(--md-on-surface) var(--md-state-hover), transparent);
+}
+
+.segBar .btn.btn-primary {
+  background: var(--md-secondary-container);
+  color: var(--md-on-secondary-container);
+  box-shadow: none;
+}
+
+.segBar .btn.btn-primary + .btn {
+  box-shadow: none;
+}
+
+.segBar .btn.btn-primary:hover {
+  background: color-mix(
+    in oklab,
+    var(--md-on-secondary-container) var(--md-state-hover),
+    var(--md-secondary-container)
+  );
+}
+
+.segBar .btn.btn-primary i {
+  display: none;
+}
+
+.segBar .btn.btn-primary::before {
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  flex: none;
+}
+
+.panelBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  min-height: 40px;
+}
+
+.panelBar span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  letter-spacing: 0.25px;
+}
+
+.moreWrap {
+  padding: 12px;
+  text-align: center;
+}
+
+/* ============================== 列表项 ============================== */
+/* MD3 list item：最小 64dp 高、12dp 圆角、hover/按下叠状态层；当前播放行用
+ * secondary-container 表示「已选中」（MD3 的选择态就是这么表达的，不用描边） */
+
+.list .list-row {
+  min-height: 64px;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color var(--md-dur) var(--md-ease);
+}
+
+.list .list-row:hover {
+  background-color: color-mix(in oklab, var(--md-on-surface) var(--md-state-hover), transparent);
+}
+
+.list .list-row:active {
+  background-color: color-mix(in oklab, var(--md-on-surface) var(--md-state-press), transparent);
+}
+
+.list .list-row.current,
+.list .list-row.current:hover {
+  background-color: var(--md-secondary-container);
+  color: var(--md-on-secondary-container);
+}
+
+.list .list-row.current::after {
+  display: none;
+}
+
+.list .list-row .cover {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--md-surface-container-highest);
+}
+
+.list .list-row div.cover {
+  color: var(--md-on-surface-variant);
+}
+
+.list .list-row .title {
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 24px;
+  letter-spacing: 0.15px;
+}
+
+.list .list-row .sub {
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.4px;
+  color: var(--md-on-surface-variant);
+}
+
+.list .list-row.current .sub {
+  color: var(--md-on-secondary-container);
+  opacity: 0.8;
+}
+
+.list .list-row .act {
+  gap: 4px;
+}
+
+.chev {
+  color: var(--md-on-surface-variant);
+  font-size: 12px;
+}
+
+/* 「播放中」小标签：MD3 里最接近的是 primary container 的小胶囊 */
+.badge {
+  height: 20px;
+  padding-inline: 8px;
+  border: none;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.badge-primary {
+  --badge-fg: var(--md-on-primary-container);
+  --badge-bg: var(--md-primary-container);
+  --badge-color: transparent;
+  background: var(--md-primary-container);
+  color: var(--md-on-primary-container);
+}
+
+/* ============================== 卡片（我的） ============================== */
+/* MD3 filled card：surface-container-low 底、16dp 圆角、无描边无阴影 */
+
+.card {
+  max-width: 960px;
+  margin-bottom: 16px;
+  background: var(--md-surface-container-low);
+  border: none;
+  border-radius: 16px;
+  --card-p: 20px;
+}
+
+.card-body {
+  gap: 4px;
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+  letter-spacing: 0.15px;
+  color: var(--md-on-surface);
+}
+
+.cardTitle .cardIcon {
+  color: var(--md-primary);
+  font-size: 16px;
+}
+
+/* 设置行：MD3 list item 高度 56dp，行间用 1dp outline-variant 分隔线（MD3 的 divider 是实线） */
+.field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 56px;
+  padding: 8px 0;
+  gap: 12px;
+  border-bottom: 1px solid var(--md-outline-variant);
+}
+
+.field:last-of-type {
+  border-bottom: none;
+}
+
+.field > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  letter-spacing: 0.5px;
+  color: var(--md-on-surface);
+}
+
+.field .fieldIcon {
+  width: 20px;
+  margin-right: 0;
+  font-size: 13px;
+  text-align: center;
+  color: var(--md-on-surface-variant);
+}
+
+/* 下拉：MD3 没有 native select 组件，按 outlined text field 的形状来（40dp、8dp 圆角、outline 描边）。
+ * width:auto 让它按最长选项取宽——daisyUI 的 .select 默认 clamp(3rem, 20rem, 100%)，
+ * 在 960px 宽的卡片里会拉成一条 320px 的长条，箭头离文字太远。 */
+.field select.select {
+  width: auto;
+  min-width: 160px;
+  max-width: 320px;
+  height: 2.5rem;
+  padding-inline: 12px 34px;
+  border: 1px solid var(--md-outline);
+  border-radius: 8px;
+  background-color: transparent;
+  background-position: calc(100% - 18px) calc(1px + 50%), calc(100% - 14px) calc(1px + 50%);
+  color: var(--md-on-surface);
+  font-size: 14px;
+  letter-spacing: 0.25px;
+  transition: border-color var(--md-dur) var(--md-ease), background-color var(--md-dur) var(--md-ease);
+}
+
+.field select.select:hover {
+  border-color: var(--md-on-surface);
+  background-color: color-mix(in oklab, var(--md-on-surface) var(--md-state-hover), transparent);
+}
+
+.note {
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.4px;
+  color: var(--md-on-surface-variant);
+}
+
+.note i {
+  margin-right: 4px;
+  font-size: 11px;
+}
+
+/* ============================== 开关 ============================== */
+/* MD3 switch：轨道 52×32 全圆 —— 未选中是 2dp outline 描边 + 16dp 圆点手柄，
+ * 选中是 primary 实心轨道 + 24dp 手柄（带对勾）。
+ *
+ * 两处不能沿用 daisyUI 的那套：
+ *   1. display 从 inline-grid 换成 inline-block。网格里绝对定位子元素的包含块是
+ *      「被 place-content:center 居中的那一行」（14px 高，不是 28px 的内容区），
+ *      纵向偏移算不准；块级化之后包含块就是内容区 48×28，数值一眼可算。
+ *   2. 手柄居中用定位 + 负 margin，不用 translate：`<input>` 的 ::before 上
+ *      translate 不可靠（computed 是 `0px -50%`，渲染却没位移，手柄挂在轨道下沿）。
+ * 于是：横向 4px/22px（+2px 描边 = MD3 的 6dp/4dp 留白），纵向 50% 减手柄半高。 */
+
+.toggle {
+  --size: 32px;
+  position: relative;
+  display: inline-block;
+  width: 52px;
+  height: 32px;
+  padding: 0;
+  border: 2px solid var(--md-outline);
+  border-radius: 999px;
+  background-color: transparent;
+  color: transparent;
+  box-shadow: none;
+  transition: background-color var(--md-dur) var(--md-ease), border-color var(--md-dur) var(--md-ease);
+}
+
+.toggle:hover {
+  border-color: var(--md-on-surface);
+}
+
+.toggle::before {
+  content: '';
+  position: absolute;
+  inset-block-start: 50%;
+  margin-block-start: -8px;
+  inset-inline-start: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background-color: var(--md-outline);
+  box-shadow: none;
+  transition: inset-inline-start var(--md-dur) var(--md-ease), margin-block-start var(--md-dur) var(--md-ease),
+    width var(--md-dur) var(--md-ease), height var(--md-dur) var(--md-ease),
+    background-color var(--md-dur) var(--md-ease);
+}
+
+.toggle:checked,
+.toggle[aria-checked='true'] {
+  background-color: var(--md-primary);
+  border-color: var(--md-primary);
+}
+
+.toggle:checked::before,
+.toggle[aria-checked='true']::before {
+  inset-inline-start: 22px;
+  margin-block-start: -12px;
+  width: 24px;
+  height: 24px;
+  background-color: var(--md-on-primary);
+}
+
+/* 选中态手柄里的对勾（MD3 switch 的 selected icon），位置与手柄同心 */
+.toggle:checked::after,
+.toggle[aria-checked='true']::after {
+  position: absolute;
+  inset-block-start: 50%;
+  margin-block-start: -8px;
+  inset-inline-start: 26px;
+  width: 16px;
+  height: 16px;
+  color: var(--md-on-primary-container);
+  pointer-events: none;
+}
+
+.toggle:disabled {
+  opacity: 0.38;
+}
+
+/* ============================== 滑块（进度 / 音量） ============================== */
+/* MD3 slider：轨道 8dp 全圆（未走完 surface-container-highest、走完 primary），
+ * 手柄是 4×24 的竖条。填充由 --pos（0–100%，player.js 写）画在轨道渐变上，
+ * 见文件头「硬约束」里为什么不能用 daisyUI 的滑块阴影填充。 */
+
+.range {
+  --range-thumb-size: 24px;
+  --range-p: 0;
+  --range-bg: transparent;
+  --range-fill-x: 0;
+  --range-fill-y: 0;
+  --range-fill-spread: 0;
+  height: 24px;
+  border-radius: 999px;
+  overflow: visible; /* 手柄比轨道高，不能再靠元素裁剪 */
+  color: var(--md-primary);
+  transition: none;
+}
+
+/* ⚠️ -webkit- / -moz- 的伪元素**不能写在同一个选择器列表里**：Chrome 不认识
+ * ::-moz-range-track，按 CSS 选择器的「一个不认识就整条规则作废」规则，
+ * 逗号列表里带 -moz- 的那条规则会被静默丢掉（不报错、自检也过不了问），
+ * 表现就是「变量生效了、元素高度对了，但轨道和手柄还是默认样式」。
+ * daisyUI 子集里就是拆开写的，这里照做。
+ *
+ * 手柄与轨道都靠 --pos（player.js 写）画填充，见文件头「硬约束」。 */
+.range::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  background-color: transparent;
+  background-image: linear-gradient(
+    to right,
+    var(--md-primary) 0 var(--pos, 0%),
+    var(--md-surface-container-highest) var(--pos, 0%) 100%
+  );
+}
+
+.range::-moz-range-track {
+  height: 8px;
+  border-radius: 999px;
+  background-color: var(--md-surface-container-highest);
+  background-image: linear-gradient(
+    to right,
+    var(--md-primary) 0 var(--pos, 0%),
+    var(--md-surface-container-highest) var(--pos, 0%) 100%
+  );
+}
+
+.range::-webkit-slider-thumb {
+  width: 4px;
+  height: 24px;
+  border: none;
+  border-radius: 999px;
+  background-color: var(--md-primary);
+  box-shadow: none;
+}
+
+.range::-moz-range-thumb {
+  width: 4px;
+  height: 24px;
+  border: none;
+  border-radius: 999px;
+  background-color: var(--md-primary);
+  box-shadow: none;
+}
+
+.range:focus-visible {
+  outline: 2px solid var(--md-primary);
+  outline-offset: 4px;
+}
+
+.range:disabled {
+  opacity: 0.38;
+}
+
+/* ============================== 登录 / 杂项 ============================== */
+
+.btnRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+#authStatus {
+  font-size: 14px;
+  letter-spacing: 0.25px;
+}
+
+.center {
+  display: block;
+  text-align: center;
+}
+
+.link {
+  color: var(--md-primary);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  margin-top: 8px;
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.diag {
+  font-size: 12px;
+  line-height: 16px;
+  margin-top: 8px;
+  color: var(--md-on-surface-variant);
+  word-break: break-all;
+}
+
+#qrHint {
+  font-size: 12px;
+  letter-spacing: 0.4px;
+}
+
+/* 二维码底色必须是白的（扫码识别率），所以它是页面上唯一一块不跟主题走的表面 */
+.qrHolder {
+  display: flex;
+  justify-content: center;
+  margin: 16px 0 12px;
+}
+
+.qrHolder svg {
+  width: 240px;
+  height: 240px;
+  padding: 10px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: var(--md-elev-1);
+}
+
+/* ============================== snackbar ============================== */
+/* MD3 snackbar：底部居中、inverse-surface 底、4dp 圆角、level-3 阴影。
+ * 错误态走 error container（MD3 里唯一的「带色提示」合法出处）。 */
+
+#toast {
+  left: 50%;
+  right: auto;
+  translate: -50% 0;
+  bottom: 24px;
+}
+
+#toast .alert {
+  min-width: 280px;
+  max-width: 420px;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 4px;
+  background: var(--md-inverse-surface);
+  color: var(--md-inverse-on-surface);
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0.25px;
+  box-shadow: var(--md-elev-3);
+}
+
+#toast .alert-error {
+  background: var(--md-error-container);
+  color: var(--md-on-error-container);
+}
+
+.toastAlert {
+  padding-block: 14px;
+  font-size: 14px;
+}
+
+/* ============================== 空状态 ============================== */
+
+.empty {
+  color: var(--md-on-surface-variant);
+  font-size: 14px;
+  letter-spacing: 0.25px;
+  text-align: center;
+  padding: 40px 16px;
+}
+
+.empty .emptyIcon {
+  display: block;
+  font-size: 40px;
+  margin: 0 auto 12px;
+  opacity: 0.6;
+}
+
+/* ============================== 滚动条 ============================== */
+/* 滑块本体（颜色 + 圆角 + 描边）在 md3.bridge.css 里，两页共用；这里只定宽 */
+
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+/* ============================== 响应式 ============================== */
+
+@media (max-width: 900px) {
+  .now {
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      'left right'
+      'center center';
+  }
+  .npLeft {
+    grid-area: left;
+  }
+  .npRight {
+    grid-area: right;
+  }
+  .npCenter {
+    grid-area: center;
+  }
+}
+
+/* 窄屏：导航轨折成 MD3 导航栏（图标在上、label 在下，指示器胶囊保持同一套规则） */
+@media (max-width: 720px) {
+  .app {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .side {
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--md-surface-container);
+  }
+
+  .main {
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* 导航栏里品牌位让给导航项（MD3 navigation bar 只有导航项） */
+  .brand {
+    display: none;
+  }
+
+  .nav {
+    flex-direction: row;
+    flex: 1;
+    justify-content: space-around;
+    align-items: center;
+  }
+
+  .nav button {
+    width: auto;
+    flex: 1;
+    max-width: 120px;
+  }
+
+  .sideFoot {
+    display: none;
+  }
+
+  .now {
+    margin: 8px 12px 0;
+    padding: 12px;
+  }
+
+  .content {
+    padding: 12px 12px 48px;
+  }
+
+  /* 搜索栏在窄屏不换行（放大镜是按 .join 的垂直中线定位的，换行会错位），
+     改成整体收一号：输入框 48dp、按钮内边距收紧 */
+  .searchBar .input {
+    height: 3rem;
+    padding-inline: 46px 16px;
+  }
+
+  .searchBar .btn {
+    height: 3rem;
+    --btn-p: 1rem;
+  }
+
+  .searchIcon {
+    left: 16px;
+  }
+}

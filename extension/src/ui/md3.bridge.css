@@ -1,0 +1,87 @@
+/* BiliMusic · MD3 令牌桥接（popup 与全页播放器共用）
+ *
+ * 加载顺序：md3.tokens.css → 本文件 → shared/common.css → 页面 css。
+ */
+
+/* ============================== MD3 与 daisyUI 的令牌 ============================== */
+
+:root,
+[data-theme='bilimusic'],
+[data-theme='bilimusic-light'] {
+  /* ---- 色彩角色 ---- */
+  /* daisyUI 组件只认 --color-*，改接到 MD3 角色之后所有 daisyUI 组件自动变 MD3 配色 */
+  --color-base-100: var(--md-surface);
+  --color-base-200: var(--md-surface-container-low);
+  --color-base-300: var(--md-surface-container-high);
+  --color-base-content: var(--md-on-surface);
+
+  --color-primary: var(--md-primary);
+  --color-primary-content: var(--md-on-primary);
+  --color-secondary: var(--md-secondary);
+  --color-secondary-content: var(--md-on-secondary);
+  --color-accent: var(--md-tertiary);
+  --color-accent-content: var(--md-on-tertiary);
+  --color-neutral: var(--md-surface-container-highest);
+  --color-neutral-content: var(--md-on-surface);
+
+  /* 语义色在 MD3 里没有对应角色（MD3 只有 error 一根明确的语义线），
+     info/success/warning 按「最接近的角色」借位；真正要区分的地方单独写 */
+  --color-info: var(--md-tertiary);
+  --color-info-content: var(--md-on-tertiary);
+  --color-success: var(--md-tertiary);
+  --color-success-content: var(--md-on-tertiary);
+  --color-warning: var(--md-secondary);
+  --color-warning-content: var(--md-on-secondary);
+  --color-error: var(--md-error);
+  --color-error-content: var(--md-on-error);
+
+  /* ---- 形状与立面 ---- */
+  --radius-selector: 8px; /* MD3 shape scale 的 small：badge / chips */
+  --radius-field: 1.25rem; /* 40px 高的按钮取半高 = 全圆胶囊 */
+  --radius-box: 16px; /* 卡片 / 列表行 */
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem; /* --size-field × 10 = 40px，正好是 MD3 按钮高度 */
+  --border: 0;
+  --depth: 0;
+  --noise: 0;
+
+  /* MD3 立面（level 1–3）：MD3 的「抬升」主要靠表面色阶，阴影只做边缘暗示 */
+  --md-elev-1: 0 1px 2px color-mix(in oklab, var(--md-shadow) 30%, transparent),
+    0 1px 3px 1px color-mix(in oklab, var(--md-shadow) 15%, transparent);
+  --md-elev-2: 0 1px 2px color-mix(in oklab, var(--md-shadow) 30%, transparent),
+    0 2px 6px 2px color-mix(in oklab, var(--md-shadow) 15%, transparent);
+  --md-elev-3: 0 4px 8px 3px color-mix(in oklab, var(--md-shadow) 15%, transparent),
+    0 1px 3px color-mix(in oklab, var(--md-shadow) 30%, transparent);
+
+  /* MD3 状态层：hover / focus / 按下 / 拖动 */
+  --md-state-hover: 8%;
+  --md-state-press: 10%;
+
+  /* MD3 动效：emphasized easing + short4 */
+  --md-ease: cubic-bezier(0.2, 0, 0, 1);
+  --md-dur: 200ms;
+
+  /* 对勾图标：内联 SVG（Material 的 check 路径），用 mask 上色。 */
+  --md-icon-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E");
+}
+
+/* ============================== 与令牌绑定的共用观感 ============================== */
+
+/* 次级文字：daisyUI 的 base-content 55% 在深色主题下偏灰，MD3 的次级文字是
+ * on-surface-variant——两页共用同一条，免得一处灰一处偏白 */
+.muted {
+  color: var(--md-on-surface-variant);
+}
+
+/* 滚动条：MD3 没有滚动条角色，取 surface-container-highest 当滑块、页面底色当描边。
+ * 只写滑块本体，宽度归各页（popup 用 scrollbar-width:thin 让浏览器给一条细条，
+ * 播放页给 ::-webkit-scrollbar 定宽）——两处都写宽度会互相打架。 */
+::-webkit-scrollbar-thumb {
+  background: var(--md-surface-container-highest);
+  border: 3px solid var(--md-surface);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--md-outline-variant);
+}

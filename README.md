@@ -94,6 +94,7 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 | **iOS 15+** | ⚠️ 实验性 | CI 产出无签名 `.ipa`，也可从源码构建 |
 | **Web** | ⏸️ 暂停支持 | **1.9.2 为支持 Web 的最新版本**，解压后部署到 Web 服务器，需配置 CORS |
 | **Xiaomi Vela** | ✅ 稳定 | 适用于小米、红米手表系列（API 2+），下载安装`.rpk`，详见[小米 Vela 手表端](#小米-vela-手表端) |
+| **Chrome Extension** | ✅ 稳定 | 浏览器内播放，尚未打包需手动安装，详见[Chrome Extension](#chrome-extension) |
 
 关于应用内更新：Android / Windows / Linux 支持；macOS 跳转 Releases（见[更新与版本](#更新与版本)）。
 
@@ -162,6 +163,27 @@ npm run build                     # 构建 RPK（aiot build）
 ```
 
 > 详细设计目标、适配机型表、安装教程、目录结构等，请阅读 [`vela/README.md`](vela/README.md)。
+
+#### Chrome Extension
+
+BiliMusic 的 Chrome 扩展端（MV3 架构），与主项目**不共享代码、不共享包管理**。
+
+需要 **Chrome 116+**。
+
+目前尚未打包，在拉取仓库后手动安装：
+
+  1. 拉取远程 UI 资源：
+
+  ```shell
+  node extension/scripts/gen_daisyui_subset.mjs        # daisyUI 组件子集
+  node extension/scripts/gen_fontawesome_subset.mjs    # FA 图标子集 + woff2
+  ```
+
+  2. 打开 `chrome://extensions`
+  3. 右上角打开「开发者模式」
+  4. 「加载已解压的扩展程序」→ 选择本 `extension/` 目录
+
+详见 [`extension/README.md`](extension/README.md)
 
 ---
 

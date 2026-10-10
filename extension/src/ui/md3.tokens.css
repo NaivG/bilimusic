@@ -1,0 +1,92 @@
+/**
+ * BiliMusic · MD3 设计令牌（生成物，勿手改）
+ *
+ * 由 scripts/gen_md3_tokens.mjs 生成：种子色 #fb7299（B 站粉）推音调板，
+ * 角色按 MD3 官方 scheme 映射音调（深色取 80/90 档、浅色取 40/100 档…），
+ * 中性色带一丝品牌色相。错误色固定用 MD3 基线的红 #ba1a1a。
+ *
+ * 用法：两个页面（popup.html / player.html）都引本文件，再由 md3.bridge.css 把角色
+ * 接到 daisyUI 变量上；页面 css 只写自己的排版与组件形状，别在这里改值。
+ * 换种子色 / 加角色改脚本后重跑，产物整体替换本文件。
+ *
+ *   node extension/scripts/gen_md3_tokens.mjs
+ */
+
+/* ------------------------------- 深色（默认） ------------------------------- */
+
+[data-theme='bilimusic'],
+:root {
+  --md-primary: #ffabbe;
+  --md-on-primary: #580f2a;
+  --md-primary-container: #7c1b3e;
+  --md-on-primary-container: #ffd6df;
+  --md-inverse-primary: #a32753;
+  --md-secondary: #ebb6c1;
+  --md-on-secondary: #43272e;
+  --md-secondary-container: #603a43;
+  --md-on-secondary-container: #ffd6df;
+  --md-tertiary: #ffb56a;
+  --md-on-tertiary: #482700;
+  --md-tertiary-container: #673b00;
+  --md-on-tertiary-container: #ffdbba;
+  --md-error: #ffafa4;
+  --md-on-error: #5f0707;
+  --md-error-container: #851010;
+  --md-on-error-container: #ffd8d2;
+  --md-surface: #151213;
+  --md-surface-dim: #151213;
+  --md-surface-bright: #3f3738;
+  --md-surface-container-lowest: #0f0e0e;
+  --md-surface-container-low: #1f1a1b;
+  --md-surface-container: #231e1f;
+  --md-surface-container-high: #2f2829;
+  --md-surface-container-highest: #3a3234;
+  --md-on-surface: #ebdfe1;
+  --md-on-surface-variant: #d8bfc4;
+  --md-surface-variant: #534145;
+  --md-outline: #a3898e;
+  --md-outline-variant: #534145;
+  --md-inverse-surface: #ebdfe1;
+  --md-inverse-on-surface: #362e30;
+  --md-scrim: #000000;
+  --md-shadow: #000000;
+}
+
+/* ------------------------------- 浅色 ------------------------------- */
+
+[data-theme='bilimusic-light'] {
+  --md-primary: #a32753;
+  --md-on-primary: #ffffff;
+  --md-primary-container: #ffd6df;
+  --md-on-primary-container: #370517;
+  --md-inverse-primary: #ffabbe;
+  --md-secondary: #7f4e59;
+  --md-on-secondary: #ffffff;
+  --md-secondary-container: #ffd6df;
+  --md-on-secondary-container: #28151a;
+  --md-tertiary: #884f00;
+  --md-on-tertiary: #ffffff;
+  --md-tertiary-container: #ffdbba;
+  --md-on-tertiary-container: #2b1600;
+  --md-error: #ae1918;
+  --md-on-error: #ffffff;
+  --md-error-container: #ffd8d2;
+  --md-on-error-container: #3b0102;
+  --md-surface: #fcf8f9;
+  --md-surface-dim: #e3d6d9;
+  --md-surface-bright: #fcf8f9;
+  --md-surface-container-lowest: #ffffff;
+  --md-surface-container-low: #f9f1f3;
+  --md-surface-container: #f5ebed;
+  --md-surface-container-high: #f0e5e7;
+  --md-surface-container-highest: #ebdfe1;
+  --md-on-surface: #1f1a1b;
+  --md-on-surface-variant: #534145;
+  --md-surface-variant: #f1dde0;
+  --md-outline: #887075;
+  --md-outline-variant: #d8bfc4;
+  --md-inverse-surface: #362e30;
+  --md-inverse-on-surface: #f8eef0;
+  --md-scrim: #000000;
+  --md-shadow: #000000;
+}
