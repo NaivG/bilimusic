@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:bilimusic/domain/artist.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/playlist.dart';
 import 'package:bilimusic/domain/bili_fav_folder.dart';
@@ -284,7 +285,11 @@ class FavSyncManager extends ChangeNotifier {
     return Music(
       id: resource.bvid,
       title: resource.title,
-      artist: resource.upperName,
+      artist: Artist(
+        mid: resource.upperMid,
+        name: resource.upperName,
+        face: resource.upperFace,
+      ),
       album: albumName,
       coverUrl: resource.cover,
       duration: Duration(seconds: resource.duration),

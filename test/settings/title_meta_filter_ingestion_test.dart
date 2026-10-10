@@ -40,7 +40,7 @@ void main() {
       final music = Music.fromArchiveJson(archiveJson);
       expect(music.title, '【作者】Starlight');
       expect(music.id, 'BV1xx411c7mD');
-      expect(music.artist, 'UP主');
+      expect(music.artist.name, 'UP主');
       // album 语义是分区名，不参与过滤
       expect(music.album, '音乐');
     });

@@ -21,6 +21,7 @@ import 'package:bilimusic/core/network/network_config.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:mpv_audio_kit/mpv_audio_kit.dart';
+import 'package:snownlp/snownlp_flutter.dart';
 
 import 'package:bilimusic/features/update/update_checker.dart';
 import 'package:bilimusic/features/update/ui/update_dialog.dart';
@@ -52,6 +53,10 @@ Future<void> _setupMainWindow() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // snownlp 模型文件懒加载。
+  useFlutterAssetLoader();
+
   if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
     // 桌面端 sqflite FFI 初始化
     sqfliteFfiInit();

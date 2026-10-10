@@ -37,7 +37,7 @@ class NotificationService {
     final mediaItem = MediaItem(
       id: music.id,
       title: music.title,
-      artist: music.artist,
+      artist: music.artist.displayName,
       album: music.album,
       duration: music.duration ?? Duration.zero,
       artUri: Uri.parse(music.coverUrl),

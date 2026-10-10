@@ -205,7 +205,7 @@ class SquareDetailPage extends ConsumerWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                music.artist,
+                music.artist.displayName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -376,7 +376,7 @@ class SquareDetailPage extends ConsumerWidget {
     showSongInfoDialog(
       context,
       title: music.title,
-      artist: music.artist,
+      artist: music.artist.displayName,
       album: music.album,
       duration: duration ?? Duration.zero,
     );

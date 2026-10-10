@@ -1,0 +1,455 @@
+/* Popup 的 MD3 皮肤（与全页播放页同一套令牌）
+ *
+ * 三层分工：
+ *   1. md3.tokens.css（生成物）—— 色彩角色：--md-primary / --md-surface-container-high / --md-on-surface-variant…
+ *   2. md3.bridge.css（两页共用）—— 把 daisyUI 的 --color-* / --radius-* / --depth 改接到 MD3 角色上，
+ *      daisyUI 组件的默认配色自动变 MD3。
+ *   3. 本文件 —— 弹窗的排版 + 这几件 MD3 组件的形状：卡片、图标按钮、主播放键（FAB）、
+ *      滑块（轨道渐变 + --pos）、队列列表行、状态行。
+ *
+ * 两条前提：
+ *   - 组件颜色一律用 color-mix 叠状态层（hover 8% / 按下 10%），不要用实心换色：
+ *     MD3 的交互反馈是「叠一层半透明」。
+ *   - 滑块的「已走过的那段」画在轨道渐变上（--pos，由 popup.js 的 setRangePos 写），
+ *     daisyUI 那套「挂在滑块上的阴影球」（--range-fill-*）必须清零，否则那颗 100cqw
+ *     的阴影会从 overflow 放开的 .range 里漏出来糊满整行。
+ */
+
+/* ============================== 卡片外壳 ============================== */
+/* popup 的外框是 Chrome 的原生窗口，形状由系统窗口管理器画（Win11 上只有 ~2px
+ * 切角，等于直角），既没有设置项也没有 CSS 入口——给 html/body 写 border-radius
+ * 裁的是页面内容，窗口框纹丝不动。所以让方框只挨着平涂的 surface，所有圆角元素
+ * （卡片、封面、队列行）缩在卡片里。 */
+
+html {
+  /* daisyUI 的按钮 / 卡片尺寸都是 rem，调小根字号即可整体收紧 */
+  font-size: 14px;
+}
+
+body {
+  width: 360px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--md-surface);
+}
+
+/* 卡片按内容取高，别让 body 这条纵向 flex 去拉伸 / 压缩它们 */
+.card,
+.card-body {
+  flex: none;
+}
+
+/* 「现在播放」用 MD3 的 high 一档（与播放页的 .now 同款），队列退到 low 一档，
+ * 两张卡叠在一起才有层次，不用阴影与描边去分。
+ * --card-p 是 daisyUI .card-body 的 padding 钩子，写在 .card 上即可（自定义属性会继承）。 */
+.card {
+  --card-p: 12px;
+  background: var(--md-surface-container-high);
+}
+
+.card-body {
+  gap: 12px;
+}
+
+.queueCard {
+  background: var(--md-surface-container-low);
+}
+
+/* ============================== 现在播放 ============================== */
+
+.npHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 封面：MD3 shape scale 的 medium（12dp），不投影（MD3 靠表面色阶表达层次） */
+.npCoverWrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+}
+
+/* 占位块与封面同形，底比封面深一档（common.css 用的是 daisyUI 的 base-300 那套） */
+.npCoverWrap .ph {
+  background: var(--md-surface-container-highest);
+  color: var(--md-on-surface-variant);
+}
+
+.npMeta {
+  flex: 1;
+  min-width: 0;
+}
+
+/* MD3 title-medium */
+.npMeta .title {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+  letter-spacing: 0.15px;
+  color: var(--md-on-surface);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* MD3 body-small + on-surface-variant（.muted 由 md3.bridge.css 收口） */
+.npMeta .sub {
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================== 进度 ============================== */
+
+.npProgress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* MD3 label-medium，等宽数字免得时间跳动时整行抖 */
+.npProgress .t {
+  width: 40px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  color: var(--md-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+.npProgress .t:last-child {
+  text-align: right;
+}
+
+.npProgress input[type='range'] {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ============================== 播控 ============================== */
+/* 两侧是 MD3 圆形图标按钮（40dp、on-surface-variant、hover 叠状态层），
+ * 中间的主播放键是 56dp 的 FAB 取色（primary-container），与播放页的播放键同款 */
+
+.npCtl {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.npCtl .btn-ghost {
+  color: var(--md-on-surface-variant);
+}
+
+.npCtl .btn-ghost:hover {
+  --btn-bg: color-mix(in oklab, var(--md-on-surface) var(--md-state-hover), transparent);
+  color: var(--md-on-surface);
+}
+
+.npCtl .btn-ghost:active {
+  --btn-bg: color-mix(in oklab, var(--md-on-surface) var(--md-state-press), transparent);
+}
+
+/* 单曲循环的角标「1」画在按钮右上角（.oneMark 的形状在 shared/common.css，这里给定位锚） */
+#repeat {
+  position: relative;
+}
+
+/* 选择器带 .npCtl 是为了压过后面的 .playBtn 与 daisyUI 的 .btn-primary
+ * （未分层同源，靠优先级分胜负）。宽高都写死，别让 .btn / .btn-circle 的高度反压回来。
+ * 圆形而不是 MD3 FAB 默认的 16dp 圆角方块：状态层是叠在这层圆角上的，方块会让
+ * 两侧那个圆形图标按钮看着像两套形状（全页播放页的播放键是 btn-circle，这里跟着统一）。 */
+.npCtl .playBtn {
+  --btn-bg: var(--md-primary-container);
+  --btn-fg: var(--md-on-primary-container);
+  --btn-border: transparent;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  font-size: 18px;
+  box-shadow: none;
+}
+
+.npCtl .playBtn:hover {
+  --btn-bg: color-mix(in oklab, var(--md-on-primary-container) var(--md-state-hover), var(--md-primary-container));
+}
+
+.npCtl .playBtn:active {
+  --btn-bg: color-mix(in oklab, var(--md-on-primary-container) var(--md-state-press), var(--md-primary-container));
+}
+
+/* daisyUI 会给非 ghost 的禁用按钮铺一层 10% 的灰底，加载中就会冒出一块浅色方块；
+ * 这里的「禁用」是 MD3 的 opacity 那一套，底一律清掉 */
+.playBtn:disabled,
+.playBtn[disabled] {
+  --btn-bg: transparent;
+  --btn-border: transparent;
+  background-image: none;
+}
+
+.btn:disabled,
+.btn[disabled] {
+  opacity: 0.38; /* MD3 的禁用态就是 38%，颜色交给 daisyUI 自己收 */
+}
+
+/* ============================== 音量 ============================== */
+
+.npVolume {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.npVolume .volIcon {
+  width: 16px;
+  color: var(--md-on-surface-variant);
+  font-size: 13px;
+  text-align: center;
+}
+
+.npVolume input[type='range'] {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ============================== 滑块 ============================== */
+/* MD3 slider：轨道 8dp 全圆（走完 primary、没走完 surface-container-highest），
+ * 手柄是 4×24 的竖条。宽度不进这里，让 .npProgress / .npVolume 的 flex 说了算。 */
+
+.range {
+  --range-thumb-size: 24px;
+  --range-p: 0;
+  --range-bg: transparent;
+  /* daisyUI 的阴影球填充：清零，填充改由下面的轨道渐变画 */
+  --range-fill-x: 0;
+  --range-fill-y: 0;
+  --range-fill-spread: 0;
+  width: 100%;
+  height: 24px;
+  border-radius: 999px;
+  overflow: visible; /* 手柄比轨道高，不能再靠元素裁剪 */
+  color: var(--md-primary);
+  transition: none;
+}
+
+/* -webkit- / -moz- 的伪元素不能写在同一个选择器列表里：Chrome 不认识
+ * ::-moz-range-track，按「一个不认识就整条规则作废」的规则，逗号列表里带 -moz-
+ * 的那条会被静默丢掉（不报错、自检也看不出），表现就是「变量生效了、元素高度对了，
+ * 但轨道和手柄还是默认样式」。 */
+.range::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  background-color: transparent;
+  background-image: linear-gradient(
+    to right,
+    var(--md-primary) 0 var(--pos, 0%),
+    var(--md-surface-container-highest) var(--pos, 0%) 100%
+  );
+}
+
+.range::-moz-range-track {
+  height: 8px;
+  border-radius: 999px;
+  background-color: var(--md-surface-container-highest);
+  background-image: linear-gradient(
+    to right,
+    var(--md-primary) 0 var(--pos, 0%),
+    var(--md-surface-container-highest) var(--pos, 0%) 100%
+  );
+}
+
+.range::-webkit-slider-thumb {
+  width: 4px;
+  height: 24px;
+  border: none;
+  border-radius: 999px;
+  background-color: var(--md-primary);
+  box-shadow: none;
+}
+
+.range::-moz-range-thumb {
+  width: 4px;
+  height: 24px;
+  border: none;
+  border-radius: 999px;
+  background-color: var(--md-primary);
+  box-shadow: none;
+}
+
+.range:focus-visible {
+  outline: 2px solid var(--md-primary);
+  outline-offset: 4px;
+}
+
+.range:disabled {
+  opacity: 0.38;
+}
+
+/* ============================== 队列 ============================== */
+/* 队列行不是 daisyUI 的 .list（popup.js 自己拼的模板），照 MD3 list item 的尺寸来：
+ * 48dp 行高、8dp 圆角、hover / 按下叠状态层，当前播放行用 secondary-container 表达「已选中」。 */
+
+.queueBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* MD3 label-medium */
+.queueBar .queueTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  color: var(--md-on-surface-variant);
+}
+
+.queueList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* 队列再长也不把 popup 顶到 Chrome 的 600px 上限外；
+   * scrollbar-width: thin 会自己收窄 webkit 滚动条的占位（MD3 没有滚动条角色，
+   * 颜色由 md3.bridge.css 统一给，这里只点滑块那一条） */
+  max-height: 168px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.queueList .qrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color var(--md-dur) var(--md-ease);
+}
+
+.queueList .qrow:hover {
+  background: color-mix(in oklab, var(--md-on-surface) var(--md-state-hover), transparent);
+}
+
+.queueList .qrow:active {
+  background: color-mix(in oklab, var(--md-on-surface) var(--md-state-press), transparent);
+}
+
+.queueList .qrow.current {
+  background: var(--md-secondary-container);
+}
+
+.queueList .qrow .qcover {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--md-surface-container-highest);
+}
+
+/* 没封面的占位块（img 撑不出尺寸，用 div 顶上） */
+.queueList .qrow div.qcover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--md-on-surface-variant);
+}
+
+.queueList .qrow .qmeta {
+  flex: 1;
+  min-width: 0;
+}
+
+/* MD3 body-medium */
+.queueList .qrow .qtitle {
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0.25px;
+  color: var(--md-on-surface);
+}
+
+.queueList .qrow.current .qtitle {
+  color: var(--md-on-secondary-container);
+}
+
+/* MD3 body-small */
+.queueList .qrow .qsub {
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.4px;
+  color: var(--md-on-surface-variant);
+}
+
+.queueList .qrow.current .qsub {
+  color: var(--md-on-secondary-container);
+  opacity: 0.8;
+}
+
+.queueList .qrow .qtitle,
+.queueList .qrow .qsub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queueList .qrow .qact {
+  flex: none;
+}
+
+/* 移出按钮是 48dp 行内的小图标按钮：给 32dp 的点击面，用透明度收着，
+ * hover 时才和行一起亮起来（行本身已经有状态层了） */
+.queueList .qrow .qact .btn {
+  width: 32px;
+  height: 32px;
+  opacity: 0.45;
+  transition: opacity var(--md-dur) var(--md-ease);
+}
+
+.queueList .qrow:hover .qact .btn {
+  opacity: 1;
+}
+
+.queueEmpty {
+  padding: 16px 6px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.4px;
+  color: var(--md-on-surface-variant);
+}
+
+/* ============================== 状态行 ============================== */
+/* 注意不能叫 .status——那是 daisyUI 的「呼吸点」组件类，会整行变成一个小圆点。
+ * 现在只报播放错误（暂停有播放键的图标、加载中播放键在转圈、队列由下面那张卡表达），
+ * 空的时候整行塌掉、不占高度——保留 min-height 或让它留在 flex 里，
+ * 上卡片底部就会一直多出一条空白。 */
+
+.statusLine {
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.4px;
+  text-align: center;
+}
+
+.statusLine:empty {
+  display: none;
+}
+
+/* popup.js 出错时把 className 换成 statusLine error（.error 在 common.css 里）。 */
+.statusLine.error {
+  color: var(--md-error);
+}

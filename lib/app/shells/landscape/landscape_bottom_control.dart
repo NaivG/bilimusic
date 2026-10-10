@@ -176,14 +176,14 @@ class LandscapeBottomControl extends ConsumerWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 2),
-                        music?.artist != null
+                        music != null
                             ? AnimatedSwitcher(
                                 duration: AppTokens.standardDuration,
                                 transitionBuilder: switcherFadeTransition,
                                 child: fading
                                     ? const CrossfadeIndicator()
                                     : Text(
-                                        music?.artist ?? 'Unknown Artist',
+                                        music.artist.displayName,
                                         key: const ValueKey('artist'),
                                         style: TextStyle(
                                           color: textSecondary,

@@ -470,7 +470,7 @@ class OfflineCacheService extends ChangeNotifier {
         bvid: music.id,
         cid: cid,
         title: music.title,
-        artist: music.artist,
+        artist: music.artist.displayName,
         filePath: file.path,
         qualityId: qualityId,
         fileSize: received,
@@ -556,7 +556,7 @@ class OfflineCacheService extends ChangeNotifier {
       bvid: music.id,
       cid: cid,
       title: music.title,
-      artist: music.artist,
+      artist: music.artist.displayName,
       filePath: saved.path,
       qualityId: qualityId,
       fileSize: await saved.length(),
@@ -763,7 +763,7 @@ class OfflineCacheService extends ChangeNotifier {
   /// （Windows 非法字符、超长截断、方括号等坑都在这里）。
   @visibleForTesting
   static String buildFileName(Music music, String cid) {
-    final artist = music.artist.trim().isEmpty ? '未知艺术家' : music.artist;
+    final artist = music.artist.displayName.trim();
     final title = music.title.trim().isEmpty ? music.id : music.title;
     var name = sanitizeFileName('$artist - $title');
     if (name.isEmpty) name = music.id;

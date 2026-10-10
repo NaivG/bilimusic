@@ -136,7 +136,7 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage> {
       child: AlbumSection(
         coverUrl: widget.music.coverUrl,
         title: widget.music.title,
-        artist: widget.music.artist,
+        artist: widget.music.artist.displayName,
         album: widget.music.album,
         dominantColor: widget.dominantColor,
         isFavorite: widget.isFavorite,
@@ -159,7 +159,7 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage> {
   Widget _buildLyricsView(BuildContext context) {
     return LyricSection(
       title: widget.music.title,
-      artist: widget.music.artist,
+      artist: widget.music.artist.displayName,
       album: widget.music.album,
       lyricController: widget.lyricController,
       position: widget.position,
@@ -217,7 +217,7 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage> {
     showSongInfoDialog(
       context,
       title: widget.music.title,
-      artist: widget.music.artist,
+      artist: widget.music.artist.displayName,
       album: widget.music.album,
       duration: widget.duration ?? Duration.zero,
     );

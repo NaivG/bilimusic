@@ -5,8 +5,10 @@ import 'package:bilimusic/core/network/bili_client.dart';
 import 'package:bilimusic/core/network/bili_exception.dart';
 import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/domain/artist.dart';
 import 'package:bilimusic/domain/bili_fav_folder.dart';
 import 'package:bilimusic/domain/bili_fav_resource.dart';
+import 'package:bilimusic/domain/bili_following.dart';
 import 'package:bilimusic/domain/bili_item.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/search_result.dart';
@@ -72,6 +74,40 @@ class ApiService {
     return item.pages.first;
   }
 
+  /// 拉详情补齐 [music] 缺失的视频信息：分P cid 与 UP 主资料（mid / 昵称 / 头像）。
+  ///
+  /// 只补空、不覆盖：列表端点带来的分 P 标题、时长、封面一律保留原样。
+  /// 接口返回码不是 200（[getBiliItemDetails] 返回 null）时原样返回，一个字段都不改。
+  Future<Music> updateVideoDetails(Music music) async {
+    if (music.id.isEmpty) return music;
+    final item = await getBiliItemDetails(music.id);
+    if (item == null) return music;
+
+    Music? page;
+    if (item.pages.isNotEmpty) {
+      page = music.cid.isEmpty
+          ? item.pages.first
+          : item.pages.firstWhere(
+              (p) => p.cid == music.cid,
+              orElse: () => item.pages.first,
+            );
+    }
+    return music.copyWith(
+      cid: music.cid.isNotEmpty ? music.cid : (page?.cid ?? music.cid),
+      artist: _mergeArtist(music.artist, item.owner),
+    );
+  }
+
+  /// 补齐 UP 主 mid：已带 mid 直接返回，否则拉一次详情。
+  ///
+  /// 调用方不必据此隐藏「查看 UP 主」入口——缺 mid 时点进去现补即可，
+  /// 不用像 cid 那样在开库时把整张列表逐条拉一遍。
+  Future<Music> ensureMid(Music music) async {
+    if (music.artist.hasMid) return music;
+    final updated = await updateVideoDetails(music);
+    return updated.artist.hasMid ? updated : music;
+  }
+
   /// 兼容旧接口：返回 [Music]。可选 [pageIndex] / [targetCid] 选择分P。
   ///
   /// 失败时返回仅含 bvid 的占位 [Music]，避免上游链路过早崩。
@@ -99,7 +135,7 @@ class ApiService {
     return Music(
       id: bvid,
       title: '未知标题',
-      artist: '未知作者',
+      artist: const Artist(),
       album: '',
       coverUrl: '',
       audioUrl: '',
@@ -309,9 +345,10 @@ class ApiService {
     final result = SearchResult(
       id: bvid,
       title: biliItem.title,
-      subtitle: biliItem.owner.name,
+      subtitle: biliItem.owner.displayName,
       coverUrl: cover.isNotEmpty ? '$cover$biliCoverThumbSuffix' : cover,
       type: SearchResultType.video,
+      artist: biliItem.owner,
     );
     return SearchResponse(
       keyword: bvid,
@@ -405,6 +442,16 @@ class ApiService {
 
   Map<String, dynamic> _stringKeys(Map<dynamic, dynamic> source) {
     return source.map((k, v) => MapEntry(k.toString(), v));
+  }
+
+  /// 详情里的 UP 主只用来补空缺：本地已有的昵称 / 头像不回退，mid 缺失才认详情那份。
+  Artist _mergeArtist(Artist current, Artist fetched) {
+    if (current.hasMid || fetched.mid <= 0) return current;
+    return Artist(
+      mid: fetched.mid,
+      name: current.name.trim().isEmpty ? fetched.name : current.name,
+      face: current.face.isEmpty ? fetched.face : current.face,
+    );
   }
 
   // ====================================================================
@@ -531,6 +578,102 @@ class ApiService {
     } on BiliException catch (e) {
       debugPrint('[FavAPI] batchFetchResourceDetails: $e');
       return const [];
+    }
+  }
+
+  // ====================================================================
+  //  关注 / UP 主投稿
+  // ====================================================================
+
+  /// 查询某个用户的关注列表（分页）。
+  ///
+  /// 只对**自己**的列表完整：查询他人时接口最多给前 100 个，翻过第 100 条后
+  /// 返回 `code: 0` + 空列表。
+  /// [byAttention] 为 true 时按最常访问排序（`order_type=attention`），
+  /// 只对自己有效。
+  Future<({List<BiliFollowing> items, int total})> fetchFollowings(
+    int vmid, {
+    int page = 1,
+    int pageSize = 50,
+    bool byAttention = false,
+  }) async {
+    try {
+      final data = await _client.get(
+        '/x/relation/followings',
+        query: {
+          'vmid': '$vmid',
+          'pn': '$page',
+          'ps': '$pageSize',
+          if (byAttention) 'order_type': 'attention',
+        },
+      );
+      final map = data is Map<String, dynamic> ? data : const {};
+      final list = map['list'];
+      final items = list is List
+          ? list
+                .whereType<Map>()
+                .map((e) => BiliFollowing.fromJson(_stringKeys(e)))
+                .toList()
+          : <BiliFollowing>[];
+      // 缺 total 时留 0
+      final total = map['total'] is int ? map['total'] as int : 0;
+      return (items: items, total: total);
+    } on BiliApiException catch (e) {
+      if (e.isNotLogin) {
+        debugPrint('[FollowingAPI] 未登录，无法获取关注列表');
+      } else {
+        debugPrint('[FollowingAPI] fetchFollowings($vmid): $e');
+      }
+      return (items: const <BiliFollowing>[], total: 0);
+    } on BiliException catch (e) {
+      debugPrint('[FollowingAPI] fetchFollowings($vmid): $e');
+      return (items: const <BiliFollowing>[], total: 0);
+    }
+  }
+
+  /// 查询 UP 主投稿明细（分页，需 WBI 签名）。
+  ///
+  /// [album] 会写进每条 [Music.album]（列表副标题的第二段），由调用方传来源名。
+  Future<({List<Music> songs, int total})> fetchUserSpaceVideos(
+    int mid, {
+    int page = 1,
+    int pageSize = 30,
+    String album = '',
+  }) async {
+    try {
+      final data = await _client.get(
+        '/x/space/wbi/arc/search',
+        query: {
+          'mid': '$mid',
+          'order': 'pubdate',
+          'pn': '$page',
+          'ps': '$pageSize',
+          'tid': '0',
+          'platform': 'web',
+        },
+        signed: true,
+      );
+      final map = data is Map<String, dynamic> ? data : const {};
+      final list = map['list'];
+      final vlist = list is Map ? list['vlist'] : null;
+      final songs = vlist is List
+          ? vlist
+                .whereType<Map>()
+                .map(
+                  (e) => Music.fromSpaceArcJson(_stringKeys(e), album: album),
+                )
+                .where((m) => m.id.isNotEmpty)
+                .toList()
+          : <Music>[];
+      // 缺 count 时留 0
+      final pageInfo = map['page'];
+      final total = pageInfo is Map && pageInfo['count'] is int
+          ? pageInfo['count'] as int
+          : 0;
+      return (songs: songs, total: total);
+    } on BiliException catch (e) {
+      debugPrint('[FollowingAPI] fetchUserSpaceVideos($mid): $e');
+      return (songs: const <Music>[], total: 0);
     }
   }
 }

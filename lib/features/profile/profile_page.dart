@@ -367,8 +367,25 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         // 局域网同步
         const LanSyncSection(),
 
-        // Bilibili 收藏夹同步（仅登录后显示）
+        // Bilibili 关注 / 收藏夹同步（仅登录后显示）
         if (ref.read(userManagerProvider).isLoggedIn) ...[
+          const Divider(height: 1),
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.purple.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.people_alt, color: Colors.purple),
+            ),
+            title: const Text('我的关注'),
+            subtitle: const Text('浏览已关注 UP 主的投稿'),
+            trailing: const Icon(Icons.arrow_forward_ios),
+            onTap: () {
+              ShellPageManager.instance.push(ShellPage.following);
+            },
+          ),
           const Divider(height: 1),
           ListTile(
             leading: Container(

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/playlist.dart';
+import 'package:bilimusic/domain/taste_profile.dart';
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/features/home/logic/recommendation_manager.dart';
 import 'package:bilimusic/features/home/widgets/playlist_card.dart';
@@ -65,9 +66,17 @@ class _HomeContentState extends ConsumerState<HomeContent> {
   }
 
   Future<void> _updateGuessYouLike() async {
+    // 画像先保证够新（内部 24h 节流），失败不挡猜你喜欢更新
+    TasteProfile? taste;
+    try {
+      taste = await ref.read(tasteProfileServiceProvider).ensureFresh();
+    } catch (e) {
+      debugPrint('[HomeContent] 画像更新失败，本次不重排: $e');
+    }
     await _recommendationManager.updateGuessYouLike(
       ref.read(playHistoryProvider),
       playlistService: ref.read(playlistServiceProvider),
+      tasteProfile: taste,
     );
     setState(() {
       guessYouLikeList = _recommendationManager.guessYouLikeList;

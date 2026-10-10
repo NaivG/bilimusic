@@ -9,6 +9,8 @@ import 'package:bilimusic/features/player/logic/player_coordinator.dart';
 import 'package:bilimusic/features/playlist/playlist_service.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/playlist.dart';
+import 'package:bilimusic/domain/up_profile.dart';
+import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/features/lan_sync/lan_sync_providers.dart';
 import 'package:bilimusic/features/offline/offline_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
@@ -95,6 +97,15 @@ FutureOr<Menu?> buildMusicContextMenu({
             }
           }
         },
+      ),
+      MenuSeparator(),
+      MenuAction(
+        title: music.artist.name.trim().isEmpty
+            ? '查看 UP 主'
+            : music.artist.displayName,
+        image: MenuImage.icon(Icons.person_outline),
+        attributes: const MenuActionAttributes(),
+        callback: () => _openArtist(context, music),
       ),
       if (playlistService != null) ...[
         MenuSeparator(),
@@ -183,6 +194,35 @@ Menu _buildAddToPlaylistSubmenu(
           callback: () {},
         ),
     ],
+  );
+}
+
+/// 打开 UP 页。
+///
+/// 条目上的 mid 常年可能为空（本地旧数据、非稿件来源），所以这里先过一遍
+/// [ApiService.ensureMid]：缺 mid 才拉一次详情补齐，成功再跳页。
+Future<void> _openArtist(BuildContext context, Music music) async {
+  if (!context.mounted) return;
+  final messenger = ScaffoldMessenger.of(context);
+  Music detailed;
+  try {
+    detailed = await ProviderScope.containerOf(context)
+        .read(apiServiceProvider)
+        .ensureMid(music);
+  } catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text('获取 UP 主信息失败: $e')));
+    return;
+  }
+  if (!detailed.artist.hasMid) {
+    messenger.showSnackBar(const SnackBar(content: Text('该稿件没有 UP 主信息')));
+    return;
+  }
+  ShellPageManager.instance.goToArtist(
+    up: UpProfile(
+      mid: detailed.artist.mid,
+      name: detailed.artist.name,
+      face: detailed.artist.face,
+    ),
   );
 }
 

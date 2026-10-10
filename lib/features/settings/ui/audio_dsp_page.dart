@@ -10,6 +10,7 @@ import 'package:bilimusic/features/player/logic/equalizer_bands.dart';
 import 'package:bilimusic/features/player/logic/equalizer_presets.dart';
 import 'package:bilimusic/features/settings/ui/widgets/compressor_curve.dart';
 import 'package:bilimusic/features/settings/ui/widgets/crossfeed_diagram.dart';
+import 'package:bilimusic/features/settings/ui/widgets/dsp_import_export_section.dart';
 import 'package:bilimusic/features/settings/ui/widgets/equalizer_curve.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
@@ -1035,6 +1036,9 @@ class _AudioDspPageState extends ConsumerState<AudioDspPage> {
               ),
             ],
           ),
+
+          // ── 导入 / 导出 ──
+          const DspImportExportSection(),
         ],
       ),
     );
@@ -1043,8 +1047,7 @@ class _AudioDspPageState extends ConsumerState<AudioDspPage> {
   /// 组装一个折叠模块：头部（标题取自 [m]、展开态按 [_isOpen] 推导）
   /// + 正文（[controls] → [footer] / 重置 → [note]）。
   ///
-  /// 9 个模块全部走这里，结构差异只允许落在参数上——这是「统一风格」
-  /// 能被守住的原因：新增一个效果只要再填一次这些参数，不可能长歪。
+  /// 9 个模块全部走这里，结构差异只允许落在参数上。
   Widget _module({
     required _Module m,
     required IconData icon,

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:bilimusic/domain/artist.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/offline_track.dart';
 import 'package:bilimusic/features/offline/services/offline_cache_service.dart';
@@ -15,7 +16,7 @@ void main() {
       id: id,
       cid: '100',
       title: title,
-      artist: artist,
+      artist: Artist(name: artist),
       album: '',
       coverUrl: '',
       audioUrl: '',

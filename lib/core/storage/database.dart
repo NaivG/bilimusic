@@ -231,6 +231,23 @@ class AppDatabase {
     _db = null;
   }
 
+  /// kv 表：读取键值（不存在返回 null）。
+  Future<String?> kvGet(String k) async {
+    final db = await database;
+    final rows = await db.query('kv', where: 'k = ?', whereArgs: [k], limit: 1);
+    if (rows.isEmpty) return null;
+    return rows.first['v'] as String?;
+  }
+
+  /// kv 表：写入键值（同键覆盖）。
+  Future<void> kvSet(String k, String v) async {
+    final db = await database;
+    await db.insert('kv', {
+      'k': k,
+      'v': v,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
   Future<void> _onCreate(Database db, int version) async {
     final batch = db.batch();
 

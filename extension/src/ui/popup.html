@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="bilimusic">
+  <head>
+    <meta charset="utf-8" />
+    <title>BiliMusic</title>
+    <link rel="stylesheet" href="./vendor/fontawesome.subset.css" />
+    <link rel="stylesheet" href="./vendor/daisyui.subset.css" />
+    <link rel="stylesheet" href="./md3.tokens.css" />
+    <link rel="stylesheet" href="./md3.bridge.css" />
+    <link rel="stylesheet" href="./shared/common.css" />
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <!-- 整页拆成上下两张卡：popup 的外框是 Chrome 原生窗口，形状改不了，
+         于是让方框只挨着平涂的 surface，圆角元素全缩在卡片里（见 popup.css）。
+
+         观感与全页播放页同源：md3.tokens.css 出色彩角色，md3.bridge.css 把它接到
+         daisyUI 变量上，本页只排布局。 -->
+    <section class="card nowCard">
+      <div class="card-body">
+        <header class="npHead">
+          <div class="npCoverWrap coverWrap">
+            <i class="fas fa-music ph" aria-hidden="true"></i>
+            <img id="cover" class="cover" alt="" />
+          </div>
+          <div class="npMeta">
+            <div id="title" class="title">未在播放</div>
+            <div id="artist" class="sub muted">搜索一首歌开始</div>
+          </div>
+          <button id="expand" class="btn btn-ghost btn-circle" title="打开完整播放器">
+            <i class="fas fa-external-link-alt"></i>
+          </button>
+        </header>
+
+        <div class="npProgress">
+          <span id="cur" class="t">0:00</span>
+          <input id="seek" class="range range-primary" type="range" min="0" max="1000" value="0" />
+          <span id="dur" class="t">0:00</span>
+        </div>
+
+        <!-- 与全页播放器同款同序：循环模式 → 上一首 → 播放/暂停 → 下一首 → 收藏 -->
+        <div class="npCtl">
+          <button id="repeat" class="btn btn-ghost btn-circle" title="循环模式：不循环"><i class="fas fa-redo"></i></button>
+          <button id="prev" class="btn btn-ghost btn-circle" title="上一首"><i class="fas fa-step-backward"></i></button>
+          <button id="toggle" class="btn btn-primary playBtn" title="播放"><i class="fas fa-play"></i></button>
+          <button id="next" class="btn btn-ghost btn-circle" title="下一首"><i class="fas fa-step-forward"></i></button>
+          <button id="fav" class="btn btn-ghost btn-circle" title="收藏" disabled><i class="far fa-heart"></i></button>
+        </div>
+
+        <div class="npVolume">
+          <i class="fas fa-volume-up volIcon" title="音量"></i>
+          <input id="volume" class="range range-primary" type="range" min="0" max="100" value="100" />
+        </div>
+
+        <!-- 只报播放错误：空的时候整行塌掉（见 popup.css 的 .statusLine:empty） -->
+        <div id="status" class="statusLine"></div>
+      </div>
+    </section>
+
+    <!-- 下卡片：队列。搜索在全页播放器里，popup 只管看 / 切 / 移 -->
+    <section class="card queueCard">
+      <div class="card-body">
+        <div class="queueBar">
+          <span class="queueTitle"><i class="fas fa-list-ul"></i><span id="queueCount" class="muted">队列为空</span></span>
+          <button id="clearQueue" class="btn btn-ghost btn-xs btn-circle" title="清空队列" disabled>
+            <i class="fas fa-trash-alt"></i>
+          </button>
+        </div>
+        <div id="queueList" class="queueList"></div>
+      </div>
+    </section>
+
+    <script type="module" src="./popup.js"></script>
+  </body>
+</html>

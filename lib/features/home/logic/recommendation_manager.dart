@@ -4,9 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/music_category.dart';
+import 'package:bilimusic/domain/taste_profile.dart';
 import 'package:bilimusic/core/network/bili_client.dart';
 import 'package:bilimusic/core/network/bili_exception.dart';
 import 'package:bilimusic/features/playlist/playlist_service.dart';
+import 'package:bilimusic/features/taste/logic/profile_ranker.dart';
 
 class RecommendationManager {
   static final RecommendationManager _instance =
@@ -46,9 +48,13 @@ class RecommendationManager {
   }
 
   /// 更新猜你喜欢列表（基于播放历史）
+  ///
+  /// [tasteProfile] 可用时在截断/落盘前按口味分重排（现状只有 API 顺序，
+  /// 这是个性化收益最大的一步）；为空则保持原行为。
   Future<void> updateGuessYouLike(
     List<Music> playHistory, {
     PlaylistService? playlistService,
+    TasteProfile? tasteProfile,
   }) async {
     // 检查是否需要更新（每天最多更新一次）
     if (_lastGuessUpdated != null &&
@@ -63,7 +69,7 @@ class RecommendationManager {
         ? playHistory.sublist(0, 5)
         : playHistory;
 
-    final List<Music> guessList = [];
+    List<Music> guessList = [];
     final Set<String> addedIds = {}; // 避免重复添加
 
     for (var music in recentHistory) {
@@ -102,6 +108,11 @@ class RecommendationManager {
       } catch (e) {
         debugPrint('获取相关推荐失败: $e');
       }
+    }
+
+    // 画像重排：口味分降序（填充时的 20 上限已定，这里只换顺序再落盘）
+    if (tasteProfile != null && !tasteProfile.isEmpty && guessList.length > 1) {
+      guessList = await rankByTaste(guessList, profile: tasteProfile);
     }
 
     _guessYouLikeList = guessList;

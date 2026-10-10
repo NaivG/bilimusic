@@ -1,3 +1,4 @@
+import 'package:bilimusic/domain/artist.dart';
 import 'package:bilimusic/shared/utils/title_meta_filter.dart';
 
 /// 收藏夹资源分页结果。
@@ -48,6 +49,8 @@ class FavResource {
   final int duration;
   final String bvid;
   final String upperName;
+  final int upperMid;
+  final String upperFace;
   final int attr; // 0=正常, 1/9=失效
 
   const FavResource({
@@ -60,6 +63,8 @@ class FavResource {
     this.duration = 0,
     this.bvid = '',
     this.upperName = '',
+    this.upperMid = 0,
+    this.upperFace = '',
     this.attr = 0,
   });
 
@@ -81,6 +86,10 @@ class FavResource {
       duration: json['duration'] is int ? json['duration'] as int : 0,
       bvid: json['bvid']?.toString() ?? json['bv_id']?.toString() ?? '',
       upperName: upper is Map ? (upper['name']?.toString() ?? '') : '',
+      upperMid: upper is Map
+          ? int.tryParse(upper['mid']?.toString() ?? '') ?? 0
+          : 0,
+      upperFace: upper is Map ? normalizeFaceUrl(upper['face']) : '',
       attr: json['attr'] is int ? json['attr'] as int : 0,
     );
   }

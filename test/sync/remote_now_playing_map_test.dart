@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:bilimusic/domain/lan_sync_mode.dart';
+import 'package:bilimusic/domain/artist.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/peer_device.dart';
 import 'package:bilimusic/features/lan_sync/lan_sync_providers.dart';
@@ -89,7 +90,7 @@ RemoteNowPlaying _remote(String peerId, String title) {
     music: Music(
       id: title,
       title: title,
-      artist: 'artist',
+      artist: const Artist(name: 'artist'),
       album: 'album',
       coverUrl: '',
       duration: const Duration(minutes: 3),

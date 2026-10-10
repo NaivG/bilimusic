@@ -440,7 +440,7 @@ class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
         id: result.id,
         cid: page.cid,
         title: page.part.isNotEmpty ? page.part : result.title,
-        artist: result.subtitle.split(' - ').first,
+        artist: result.artist,
         album: result.subtitle.split(' - ').last,
         coverUrl: result.coverUrl,
         duration: page.durationValue,

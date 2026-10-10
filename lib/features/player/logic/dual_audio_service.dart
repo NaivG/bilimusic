@@ -105,6 +105,9 @@ class DualAudioService {
   // initialize() 是否已跑过（见其注释里的幂等说明）。
   bool _initialized = false;
 
+  // dispose() 是否已跑过（见其注释里的幂等说明）。
+  bool _disposed = false;
+
   /// 应用层音量是 0.0–1.0 线性值，mpv 的 `volume` 是 0–100 百分比。
   /// 全链路**只此一处换算**，所有调用点一律传应用层值。
   /// `volume-max` 默认 130，应用层 clamp 后天然 ≤100，不需要 setVolumeMax。
@@ -984,8 +987,23 @@ class DualAudioService {
     debugPrint('[DualAudioService] setPlayMode $mode');
   }
 
-  /// 释放资源
+  /// 本实例是否已完成释放（见 [dispose] 的幂等说明）。
+  ///
+  /// 置位在 [dispose] 开头、各资源释放之前，所以「已置位」只代表释放已经开始，
+  /// 不代表已经收尾——await 过那次 [dispose] 的调用方才能当收尾判断用。
+  bool get isDisposed => _disposed;
+
+  /// 释放资源。
+  ///
+  /// **幂等**：容器释放时会遍历整个 provider 图，[DualAudioService] 有两个释放方
+  /// ——组合根的 `dualAudioServiceProvider`（`ref.onDispose`）与持有它的
+  /// `PlayerCoordinator.dispose()`两者都会走到这里。
   Future<void> dispose() async {
+    if (_disposed) {
+      debugPrint('[DualAudioService] 已释放，跳过重复 dispose');
+      return;
+    }
+    _disposed = true;
     debugPrint('[DualAudioService] 开始释放资源');
 
     // 取消所有订阅：先摘出快照再清空列表，避免「cancel 期间又有 add」导致
@@ -1004,16 +1022,20 @@ class DualAudioService {
     // 停止并释放两个播放器：即使上一步出过问题也必须走到这里，
     // 否则 libmpv 线程会带着活跃解码器被进程退出拆掉。
     // dispose() 幂等，且内部会先摘媒体会话再拆 libmpv（不需要手动清理）。
-    for (final info in [_playerA, _playerB]) {
-      try {
-        await info.player.stop();
-      } catch (e) {
-        debugPrint('[DualAudioService] 停止播放器失败 $e');
-      }
-      try {
-        await info.player.dispose();
-      } catch (e) {
-        debugPrint('[DualAudioService] 释放播放器失败 $e');
+    //
+    // 只在 initialize() 真的跑过时走。
+    if (_initialized) {
+      for (final info in [_playerA, _playerB]) {
+        try {
+          await info.player.stop();
+        } catch (e) {
+          debugPrint('[DualAudioService] 停止播放器失败 $e');
+        }
+        try {
+          await info.player.dispose();
+        } catch (e) {
+          debugPrint('[DualAudioService] 释放播放器失败 $e');
+        }
       }
     }
 

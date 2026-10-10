@@ -17,6 +17,7 @@ import 'package:bilimusic/features/player/logic/player_coordinator.dart';
 import 'package:bilimusic/features/playlist/playlist_service.dart';
 import 'package:bilimusic/features/player/pip/pip_service.dart';
 import 'package:bilimusic/features/roam/roaming_service.dart';
+import 'package:bilimusic/features/taste/services/taste_profile_service.dart';
 import 'package:bilimusic/features/lan_sync/services/device_identity.dart';
 import 'package:bilimusic/features/lan_sync/services/lan_sync_service.dart';
 import 'package:bilimusic/features/lan_sync/services/pairing_service.dart';
@@ -26,6 +27,8 @@ import 'package:bilimusic/app/tray_menu.dart';
 import 'package:bilimusic/features/settings/settings_manager.dart';
 import 'package:bilimusic/features/auth/user_manager.dart';
 import 'package:bilimusic/features/fav_sync/fav_sync_manager.dart';
+import 'package:bilimusic/features/following/following_service.dart';
+import 'package:bilimusic/features/artist/artist_service.dart';
 
 /// 应用级服务 / 管理器的依赖容器。
 ///
@@ -144,10 +147,28 @@ final favSyncManagerProvider = Provider<FavSyncManager>((ref) {
   return mgr;
 });
 
+/// 「查看关注」的数据编排（关注列表分页）。
+final followingServiceProvider = Provider<FollowingService>((ref) {
+  return FollowingService(api: ref.watch(apiServiceProvider));
+});
+
+/// 歌手页（UP 页）的数据编排（投稿分页 / 攒队列聚合）。
+final artistServiceProvider = Provider<ArtistService>((ref) {
+  return ArtistService(api: ref.watch(apiServiceProvider));
+});
+
 // ==================== 推荐 ====================
 
 final recommendationManagerProvider = Provider<RecommendationManager>((ref) {
   return RecommendationManager();
+});
+
+// ==================== 音乐画像 ====================
+
+final tasteProfileServiceProvider = Provider<TasteProfileService>((ref) {
+  return TasteProfileService(
+    playlistService: ref.watch(playlistServiceProvider),
+  );
 });
 
 // ==================== 漫游 ====================
@@ -156,6 +177,7 @@ final roamingServiceProvider = Provider<RoamingService>((ref) {
   return RoamingService(
     client: BiliClient(),
     playlistService: ref.watch(playlistServiceProvider),
+    tasteService: ref.watch(tasteProfileServiceProvider),
   );
 });
 

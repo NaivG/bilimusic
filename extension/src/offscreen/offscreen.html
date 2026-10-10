@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>BiliMusic 播放宿主</title>
+  </head>
+  <body>
+    <!--
+      offscreen document：唯一的播放宿主，不渲染任何东西（没有可见窗口），
+      存在的唯一目的就是持有 <audio> 与 Media Session。它只支持 chrome.runtime
+      一个扩展 API——storage / notifications / cookies 全在 service worker 里。
+
+      AUDIO_PLAYBACK 理由会在静音 30 秒后自动关闭本文档，所以 service worker
+      每次播放前都会 ensureOffscreen() 判活并重建。
+    -->
+    <audio id="audio" preload="auto"></audio>
+    <script type="module" src="./audio_host.js"></script>
+  </body>
+</html>

@@ -1,3 +1,4 @@
+import 'package:bilimusic/domain/artist.dart';
 import 'package:bilimusic/shared/utils/title_meta_filter.dart';
 
 /// 音乐渲染样式枚举
@@ -23,7 +24,13 @@ class Music {
   final String id; // bvid
   final String cid; // 分P cid，音视频请求需要
   final String title;
-  final String artist;
+
+  /// 创作者（UP 主）：mid + 昵称 + 头像。
+  ///
+  /// 昵称是列表/播放页直接显示的那一份（用 `artist.displayName` 取）；
+  /// mid 是歌手页的入参，缺失时由 `ApiService.ensureMid` 按需补齐。
+  final Artist artist;
+
   final String album;
   final String coverUrl;
   final Duration? duration;
@@ -63,7 +70,7 @@ class Music {
       id: json['id'] ?? '',
       cid: json['cid'] ?? '',
       title: json['title'] ?? '',
-      artist: json['artist'] ?? '',
+      artist: _artistFromJson(json),
       album: json['album']?.toString() ?? '未知专辑',
       coverUrl: json['coverUrl']?.toString().trim().isEmpty ?? true
           ? fallbackCoverUrl
@@ -89,7 +96,7 @@ class Music {
       'id': id,
       'cid': cid,
       'title': title,
-      'artist': artist,
+      'artist': artist.toJson(),
       'album': album,
       'coverUrl': coverUrl,
       'duration': duration?.inSeconds.toString() ?? '300',
@@ -111,20 +118,41 @@ class Music {
   /// 标题过 [TitleMetaFilter.maybeClean]：设置开启时清掉【MV】【中字】
   /// 这类元信息，关闭时原样返回（实验性，见 title_meta_filter.dart）。
   factory Music.fromArchiveJson(Map<String, dynamic> json) {
-    final owner = json['owner'];
-    final author = json['author'];
-    final ownerName = owner is Map ? owner['name'] as String? : null;
-    final authorName = author is Map ? author['name'] as String? : null;
     final cover = (json['pic'] ?? json['cover']) as String? ?? '';
     return Music(
       id: (json['bvid'] as String?) ?? json['aid']?.toString() ?? '',
       title: TitleMetaFilter.maybeClean(json['title'] as String? ?? ''),
-      artist: authorName ?? ownerName ?? '未知艺术家',
+      artist: _artistFromCard(json),
       album: json['tname'] as String? ?? '未知专辑',
       coverUrl: cover.isNotEmpty ? '$cover$biliCoverThumbSuffix' : '',
       duration: json['duration'] is int
           ? Duration(seconds: json['duration'] as int)
           : null,
+      audioUrl: '',
+    );
+  }
+
+  /// 从 B 站「UP 主投稿明细」条目构造（`space/wbi/arc/search` 的 `vlist`）。
+  ///
+  /// 与 [Music.fromArchiveJson] 有两处不同：
+  ///   - 时长的字段名是 `length`，值是 `MM:SS` / `H:MM:SS` **文本**，
+  ///     不是 `duration` 整数秒；
+  ///   - 条目里没有分区名 `tname`，[album] 由调用方传来源名
+  ///     （如「某某的投稿」）充当列表副标题的第二段。
+  ///
+  /// 与收藏夹导入一样不填 cid。
+  factory Music.fromSpaceArcJson(
+    Map<String, dynamic> json, {
+    String album = '',
+  }) {
+    final cover = json['pic']?.toString() ?? '';
+    return Music(
+      id: json['bvid']?.toString() ?? '',
+      title: TitleMetaFilter.maybeClean(json['title'] as String? ?? ''),
+      artist: Artist.fromFlat(json, faceKey: 'face'),
+      album: album,
+      coverUrl: cover.isNotEmpty ? '$cover$biliCoverThumbSuffix' : '',
+      duration: _parseLength(json['length']?.toString()),
       audioUrl: '',
     );
   }
@@ -137,7 +165,7 @@ class Music {
   String get key => '${id}_$cid';
 
   /// 「artist - album」副标题行（列表项通用，分隔符统一为 ` - `）。
-  String get subtitleText => '$artist - $album';
+  String get subtitleText => '${artist.displayName} - $album';
 
   /// 获取当前分P
   Page? get currentPage {
@@ -161,7 +189,7 @@ class Music {
     String? audioUrl,
     Duration? duration,
     String? title,
-    String? artist,
+    Artist? artist,
     String? album,
     String? coverUrl,
   }) {
@@ -198,6 +226,42 @@ class Music {
 
   String get safeCoverUrl =>
       isValidImageUrl(coverUrl) ? coverUrl : fallbackCoverUrl;
+}
+
+/// 解析落盘/传输 JSON 里的 `artist`。
+///
+/// 老数据（≤1.10.x）存的是昵称字符串，mid / 头像另在两个平铺字段里；
+/// 两种形状都认，缺的补空值。**只有读侧兼容，写侧统一是对象**。
+Artist _artistFromJson(Map<String, dynamic> json) {
+  final raw = json['artist'];
+  if (raw is Map) {
+    return Artist(
+      mid: (raw['mid'] as num?)?.toInt() ?? 0,
+      name: raw['name']?.toString() ?? '',
+      face: raw['face']?.toString() ?? '',
+    );
+  }
+  return Artist(
+    mid: (json['ownerMid'] as num?)?.toInt() ?? 0,
+    name: raw?.toString() ?? '',
+    face: json['ownerFace']?.toString() ?? '',
+  );
+}
+
+/// 解析稿件卡片 JSON 的创作者：优先 `owner` 对象，退回扁平的 `author` / `mid` / `upic`。
+Artist _artistFromCard(Map<String, dynamic> json) {
+  final owner = json['owner'];
+  if (owner is Map) return Artist.fromOwner(owner);
+
+  final author = json['author'];
+  final name = author is Map
+      ? author['name']?.toString() ?? ''
+      : author?.toString() ?? '';
+  return Artist(
+    mid: int.tryParse(json['mid']?.toString() ?? '') ?? 0,
+    name: name,
+    face: normalizeFaceUrl(json['upic']),
+  );
 }
 
 class Page {
@@ -298,4 +362,22 @@ class Page {
       cachedAudioUrl: cachedAudioUrl ?? this.cachedAudioUrl,
     );
   }
+}
+
+/// 解析 B 站列表接口里的 `MM:SS` / `H:MM:SS` 时长文本。
+///
+/// 只认 `:` 分隔的 2~3 段数字，其余（空串、`--:--`、纯数字）一律返回 null——
+/// 猜错时长会让列表显示一个凭空的进度，宁可不显示。
+Duration? _parseLength(String? raw) {
+  if (raw == null) return null;
+  final parts = raw.split(':');
+  if (parts.length < 2 || parts.length > 3) return null;
+
+  var seconds = 0;
+  for (final part in parts) {
+    final value = int.tryParse(part.trim());
+    if (value == null || value < 0) return null;
+    seconds = seconds * 60 + value;
+  }
+  return Duration(seconds: seconds);
 }
