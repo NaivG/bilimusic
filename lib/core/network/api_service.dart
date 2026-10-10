@@ -74,6 +74,40 @@ class ApiService {
     return item.pages.first;
   }
 
+  /// 拉详情补齐 [music] 缺失的视频信息：分P cid 与 UP 主资料（mid / 昵称 / 头像）。
+  ///
+  /// 只补空、不覆盖：列表端点带来的分 P 标题、时长、封面一律保留原样。
+  /// 接口返回码不是 200（[getBiliItemDetails] 返回 null）时原样返回，一个字段都不改。
+  Future<Music> updateVideoDetails(Music music) async {
+    if (music.id.isEmpty) return music;
+    final item = await getBiliItemDetails(music.id);
+    if (item == null) return music;
+
+    Music? page;
+    if (item.pages.isNotEmpty) {
+      page = music.cid.isEmpty
+          ? item.pages.first
+          : item.pages.firstWhere(
+              (p) => p.cid == music.cid,
+              orElse: () => item.pages.first,
+            );
+    }
+    return music.copyWith(
+      cid: music.cid.isNotEmpty ? music.cid : (page?.cid ?? music.cid),
+      artist: _mergeArtist(music.artist, item.owner),
+    );
+  }
+
+  /// 补齐 UP 主 mid：已带 mid 直接返回，否则拉一次详情。
+  ///
+  /// 调用方不必据此隐藏「查看 UP 主」入口——缺 mid 时点进去现补即可，
+  /// 不用像 cid 那样在开库时把整张列表逐条拉一遍。
+  Future<Music> ensureMid(Music music) async {
+    if (music.artist.hasMid) return music;
+    final updated = await updateVideoDetails(music);
+    return updated.artist.hasMid ? updated : music;
+  }
+
   /// 兼容旧接口：返回 [Music]。可选 [pageIndex] / [targetCid] 选择分P。
   ///
   /// 失败时返回仅含 bvid 的占位 [Music]，避免上游链路过早崩。
@@ -408,6 +442,16 @@ class ApiService {
 
   Map<String, dynamic> _stringKeys(Map<dynamic, dynamic> source) {
     return source.map((k, v) => MapEntry(k.toString(), v));
+  }
+
+  /// 详情里的 UP 主只用来补空缺：本地已有的昵称 / 头像不回退，mid 缺失才认详情那份。
+  Artist _mergeArtist(Artist current, Artist fetched) {
+    if (current.hasMid || fetched.mid <= 0) return current;
+    return Artist(
+      mid: fetched.mid,
+      name: current.name.trim().isEmpty ? fetched.name : current.name,
+      face: current.face.isEmpty ? fetched.face : current.face,
+    );
   }
 
   // ====================================================================

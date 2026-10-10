@@ -28,7 +28,7 @@ class Music {
   /// 创作者（UP 主）：mid + 昵称 + 头像。
   ///
   /// 昵称是列表/播放页直接显示的那一份（用 `artist.displayName` 取）；
-  /// mid 决定能否进歌手页——`artist.hasMid` 为假时不展示「查看 UP 主」入口。
+  /// mid 是歌手页的入参，缺失时由 `ApiService.ensureMid` 按需补齐。
   final Artist artist;
 
   final String album;
