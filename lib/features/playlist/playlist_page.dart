@@ -182,6 +182,23 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
     }
   }
 
+  /// 将当前歌单的全部歌曲去重后追加到播放列表末尾
+  Future<void> _addAllToPlaylist() async {
+    if (_songs.isEmpty) return;
+
+    final beforeCount = ref.read(currentPlaylistProvider).length;
+    await ref.read(playlistCommandsProvider.notifier).addAllToPlaylist(_songs);
+    final addedCount = ref.read(currentPlaylistProvider).length - beforeCount;
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(addedCount > 0 ? '已添加 $addedCount 首到播放列表' : '歌曲已在播放列表中'),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
   /// 播放歌曲
   Future<void> _playSong(Music music) async {
     await ref.read(playlistCommandsProvider.notifier).addToPlaylist(music);
@@ -247,6 +264,7 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
         onPlayAll: _playAll,
         onShufflePlay: _shufflePlay,
         onToggleFavorite: _toggleFavorite,
+        onAddToPlaylist: _addAllToPlaylist,
       );
     }
 
@@ -261,6 +279,7 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
       onPlayAll: _playAll,
       onShufflePlay: _shufflePlay,
       onToggleFavorite: _toggleFavorite,
+      onAddToPlaylist: _addAllToPlaylist,
     );
   }
 }

@@ -18,6 +18,7 @@ class PlaylistHero extends StatelessWidget {
   final VoidCallback? onPlayAll;
   final VoidCallback? onShufflePlay;
   final VoidCallback? onToggleFavorite;
+  final VoidCallback? onAddToPlaylist;
 
   const PlaylistHero({
     super.key,
@@ -28,6 +29,7 @@ class PlaylistHero extends StatelessWidget {
     this.onPlayAll,
     this.onShufflePlay,
     this.onToggleFavorite,
+    this.onAddToPlaylist,
   });
 
   @override
@@ -315,7 +317,7 @@ class PlaylistHero extends StatelessWidget {
         SizedBox(
           height: 36,
           child: OutlinedButton.icon(
-            onPressed: hasSongs ? () {} : null,
+            onPressed: hasSongs ? onAddToPlaylist : null,
             icon: Icon(
               Icons.playlist_add,
               size: 18,

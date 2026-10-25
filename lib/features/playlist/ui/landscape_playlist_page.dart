@@ -17,6 +17,7 @@ class LandscapePlaylistPage extends ConsumerWidget {
   final VoidCallback onPlayAll;
   final VoidCallback onShufflePlay;
   final VoidCallback onToggleFavorite;
+  final VoidCallback onAddToPlaylist;
 
   const LandscapePlaylistPage({
     super.key,
@@ -29,6 +30,7 @@ class LandscapePlaylistPage extends ConsumerWidget {
     required this.onPlayAll,
     required this.onShufflePlay,
     required this.onToggleFavorite,
+    required this.onAddToPlaylist,
   });
 
   @override
@@ -63,6 +65,7 @@ class LandscapePlaylistPage extends ConsumerWidget {
                       onPlayAll: onPlayAll,
                       onShufflePlay: onShufflePlay,
                       onToggleFavorite: onToggleFavorite,
+                      onAddToPlaylist: onAddToPlaylist,
                     ),
                   ),
                   // Divider between hero and track list

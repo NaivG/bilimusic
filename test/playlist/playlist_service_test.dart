@@ -171,5 +171,23 @@ void main() {
       expect(service.currentPlaylist.value.length, 1);
       expect(await queueRowCount(db, 'BV1'), 1);
     });
+
+    test('批量追加去重后按顺序拼接到当前队列末尾', () async {
+      final service = PlaylistService();
+      await service.initialize();
+
+      await service.addToPlaylist(music(id: 'BV1', cid: '1'));
+      await service.addAllToPlaylist([
+        music(id: 'BV2', cid: '2'),
+        music(id: 'BV1', cid: '1'),
+        music(id: 'BV3', cid: '3'),
+      ]);
+
+      expect(service.currentPlaylist.value.map((m) => m.key).toList(), [
+        'BV1_1',
+        'BV2_2',
+        'BV3_3',
+      ]);
+    });
   });
 }
