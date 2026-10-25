@@ -97,11 +97,13 @@ class SearchTypeTabs extends StatelessWidget {
 class SearchTypeDropdown extends StatelessWidget {
   final SearchResultType selectedType;
   final Function(SearchResultType) onTypeChanged;
+  final List<SearchResultType> availableTypes;
 
   const SearchTypeDropdown({
     super.key,
     required this.selectedType,
     required this.onTypeChanged,
+    this.availableTypes = const [],
   });
 
   @override
@@ -145,27 +147,32 @@ class SearchTypeDropdown extends StatelessWidget {
           ],
         ),
       ),
-      itemBuilder: (context) => SearchResultType.values
-          .where((t) => t != SearchResultType.upuser) // 隐藏用户类型
-          .map(
-            (type) => PopupMenuItem<SearchResultType>(
-              value: type,
-              child: Row(
-                children: [
-                  Icon(
-                    _getTypeIcon(type),
-                    size: 18,
-                    color: type == selectedType
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(_getTypeLabel(type)),
-                ],
+      itemBuilder: (context) {
+        final types = availableTypes.isEmpty
+            ? SearchResultType.values
+            : availableTypes;
+        return types
+            .where((t) => t != SearchResultType.upuser) // 隐藏用户类型
+            .map(
+              (type) => PopupMenuItem<SearchResultType>(
+                value: type,
+                child: Row(
+                  children: [
+                    Icon(
+                      _getTypeIcon(type),
+                      size: 18,
+                      color: type == selectedType
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(_getTypeLabel(type)),
+                  ],
+                ),
               ),
-            ),
-          )
-          .toList(),
+            )
+            .toList();
+      },
     );
   }
 

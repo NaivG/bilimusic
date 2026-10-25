@@ -58,11 +58,15 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay> {
   }
 
   Future<void> _submitSearch(String query) async {
-    if (query.isEmpty) return;
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return;
     FocusScope.of(context).unfocus();
+    // 搜索在这里发起，结果存进应用级 Provider；搜索结果页只订阅状态。
+    // 这样从分P歌单 / UP 主页返回时页面重建不会重新搜索。
+    ref.read(searchResultsProvider.notifier).search(trimmed);
     ShellPageManager.instance.push(
       ShellPage.searchResults,
-      args: {'query': query},
+      args: {'query': trimmed},
     );
   }
 

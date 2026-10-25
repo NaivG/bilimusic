@@ -428,14 +428,16 @@ class ApiService {
         return SearchResultType.video;
       case 'album':
         return SearchResultType.album;
+      // 搜索聚合接口里没有 `author` / `upuser` 这两个 result_type，
+      // 用户（含 UP 主）统一叫 `bili_user`；后两者仅作兼容。
       case 'author':
+      case 'bili_user':
+      case 'upuser':
         return SearchResultType.author;
       case 'media_bangumi':
         return SearchResultType.bangumi;
       case 'topic':
         return SearchResultType.topic;
-      case 'upuser':
-        return SearchResultType.upuser;
     }
     return null;
   }
