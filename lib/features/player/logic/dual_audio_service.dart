@@ -108,6 +108,12 @@ class DualAudioService {
   // dispose() 是否已跑过（见其注释里的幂等说明）。
   bool _disposed = false;
 
+  // 播放请求世代。内容替换（open）本身由 mpv_audio_kit 的 load epoch 保证
+  // 「后发者胜」，但旧请求在 open 返回后还会继续写音量 / 发起 play()。
+  // 每次 playActive / stop / beginPlayRequest 都会自增这里，旧请求醒来后
+  // 发现世代已变就整段放弃，不再产生任何副作用。
+  int _playEpoch = 0;
+
   /// 应用层音量是 0.0–1.0 线性值，mpv 的 `volume` 是 0–100 百分比。
   /// 全链路**只此一处换算**，所有调用点一律传应用层值。
   /// `volume-max` 默认 130，应用层 clamp 后天然 ≤100，不需要 setVolumeMax。
@@ -677,18 +683,46 @@ class DualAudioService {
     return player.open(mpv.Media(source));
   }
 
+  /// 作废在途的 [playActive]：新切歌意图已出现，但新流还没取到。
+  ///
+  /// 正在出声的旧曲不受影响（新流装载好之前照常播）；但旧流如果只是
+  /// 「已发起 play、还在装载 / 解码」，必须先按住——否则它会在新曲的
+  /// 元数据下突然响起来，直到新流就绪才被替换。
+  void beginPlayRequest() {
+    _playEpoch++;
+    if (!_initialized || _disposed) return;
+    final player = _activePlayer.player;
+    if (player.state.playing) return;
+    unawaited(
+      player.pause().catchError((Object e) {
+        debugPrint('[DualAudioService] 按住旧装载失败（忽略）: $e');
+      }),
+    );
+  }
+
   /// 使用活跃播放器播放URL（或本地文件路径）
   Future<void> playActive(String url) async {
+    final epoch = ++_playEpoch;
     try {
       debugPrint('[DualAudioService] 开始播放 $url');
       _playerState.value = PlayerBuffering();
       await _setSource(_activePlayer.player, url);
+      // 装载期间已有更新的播放请求 / stop：旧请求直接收手，别在它之后
+      // 再写音量、currentUrl 或发起 play() 把新曲盖掉。
+      if (epoch != _playEpoch) {
+        debugPrint('[DualAudioService] 播放请求已过期，放弃 $url');
+        return;
+      }
       // 注意：这里**不能**再 seek(0)。open() 返回只等 loadfile 回复，此刻文件
       // 尚未解码，mpv 对加载中的 seek 直接抛错（实测 MpvException code=-12）。
       // 新 loadfile 本来就从 0 开始（工厂里已关 resumePlayback）。
       _relativeVolume.value = 1.0;
       final v = _numericalValue.value;
       await _activePlayer.player.setVolume(_toMpvVolume(v));
+      if (epoch != _playEpoch) {
+        debugPrint('[DualAudioService] 播放请求已过期（音量阶段），放弃 $url');
+        return;
+      }
       _activePlayer.volume = v;
       _activePlayer.currentUrl = url;
       _activePlayer.isReady = true;
@@ -696,6 +730,10 @@ class DualAudioService {
       // 注意：不立即设置_playerState为playing，让播放器状态监听器来更新状态
       debugPrint('[DualAudioService] 播放命令已发送');
     } catch (e) {
+      if (epoch != _playEpoch) {
+        debugPrint('[DualAudioService] 过期播放请求失败（已忽略） $e');
+        return;
+      }
       debugPrint('[DualAudioService] 播放失败 $e');
       _playerState.value = PlayerIdle();
       rethrow;
@@ -708,6 +746,8 @@ class DualAudioService {
       debugPrint('[DualAudioService] 开始预加载 $url');
       // 注意：不要修改_playerState，因为这是standby播放器，不应该影响UI显示的active状态
 
+      // 新装载开始：上一次预加载的 ready 立即作废，就绪信号只认这一次。
+      _standbyPlayer.isReady = false;
       await _setSource(_standbyPlayer.player, url);
       _standbyPlayer.currentUrl = url;
       // **不能**在这里置位 isReady——open() 返回时文件还没解码，照旧置位
@@ -723,6 +763,20 @@ class DualAudioService {
       _standbyPlayer.isReady = false;
       rethrow;
     }
+  }
+
+  /// 丢弃待命播放器上已装入的指定预加载流。
+  ///
+  /// 预加载完成时用户可能已经切歌，这条流不该留到下一次 crossfade。
+  /// 只认 [url] 对得上的那条流；fade 进行中 standby 是正在接管的另一路，
+  /// 绝不能在这里停。
+  Future<void> discardStandby(String url) async {
+    if (isFading) return;
+    if (_standbyPlayer.currentUrl != url) return;
+    debugPrint('[DualAudioService] 丢弃过期预加载 $url');
+    await _standbyPlayer.player.stop();
+    _standbyPlayer.reset();
+    await _standbyPlayer.player.setVolume(_toMpvVolume(_numericalValue.value));
   }
 
   /// 执行交叉淡入淡出切换（编排：_primeStandby → swap → fade curve → finalize）
@@ -901,6 +955,8 @@ class DualAudioService {
   /// 取消crossfade并准备播放新首歌
   /// 如果url为null，则只取消crossfade状态，不播放新歌曲
   Future<void> cancelAndPlay(String? url) async {
+    // 取消过渡也意味着「当前这次装载不再作数」。
+    _playEpoch++;
     // 清掉 fade 子态
     if (_playerState.value is PlayerPlaying) {
       _playerState.value = PlayerPlaying();
@@ -953,6 +1009,8 @@ class DualAudioService {
 
   /// 停止播放
   Future<void> stop() async {
+    // 先作废在途装载：stop 之后旧请求不得再 play()。
+    _playEpoch++;
     await _activePlayer.player.stop();
     await _standbyPlayer.player.stop();
     // mpv 的 stop 会卸载文件并归零播放头，不需要（也不能）再 seek(0)：
@@ -1004,6 +1062,7 @@ class DualAudioService {
       return;
     }
     _disposed = true;
+    _playEpoch++;
     debugPrint('[DualAudioService] 开始释放资源');
 
     // 取消所有订阅：先摘出快照再清空列表，避免「cancel 期间又有 add」导致

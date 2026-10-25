@@ -85,12 +85,15 @@ class RoamingService {
   }) async {
     if (candidates.isEmpty) return const [];
 
-    // dedup: 排除当前队列和播放历史
-    final existing = <String>{
-      for (final m in _playlistService.currentPlaylist.value) m.key,
-      for (final m in _playlistService.playHistorySnapshot) m.key,
-    };
-    final fresh = candidates.where((m) => !existing.contains(m.key)).toList();
+    // dedup: 排除当前队列和播放历史。空 cid 视为通配——候选来自列表接口
+    // 时通常没有 cid，不能因为队列里那份已经回填过 cid 就放行成第二条。
+    final existing = <Music>[
+      ..._playlistService.currentPlaylist.value,
+      ..._playlistService.playHistorySnapshot,
+    ];
+    final fresh = candidates
+        .where((m) => !existing.any((e) => e.sameTrackAs(m)))
+        .toList();
     if (fresh.isEmpty) return const [];
 
     // 画像融合排序：画像建得起来才走，否则退化为纯 simhash
@@ -240,12 +243,11 @@ class RoamingService {
     return deduped.take(totalSize).toList();
   }
 
-  /// 按 (id, cid) 去重。用于合并多个 [fetchBatch] 结果。
+  /// 按 (id, cid) 去重（空 cid 视为通配）。用于合并多个 [fetchBatch] 结果。
   List<Music> _dedupByIdCid(List<Music> list) {
-    final seen = <String>{};
     final out = <Music>[];
     for (final m in list) {
-      if (seen.add(m.key)) out.add(m);
+      if (!out.any((e) => e.sameTrackAs(m))) out.add(m);
     }
     return out;
   }

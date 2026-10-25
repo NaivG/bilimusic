@@ -39,6 +39,12 @@ class PlaylistService {
   List<PlaylistTag> _defaultTagsCache = const [];
   Future<void>? _initFuture;
 
+  /// 当前队列追加操作的串行链。
+  ///
+  /// 防止异步流程并发调用时竞态。
+  /// PS: 写异步写的属于是。
+  Future<void> _addQueue = Future<void>.value();
+
   PlaylistService();
 
   Database get _dbChecked {
@@ -92,7 +98,7 @@ class PlaylistService {
     Future<Music> Function(Music) ensureCid,
   ) async {
     final snapshot = List<Music>.from(_currentPlaylist.value);
-    final updates = <(int, Music)>[];
+    var didUpdate = false;
     await _dbChecked.transaction((txn) async {
       for (var i = 0; i < snapshot.length; i++) {
         final m = snapshot[i];
@@ -114,7 +120,7 @@ class PlaylistService {
             where: 'seq = ?',
             whereArgs: [rows.first['seq'] as int],
           );
-          updates.add((i, updated));
+          didUpdate = true;
         } catch (e) {
           debugPrint(
             '[PlaylistService] backfill current_track cid failed for ${m.id}: $e',
@@ -122,14 +128,10 @@ class PlaylistService {
         }
       }
     });
-    if (updates.isEmpty) return;
-    final newList = List<Music>.from(_currentPlaylist.value);
-    for (final (idx, updated) in updates) {
-      if (idx < newList.length) {
-        newList[idx] = updated;
-      }
-    }
-    _currentPlaylist.value = newList;
+    if (!didUpdate) return;
+    // 重新读库而不是按索引改内存：ensureCid 可能把某条空 cid 行补成
+    // 队列里已有的分P，这里顺带做一次同一首曲目的收敛。
+    await _loadCurrentPlaylist();
   }
 
   Future<void> _backfillPlayHistory(
@@ -248,6 +250,23 @@ class PlaylistService {
   int _findMusicIndex(List<Music> list, Music music) =>
       list.indexWhere((m) => m.key == music.key);
 
+  /// 当前队列里的同一首曲目。
+  ///
+  /// 与 [_findMusicIndex] 的 (id, cid) 精确判等不同：空 cid 视为通配符，
+  /// 让「先入列、后回填 cid」的队列项仍能被识别为同一首。
+  int _findQueueIndex(List<Music> list, Music music) =>
+      list.indexWhere((m) => m.sameTrackAs(music));
+
+  Future<void> _serializeAdd(Future<void> Function() action) {
+    final next = _addQueue.then((_) => action());
+    // 链本身吞掉异常，调用方仍从 [next] 拿到失败。
+    _addQueue = next.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stackTrace) {},
+    );
+    return next;
+  }
+
   Map<String, Object?> _playlistRow(Playlist p) => {
     'id': p.id,
     'name': p.name,
@@ -324,15 +343,84 @@ class PlaylistService {
 
   Future<void> _loadCurrentPlaylist() async {
     final rows = await _dbChecked.query('current_track', orderBy: 'seq ASC');
-    _currentPlaylist.value = rows
-        .map((r) => _decodeMusic(r['payload'] as String))
-        .whereType<Music>()
-        .toList();
-    if (_currentPlaylist.value.isEmpty) {
-      _currentIndex.value = null;
-    } else if (_currentIndex.value == null ||
-        _currentIndex.value! >= _currentPlaylist.value.length) {
-      _currentIndex.value = null;
+
+    // 队列行去重：旧版本曾把同一首以 (bvid,'') 和 (bvid,cid) 各插一份，
+    // cid 回填后两行的 key 完全相同，播放列表的 ReorderableListView 就会
+    // 撞 GlobalKey。这里在加载时收敛成一份，并顺手清掉落盘重复行。
+    final kept = <({int seq, Music music})>[];
+    final rewritten = <({int seq, Music music})>[];
+    final removals = <int>[];
+    final sourceToKept = <int>[];
+
+    for (final row in rows) {
+      final seq = row['seq'] as int;
+      final music = _decodeMusic(row['payload'] as String);
+      if (music == null) {
+        sourceToKept.add(-1);
+        continue;
+      }
+
+      final keptIndex = kept.indexWhere(
+        (entry) => entry.music.sameTrackAs(music),
+      );
+      if (keptIndex == -1) {
+        sourceToKept.add(kept.length);
+        kept.add((seq: seq, music: music));
+        continue;
+      }
+
+      sourceToKept.add(keptIndex);
+      removals.add(seq);
+
+      // 位置以最早一行为准，但元信息优先用 cid 已补齐的那份。
+      final current = kept[keptIndex];
+      if (current.music.cid.isEmpty && music.cid.isNotEmpty) {
+        final merged = (seq: current.seq, music: music);
+        kept[keptIndex] = merged;
+        rewritten.add(merged);
+      }
+    }
+
+    final list = kept.map((entry) => entry.music).toList();
+    final previousIndex = _currentIndex.value;
+    int? nextIndex;
+    if (previousIndex != null &&
+        previousIndex >= 0 &&
+        previousIndex < sourceToKept.length) {
+      final mapped = sourceToKept[previousIndex];
+      nextIndex = mapped >= 0 && mapped < list.length ? mapped : null;
+    }
+
+    _currentPlaylist.value = list;
+    _currentIndex.value = nextIndex;
+
+    if (removals.isEmpty && rewritten.isEmpty) return;
+    try {
+      await _dbChecked.transaction((txn) async {
+        for (final entry in rewritten) {
+          await txn.update(
+            'current_track',
+            {
+              'cid': entry.music.cid,
+              'payload': jsonEncode(entry.music.toJson()),
+            },
+            where: 'seq = ?',
+            whereArgs: [entry.seq],
+          );
+        }
+        // SQLite 的变量上限通常是 999，按 400 一批删。
+        for (var i = 0; i < removals.length; i += 400) {
+          final chunk = removals.sublist(i, min(i + 400, removals.length));
+          await txn.delete(
+            'current_track',
+            where: 'seq IN (${List.filled(chunk.length, '?').join(',')})',
+            whereArgs: chunk,
+          );
+        }
+      });
+    } catch (e) {
+      // 落盘失败不影响本次内存态（已经去重），下次加载再清。
+      debugPrint('[PlaylistService] 清理 current_track 重复行失败: $e');
     }
   }
 
@@ -429,25 +517,30 @@ class PlaylistService {
     }
   }
 
-  Future<void> addToPlaylist(Music music) async {
-    await _addUniqueToCurrentPlaylist([music]);
-  }
+  Future<void> addToPlaylist(Music music) =>
+      _serializeAdd(() => _addUniqueToCurrentPlaylist([music]));
 
-  Future<void> addAllToPlaylist(List<Music> musics) async {
-    if (musics.isEmpty) return;
-    await _addUniqueToCurrentPlaylist(musics);
+  Future<void> addAllToPlaylist(List<Music> musics) {
+    if (musics.isEmpty) return Future<void>.value();
+    return _serializeAdd(() => _addUniqueToCurrentPlaylist(musics));
   }
 
   Future<void> _addUniqueToCurrentPlaylist(List<Music> musics) async {
-    final existing = _currentPlaylist.value.map((m) => m.key).toSet();
+    final unique = List<Music>.of(_currentPlaylist.value);
     final fresh = <Music>[];
+    final enriched = <Music>[];
     for (final m in musics) {
-      if (!existing.contains(m.key)) {
-        existing.add(m.key);
+      final idx = _findQueueIndex(unique, m);
+      if (idx == -1) {
+        unique.add(m);
         fresh.add(m);
+      } else if (unique[idx].cid.isEmpty && m.cid.isNotEmpty) {
+        // 同一首歌的详情版本：只更新队列里那条，不再追加第二份。
+        unique[idx] = m;
+        enriched.add(m);
       }
     }
-    if (fresh.isEmpty) return;
+    if (fresh.isEmpty && enriched.isEmpty) return;
 
     final db = _dbChecked;
     await db.transaction((txn) async {
@@ -457,6 +550,16 @@ class PlaylistService {
           'cid': m.cid,
           'payload': jsonEncode(m.toJson()),
         });
+      }
+      for (final m in enriched) {
+        await txn.rawUpdate(
+          'UPDATE current_track SET cid = ?, payload = ? '
+          'WHERE seq = ('
+          '  SELECT MIN(seq) FROM current_track '
+          "  WHERE music_id = ? AND (cid = '' OR cid IS NULL)"
+          ')',
+          [m.cid, jsonEncode(m.toJson()), m.id],
+        );
       }
     });
     await _loadCurrentPlaylist();
@@ -508,8 +611,9 @@ class PlaylistService {
 
   Future<void> removeFromPlaylist(Music music) async {
     final list = _currentPlaylist.value;
-    final removeIdx = _findMusicIndex(list, music);
+    final removeIdx = _findQueueIndex(list, music);
     if (removeIdx == -1) return;
+    final removed = list[removeIdx];
 
     // 同步从内存中移除，让 UI 在同一帧 rebuild（Dismissible 要求 onDismissed
     // 触发后父级立刻把 widget 从树中移除，否则会触发 "still in tree" 断言）
@@ -534,7 +638,7 @@ class PlaylistService {
     await _dbChecked.delete(
       'current_track',
       where: 'music_id = ? AND cid = ?',
-      whereArgs: [music.id, music.cid],
+      whereArgs: [removed.id, removed.cid],
     );
     await _loadCurrentPlaylist();
   }
@@ -575,14 +679,20 @@ class PlaylistService {
   }
 
   Future<void> _rewriteCurrentPlaylistInOrder(List<Music> musics) async {
-    if (musics.isEmpty) {
+    final unique = <Music>[];
+    for (final music in musics) {
+      if (!unique.any((m) => m.sameTrackAs(music))) {
+        unique.add(music);
+      }
+    }
+    if (unique.isEmpty) {
       await clearPlaylist();
       return;
     }
     final db = _dbChecked;
     await db.transaction((txn) async {
       await txn.delete('current_track');
-      for (final m in musics) {
+      for (final m in unique) {
         await txn.insert('current_track', {
           'music_id': m.id,
           'cid': m.cid,
