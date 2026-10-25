@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/features/settings/settings_provider.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
 import 'package:bilimusic/shared/utils/platform_helper.dart';
@@ -44,18 +43,6 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   void _onPipChanged() {
     if (mounted) setState(() {});
-  }
-
-  bool _isTabletMode(BuildContext context) {
-    switch (ref.watch(settingsProvider).tabletMode) {
-      case 'on':
-        return true;
-      case 'off':
-        return false;
-      case 'auto':
-      default:
-        return MediaQuery.of(context).size.shortestSide >= 600;
-    }
   }
 
   void _openPlayList() {
@@ -115,7 +102,6 @@ class _AppShellState extends ConsumerState<AppShell> {
     return PortraitShell(
       currentPage: currentPage,
       pageManager: _pageManager,
-      isTabletMode: _isTabletMode(context),
       isPcPlatform: _isPcPlatform,
       onPlayList: _openPlayList,
     );

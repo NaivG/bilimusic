@@ -16,7 +16,6 @@ class SettingsManager extends ChangeNotifier {
   static const String KEY_THEME = 'theme';
   static const String KEY_AUTO_PLAY_NEXT = 'auto_play_next';
   static const String KEY_SHOW_LYRICS = 'show_lyrics';
-  static const String KEY_TABLET_MODE = 'tablet_mode'; // 平板模式设置项
   static const String KEY_FLUID_BACKGROUND = 'fluid_background';
   static const String KEY_BLUR_EFFECT = 'blur_effect'; // 新增毛玻璃取色效果设置项
   static const String KEY_AUDIO_QUALITY = 'audio_quality'; // 播放音质设置项
@@ -59,7 +58,6 @@ class SettingsManager extends ChangeNotifier {
   static const String DEFAULT_THEME = 'lucent';
   static const bool DEFAULT_AUTO_PLAY_NEXT = true;
   static const bool DEFAULT_SHOW_LYRICS = true;
-  static const String DEFAULT_TABLET_MODE = 'auto';
   static const bool DEFAULT_FLUID_BACKGROUND = true;
   static const bool DEFAULT_BLUR_EFFECT = true;
   static const String DEFAULT_AUDIO_QUALITY = '30280'; // 默认 192K 高品
@@ -156,8 +154,6 @@ class SettingsManager extends ChangeNotifier {
         prefs.getBool(KEY_AUTO_PLAY_NEXT) ?? DEFAULT_AUTO_PLAY_NEXT;
     _cache[KEY_SHOW_LYRICS] =
         prefs.getBool(KEY_SHOW_LYRICS) ?? DEFAULT_SHOW_LYRICS;
-    _cache[KEY_TABLET_MODE] =
-        prefs.getString(KEY_TABLET_MODE) ?? DEFAULT_TABLET_MODE;
     _cache[KEY_FLUID_BACKGROUND] =
         prefs.getBool(KEY_FLUID_BACKGROUND) ?? DEFAULT_FLUID_BACKGROUND;
     _cache[KEY_BLUR_EFFECT] =
@@ -260,15 +256,6 @@ class SettingsManager extends ChangeNotifier {
   Future<void> setShowLyrics(bool value) async {
     await _saveSetting(KEY_SHOW_LYRICS, value);
     _cache[KEY_SHOW_LYRICS] = value;
-  }
-
-  /// 获取平板模式设置
-  String get tabletMode => _cache[KEY_TABLET_MODE] ?? DEFAULT_TABLET_MODE;
-
-  /// 设置平板模式
-  Future<void> setTabletMode(String value) async {
-    await _saveSetting(KEY_TABLET_MODE, value);
-    _cache[KEY_TABLET_MODE] = value;
   }
 
   /// 获取流体背景设置
@@ -479,20 +466,6 @@ class SettingsManager extends ChangeNotifier {
         return '深色';
       default:
         return '跟随系统';
-    }
-  }
-
-  /// 获取平板模式的文本描述
-  String getTabletModeText(String mode) {
-    switch (mode) {
-      case 'auto':
-        return '自动';
-      case 'on':
-        return '强制打开';
-      case 'off':
-        return '强制关闭';
-      default:
-        return '自动';
     }
   }
 

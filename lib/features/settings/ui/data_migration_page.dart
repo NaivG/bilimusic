@@ -273,7 +273,6 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
     settings['theme_mode'] = prefs.getString('theme_mode');
     settings['auto_play_next'] = prefs.getBool('auto_play_next');
     settings['show_lyrics'] = prefs.getBool('show_lyrics');
-    settings['tablet_mode'] = prefs.getString('tablet_mode');
     settings['fluid_background'] = prefs.getBool('fluid_background');
     settings['blur_effect'] = prefs.getBool('blur_effect');
     settings[SettingsManager.KEY_VERSION_CODE] =

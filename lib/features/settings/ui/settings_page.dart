@@ -229,25 +229,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               value: settings.blurEffect,
               onChanged: notifier.setBlurEffect,
             ),
-            ListTile(
-              leading: Icon(Icons.tablet, color: _getPrimaryColor(context)),
-              title: Text('平板模式'),
-              subtitle: Text(
-                ref
-                    .read(settingsManagerProvider)
-                    .getTabletModeText(settings.tabletMode),
-              ),
-              trailing: DropdownButton<String>(
-                value: settings.tabletMode,
-                items: [
-                  DropdownMenuItem(value: 'auto', child: Text('自动')),
-                  DropdownMenuItem(value: 'on', child: Text('强制打开')),
-                  DropdownMenuItem(value: 'off', child: Text('强制关闭')),
-                ],
-                onChanged: notifier.setTabletMode,
-              ),
-            ),
-
             // 窗口行为（仅桌面端显示）
             if (PlatformHelper.isDesktop) ...[
               _buildSectionTitle('窗口行为'),

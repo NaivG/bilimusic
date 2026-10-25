@@ -8,13 +8,11 @@ import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/app/shells/shell_widgets.dart';
 import 'package:bilimusic/features/home/home_page.dart';
 
-/// 竖屏模式外壳 - 包含平板模式和手机模式布局
-/// 平板：NavigationRail + 主内容 + 迷你播放器
-/// 手机：主内容 + 迷你播放器 + 底部导航栏
+/// 竖屏模式外壳
+/// 主内容 + 迷你播放器 + 底部导航栏
 class PortraitShell extends ConsumerWidget {
   final ShellPage currentPage;
   final ShellPageManager pageManager;
-  final bool isTabletMode;
   final bool isPcPlatform;
   final VoidCallback onPlayList;
 
@@ -22,7 +20,6 @@ class PortraitShell extends ConsumerWidget {
     super.key,
     required this.currentPage,
     required this.pageManager,
-    required this.isTabletMode,
     required this.isPcPlatform,
     required this.onPlayList,
   });
@@ -30,11 +27,7 @@ class PortraitShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(currentIndexProvider);
-    if (isTabletMode) {
-      return _buildTabletLayout(context, ref);
-    } else {
-      return _buildMobileLayout(context, ref);
-    }
+    return _buildPortraitLayout(context, ref);
   }
 
   /// 是否显示底部导航栏
@@ -53,63 +46,7 @@ class PortraitShell extends ConsumerWidget {
     );
   }
 
-  /// 平板模式布局
-  Widget _buildTabletLayout(BuildContext context, WidgetRef ref) {
-    final selectedIndex = pageManager.selectedTabIndex;
-
-    return Scaffold(
-      appBar: isPcPlatform
-          ? PreferredSize(
-              preferredSize: const Size.fromHeight(40),
-              child: DesktopNavBar(
-                selectedIndex: selectedIndex,
-                onNavTap: (index) => pageManager.goToTab(index),
-              ),
-            )
-          : null,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          buildShellBackground(context, ref),
-          Row(
-            children: [
-              Expanded(
-                child: Stack(
-                  children: [
-                    shellPageSwitcher(
-                      key: pageManager.basePageKey,
-                      child: _buildPageContent(pageManager.baseEntry),
-                    ),
-                    // 详情页独立动画层（与底层切换完全解耦）
-                    buildShellDetailLayer(currentPage: currentPage),
-                    if (_showBottomBar)
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 20,
-                        child: Center(
-                          child: SizedBox(
-                            width: MediaQuery.of(context).size.width * 0.8,
-                            child: MiniPlayerBar(
-                              onExpand: () =>
-                                  pageManager.push(ShellPage.detail),
-                              onPlayList: onPlayList,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 手机模式布局
-  Widget _buildMobileLayout(BuildContext context, WidgetRef ref) {
+  Widget _buildPortraitLayout(BuildContext context, WidgetRef ref) {
     final selectedIndex = pageManager.selectedTabIndex;
 
     return Scaffold(
