@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:bilimusic/domain/taste_profile.dart';
 import 'package:bilimusic/features/taste/logic/profile_builder.dart';
 
 import 'taste_test_helpers.dart';
@@ -64,6 +65,73 @@ void main() {
       expect(profile.keywords.length, 2);
     });
 
+    test('共现边：同歌出现的词形成边，Jaccard 归一化', () async {
+      final profile = await fakeBuilder().build([
+        const ProfileSample(text: 'jazz piano', weight: 1.0),
+        const ProfileSample(text: 'jazz piano', weight: 1.0),
+        const ProfileSample(text: 'jazz blues', weight: 1.0),
+        const ProfileSample(text: 'jazz blues', weight: 1.0),
+      ]);
+
+      final jazzPiano = _edgeOf(profile, 'jazz', 'piano');
+      final jazzBlues = _edgeOf(profile, 'jazz', 'blues');
+      expect(jazzPiano, isNotNull);
+      expect(jazzBlues, isNotNull);
+      expect(jazzPiano!.support, 2);
+      expect(jazzPiano.weight, closeTo(0.5, 1e-9));
+      expect(jazzBlues!.support, 2);
+      expect(jazzBlues.weight, closeTo(0.5, 1e-9));
+      expect(_edgeOf(profile, 'piano', 'blues'), isNull);
+    });
+
+    test('共现支持度不足 2 的边被丢弃', () async {
+      final profile = await fakeBuilder().build([
+        const ProfileSample(text: 'jazz piano', weight: 1.0),
+        const ProfileSample(text: 'jazz piano', weight: 1.0),
+        const ProfileSample(text: 'jazz blues', weight: 1.0),
+        const ProfileSample(text: 'jazz blues', weight: 1.0),
+        const ProfileSample(text: 'piano blues', weight: 1.0),
+      ]);
+
+      expect(_edgeOf(profile, 'piano', 'blues'), isNull);
+    });
+
+    test('forcedTexts 不再污染 df；歌单独有词是孤立节点', () async {
+      final profile = await fakeBuilder().build(
+        [
+          const ProfileSample(text: 'jazz piano', weight: 1.0),
+          const ProfileSample(text: 'jazz piano', weight: 1.0),
+          const ProfileSample(text: 'jazz blues', weight: 1.0),
+          const ProfileSample(text: 'jazz blues', weight: 1.0),
+        ],
+        forcedTexts: const ['jazz', '深夜'],
+      );
+
+      final jazz = profile.keywords.firstWhere((k) => k.term == 'jazz');
+      final night = profile.keywords.firstWhere((k) => k.term == '深夜');
+      expect(jazz.df, 4); // 真实文档频率，不是 1 << 20
+      expect(night.df, 0);
+      expect(_edgeOf(profile, 'jazz', 'piano'), isNotNull);
+      expect(_edgeOf(profile, '深夜', 'jazz'), isNull);
+    });
+
+    test('每节点共现边数受 maxEdgesPerNode 限制', () async {
+      final profile = await fakeBuilder().build([
+        for (var i = 0; i < 2; i++) ...[
+          const ProfileSample(text: 'center aa', weight: 1.0),
+          const ProfileSample(text: 'center bb', weight: 1.0),
+          const ProfileSample(text: 'center cc', weight: 1.0),
+          const ProfileSample(text: 'center dd', weight: 1.0),
+        ],
+      ], maxEdgesPerNode: 2);
+
+      expect(profile.edges.length, 2);
+      expect(
+        profile.edges.every((e) => e.a == 'center' || e.b == 'center'),
+        true,
+      );
+    });
+
     test('空输入 → 空画像', () async {
       final profile = await fakeBuilder().build(const []);
       expect(profile.isEmpty, true);
@@ -81,4 +149,13 @@ void main() {
       expect(a.toJson(), b.toJson());
     });
   });
+}
+
+TasteEdge? _edgeOf(TasteProfile profile, String a, String b) {
+  for (final edge in profile.edges) {
+    if ((edge.a == a && edge.b == b) || (edge.a == b && edge.b == a)) {
+      return edge;
+    }
+  }
+  return null;
 }
