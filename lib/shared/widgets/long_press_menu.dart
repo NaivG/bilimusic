@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/app/app_providers.dart';
@@ -21,7 +19,7 @@ import 'package:super_context_menu/super_context_menu.dart';
 ///
 /// [ref] 可选：传了就多一个「下载到离线缓存」项（需要 Provider 访问权限）。
 /// 不传时菜单与历史行为一致——调用方是 [State]（没有 ref）时不必为此改结构。
-FutureOr<Menu?> buildMusicContextMenu({
+Menu buildMusicContextMenu({
   required BuildContext context,
   required Music music,
   required PlayerCoordinator playerCoordinator,

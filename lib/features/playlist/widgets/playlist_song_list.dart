@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
+import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/utils/formatters.dart';
 import 'package:bilimusic/shared/widgets/long_press_menu.dart';
+import 'package:bilimusic/shared/widgets/music_menu_button.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 
 /// Enhanced song list for playlist page.
@@ -116,8 +118,8 @@ class PlaylistSongList extends ConsumerWidget {
               color: colorScheme.onSurfaceVariant,
             ),
           ),
-          // Heart placeholder
-          const SizedBox(width: 40),
+          // 行尾「下一首播放」+「更多」按钮占位
+          const SizedBox(width: 70),
         ],
       ),
     );
@@ -253,6 +255,27 @@ class _PlaylistTrackRowState extends ConsumerState<PlaylistTrackRow> {
     return '--:--';
   }
 
+  /// 把当前歌曲插到正在播放的曲目后面。
+  Future<void> _playNext() async {
+    final music = widget.music;
+    try {
+      await ref
+          .read(playbackCommandsProvider.notifier)
+          .playNextFromIndex(music);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('已添加到下一首播放"${music.title}"'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('添加下一首播放失败: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -348,15 +371,28 @@ class _PlaylistTrackRowState extends ConsumerState<PlaylistTrackRow> {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  // Heart icon
-                  Icon(
-                    widget.music.isFavorite
-                        ? Icons.favorite
-                        : Icons.favorite_border,
-                    size: 16,
-                    color: widget.music.isFavorite
-                        ? colorScheme.error
-                        : colorScheme.onSurfaceVariant,
+                  // 下一首播放
+                  IconButton(
+                    onPressed: widget.isPlaying ? null : _playNext,
+                    icon: const Icon(Icons.playlist_play),
+                    iconSize: 18,
+                    color: colorScheme.onSurfaceVariant,
+                    disabledColor: colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.35,
+                    ),
+                    tooltip: '下一首播放',
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints.tightFor(
+                      width: 32,
+                      height: 32,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  // 更多菜单
+                  MusicMenuButton(
+                    music: widget.music,
+                    onRemoveFromPlaylist: widget.onRemoveFromPlaylist,
                   ),
                 ],
               ),
