@@ -76,6 +76,8 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay> {
 
     final screenSize = ResponsiveHelper.getScreenSize(context);
     final isDesktop = screenSize == ScreenSize.desktop;
+    // 横屏外壳的标题栏已提供返回入口，搜索页不再重复显示
+    final isLandscape = LandscapeBreakpoints.shouldUseLandscapeLayout(context);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -88,9 +90,9 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay> {
               padding: EdgeInsets.symmetric(horizontal: isDesktop ? 0 : 16),
               child: Row(
                 children: [
-                  if (!isDesktop)
+                  if (!isDesktop && !isLandscape)
                     IconButton(
-                      icon: const Icon(Icons.arrow_back),
+                      icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
                       onPressed: () => ShellPageManager.instance.pop(),
                     ),
                   Expanded(

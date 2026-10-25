@@ -21,7 +21,7 @@ class ChangelogPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AutoAppBar.generateAppBar(title: '更新日志'),
+      appBar: AutoAppBar.generateAppBar(context: context, title: '更新日志'),
       backgroundColor: Colors.transparent,
       body: FutureBuilder<List<ChangelogEntry>>(
         future: _loadChangelog(),

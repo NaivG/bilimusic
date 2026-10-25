@@ -16,6 +16,7 @@ import 'package:bilimusic/features/lan_sync/ui/device_tile.dart';
 import 'package:bilimusic/features/lan_sync/ui/pair_qr_dialog.dart';
 import 'package:bilimusic/features/lan_sync/ui/pair_request_dialog.dart';
 import 'package:bilimusic/shared/utils/clipboard_helpers.dart';
+import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 
 /// 局域网同步设备管理页。
 ///
@@ -71,12 +72,7 @@ class _LanSyncPageState extends ConsumerState<LanSyncPage> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text('局域网同步'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        forceMaterialTransparency: true,
-      ),
+      appBar: AutoAppBar.generateAppBar(context: context, title: '局域网同步'),
       body: mode == LanSyncMode.off
           ? const _OffModeHint()
           : ListView(

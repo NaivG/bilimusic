@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/features/settings/settings_manager.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
+import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/theme/theme_registry.dart';
 import 'package:bilimusic/shared/utils/platform_helper.dart';
@@ -25,12 +26,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final notifier = ref.read(settingsProvider.notifier);
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: Text('设置'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        forceMaterialTransparency: true,
-      ),
+      appBar: AutoAppBar.generateAppBar(context: context, title: '设置'),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

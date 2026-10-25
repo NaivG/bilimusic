@@ -187,6 +187,9 @@ class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
   }
 
   SliverAppBar _buildAppBar(BuildContext context, ScreenSize screenSize) {
+    // 横屏外壳的标题栏已提供返回入口，内页不再重复显示
+    final isLandscape = LandscapeBreakpoints.shouldUseLandscapeLayout(context);
+
     if (screenSize == ScreenSize.desktop) {
       return SliverAppBar(
         backgroundColor: Colors.transparent,
@@ -195,10 +198,11 @@ class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
         automaticallyImplyLeading: false,
         title: Row(
           children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
-              onPressed: () => ShellPageManager.instance.pop(),
-            ),
+            if (!isLandscape)
+              IconButton(
+                icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
+                onPressed: () => ShellPageManager.instance.pop(),
+              ),
             Expanded(
               child: Text(
                 '搜索: ${widget.query}',
@@ -220,10 +224,13 @@ class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
         backgroundColor: Colors.transparent,
         floating: true,
         snap: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => ShellPageManager.instance.pop(),
-        ),
+        automaticallyImplyLeading: false,
+        leading: isLandscape
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
+                onPressed: () => ShellPageManager.instance.pop(),
+              ),
         title: Text(
           '搜索: ${widget.query}',
           style: const TextStyle(fontSize: 16),

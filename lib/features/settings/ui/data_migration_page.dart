@@ -31,7 +31,7 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AutoAppBar.generateAppBar(title: '数据迁移'),
+      appBar: AutoAppBar.generateAppBar(context: context, title: '数据迁移'),
       backgroundColor: Colors.transparent,
       body: SingleChildScrollView(
         child: Padding(

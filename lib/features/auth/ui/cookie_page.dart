@@ -14,7 +14,7 @@ class CookiePage extends StatelessWidget {
     final cookies = NetworkConfig.cookieJar.all;
 
     return Scaffold(
-      appBar: AutoAppBar.generateAppBar(title: 'Cookie 信息'),
+      appBar: AutoAppBar.generateAppBar(context: context, title: 'Cookie 信息'),
       backgroundColor: Colors.transparent,
       bottomSheet: Container(
         alignment: Alignment.bottomCenter,

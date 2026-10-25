@@ -63,7 +63,7 @@ class _TasteProfilePageState extends ConsumerState<TasteProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AutoAppBar.generateAppBar(title: '音乐画像'),
+      appBar: AutoAppBar.generateAppBar(context: context, title: '音乐画像'),
       backgroundColor: Colors.transparent,
       body: ListView(
         padding: const EdgeInsets.all(16),

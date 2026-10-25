@@ -5,7 +5,7 @@ import 'package:bilimusic/domain/bili_fav_folder.dart';
 import 'package:bilimusic/features/fav_sync/models/fav_import_record.dart';
 import 'package:bilimusic/features/fav_sync/fav_sync_manager.dart';
 import 'package:bilimusic/features/fav_sync/ui/import_progress_dialog.dart';
-import 'package:bilimusic/app/shells/shell_page_manager.dart';
+import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 
 /// Bilibili 收藏夹导入页面
 /// 列出用户的 Bilibili 收藏夹，支持导入到本地歌单
@@ -220,17 +220,9 @@ class _FavImportPageState extends ConsumerState<FavImportPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Bilibili 收藏夹导入'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        forceMaterialTransparency: true,
-        leading: ShellPageManager.instance.canPop
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
-                onPressed: () => ShellPageManager.instance.pop(),
-              )
-            : null,
+      appBar: AutoAppBar.generateAppBar(
+        context: context,
+        title: 'Bilibili 收藏夹导入',
       ),
       body: Column(
         children: [
