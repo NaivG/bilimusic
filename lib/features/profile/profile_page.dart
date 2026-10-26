@@ -410,113 +410,128 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   }
 
   void _showPlaylists() {
-    final playlists = ref.read(userPlaylistsProvider);
-
     showModalBottomSheet(
       context: context,
       builder: (context) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.6,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      '我的歌单',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.add),
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _createNewPlaylist();
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: playlists.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.playlist_add,
-                              size: 50,
-                              color: Colors.grey,
-                            ),
-                            const SizedBox(height: 10),
-                            const Text(
-                              '暂无歌单',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            ElevatedButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                _createNewPlaylist();
-                              },
-                              child: const Text('创建歌单'),
-                            ),
-                          ],
+        return Consumer(
+          builder: (context, ref, _) {
+            final playlists = ref.watch(userPlaylistsProvider);
+            return SizedBox(
+              height: MediaQuery.of(context).size.height * 0.6,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          '我的歌单',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      )
-                    : ListView.builder(
-                        itemCount: playlists.length,
-                        itemBuilder: (context, index) {
-                          final playlist = playlists[index];
-                          return FutureBuilder<Playlist?>(
-                            future: ref
-                                .read(playlistServiceProvider)
-                                .getPlaylistDetail(playlist.id),
-                            builder: (context, snapshot) {
-                              final songCount =
-                                  snapshot.data?.songs.length ?? 0;
-                              final tile = ListTile(
-                                leading: const Icon(Icons.queue_music),
-                                title: Text(playlist.name),
-                                subtitle: Text('$songCount 首歌曲'),
-                                onTap: () async {
-                                  Navigator.pop(context);
-                                  if (mounted) {
-                                    ShellPageManager.instance.goToPlaylist(
-                                      playlistId: playlist.id,
-                                    );
-                                  }
-                                },
-                              );
-                              if (playlist.isDefault) return tile;
-                              return ContextMenuWidget(
-                                menuProvider: (_) => buildPlaylistContextMenu(
-                                  context: context,
-                                  playlist: playlist,
-                                  onDelete: () => confirmAndDeletePlaylist(
-                                    context: context,
-                                    playlist: playlist,
-                                    commands: ref.read(
-                                      playlistCommandsProvider.notifier,
-                                    ),
+                        IconButton(
+                          icon: const Icon(Icons.add),
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _createNewPlaylist();
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: playlists.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.playlist_add,
+                                  size: 50,
+                                  color: Colors.grey,
+                                ),
+                                const SizedBox(height: 10),
+                                const Text(
+                                  '暂无歌单',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey,
                                   ),
                                 ),
-                                child: tile,
+                                const SizedBox(height: 20),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    _createNewPlaylist();
+                                  },
+                                  child: const Text('创建歌单'),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: playlists.length,
+                            itemBuilder: (context, index) {
+                              final playlist = playlists[index];
+                              return FutureBuilder<Playlist?>(
+                                future: ref
+                                    .read(playlistServiceProvider)
+                                    .getPlaylistDetail(playlist.id),
+                                builder: (context, snapshot) {
+                                  final songCount =
+                                      snapshot.data?.songs.length ?? 0;
+                                  final tile = ListTile(
+                                    leading: const Icon(Icons.queue_music),
+                                    title: Text(playlist.name),
+                                    subtitle: Text('$songCount 首歌曲'),
+                                    onTap: () async {
+                                      Navigator.pop(context);
+                                      if (mounted) {
+                                        ShellPageManager.instance.goToPlaylist(
+                                          playlistId: playlist.id,
+                                        );
+                                      }
+                                    },
+                                  );
+                                  if (playlist.isDefault) return tile;
+                                  return ContextMenuWidget(
+                                    menuProvider: (_) =>
+                                        buildPlaylistContextMenu(
+                                          context: context,
+                                          playlist: playlist,
+                                          onRename: () =>
+                                              confirmAndRenamePlaylist(
+                                                context: context,
+                                                playlist: playlist,
+                                                commands: ref.read(
+                                                  playlistCommandsProvider
+                                                      .notifier,
+                                                ),
+                                              ),
+                                          onDelete: () =>
+                                              confirmAndDeletePlaylist(
+                                                context: context,
+                                                playlist: playlist,
+                                                commands: ref.read(
+                                                  playlistCommandsProvider
+                                                      .notifier,
+                                                ),
+                                              ),
+                                        ),
+                                    child: tile,
+                                  );
+                                },
                               );
                             },
-                          );
-                        },
-                      ),
+                          ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );

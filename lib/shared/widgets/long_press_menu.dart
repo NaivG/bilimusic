@@ -373,18 +373,95 @@ void _createNewPlaylist(BuildContext context, PlaylistService playlistService) {
 Menu buildPlaylistContextMenu({
   required BuildContext context,
   required Playlist playlist,
+  required VoidCallback onRename,
   required VoidCallback onDelete,
 }) {
   return Menu(
     children: [
       MenuAction(
-        title: '删除歌单',
+        title: '重命名',
+        image: MenuImage.icon(Icons.edit_outlined),
+        callback: onRename,
+      ),
+      MenuSeparator(),
+      MenuAction(
+        title: '删除',
         image: MenuImage.icon(Icons.delete_outline),
         attributes: const MenuActionAttributes(destructive: true),
         callback: onDelete,
       ),
     ],
   );
+}
+
+/// 弹出输入框，确认后把歌单改名为用户输入的名称并提示 SnackBar。
+/// 判定条件与删除一致：系统/默认歌单由调用方跳过，
+/// [PlaylistService.renamePlaylist] 内部也会再拦一次。
+Future<void> confirmAndRenamePlaylist({
+  required BuildContext context,
+  required Playlist playlist,
+  required PlaylistCommands commands,
+}) async {
+  final controller = TextEditingController(text: playlist.name);
+  controller.selection = TextSelection(
+    baseOffset: 0,
+    extentOffset: controller.text.length,
+  );
+  final formKey = GlobalKey<FormState>();
+
+  final newName = await showDialog<String>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('重命名歌单'),
+      content: Form(
+        key: formKey,
+        child: TextFormField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: '歌单名称',
+            hintText: '请输入歌单名称',
+          ),
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return '请输入歌单名称';
+            }
+            return null;
+          },
+          onFieldSubmitted: (_) {
+            if (formKey.currentState!.validate()) {
+              Navigator.pop(ctx, controller.text.trim());
+            }
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('取消'),
+        ),
+        TextButton(
+          onPressed: () {
+            if (formKey.currentState!.validate()) {
+              Navigator.pop(ctx, controller.text.trim());
+            }
+          },
+          child: const Text('确定'),
+        ),
+      ],
+    ),
+  );
+
+  if (newName == null || newName == playlist.name) return;
+  if (!context.mounted) return;
+
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    await commands.renamePlaylist(playlist.id, newName);
+    messenger.showSnackBar(SnackBar(content: Text('已将歌单重命名为"$newName"')));
+  } catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text('重命名失败: $e')));
+  }
 }
 
 /// 弹出确认对话框,确认后调用 [commands] 删除歌单并提示 SnackBar。

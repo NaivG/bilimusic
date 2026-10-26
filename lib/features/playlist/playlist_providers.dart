@@ -178,6 +178,9 @@ class PlaylistCommands extends Notifier<void> {
 
   Future<void> deletePlaylist(String playlistId) =>
       _ps.deletePlaylist(playlistId);
+
+  Future<void> renamePlaylist(String playlistId, String newName) =>
+      _ps.renamePlaylist(playlistId, newName);
 }
 
 final playlistCommandsProvider = NotifierProvider<PlaylistCommands, void>(

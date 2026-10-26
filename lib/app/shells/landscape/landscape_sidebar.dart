@@ -183,6 +183,11 @@ class LandscapeSidebar extends ConsumerWidget {
                 : (_) => buildPlaylistContextMenu(
                     context: context,
                     playlist: p,
+                    onRename: () => confirmAndRenamePlaylist(
+                      context: context,
+                      playlist: p,
+                      commands: ref.read(playlistCommandsProvider.notifier),
+                    ),
                     onDelete: () => confirmAndDeletePlaylist(
                       context: context,
                       playlist: p,
