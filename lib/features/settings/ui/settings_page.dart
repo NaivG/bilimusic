@@ -475,7 +475,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     showAboutDialog(
       context: context,
       applicationName: 'BiliMusic',
-      applicationVersion: '1.10.2',
+      applicationVersion: '1.10.3',
       applicationIcon: Image.asset(
         "assets/ic_launcher.png",
         width: 84,
