@@ -220,7 +220,8 @@ class PlaylistSongList extends ConsumerWidget {
 }
 
 /// Track row widget for playlist song list.
-/// Shows index, title (with artist subtitle), duration, and heart icon.
+/// Shows index, title (with artist subtitle), duration (landscape only),
+/// and heart icon.
 class PlaylistTrackRow extends ConsumerStatefulWidget {
   final Music music;
   final int index;
@@ -357,20 +358,23 @@ class _PlaylistTrackRowState extends ConsumerState<PlaylistTrackRow> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  // Duration
-                  SizedBox(
-                    width: 48,
-                    child: Text(
-                      _formatDuration(widget.music),
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: colorScheme.onSurfaceVariant,
+                  // 竖屏空间有限，不显示时长，避免挤压歌曲标题/歌手信息
+                  if (widget.isLandscape) ...[
+                    const SizedBox(width: 8),
+                    // Duration
+                    SizedBox(
+                      width: 48,
+                      child: Text(
+                        _formatDuration(widget.music),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        textAlign: TextAlign.right,
                       ),
-                      textAlign: TextAlign.right,
                     ),
-                  ),
-                  const SizedBox(width: 4),
+                    const SizedBox(width: 4),
+                  ],
                   // 下一首播放
                   IconButton(
                     onPressed: widget.isPlaying ? null : _playNext,
