@@ -25,7 +25,7 @@ import 'package:bilimusic/domain/playlist_tag.dart';
 /// 并触发 `ValueNotifier`，所以监听者（PlayerCoordinator 的 listeners / UI 重建）拿到
 /// 的永远是数据库的当前状态，没有第二个持有者会漂移。
 class PlaylistService {
-  static const int _maxHistorySize = 100;
+  static const int _maxHistorySize = 150; // 改为150条方便音乐画像构建
 
   final ValueNotifier<List<Music>> _currentPlaylist = ValueNotifier([]);
   final ValueNotifier<int?> _currentIndex = ValueNotifier(null);
