@@ -107,9 +107,6 @@ final playlistServiceProvider = Provider<PlaylistService>((ref) {
 
 // ==================== 登录凭据 ====================
 
-/// `refresh_token` 的 SharedPreferences 键。
-const String _refreshTokenPrefsKey = 'bili_refresh_token_v1';
-
 /// 登录凭据仓库：refresh_token 这类非 Cookie 的登录凭据（SESSDATA 续期要用）。
 ///
 /// Cookie 由 `NetworkConfig.cookieJar` 负责（main.dart 注入落盘钩子）；
@@ -118,9 +115,9 @@ const String _refreshTokenPrefsKey = 'bili_refresh_token_v1';
 final passportStoreProvider = Provider<PassportStore>((ref) {
   Future<SharedPreferences> prefs() => SharedPreferences.getInstance();
   return PassportStore(
-    loader: () async => (await prefs()).getString(_refreshTokenPrefsKey),
+    loader: () async => (await prefs()).getString(PassportStore.prefsKey),
     saver: (json) async =>
-        (await prefs()).setString(_refreshTokenPrefsKey, json),
+        (await prefs()).setString(PassportStore.prefsKey, json),
   );
 });
 

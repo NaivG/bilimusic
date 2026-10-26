@@ -1227,12 +1227,28 @@ class PlaylistService {
   // ==================== export / import / clear ====================
 
   /// 备份导出: 返回与旧 `data_migration_page.dart` 兼容的 key 字符串 map。
+  ///
+  /// 除历史 / 收藏 / 歌单外，还带上当前播放队列、自定义标签和 kv 表。
   Future<Map<String, String?>> exportForBackup() async {
     final db = _dbChecked;
     final result = <String, String?>{};
 
+    result['current_queue'] = _encodeMusicList(_currentPlaylist.value);
     result['play_history'] = _encodeMusicList(_playHistory.value);
     result['favorites'] = _encodeMusicList(_favorites.value);
+    result['custom_tags'] = jsonEncode(
+      _allTags.value
+          .where((tag) => !tag.isSystem)
+          .map((tag) => tag.toJson())
+          .toList(),
+    );
+
+    final kvRows = await db.query('kv');
+    result['kv'] = jsonEncode({
+      for (final row in kvRows)
+        if (row['k'] is String && row['v'] is String)
+          row['k'] as String: row['v'] as String,
+    });
 
     final playlistRows = await db.query('playlist');
     final playlistObjects = <Map<String, dynamic>>[];
@@ -1299,11 +1315,60 @@ class PlaylistService {
       }
 
       await insertMusicList(
+        data['current_queue'],
+        'current_track',
+        withPlayedAt: false,
+      );
+      await insertMusicList(
         data['play_history'],
         'play_history',
         withPlayedAt: true,
       );
       await insertMusicList(data['favorites'], 'favorite', withPlayedAt: false);
+
+      final rawTags = data['custom_tags'];
+      if (rawTags is String) {
+        try {
+          final tags = jsonDecode(rawTags);
+          if (tags is List) {
+            for (final entry in tags) {
+              try {
+                final tag = PlaylistTag.fromJson(
+                  (entry as Map).cast<String, dynamic>(),
+                );
+                if (tag.isSystem) continue;
+                await txn.insert('custom_tag', {
+                  'id': tag.id,
+                  'payload': jsonEncode(tag.toJson()),
+                }, conflictAlgorithm: ConflictAlgorithm.replace);
+              } catch (_) {}
+            }
+          }
+        } catch (_) {}
+      }
+
+      // kv 表是新增的备份内容；旧备份里没有这一项时保留本机数据，
+      // 避免导入旧文件顺手清掉口味画像。
+      final rawKv = data['kv'];
+      Object? kv = rawKv;
+      if (rawKv is String) {
+        try {
+          kv = jsonDecode(rawKv);
+        } catch (_) {
+          kv = null;
+        }
+      }
+      if (kv is Map) {
+        await txn.delete('kv');
+        for (final entry in kv.entries) {
+          if (entry.key is String && entry.value is String) {
+            await txn.insert('kv', {
+              'k': entry.key,
+              'v': entry.value,
+            }, conflictAlgorithm: ConflictAlgorithm.replace);
+          }
+        }
+      }
 
       final playlistEntries = <Map<String, dynamic>>[];
       if (data['user_playlists_enhanced'] is String) {

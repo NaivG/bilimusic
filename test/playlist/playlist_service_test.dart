@@ -190,4 +190,51 @@ void main() {
       ]);
     });
   });
+
+  group('备份导入导出', () {
+    test('当前队列、自定义标签和 kv 表可往返', () async {
+      final service = PlaylistService();
+      await service.initialize();
+
+      await service.addToPlaylist(music(id: 'BV1', cid: '1'));
+      await service.addToPlaylist(music(id: 'BV2', cid: '2'));
+      final tag = await service.createCustomTag(name: 'night', nameCn: '夜晚');
+      await AppDatabase.instance.kvSet('taste_profile_v1', '{"v":1}');
+
+      final backup = await service.exportForBackup();
+      expect(backup['current_queue'], isNotNull);
+      expect(backup['custom_tags'], contains(tag.id));
+      expect(backup['kv'], contains('taste_profile_v1'));
+
+      await service.clearAllUserData();
+      expect(service.currentPlaylist.value, isEmpty);
+      expect(service.getTagById(tag.id), isNull);
+      expect(await AppDatabase.instance.kvGet('taste_profile_v1'), isNull);
+
+      await service.importFromBackup(backup.cast<String, dynamic>());
+
+      expect(service.currentPlaylist.value.map((m) => m.key).toList(), [
+        'BV1_1',
+        'BV2_2',
+      ]);
+      expect(service.getTagById(tag.id)?.nameCn, '夜晚');
+      expect(await AppDatabase.instance.kvGet('taste_profile_v1'), '{"v":1}');
+    });
+
+    test('旧备份没有 kv 时保留本机口味画像', () async {
+      final service = PlaylistService();
+      await service.initialize();
+      await AppDatabase.instance.kvSet('taste_profile_v1', '{"local":true}');
+
+      await service.importFromBackup(<String, dynamic>{
+        'play_history': '[]',
+        'favorites': '[]',
+      });
+
+      expect(
+        await AppDatabase.instance.kvGet('taste_profile_v1'),
+        '{"local":true}',
+      );
+    });
+  });
 }
