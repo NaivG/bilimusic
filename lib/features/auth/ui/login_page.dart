@@ -7,6 +7,7 @@ import 'package:bilimusic/core/network/passport_client.dart';
 import 'package:bilimusic/features/auth/captcha_helper.dart';
 import 'package:bilimusic/shared/utils/platform_helper.dart';
 import 'package:bilimusic/features/auth/ui/qr_login_widget.dart';
+import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 
 enum _LoginMode { sms, password, qr }
 
@@ -551,7 +552,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('登录')),
+      appBar: AutoAppBar.generateAppBar(context: context, title: '登录'),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16.0),
         child: Column(

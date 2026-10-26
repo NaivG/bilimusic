@@ -242,6 +242,19 @@ class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
       );
     }
 
+    // 即使数据层已经把同一首曲目收敛成一条，这里仍按「出现次数」给 key 加后缀。
+    final itemKeys = <String>[];
+    final occurrences = <String, int>{};
+    for (final music in playlist) {
+      final base = '${music.id}_${music.cid}';
+      final occurrence = occurrences.update(
+        base,
+        (count) => count + 1,
+        ifAbsent: () => 0,
+      );
+      itemKeys.add('dismiss-$base-$occurrence');
+    }
+
     return ReorderableListView.builder(
       scrollController: scrollController,
       itemCount: playlist.length,
@@ -275,9 +288,9 @@ class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
         final isPlaying = index == currentIndex;
 
         return Dismissible(
-          // 用 music.id + cid 作稳定键：列表收缩后，已 dismiss 元素的 key 不会
-          // 与下一元素撞车，避免 element 复用导致 _dismissed 状态泄漏
-          key: ValueKey('dismiss-${music.id}-${music.cid}'),
+          // 用 music.id + cid + 同键出现序号作稳定键：列表收缩后，已 dismiss
+          // 元素的 key 不会与下一元素撞车；重复行也有各自的序号。
+          key: ValueKey(itemKeys[index]),
           direction: DismissDirection.startToEnd,
           dismissThresholds: const {DismissDirection.startToEnd: 0.55},
           background: Container(

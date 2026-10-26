@@ -58,11 +58,15 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay> {
   }
 
   Future<void> _submitSearch(String query) async {
-    if (query.isEmpty) return;
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return;
     FocusScope.of(context).unfocus();
+    // 搜索在这里发起，结果存进应用级 Provider；搜索结果页只订阅状态。
+    // 这样从分P歌单 / UP 主页返回时页面重建不会重新搜索。
+    ref.read(searchResultsProvider.notifier).search(trimmed);
     ShellPageManager.instance.push(
       ShellPage.searchResults,
-      args: {'query': query},
+      args: {'query': trimmed},
     );
   }
 
@@ -76,6 +80,8 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay> {
 
     final screenSize = ResponsiveHelper.getScreenSize(context);
     final isDesktop = screenSize == ScreenSize.desktop;
+    // 横屏外壳的标题栏已提供返回入口，搜索页不再重复显示
+    final isLandscape = LandscapeBreakpoints.shouldUseLandscapeLayout(context);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -88,9 +94,9 @@ class _SearchOverlayState extends ConsumerState<SearchOverlay> {
               padding: EdgeInsets.symmetric(horizontal: isDesktop ? 0 : 16),
               child: Row(
                 children: [
-                  if (!isDesktop)
+                  if (!isDesktop && !isLandscape)
                     IconButton(
-                      icon: const Icon(Icons.arrow_back),
+                      icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
                       onPressed: () => ShellPageManager.instance.pop(),
                     ),
                   Expanded(

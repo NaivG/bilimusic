@@ -18,7 +18,8 @@ import 'package:bilimusic/features/playlist/playlist_service.dart';
 ///   - 创建/更新本地歌单
 ///   - 跟踪导入状态
 class FavSyncManager extends ChangeNotifier {
-  static const String _recordsKey = 'fav_import_records';
+  /// 收藏夹导入记录在 SharedPreferences 里的键（数据迁移按此备份）。
+  static const String prefsKey = 'fav_import_records';
 
   final ApiService _api;
   final PlaylistService _playlistService;
@@ -57,7 +58,7 @@ class FavSyncManager extends ChangeNotifier {
   /// 初始化：从持久化存储恢复导入记录
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_recordsKey);
+    final raw = prefs.getString(prefsKey);
     if (raw != null && raw.isNotEmpty) {
       try {
         final decoded = jsonDecode(raw) as List;
@@ -73,7 +74,7 @@ class FavSyncManager extends ChangeNotifier {
   Future<void> _persistRecords() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = jsonEncode(_records.map((r) => r.toJson()).toList());
-    await prefs.setString(_recordsKey, raw);
+    await prefs.setString(prefsKey, raw);
   }
 
   // ==================== 获取收藏夹 ====================

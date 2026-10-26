@@ -234,7 +234,7 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     // 登录/退出后回到本页能即时刷新。
     final userState = ref.watch(userStateProvider);
     return Scaffold(
-      appBar: AutoAppBar.generateAppBar(title: '数据管理'),
+      appBar: AutoAppBar.generateAppBar(context: context, title: '数据管理'),
       backgroundColor: Colors.transparent,
       body: _loading
           ? const Center(child: CircularProgressIndicator())

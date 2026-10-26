@@ -25,14 +25,15 @@ class ProfileSample {
   final double weight;
 }
 
-/// 加权词频画像构建器（纯逻辑，分词器可注入）。
+/// 加权词频画像构建器（纯逻辑，分词器可注入），同时产出词-词共现边。
 ///
-/// 算法（v1 刻意选它而不是 TextRank）：
+/// 算法（v3）：
 /// ```
 /// 每样本分词 → 去停用词 → normalizeTokens
 /// score[term] += sampleWeight × (1 + ln(count))   // 次线性词频
 /// df[term]    += 1                                 // 文档频率
 /// 保留 df ≥ 2 或 forcedTerms 里的词 → 取 topN → 按最大分归一化
+/// 对保留词两两统计共现 → Jaccard 强度 → 每节点保留 topK 条边
 /// ```
 /// 原因：TextRank 在 < 20 条语料上边权噪声很大（冷启动必经阶段），
 /// 而加权词频在任意样本量下都稳定、可解释、确定性强。
@@ -48,10 +49,15 @@ class TasteProfileBuilder {
   /// 构建画像。[forcedTexts] 是服务层直接认定的口味语料（如用户自建
   /// 歌单名、歌单标签名）：走同一套分词清洗，但产出的词条跳过 df 过滤
   /// 并获得 [forcedBoost] 的加分（用户亲手写下的词就是最高权重信号）。
+  ///
+  /// [maxEdgesPerNode] 控制关系图每个节点保留的共现边数；边只从歌曲
+  /// 样本统计，歌单名/标签词只参与节点权重，避免把「歌单名里的词」误
+  /// 当成听歌共现。
   Future<TasteProfile> build(
     List<ProfileSample> samples, {
     List<String> forcedTexts = const [],
     int topN = 48,
+    int maxEdgesPerNode = 5,
     double forcedBoost = 2.5,
     DateTime? now,
   }) async {
@@ -64,6 +70,10 @@ class TasteProfileBuilder {
 
     final score = <String, double>{};
     final df = <String, int>{};
+
+    /// 保留每首歌的「唯一词条集合」，等 topN 收敛后再统计共现。
+    /// 只存归一化后的词条，不存原始文本；样本量 ≤ 历史 100 + 收藏。
+    final docs = <Set<String>>[];
 
     for (final s in samples) {
       if (s.text.trim().isEmpty) continue;
@@ -78,36 +88,110 @@ class TasteProfileBuilder {
         score[term] = (score[term] ?? 0) + s.weight * (1 + math.log(count));
         df[term] = (df[term] ?? 0) + 1;
       });
+      docs.add(counts.keys.toSet());
     }
 
+    final forcedTerms = <String>{};
     for (final text in forcedTexts) {
       final tokens = normalizeTokens(stopFilter(await _segmenter(text)));
       for (final term in tokens.toSet()) {
         score[term] = (score[term] ?? 0) + forcedBoost;
-        df[term] = 1 << 20; // 强制保留，绕过 df 过滤
+        forcedTerms.add(term);
       }
     }
 
-    final kept = score.entries.where((e) => (df[e.key] ?? 0) >= 2).toList()
-      ..sort((a, b) {
-        final byScore = b.value.compareTo(a.value);
-        return byScore != 0 ? byScore : a.key.compareTo(b.key);
-      });
+    final kept =
+        score.entries
+            .where((e) => (df[e.key] ?? 0) >= 2 || forcedTerms.contains(e.key))
+            .toList()
+          ..sort((a, b) {
+            final byScore = b.value.compareTo(a.value);
+            return byScore != 0 ? byScore : a.key.compareTo(b.key);
+          });
 
     if (kept.isEmpty) {
       return TasteProfile(sampleCount: samples.length, updatedAt: updatedAt);
     }
 
     final top = kept.take(topN).toList();
+    if (top.isEmpty) {
+      return TasteProfile(sampleCount: samples.length, updatedAt: updatedAt);
+    }
     final maxScore = top.first.value;
+    final keywords = [
+      for (final e in top)
+        TasteKeyword(
+          term: e.key,
+          weight: e.value / maxScore,
+          df: df[e.key] ?? 0,
+        ),
+    ];
     return TasteProfile(
-      keywords: [
-        for (final e in top)
-          TasteKeyword(term: e.key, weight: e.value / maxScore),
-      ],
+      keywords: keywords,
+      edges: _buildEdges(docs, keywords, maxEdgesPerNode: maxEdgesPerNode),
       sampleCount: samples.length,
       updatedAt: updatedAt,
     );
+  }
+
+  /// 在已保留的 topN 词条之间统计歌曲级共现。
+  ///
+  /// 只用 unique token 计票（同一首歌里重复出现不重复计数），
+  /// `support` 是共同出现的歌曲数，`weight` 是 Jaccard：
+  /// `support / (dfA + dfB - support)`。Jaccard 会惩罚高频万能词，
+  /// 比裸共现次数更适合直接映射成关系图的线宽。
+  List<TasteEdge> _buildEdges(
+    List<Set<String>> docs,
+    List<TasteKeyword> keywords, {
+    required int maxEdgesPerNode,
+  }) {
+    if (maxEdgesPerNode <= 0 || keywords.length < 2) return const [];
+
+    final keptTerms = {for (final k in keywords) k.term};
+    final df = {for (final k in keywords) k.term: k.df};
+    final co = <(String, String), int>{};
+
+    for (final tokens in docs) {
+      final inDoc = tokens.where(keptTerms.contains).toList(growable: false);
+      if (inDoc.length < 2) continue;
+      for (var i = 0; i < inDoc.length; i++) {
+        for (var j = i + 1; j < inDoc.length; j++) {
+          final a = inDoc[i];
+          final b = inDoc[j];
+          final key = a.compareTo(b) < 0 ? (a, b) : (b, a);
+          co[key] = (co[key] ?? 0) + 1;
+        }
+      }
+    }
+
+    final candidates = <TasteEdge>[];
+    for (final entry in co.entries) {
+      final support = entry.value;
+      if (support < 2) continue;
+      final (a, b) = entry.key;
+      final dfA = df[a] ?? 0;
+      final dfB = df[b] ?? 0;
+      if (dfA == 0 || dfB == 0) continue;
+      final union = dfA + dfB - support;
+      if (union <= 0) continue;
+      final weight = (support / union).clamp(0.0, 1.0).toDouble();
+      candidates.add(TasteEdge(a: a, b: b, weight: weight, support: support));
+    }
+    candidates.sort(TasteEdge.compare);
+
+    // 每个节点最多留 maxEdgesPerNode 条边，防止高频词把图拉成毛球。
+    final perNode = <String, int>{};
+    final keptEdges = <TasteEdge>[];
+    for (final edge in candidates) {
+      final degA = perNode[edge.a] ?? 0;
+      final degB = perNode[edge.b] ?? 0;
+      if (degA >= maxEdgesPerNode || degB >= maxEdgesPerNode) continue;
+      keptEdges.add(edge);
+      perNode[edge.a] = degA + 1;
+      perNode[edge.b] = degB + 1;
+    }
+    keptEdges.sort(TasteEdge.compare);
+    return keptEdges;
   }
 
   // ── 默认分词器：snownlp（seg + 停用词表） ──

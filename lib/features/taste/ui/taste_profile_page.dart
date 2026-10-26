@@ -3,13 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/domain/taste_profile.dart';
+import 'package:bilimusic/features/taste/ui/widgets/taste_graph_card.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 
 /// 我的音乐画像（设置 → 音乐画像）。
 ///
-/// 展示 [TasteProfile] 的加权关键词（越重的词视觉上越突出），并提供
-/// 手动重建入口。画像由播放历史 / 收藏 / 歌单名等正信号自动构建，
+/// 展示 [TasteProfile] 的词-词关系图与加权关键词（越重的词视觉上越突出），
+/// 并提供手动重建入口。画像由播放历史 / 收藏 / 歌单名等正信号自动构建，
 /// 每 24 小时更新一次，同时驱动漫游排序与「猜你喜欢」重排。
 class TasteProfilePage extends ConsumerStatefulWidget {
   const TasteProfilePage({super.key});
@@ -62,8 +63,9 @@ class _TasteProfilePageState extends ConsumerState<TasteProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final profile = _profile;
     return Scaffold(
-      appBar: AutoAppBar.generateAppBar(title: '音乐画像'),
+      appBar: AutoAppBar.generateAppBar(context: context, title: '音乐画像'),
       backgroundColor: Colors.transparent,
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -80,6 +82,10 @@ class _TasteProfilePageState extends ConsumerState<TasteProfilePage> {
           else ...[
             _buildStats(context),
             const SizedBox(height: 16),
+            if (profile != null && !profile.isEmpty) ...[
+              TasteGraphCard(profile: profile),
+              const SizedBox(height: 16),
+            ],
             _buildKeywords(context),
             const SizedBox(height: 24),
             _buildRebuildButton(context),

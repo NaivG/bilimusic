@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:bilimusic/shared/widgets/window_drag_area.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
+import 'package:bilimusic/shared/utils/responsive.dart';
 
 /// 自动适配的 AppBar
 /// 在桌面平台整条标题栏可拖动窗口（见 [WindowDragArea]）
 class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Widget? leading;
   final bool automaticallyImplyLeading;
+
+  /// 横屏模式下隐藏 [leading]。
+  ///
+  /// 横屏外壳的标题栏已经提供返回按钮，内页不再重复显示。
+  final bool hideLeadingInLandscape;
   final Widget? title;
   final List<Widget>? actions;
   final Widget? flexibleSpace;
@@ -34,6 +40,7 @@ class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     this.leading,
     this.automaticallyImplyLeading = true,
+    this.hideLeadingInLandscape = false,
     this.title,
     this.actions,
     this.flexibleSpace,
@@ -60,10 +67,16 @@ class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hideLeading =
+        hideLeadingInLandscape &&
+        LandscapeBreakpoints.shouldUseLandscapeLayout(context);
+
     final appBar = AppBar(
       key: key,
-      leading: leading,
-      automaticallyImplyLeading: automaticallyImplyLeading,
+      leading: hideLeading ? null : leading,
+      automaticallyImplyLeading: hideLeading
+          ? false
+          : automaticallyImplyLeading,
       title: title,
       actions: actions,
       flexibleSpace: flexibleSpace,
@@ -94,11 +107,15 @@ class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => Size.fromHeight(
-    toolbarHeight ?? kToolbarHeight + (bottom?.preferredSize.height ?? 0),
+    (toolbarHeight ?? kToolbarHeight) + (bottom?.preferredSize.height ?? 0),
   );
 
-  /// 快速生成带有返回按钮和标题的 AppBar
+  /// 快速生成带有返回按钮和标题的 AppBar。
+  ///
+  /// 横屏外壳的标题栏已有返回按钮，此时内页不再显示；
+  /// 竖屏下仅当页面栈可以返回时才显示。
   static AutoAppBar generateAppBar({
+    required BuildContext context,
     required String title,
     bool showBackButton = true,
     List<Widget>? actions,
@@ -110,16 +127,22 @@ class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
     double? toolbarHeight,
     bool? centerTitle,
   }) {
+    final showBack =
+        showBackButton &&
+        ShellPageManager.instance.canPop &&
+        !LandscapeBreakpoints.shouldUseLandscapeLayout(context);
+
     return AutoAppBar(
       leading:
           leading ??
-          (showBackButton
+          (showBack
               ? IconButton(
-                  icon: const Icon(Icons.arrow_back),
+                  icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
                   onPressed: () => ShellPageManager.instance.pop(),
                 )
               : null),
-      automaticallyImplyLeading: leading != null,
+      automaticallyImplyLeading: false,
+      hideLeadingInLandscape: true,
       title: Text(title),
       actions: actions,
       bottom: bottom,

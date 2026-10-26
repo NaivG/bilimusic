@@ -1,19 +1,10 @@
-import 'dart:convert';
-
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart' show Uint8List;
-
-import 'dart:io' show File;
-
 import 'package:restart_app/restart_app.dart';
 
 import '../../../app/app_providers.dart';
-import '../settings_manager.dart';
-import '../../../shared/utils/platform_helper.dart';
+import '../logic/data_migration_helper.dart';
 
 class DataMigrationPage extends ConsumerStatefulWidget {
   const DataMigrationPage({super.key});
@@ -23,15 +14,25 @@ class DataMigrationPage extends ConsumerStatefulWidget {
 }
 
 class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
+  late final DataMigrationHelper _helper;
+
   bool _isExporting = false;
   bool _isImporting = false;
   String _statusMessage = '';
-  int _exportedItemCount = 0;
+  bool _statusIsError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _helper = DataMigrationHelper(
+      playlistService: ref.read(playlistServiceProvider),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AutoAppBar.generateAppBar(title: '数据迁移'),
+      appBar: AutoAppBar.generateAppBar(context: context, title: '数据迁移'),
       backgroundColor: Colors.transparent,
       body: SingleChildScrollView(
         child: Padding(
@@ -44,13 +45,13 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
                 style: Theme.of(context).textTheme.headlineMedium
                     ?.copyWith(fontWeight: FontWeight.bold),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
                 '导出或导入您的应用数据',
                 style: Theme.of(context).textTheme.bodyMedium
                     ?.copyWith(color: Theme.of(context).hintColor),
               ),
-              SizedBox(height: 32),
+              const SizedBox(height: 32),
 
               // 数据说明
               Card(
@@ -59,19 +60,21 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         '迁移的数据包括：',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      SizedBox(height: 8),
-                      BulletPoint(text: '用户设置（主题、通知等）'),
-                      BulletPoint(text: '播放历史记录'),
-                      BulletPoint(text: '收藏列表（我喜欢的音乐）'),
-                      BulletPoint(text: '用户创建的播放列表'),
-                      BulletPoint(text: '登录Cookie信息'),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 8),
+                      const BulletPoint(text: '用户设置（外观、播放、音效与音频输出等）'),
+                      const BulletPoint(text: '播放历史与收藏列表'),
+                      const BulletPoint(text: '用户创建的播放列表与自定义标签'),
+                      const BulletPoint(text: '当前播放队列'),
+                      const BulletPoint(text: '音量与 DSP 音效配置'),
+                      const BulletPoint(text: '口味画像（KV Cache）与收藏夹同步状态'),
+                      const BulletPoint(text: '登录 Cookie 与 refresh token'),
+                      const SizedBox(height: 16),
                       Text(
-                        '注意：缓存数据不会被迁移',
+                        '注意：缓存数据、离线音频、局域网配对信息不会被迁移',
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.error,
                           fontWeight: FontWeight.bold,
@@ -82,7 +85,7 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
                 ),
               ),
 
-              SizedBox(height: 32),
+              const SizedBox(height: 32),
 
               // 导出数据
               Card(
@@ -91,37 +94,39 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         '导出数据',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      SizedBox(height: 16),
-                      Text('将所有应用数据导出为一个文件，以便在其他设备上导入'),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
+                      const Text('将所有应用数据导出为一个文件，以便在其他设备上导入'),
+                      const SizedBox(height: 16),
                       Center(
                         child: ElevatedButton.icon(
                           onPressed: _isExporting ? null : _exportData,
-                          icon: Icon(Icons.upload_file),
-                          label: Text('导出数据'),
+                          icon: const Icon(Icons.upload_file),
+                          label: const Text('导出数据'),
                         ),
                       ),
                       if (_isExporting) ...[
-                        SizedBox(height: 16),
-                        Center(child: CircularProgressIndicator()),
+                        const SizedBox(height: 16),
+                        const Center(child: CircularProgressIndicator()),
                       ],
                       if (_statusMessage.isNotEmpty) ...[
-                        SizedBox(height: 16),
+                        const SizedBox(height: 16),
                         Center(
                           child: Text(
                             _statusMessage,
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: _statusMessage.contains('成功')
+                              color: _statusIsError
+                                  ? Theme.of(context).colorScheme.error
+                                  : _statusMessage.contains('成功')
                                   ? Colors.green
-                                  : Theme.of(context).colorScheme.error,
+                                  : Theme.of(context).hintColor,
                             ),
                           ),
                         ),
@@ -131,7 +136,7 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
                 ),
               ),
 
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
 
               // 导入数据
               Card(
@@ -140,33 +145,33 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         '导入数据',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      SizedBox(height: 16),
-                      Text('从之前导出的数据文件导入应用数据'),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
+                      const Text('从之前导出的数据文件导入应用数据'),
+                      const SizedBox(height: 16),
                       Center(
                         child: ElevatedButton.icon(
                           onPressed: _isImporting ? null : _importData,
-                          icon: Icon(Icons.download),
-                          label: Text('导入数据'),
+                          icon: const Icon(Icons.download),
+                          label: const Text('导入数据'),
                         ),
                       ),
                       if (_isImporting) ...[
-                        SizedBox(height: 16),
-                        Center(child: CircularProgressIndicator()),
+                        const SizedBox(height: 16),
+                        const Center(child: CircularProgressIndicator()),
                       ],
                     ],
                   ),
                 ),
               ),
 
-              SizedBox(height: 32),
+              const SizedBox(height: 32),
 
               // 注意事项
               Card(
@@ -184,7 +189,7 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
                                 .colorScheme
                                 .onPrimaryContainer,
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           Text(
                             '注意事项',
                             style: TextStyle(
@@ -196,7 +201,7 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
                           ),
                         ],
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       BulletPoint(
                         text: '导入数据将覆盖当前应用数据',
                         textColor: Theme.of(context)
@@ -226,292 +231,165 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
     );
   }
 
-  // 导出数据
+  // ── 导出 ──────────────────────────────────────────────────────────────
+
   Future<void> _exportData() async {
+    if (_isExporting) return;
     setState(() {
       _isExporting = true;
+      _statusIsError = false;
       _statusMessage = '正在导出数据...';
     });
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-
-      // 列表/歌单/收藏/历史数据由 PlaylistService 从 sqflite 给出
-      final listExport = await ref
-          .read(playlistServiceProvider)
-          .exportForBackup();
-
-      final Map<String, dynamic> exportData = {
-        'settings': _exportSettings(prefs),
-        'cookies': prefs.getString('cookies'),
-        'login_time': prefs.getString('login_time'),
-        ...listExport,
-      };
-
-      _exportedItemCount = exportData.keys.length;
-      debugPrint('Exporting data with $_exportedItemCount top-level keys');
-
-      final jsonString = jsonEncode(exportData);
-
-      await _saveToFile(jsonString);
-    } catch (e) {
+      final path = await _helper.exportToFile();
+      if (!mounted) return;
       setState(() {
+        _isExporting = false;
+        _statusMessage = path == null ? '导出已取消' : '导出成功！文件已保存到：$path';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isExporting = false;
+        _statusIsError = true;
         _statusMessage = '导出失败: $e';
-        _isExporting = false;
-      });
-      return;
-    }
-  }
-
-  // 导出设置
-  Map<String, dynamic> _exportSettings(SharedPreferences prefs) {
-    final settings = <String, dynamic>{};
-
-    // 从SettingsManager中定义的所有键导出设置
-    settings['notifications_enabled'] = prefs.getBool('notifications_enabled');
-    settings['download_quality_high'] = prefs.getBool('download_quality_high');
-    settings['theme_mode'] = prefs.getString('theme_mode');
-    settings['auto_play_next'] = prefs.getBool('auto_play_next');
-    settings['show_lyrics'] = prefs.getBool('show_lyrics');
-    settings['tablet_mode'] = prefs.getString('tablet_mode');
-    settings['fluid_background'] = prefs.getBool('fluid_background');
-    settings['blur_effect'] = prefs.getBool('blur_effect');
-    settings[SettingsManager.KEY_VERSION_CODE] =
-        SettingsManager.DEFAULT_VERSION_CODE;
-
-    return settings;
-  }
-
-  // 保存到文件（移动端/桌面端）
-  Future<void> _saveToFile(String content) async {
-    try {
-      String fileName =
-          'bilimusic_data_${DateTime.now().millisecondsSinceEpoch}.json';
-
-      if (PlatformHelper.isMobile) {
-        // 移动端需要传入文件内容
-        String? outputFile = await FilePicker.platform.saveFile(
-          dialogTitle: '请选择保存位置:',
-          fileName: fileName,
-          type: FileType.custom,
-          allowedExtensions: ['json'],
-          bytes: Uint8List.fromList(utf8.encode(content)),
-        );
-
-        if (outputFile != null) {
-          setState(() {
-            _statusMessage = '导出成功！文件已保存到：$outputFile';
-            _isExporting = false;
-          });
-        } else {
-          setState(() {
-            _statusMessage = '导出已取消';
-            _isExporting = false;
-          });
-        }
-      } else {
-        // 桌面端让用户选择保存位置
-        String? outputFile = await FilePicker.platform.saveFile(
-          dialogTitle: '请选择保存位置:',
-          fileName: fileName,
-          type: FileType.custom,
-          allowedExtensions: ['json'],
-        );
-
-        if (outputFile != null) {
-          final file = File(outputFile);
-          await file.writeAsString(content);
-
-          setState(() {
-            _statusMessage = '导出成功！文件已保存到：$outputFile';
-            _isExporting = false;
-          });
-        } else {
-          setState(() {
-            _statusMessage = '导出已取消';
-            _isExporting = false;
-          });
-        }
-      }
-    } catch (e) {
-      setState(() {
-        _statusMessage = '保存文件失败: $e';
-        _isExporting = false;
       });
     }
   }
 
-  // 导入数据
+  // ── 导入 ──────────────────────────────────────────────────────────────
+
   Future<void> _importData() async {
-    setState(() {
-      _isImporting = true;
-    });
+    if (_isImporting) return;
+    setState(() => _isImporting = true);
 
     try {
-      // 让用户选择文件
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['json'],
-        dialogTitle: '请选择数据文件',
+      final backup = await _helper.pickBackupFile();
+      if (backup == null) {
+        _showMessage('已取消导入');
+        return;
+      }
+      if (!mounted) return;
+
+      // 版本异常与覆盖确认合成一次弹窗，避免连续两次打断用户。
+      final warning = _compatibilityWarning(backup.compatibility);
+      final confirmed = await _confirm(
+        warning?.title ?? '导入数据',
+        warning?.message ??
+            '导入将覆盖当前设置、登录状态、歌单、播放历史、收藏与播放队列，'
+                '且无法撤销。\n\n确定继续吗？',
       );
-
-      if (result != null) {
-        String filePath = result.files.single.path!;
-        final file = File(filePath);
-        final content = await file.readAsString();
-
-        // 解析JSON数据
-        final Map<String, dynamic> importData = jsonDecode(content);
-
-        // 版本验证
-        final appVersionCode = SettingsManager.DEFAULT_VERSION_CODE;
-        final dataVersionCode = importData['settings'] != null
-            ? (importData['settings'][SettingsManager.KEY_VERSION_CODE] as int?)
-            : null;
-
-        // 选文件与读文件都可能等很久，弹窗前确认页面还在
-        if (!mounted) return;
-
-        // 如果数据文件中没有版本号或者版本号大于当前应用版本，则提示用户
-        if (dataVersionCode == null) {
-          // 数据文件中没有版本信息
-          final shouldContinue = await showDialog<bool>(
-            context: context,
-            builder: (context) {
-              return AlertDialog(
-                icon: Icon(Icons.warning),
-                title: Text('版本信息缺失'),
-                content: Text(
-                  '导入的数据文件中不包含版本信息，可能存在兼容性问题，请确认是否选择了正确的数据文件。'
-                  '\n如果此文件是在 1.3.04 以下的版本导出的，请忽视此提示。',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: Text('取消'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: Text('继续导入'),
-                  ),
-                ],
-              );
-            },
-          );
-
-          if (shouldContinue != true) {
-            setState(() {
-              _isImporting = false;
-            });
-            return;
-          }
-        } else if (dataVersionCode > appVersionCode) {
-          // 数据文件版本高于当前应用版本
-          final shouldContinue = await showDialog<bool>(
-            context: context,
-            builder: (context) {
-              return AlertDialog(
-                icon: Icon(Icons.warning),
-                title: Text('数据版本不兼容'),
-                content: Text(
-                  '导入的数据文件版本为 $dataVersionCode，'
-                  '高于当前应用版本 $appVersionCode，可能存在兼容性问题。是否继续导入？',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: Text('取消'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: Text('继续导入'),
-                  ),
-                ],
-              );
-            },
-          );
-
-          if (shouldContinue != true) {
-            setState(() {
-              _isImporting = false;
-            });
-            return;
-          }
-        }
-
-        // 保存数据到SharedPreferences
-        final prefs = await SharedPreferences.getInstance();
-
-        // 导入设置
-        if (importData['settings'] != null) {
-          final settings = importData['settings'] as Map<String, dynamic>;
-          for (var entry in settings.entries) {
-            if (entry.value is bool) {
-              await prefs.setBool(entry.key, entry.value);
-            } else if (entry.value is String) {
-              await prefs.setString(entry.key, entry.value);
-            }
-          }
-        }
-
-        // 列表数据统一交给 PlaylistService 处理
-        await ref.read(playlistServiceProvider).importFromBackup(importData);
-
-        // 导入Cookie信息
-        if (importData['cookies'] != null) {
-          await prefs.setString('cookies', importData['cookies']);
-        }
-        if (importData['login_time'] != null) {
-          await prefs.setString('login_time', importData['login_time']);
-        }
-
-        setState(() {
-          _isImporting = false;
-        });
-
-        // 显示成功消息并建议重启
-        if (mounted) {
-          final shouldRestart = await showDialog<bool>(
-            context: context,
-            builder: (context) {
-              return AlertDialog(
-                title: Text('导入成功'),
-                content: Text('数据导入完成，建议重启应用以确保所有设置生效。是否现在重启？'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: Text('稍后重启'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: Text('立即重启'),
-                  ),
-                ],
-              );
-            },
-          );
-
-          if (shouldRestart == true) {
-            // 重启应用
-            await Restart.restartApp(mode: RestartMode.process);
-          }
-        }
-      } else {
-        // 用户取消选择
-        setState(() {
-          _isImporting = false;
-        });
+      if (!confirmed) {
+        _showMessage('已取消导入');
+        return;
       }
+
+      await _helper.restore(backup.data);
+      if (!mounted) return;
+      setState(() => _isImporting = false);
+      await _showRestartDialog();
+    } on DataMigrationFormatException catch (e) {
+      _showMessage('文件无法识别: ${e.message}');
     } catch (e) {
-      setState(() {
-        _isImporting = false;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('导入失败: $e')));
-      }
+      _showMessage('导入失败: $e');
+    } finally {
+      if (mounted) setState(() => _isImporting = false);
     }
+  }
+
+  ({String title, String message})? _compatibilityWarning(
+    BackupCompatibility compatibility,
+  ) {
+    if (compatibility.newerFormat) {
+      return (
+        title: '备份格式较新',
+        message:
+            '该备份由更新版本的应用生成（格式 v${compatibility.formatVersion}，'
+            '当前支持 v${DataMigrationHelper.formatVersion}），'
+            '部分数据可能无法识别。\n\n'
+            '继续导入将覆盖当前应用数据，是否继续？',
+      );
+    }
+    if (compatibility.missingVersion) {
+      return (
+        title: '版本信息缺失',
+        message:
+            '导入的数据文件中不包含版本信息，可能存在兼容性问题，'
+            '请确认是否选择了正确的数据文件。\n'
+            '如果此文件是在 1.3.04 以下的版本导出的，请忽视此提示。\n\n'
+            '继续导入将覆盖当前应用数据，是否继续？',
+      );
+    }
+    if (compatibility.newerThanApp) {
+      return (
+        title: '数据版本不兼容',
+        message:
+            '导入的数据文件版本为 ${compatibility.dataVersionCode}，'
+            '高于当前应用版本 ${compatibility.appVersionCode}，'
+            '可能存在兼容性问题。\n\n'
+            '继续导入将覆盖当前应用数据，是否继续？',
+      );
+    }
+    return null;
+  }
+
+  Future<bool> _confirm(String title, String message) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          icon: const Icon(Icons.warning_amber),
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('继续导入'),
+            ),
+          ],
+        );
+      },
+    );
+    return confirmed ?? false;
+  }
+
+  Future<void> _showRestartDialog() async {
+    final shouldRestart = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('导入成功'),
+          content: const Text('数据导入完成，建议重启应用以确保所有设置生效。是否现在重启？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('稍后重启'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('立即重启'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldRestart == true) {
+      await Restart.restartApp(mode: RestartMode.process);
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -519,8 +397,7 @@ class BulletPoint extends StatelessWidget {
   final String text;
   final Color? textColor;
 
-  const BulletPoint({Key? key, required this.text, this.textColor})
-    : super(key: key);
+  const BulletPoint({super.key, required this.text, this.textColor});
 
   @override
   Widget build(BuildContext context) {

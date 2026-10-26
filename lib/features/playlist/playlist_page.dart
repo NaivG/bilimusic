@@ -10,6 +10,7 @@ import 'package:bilimusic/features/playlist/ui/portrait_playlist_page.dart';
 import 'package:bilimusic/features/playlist/ui/landscape_playlist_page.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
+import 'package:bilimusic/features/playlist/playlist_entries_io.dart';
 
 /// 播放列表页面
 /// 根据屏幕方向路由到竖屏或横屏布局
@@ -33,7 +34,6 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
   // 状态
   List<Music> _songs = [];
   bool _isLoading = true;
-  bool _isFavorited = false;
   Playlist? _currentPlaylist;
 
   @override
@@ -73,13 +73,6 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
           _currentPlaylist = detail;
           _songs = detail.songs;
         }
-      }
-
-      // 检查是否已收藏
-      if (_songs.isNotEmpty) {
-        _isFavorited = ref
-            .read(playlistServiceProvider)
-            .isFavorite(_songs.first);
       }
     } catch (e) {
       debugPrint('Failed to load playlist data: $e');
@@ -159,27 +152,133 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
     }
   }
 
-  /// 收藏/取消收藏
-  Future<void> _toggleFavorite() async {
+  /// 将当前歌单的全部歌曲去重后追加到播放列表末尾
+  Future<void> _addAllToPlaylist() async {
     if (_songs.isEmpty) return;
 
-    final music = _songs.first;
-    final newState = await ref
-        .read(playlistCommandsProvider.notifier)
-        .toggleFavorite(music);
+    final beforeCount = ref.read(currentPlaylistProvider).length;
+    await ref.read(playlistCommandsProvider.notifier).addAllToPlaylist(_songs);
+    final addedCount = ref.read(currentPlaylistProvider).length - beforeCount;
 
-    setState(() {
-      _isFavorited = newState;
-    });
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(addedCount > 0 ? '已添加 $addedCount 首到播放列表' : '歌曲已在播放列表中'),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(newState ? '已添加到收藏' : '已取消收藏'),
-          duration: const Duration(seconds: 1),
-        ),
-      );
+  bool get _canImportEntries => widget.playlistId != 'history';
+
+  /// 导出当前歌单的条目（只含歌曲，不含歌单元信息）。
+  Future<void> _exportEntries() async {
+    if (_songs.isEmpty) {
+      _showSnack('当前歌单没有可导出的条目');
+      return;
     }
+
+    final name = _currentPlaylist?.displayName ?? widget.playlistName ?? '播放列表';
+    try {
+      final path = await PlaylistEntriesIo.exportToFile(
+        songs: _songs,
+        playlistName: name,
+      );
+      if (path == null || !mounted) return;
+      _showSnack('已导出 ${_songs.length} 首条目');
+    } catch (e) {
+      _showSnack('导出失败：$e');
+    }
+  }
+
+  /// 导入条目并追加到当前歌单，已存在的条目不重复添加。
+  Future<void> _importEntries() async {
+    if (!_canImportEntries) {
+      _showSnack('最近播放不支持导入条目');
+      return;
+    }
+
+    try {
+      final imported = await PlaylistEntriesIo.importFromFile();
+      if (imported == null || !mounted) return;
+
+      final added = await _appendImportedEntries(imported);
+      if (!mounted) return;
+      _showSnack(added > 0 ? '已导入 $added 首条目' : '条目都已在当前歌单中');
+    } on PlaylistEntriesFormatException catch (e) {
+      _showSnack('无法导入：${e.message}');
+    } catch (e) {
+      _showSnack('导入失败：$e');
+    }
+  }
+
+  Future<int> _appendImportedEntries(List<Music> imported) async {
+    final service = ref.read(playlistServiceProvider);
+    final playlistId = widget.playlistId;
+
+    if (playlistId == 'favorites') {
+      var added = 0;
+      for (final music in imported) {
+        if (service.isFavorite(music)) continue;
+        await service.addToFavorites(music);
+        added++;
+      }
+      _syncSongs(service.favoritesSnapshot);
+      return added;
+    }
+
+    if (playlistId == 'recommended') {
+      final id = playlistId!;
+      final before = (await service.loadPlaylistSongs(id)).length;
+      await service.addSongsToPlaylist(id, imported);
+      final songs = await service.loadPlaylistSongs(id);
+      _syncSongs(songs);
+      return songs.length - before;
+    }
+
+    if (playlistId != null && service.getPlaylistInfo(playlistId) != null) {
+      final before = _songs.length;
+      await service.addSongsToPlaylist(playlistId, imported);
+      final songs = await service.loadPlaylistSongs(playlistId);
+      _syncSongs(songs);
+      return songs.length - before;
+    }
+
+    if (playlistId == 'queue') {
+      final before = ref.read(currentPlaylistProvider).length;
+      await ref
+          .read(playlistCommandsProvider.notifier)
+          .addAllToPlaylist(imported);
+      final songs = List<Music>.from(ref.read(currentPlaylistProvider));
+      _syncSongs(songs);
+      return songs.length - before;
+    }
+
+    // 搜索结果等临时页面只有本地条目，直接补进当前列表。
+    final existing = _songs.map((music) => music.key).toSet();
+    final fresh = imported.where((music) => existing.add(music.key)).toList();
+    if (fresh.isNotEmpty) _syncSongs([..._songs, ...fresh]);
+    return fresh.length;
+  }
+
+  void _syncSongs(List<Music> songs) {
+    if (!mounted) return;
+    setState(() {
+      _songs = songs;
+      _currentPlaylist = _currentPlaylist?.copyWith(
+        songs: _songs,
+        songCount: _songs.length,
+      );
+    });
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+      );
   }
 
   /// 播放歌曲
@@ -241,12 +340,14 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
         playlistId: widget.playlistId,
         songs: _songs,
         currentPlaylist: _currentPlaylist,
-        isFavorited: _isFavorited,
         onSongTap: _playSong,
         onRemoveSong: _removeSong,
         onPlayAll: _playAll,
         onShufflePlay: _shufflePlay,
-        onToggleFavorite: _toggleFavorite,
+        onAddToPlaylist: _addAllToPlaylist,
+        onExportEntries: _exportEntries,
+        onImportEntries: _importEntries,
+        canImportEntries: _canImportEntries,
       );
     }
 
@@ -255,12 +356,14 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
       playlistId: widget.playlistId,
       songs: _songs,
       currentPlaylist: _currentPlaylist,
-      isFavorited: _isFavorited,
       onSongTap: _playSong,
       onRemoveSong: _removeSong,
       onPlayAll: _playAll,
       onShufflePlay: _shufflePlay,
-      onToggleFavorite: _toggleFavorite,
+      onAddToPlaylist: _addAllToPlaylist,
+      onExportEntries: _exportEntries,
+      onImportEntries: _importEntries,
+      canImportEntries: _canImportEntries,
     );
   }
 }

@@ -55,6 +55,15 @@ class PlayerCoordinator {
   int? _preloadedIndex; // 记录已预加载的音乐索引
   String? _standbyQualityId; // 已预加载待命流的实际音质，crossfade 切换后生效
 
+  // 播放意图世代：每次「应该播哪首」变化时自增。
+  // 取流 / 预加载都是异步的，回来时必须确认意图没变——否则慢一步的旧曲
+  // 会落在新曲之后，出现「元数据是新曲、声音是旧曲」。
+  int _playIntentEpoch = 0;
+
+  // 最新一次切歌请求的世代；非 null 表示它还在取流 / 装载。
+  // 这段时间里旧曲的 EOF 和预加载触发都要暂避，不能把索引再往前推。
+  int? _pendingPlayIntent;
+
   // 定时关闭（播完整首再停止）：到点后不立即暂停，等当前曲目自然播完再暂停。
   // 由 SleepTimerService 经 armPauseAfterCurrentTrack 置位；
   // 手动切歌 / 恢复播放 / 取消定时都会清除。
@@ -228,13 +237,21 @@ class PlayerCoordinator {
           : music;
 
       var idx = _playlistService.currentPlaylist.value.indexWhere(
-        (m) => m.key == candidate.key,
+        (m) => _sameTrack(m, candidate),
       );
 
       if (idx == -1) {
         await _playlistService.addToPlaylist(candidate);
         idx = _playlistService.currentPlaylist.value.indexWhere(
-          (m) => m.key == candidate.key,
+          (m) => _sameTrack(m, candidate),
+        );
+        if (idx == -1) return;
+      } else if (_playlistService.currentPlaylist.value[idx].cid.isEmpty &&
+          candidate.cid.isNotEmpty) {
+        // 队列里是同 bvid 的 cid 未回填版本：原地补 cid，不要再插一份。
+        await _playlistService.updateToPlaylist(candidate);
+        idx = _playlistService.currentPlaylist.value.indexWhere(
+          (m) => _sameTrack(m, candidate),
         );
         if (idx == -1) return;
       }
@@ -255,15 +272,79 @@ class PlayerCoordinator {
   /// `_playCurrentTrack` 的 public 转发，供 onboarding apply 步骤调用。
   Future<void> playCurrentTrack() => _playCurrentTrack();
 
+  /// 开始一次新的播放意图，返回本次请求的世代号。
+  ///
+  /// 同步作废所有在途请求（取流中的 [_playCurrentTrack]、预加载中的
+  /// [_triggerPreload]）以及 [DualAudioService] 里尚未落地的旧装载。
+  int _beginPlayIntent() {
+    final epoch = ++_playIntentEpoch;
+    _pendingPlayIntent = epoch;
+    _audioService.beginPlayRequest();
+    return epoch;
+  }
+
+  /// 本次请求是否仍是最新意图。每个 await 之后都要问一次再产生副作用。
+  bool _isCurrentIntent(int epoch) => epoch == _playIntentEpoch;
+
+  /// 是否有切歌请求正在取流 / 装载。
+  bool get _hasPendingPlayIntent => _pendingPlayIntent != null;
+
+  /// 作废在途请求并结束「装载中」状态（停止 / 清空队列用）。
+  void _cancelPendingPlayIntent() {
+    _playIntentEpoch++;
+    _pendingPlayIntent = null;
+  }
+
+  void _clearPreloadState() {
+    _preloadedMusic = null;
+    _preloadedIndex = null;
+    _standbyQualityId = null;
+  }
+
+  /// 同一首曲目。cid 允许一边为空：队列项先入列、详情后回填 cid 时，
+  /// 不能因此把已经预加载好的流判成过期。
+  bool _sameTrack(Music a, Music b) => a.sameTrackAs(b);
+
+  /// 队列里 [index] 处是否仍是 [music]。索引可能因插入 / 删除而漂移，
+  /// 预加载回来时要用它确认目标没变。
+  bool _queueEntryMatches(int index, Music music) {
+    final playlist = _playlistService.currentPlaylist.value;
+    return index >= 0 &&
+        index < playlist.length &&
+        _sameTrack(playlist[index], music);
+  }
+
+  /// 待命流是否仍对应队列里的下一首。
+  ///
+  /// 仅凭 [DualAudioService.isStandbyReady] 不够：手动切歌会清掉预加载记录，
+  /// 但待命播放器上的旧流还在（且仍是 ready）。不校验记录就 crossfade，
+  /// 会把上一首预加载的音频当成新的下一首播出来。
+  bool get _hasValidPreload {
+    final index = _preloadedIndex;
+    final music = _preloadedMusic;
+    if (index == null || music == null) return false;
+    return _queueEntryMatches(index, music);
+  }
+
+  bool get _standbyReady => _hasValidPreload && _audioService.isStandbyReady;
+
   /// 播放当前曲目
   Future<void> _playCurrentTrack() async {
+    final intent = _beginPlayIntent();
+    // 明确的切歌动作优先于还在防抖窗口里的「下一首」。
+    _debounceTimer?.cancel();
+
     // 任何一次实际切歌（手动/漫游等）都视为用户接管，
     // 清除定时关闭的「播完暂停」等待。
     pauseAfterCurrentTrack.value = false;
 
+    // 预加载记录只对上一首的「下一首」有效，新切歌一开始就作废。
+    _clearPreloadState();
+
     Music? music = _playlistService.currentMusic;
     if (music == null) {
       await _audioService.stop();
+      if (_pendingPlayIntent == intent) _pendingPlayIntent = null;
       return;
     }
 
@@ -273,6 +354,10 @@ class PlayerCoordinator {
       // 仅在 cid 缺失时回填。已有 cid + 已有 audioUrl 的稳定 fast-path 不再走网络。
       if (music.cid.isEmpty) {
         detailedMusic = await _apiService.ensureCid(music);
+        if (!_isCurrentIntent(intent)) {
+          debugPrint('[PlayerCoordinator] 切歌请求已过期，丢弃 ${music.title}');
+          return;
+        }
         if (detailedMusic.cid.isNotEmpty) {
           await _playlistService.updateToPlaylist(detailedMusic);
         }
@@ -288,27 +373,44 @@ class PlayerCoordinator {
         detailedMusic,
         qualityId: _settingsManager.audioQuality,
       );
+      // 取流期间用户又切了歌：这条流已经作废，绝不能落到播放器上。
+      if (!_isCurrentIntent(intent)) {
+        debugPrint('[PlayerCoordinator] 取流完成时已切歌，丢弃 ${detailedMusic.title}');
+        return;
+      }
       if (audio.path.isEmpty) {
         throw Exception('Failed to get audio URL');
       }
-      // 实时音质：记录实际命中的流音质（回退后可能与请求的不同）
-      _audioService.setActualQuality(audio.qualityId);
 
       // 使用DualAudioService播放
       await _audioService.playActive(audio.path);
+      if (!_isCurrentIntent(intent)) {
+        debugPrint('[PlayerCoordinator] 播放请求已被新切歌取代 ${detailedMusic.title}');
+        return;
+      }
+
+      // 播放已开始，后续记账不再阻塞完成事件 / 预加载。
+      if (_pendingPlayIntent == intent) _pendingPlayIntent = null;
+
+      // 实时音质：记录实际命中的流音质（回退后可能与请求的不同）
+      _audioService.setActualQuality(audio.qualityId);
 
       // 添加到播放历史
       await _playlistService.addToPlayHistory(detailedMusic);
 
-      // 重置预加载状态
-      _preloadedMusic = null;
-      _preloadedIndex = null;
-
       // 更新通知控制按钮
       _updateNotificationControls();
     } catch (e) {
+      if (!_isCurrentIntent(intent)) {
+        debugPrint('[PlayerCoordinator] 过期播放请求失败（已忽略）: $e');
+        return;
+      }
       debugPrint('[PlayerCoordinator] Error playing current track: $e');
       await _audioService.stop();
+    } finally {
+      if (_pendingPlayIntent == intent) {
+        _pendingPlayIntent = null;
+      }
     }
   }
 
@@ -339,10 +441,11 @@ class PlayerCoordinator {
 
   /// 停止播放
   Future<void> stop() async {
+    _cancelPendingPlayIntent();
+    _debounceTimer?.cancel();
     await _audioService.stop();
     _notificationService.stop();
-    _preloadedMusic = null;
-    _preloadedIndex = null;
+    _clearPreloadState();
   }
 
   /// 跳转到指定位置
@@ -387,8 +490,7 @@ class PlayerCoordinator {
       if (nextIndex != null) {
         _playlistService.setCurrentIndex(nextIndex);
         // 取消预加载
-        _preloadedMusic = null;
-        _preloadedIndex = null;
+        _clearPreloadState();
         await _playCurrentTrack();
         _notificationService.sendCustomEvent({'type': 'next'});
       }
@@ -425,8 +527,7 @@ class PlayerCoordinator {
       if (previousIndex != null) {
         _playlistService.setCurrentIndex(previousIndex);
         // 取消预加载
-        _preloadedMusic = null;
-        _preloadedIndex = null;
+        _clearPreloadState();
         await _playCurrentTrack();
         _notificationService.sendCustomEvent({'type': 'previous'});
       }
@@ -438,8 +539,7 @@ class PlayerCoordinator {
     if (index >= 0 && index < _playlistService.playlistLength) {
       _playlistService.setCurrentIndex(index);
       // 取消预加载
-      _preloadedMusic = null;
-      _preloadedIndex = null;
+      _clearPreloadState();
       await _playCurrentTrack();
     }
   }
@@ -459,7 +559,7 @@ class PlayerCoordinator {
     await _playlistService.addToPlaylist(music);
 
     final playlist = _playlistService.currentPlaylist.value;
-    final newIndex = playlist.indexWhere((m) => m.key == music.key);
+    final newIndex = playlist.indexWhere((m) => _sameTrack(m, music));
     if (newIndex == -1) return;
 
     await _playlistService.moveInPlaylist(newIndex, currentIndex + 1);
@@ -467,10 +567,11 @@ class PlayerCoordinator {
 
   /// 清空播放列表（带停播放器副作用；纯数据操作由 UI 经 playlistCommands 直连 Service）
   Future<void> clearPlaylist() async {
+    _cancelPendingPlayIntent();
+    _debounceTimer?.cancel();
     await _playlistService.clearPlaylist();
     await _audioService.stop();
-    _preloadedMusic = null;
-    _preloadedIndex = null;
+    _clearPreloadState();
   }
 
   // ============ Crossfade相关方法 ============
@@ -495,10 +596,16 @@ class PlayerCoordinator {
     if (!_settingsManager.crossfadeEnabled) return;
     if (_audioService.isFading) return;
     if (_isCountdownActive) return; // 防止重复触发
+    // 切歌请求还在取流 / 装载：此刻的 position 属于上一首，不能据此预加载或
+    // crossfade，否则会把「选中但还没开播」的那首再往前推一首。
+    if (_hasPendingPlayIntent) return;
+    // 新的预加载还在路上：待命流要么是旧曲（ready 是旧值），要么正在被替换，
+    // 都不能拿来切。
+    if (_isPreloading) return;
 
-    // 检查是否有下一首（优先使用预加载的索引）
+    // 检查是否有下一首（优先使用仍在队列里的预加载）
     final hasNext =
-        _preloadedIndex != null ||
+        _hasValidPreload ||
         _playlistService.getNextIndex(
               _audioService.playMode.value,
               random: _random,
@@ -534,18 +641,16 @@ class PlayerCoordinator {
 
     if (remaining <= fadeLead) {
       // 已到达过渡位置
-      if (!_audioService.isStandbyReady && !_isPreloading) {
+      if (!_standbyReady) {
         // 窗口开了还没装好：立刻补装，就绪后 fade 会收紧到剩余时间
         debugPrint('[PlayerCoordinator] 过渡位置已到但standby未就绪，补触发预加载');
         _triggerPreload();
-      } else if (_audioService.isStandbyReady) {
+      } else {
         if (!_settingsManager.autoPlayNext) return;
         debugPrint('[PlayerCoordinator] 到达过渡位置，启动基于时间的Crossfade');
         _startTimeBasedCrossfade(fadeMs);
       }
-    } else if (remaining <= preloadLead &&
-        !_audioService.isStandbyReady &&
-        !_isPreloading) {
+    } else if (remaining <= preloadLead && !_standbyReady) {
       // 还没到过渡位置：提前预加载下一首
       debugPrint('[PlayerCoordinator] 提前预加载下一首');
       _triggerPreload();
@@ -564,6 +669,8 @@ class PlayerCoordinator {
     if (pauseAfterCurrentTrack.value) return;
 
     if (_isCountdownActive) return;
+    // 待命流必须仍对应队列里的下一首，否则宁可等 EOF 降级切歌。
+    if (_hasPendingPlayIntent || !_standbyReady) return;
 
     // 剩余时间不足或已到结尾（预加载比预期慢）：放弃时间触发，交给
     // 播放完成路径在 EOF 处无缝切换
@@ -607,9 +714,7 @@ class PlayerCoordinator {
       if (standbyQuality != null) {
         _audioService.setActualQuality(standbyQuality);
       }
-      _preloadedMusic = null;
-      _preloadedIndex = null;
-      _standbyQualityId = null;
+      _clearPreloadState();
       final currentMusic = _playlistService.currentMusic;
       if (currentMusic != null) {
         _notificationService.updateMediaInfo(currentMusic);
@@ -655,7 +760,13 @@ class PlayerCoordinator {
 
   /// 触发预加载下一首
   Future<void> _triggerPreload() async {
+    if (_isPreloading) return;
     _isPreloading = true;
+
+    // 预加载跨多个网络 await，回来时要确认「下一首」还是同一首，
+    // 否则会把旧队列的下一首装进待命播放器，等真到切歌时播错。
+    final intent = _playIntentEpoch;
+    final currentIndexAtStart = _playlistService.currentIndexSync;
 
     try {
       // 获取下一首音乐
@@ -672,9 +783,7 @@ class PlayerCoordinator {
       final nextMusic = playlist[nextIndex];
 
       // 检查是否已经预加载过这首歌
-      if (_preloadedMusic != null &&
-          _preloadedMusic!.id == nextMusic.id &&
-          _preloadedMusic!.cid == nextMusic.cid) {
+      if (_hasValidPreload && _preloadedIndex == nextIndex) {
         return;
       }
 
@@ -695,12 +804,31 @@ class PlayerCoordinator {
         detailedMusic,
         qualityId: _settingsManager.audioQuality,
       );
+      if (!_isCurrentIntent(intent) ||
+          currentIndexAtStart != _playlistService.currentIndexSync ||
+          !_queueEntryMatches(nextIndex, nextMusic)) {
+        debugPrint('[PlayerCoordinator] 预加载期间已切歌，丢弃 ${nextMusic.title}');
+        return;
+      }
       if (audio.path.isEmpty) {
         throw Exception('Failed to get audio URL');
       }
 
+      // 新流开始装载，旧待命流的 ready 立即作废（就绪信号只认这一次装载）。
+      _clearPreloadState();
+
       // 预加载到待命播放器
       await _audioService.preloadToStandby(audio.path);
+
+      if (!_isCurrentIntent(intent) ||
+          currentIndexAtStart != _playlistService.currentIndexSync ||
+          !_queueEntryMatches(nextIndex, nextMusic)) {
+        debugPrint('[PlayerCoordinator] 预加载完成时已切歌，丢弃 ${nextMusic.title}');
+        // 只清刚装进去的那条流；不碰已经换角色的播放器。
+        await _audioService.discardStandby(audio.path);
+        return;
+      }
+
       _preloadedMusic = detailedMusic;
       _preloadedIndex = nextIndex;
       _standbyQualityId = audio.qualityId;
@@ -708,8 +836,7 @@ class PlayerCoordinator {
       debugPrint('[PlayerCoordinator] 预加载成功');
     } catch (e) {
       debugPrint('[PlayerCoordinator] 预加载失败 $e');
-      _preloadedMusic = null;
-      _preloadedIndex = null;
+      _clearPreloadState();
     } finally {
       _isPreloading = false;
     }
@@ -723,6 +850,14 @@ class PlayerCoordinator {
     // 如果正在倒计时中，说明已由时间触发处理完成事件，忽略此回调
     if (_isCountdownActive) {
       debugPrint('[PlayerCoordinator] 忽略完成事件（已由时间触发处理）');
+      _isHandlingCompletion = false;
+      return;
+    }
+
+    // 用户刚选了新歌、新流还在取 / 装载：此刻的 EOF 来自上一首，
+    // 不能据此再把索引推到下下首。
+    if (_hasPendingPlayIntent) {
+      debugPrint('[PlayerCoordinator] 忽略完成事件（切歌请求仍在装载）');
       _isHandlingCompletion = false;
       return;
     }
@@ -759,8 +894,7 @@ class PlayerCoordinator {
         // 单曲循环:直接重播
         await _audioService.seek(Duration.zero);
         await _audioService.resume();
-      } else if (_settingsManager.crossfadeEnabled &&
-          _audioService.isStandbyReady) {
+      } else if (_settingsManager.crossfadeEnabled && _standbyReady) {
         // 启用crossfade且standby就绪:执行无缝切换
         if (!_settingsManager.autoPlayNext) return;
         debugPrint('[PlayerCoordinator] 执行Crossfade切换');
@@ -781,9 +915,7 @@ class PlayerCoordinator {
         if (standbyQuality != null) {
           _audioService.setActualQuality(standbyQuality);
         }
-        _preloadedMusic = null;
-        _preloadedIndex = null;
-        _standbyQualityId = null;
+        _clearPreloadState();
 
         // 更新媒体信息
         final currentMusic = _playlistService.currentMusic;
@@ -820,9 +952,9 @@ class PlayerCoordinator {
   /// 空歌单保护：歌单为空时直接 return，不创建 session、不抛错。
   Future<void> startRoam(String playlistId, RoamStyle style) async {
     // 先停掉当前播放（防 crossfade 残留状态污染新队列）
+    _cancelPendingPlayIntent();
     await _audioService.stop();
-    _preloadedMusic = null;
-    _preloadedIndex = null;
+    _clearPreloadState();
     await clearPlaylist();
 
     // 加载种子歌曲
@@ -865,9 +997,9 @@ class PlayerCoordinator {
     required List<Music> seeds,
   }) async {
     // 先停掉当前播放（防 crossfade 残留状态污染新队列）
+    _cancelPendingPlayIntent();
     await _audioService.stop();
-    _preloadedMusic = null;
-    _preloadedIndex = null;
+    _clearPreloadState();
     await clearPlaylist();
 
     if (songs.isEmpty) {
@@ -998,12 +1130,11 @@ class PlayerCoordinator {
     }
   }
 
-  /// 按 (id, cid) 去重。
+  /// 按 (bvid, cid) 去重；空 cid 视为通配。
   List<Music> _dedupByIdCid(List<Music> list) {
-    final seen = <String>{};
     final out = <Music>[];
     for (final m in list) {
-      if (seen.add(m.key)) out.add(m);
+      if (!out.any((e) => _sameTrack(e, m))) out.add(m);
     }
     return out;
   }
@@ -1128,6 +1259,7 @@ class PlayerCoordinator {
 
   /// 释放资源
   Future<void> dispose() async {
+    _cancelPendingPlayIntent();
     _audioService.onPlaybackCompleted = null;
     _audioService.onPositionChanged = null;
     _audioService.onStateChanged = null;

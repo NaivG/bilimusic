@@ -4,8 +4,10 @@ import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/playlist.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/widgets/app_menu_button.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/core/network/network_config.dart';
+import 'package:super_context_menu/super_context_menu.dart';
 
 /// Lucent-style hero section for playlist page.
 /// Displays cover art, metadata, pill buttons, and action icons.
@@ -14,20 +16,24 @@ class PlaylistHero extends StatelessWidget {
   final Playlist playlist;
   final List<Music> songs;
   final bool isLandscape;
-  final bool isFavorited;
   final VoidCallback? onPlayAll;
   final VoidCallback? onShufflePlay;
-  final VoidCallback? onToggleFavorite;
+  final VoidCallback? onAddToPlaylist;
+  final VoidCallback? onExportEntries;
+  final VoidCallback? onImportEntries;
+  final bool canImportEntries;
 
   const PlaylistHero({
     super.key,
     required this.playlist,
     this.songs = const [],
     required this.isLandscape,
-    this.isFavorited = false,
     this.onPlayAll,
     this.onShufflePlay,
-    this.onToggleFavorite,
+    this.onAddToPlaylist,
+    this.onExportEntries,
+    this.onImportEntries,
+    this.canImportEntries = true,
   });
 
   @override
@@ -315,7 +321,7 @@ class PlaylistHero extends StatelessWidget {
         SizedBox(
           height: 36,
           child: OutlinedButton.icon(
-            onPressed: hasSongs ? () {} : null,
+            onPressed: hasSongs ? onAddToPlaylist : null,
             icon: Icon(
               Icons.playlist_add,
               size: 18,
@@ -352,35 +358,31 @@ class PlaylistHero extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Favorite toggle
-        IconButton(
-          onPressed: onToggleFavorite,
-          icon: Icon(
-            isFavorited ? Icons.favorite : Icons.favorite_border,
-            color: isFavorited
-                ? colorScheme.error
-                : colorScheme.onSurfaceVariant,
-            size: 22,
-          ),
-          tooltip: isFavorited ? '取消收藏' : '收藏',
-          style: IconButton.styleFrom(
-            padding: const EdgeInsets.all(8),
-            minimumSize: const Size(40, 40),
-          ),
-        ),
-        const SizedBox(width: 4),
-        // More options
-        IconButton(
-          onPressed: () {},
-          icon: Icon(
-            Icons.more_horiz,
-            color: colorScheme.onSurfaceVariant,
-            size: 22,
-          ),
+        AppMenuButton(
           tooltip: '更多',
-          style: IconButton.styleFrom(
-            padding: const EdgeInsets.all(8),
-            minimumSize: const Size(40, 40),
+          icon: Icons.more_horiz,
+          color: colorScheme.onSurfaceVariant,
+          iconSize: 22,
+          padding: const EdgeInsets.all(8),
+          menuBuilder: (context) => Menu(
+            children: [
+              MenuAction(
+                title: '导出条目',
+                image: MenuImage.icon(Icons.file_upload_outlined),
+                attributes: MenuActionAttributes(
+                  disabled: songs.isEmpty || onExportEntries == null,
+                ),
+                callback: () => onExportEntries?.call(),
+              ),
+              MenuAction(
+                title: '导入条目',
+                image: MenuImage.icon(Icons.file_download_outlined),
+                attributes: MenuActionAttributes(
+                  disabled: !canImportEntries || onImportEntries == null,
+                ),
+                callback: () => onImportEntries?.call(),
+              ),
+            ],
           ),
         ),
       ],

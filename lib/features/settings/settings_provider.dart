@@ -14,7 +14,6 @@ class SettingsState {
   final String theme;
   final bool autoPlayNext;
   final bool showLyrics;
-  final String tabletMode;
   final bool fluidBackground;
   final bool blurEffect;
   final String audioQuality;
@@ -50,7 +49,6 @@ class SettingsState {
     this.theme = 'lucent',
     this.autoPlayNext = true,
     this.showLyrics = true,
-    this.tabletMode = 'auto',
     this.fluidBackground = true,
     this.blurEffect = true,
     this.audioQuality = '30280',
@@ -75,7 +73,6 @@ class SettingsState {
     String? theme,
     bool? autoPlayNext,
     bool? showLyrics,
-    String? tabletMode,
     bool? fluidBackground,
     bool? blurEffect,
     String? audioQuality,
@@ -99,7 +96,6 @@ class SettingsState {
       theme: theme ?? this.theme,
       autoPlayNext: autoPlayNext ?? this.autoPlayNext,
       showLyrics: showLyrics ?? this.showLyrics,
-      tabletMode: tabletMode ?? this.tabletMode,
       fluidBackground: fluidBackground ?? this.fluidBackground,
       blurEffect: blurEffect ?? this.blurEffect,
       audioQuality: audioQuality ?? this.audioQuality,
@@ -130,7 +126,6 @@ class SettingsState {
       theme: s.theme,
       autoPlayNext: s.autoPlayNext,
       showLyrics: s.showLyrics,
-      tabletMode: s.tabletMode,
       fluidBackground: s.fluidBackground,
       blurEffect: s.blurEffect,
       audioQuality: s.audioQuality,
@@ -200,12 +195,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
   Future<void> setShowLyrics(bool value) async {
     state = state.copyWith(showLyrics: value);
     await _save('show_lyrics', value);
-  }
-
-  Future<void> setTabletMode(String? value) async {
-    if (value == null) return;
-    state = state.copyWith(tabletMode: value);
-    await _save('tablet_mode', value);
   }
 
   Future<void> setFluidBackground(bool value) async {

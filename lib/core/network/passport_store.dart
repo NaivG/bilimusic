@@ -10,6 +10,9 @@ import 'dart:convert';
 /// 纯 Dart（core 层规则，TUI / CLI 宿主可复用）：持久化通过 [loader] / [saver]
 /// 注入，宿主不注入时退化为纯内存（App 侧的注入在 `app_providers.dart`）。
 class PassportStore {
+  /// App 宿主在 SharedPreferences 里使用的键（数据迁移按此备份）。
+  static const String prefsKey = 'bili_refresh_token_v1';
+
   PassportStore({this.loader, this.saver});
 
   /// 读取持久化字符串（JSON，见 [setRefreshToken] 的落盘格式）。

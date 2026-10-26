@@ -49,8 +49,8 @@ class SearchResult {
     Map<String, dynamic> json,
     SearchResultType type,
   ) {
-    // 处理富文本标题
-    String title = json['title'] ?? '';
+    // 处理富文本标题。用户结果没有 title，昵称在 uname 里。
+    String title = (json['title'] ?? json['uname'] ?? '').toString();
     if (title.contains('<em') && title.contains('</em>')) {
       title = title.replaceAll(RegExp(r'<[^>]*>'), '');
     }
@@ -66,8 +66,8 @@ class SearchResult {
       title = TitleMetaFilter.maybeClean(title);
     }
 
-    // 构建封面URL
-    String coverUrl = json['pic'] ?? '';
+    // 构建封面URL。视频/番剧在 pic，用户在 upic。
+    String coverUrl = (json['pic'] ?? json['upic'] ?? '').toString();
     if (coverUrl.isNotEmpty && !coverUrl.startsWith('http')) {
       coverUrl = 'https:$coverUrl';
     }
@@ -87,16 +87,19 @@ class SearchResult {
   }
 
   /// 取创作者：[SearchResultType.video] 是稿件的 UP 主（扁平 `author` + `mid` +
-  /// `upic`），[SearchResultType.upuser] 是用户本人（`uname` + `upic`）。
-  /// 其余类型（番剧 / 话题 / 合集）端点不给创作者，留空。
+  /// `upic`），[SearchResultType.author] / [SearchResultType.upuser] 是用户本人
+  /// （`uname` + `upic`；`bili_user` 结果也走这条）。其余类型端点不给创作者，留空。
   static Artist _buildArtist(Map<String, dynamic> json, SearchResultType type) {
     switch (type) {
       case SearchResultType.video:
         return Artist.fromFlat(json);
-      case SearchResultType.upuser:
-        return Artist.fromFlat(json, nameKey: 'uname');
-      case SearchResultType.album:
       case SearchResultType.author:
+      case SearchResultType.upuser:
+        final artist = Artist.fromFlat(json, nameKey: 'uname');
+        // 兼容把昵称放在 author 里的旧条目
+        if (artist.name.trim().isNotEmpty) return artist;
+        return Artist.fromFlat(json, nameKey: 'author');
+      case SearchResultType.album:
       case SearchResultType.bangumi:
       case SearchResultType.topic:
         return const Artist();
@@ -111,16 +114,38 @@ class SearchResult {
       case SearchResultType.video:
         return '${json['author'] ?? '未知作者'} - ${json['tag'] ?? ''}';
       case SearchResultType.author:
-        return '${json['fans'] ?? ''} 粉丝';
+      case SearchResultType.upuser:
+        final fans = _formatCount(json['fans']);
+        final videos = _formatCount(json['videos']);
+        if (fans.isNotEmpty || videos.isNotEmpty) {
+          return [
+            if (fans.isNotEmpty) '$fans粉丝',
+            if (videos.isNotEmpty) '$videos投稿',
+          ].join(' · ');
+        }
+        return (json['usign'] ?? '').toString();
       case SearchResultType.album:
-        return json['author'] ?? '未知作者';
+        return (json['author'] ?? '未知作者').toString();
       case SearchResultType.bangumi:
-        return json['desc'] ?? '';
+        return (json['desc'] ?? '').toString();
       case SearchResultType.topic:
         return '${json['thread'] ?? 0} 讨论';
-      case SearchResultType.upuser:
-        return json['uname'] ?? '';
     }
+  }
+
+  /// 把粉丝数 / 投稿数收成「1.2万」这种短文案；解析不了时返回空串。
+  static String _formatCount(Object? raw) {
+    final value = raw is num
+        ? raw.toInt()
+        : int.tryParse(raw?.toString() ?? '');
+    if (value == null || value <= 0) return '';
+    if (value >= 100000000) {
+      return '${(value / 100000000).toStringAsFixed(1)}亿';
+    }
+    if (value >= 10000) {
+      return '${(value / 10000).toStringAsFixed(1)}万';
+    }
+    return '$value';
   }
 
   /// 转换为Music对象（用于播放）

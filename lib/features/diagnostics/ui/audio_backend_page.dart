@@ -47,7 +47,7 @@ class _AudioBackendPageState extends ConsumerState<AudioBackendPage> {
   Widget build(BuildContext context) {
     final snapshot = _snapshot;
     return Scaffold(
-      appBar: AutoAppBar.generateAppBar(title: '音频后端'),
+      appBar: AutoAppBar.generateAppBar(context: context, title: '音频后端'),
       backgroundColor: Colors.transparent,
       body: snapshot == null
           ? const Center(child: CircularProgressIndicator())

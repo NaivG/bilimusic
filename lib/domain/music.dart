@@ -164,6 +164,14 @@ class Music {
   /// 注意与 [uniqueKey] 不同：那个支持精确到分P对象，这个是 (id, cid) 判等键。
   String get key => '${id}_$cid';
 
+  /// 是否与 [other] 指向同一首曲目。
+  ///
+  /// cid 异步补齐，入列时可能是空串，拿到详情后才知道具体分P。
+  /// 判等时把空 cid 当作通配符，否则同一首歌会以 `(bvid, "")` 和 `(bvid, cid)`
+  /// 两份进入队列，回填后撞成同一个 [key]。
+  bool sameTrackAs(Music other) =>
+      id == other.id && (cid.isEmpty || other.cid.isEmpty || cid == other.cid);
+
   /// 「artist - album」副标题行（列表项通用，分隔符统一为 ` - `）。
   String get subtitleText => '${artist.displayName} - $album';
 

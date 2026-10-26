@@ -157,7 +157,7 @@ class _AudioOutputPageState extends ConsumerState<AudioOutputPage> {
         : 0;
 
     return Scaffold(
-      appBar: AutoAppBar.generateAppBar(title: '音频输出'),
+      appBar: AutoAppBar.generateAppBar(context: context, title: '音频输出'),
       backgroundColor: Colors.transparent,
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),

@@ -11,6 +11,7 @@ import 'package:bilimusic/features/roam/roam_onboarding_provider.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 
 /// 漫游引导主页（Apple 风格多步状态机）。
 ///
@@ -39,13 +40,13 @@ class RoamOnboardingPage extends ConsumerWidget {
     });
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('漫游模式'),
+      appBar: AutoAppBar.generateAppBar(
+        context: context,
+        title: '漫游模式',
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => ShellPageManager.instance.pop(),
         ),
-        backgroundColor: Colors.transparent,
       ),
       backgroundColor: Colors.transparent,
       body: PopScope(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/features/settings/settings_manager.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
+import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/theme/theme_registry.dart';
 import 'package:bilimusic/shared/utils/platform_helper.dart';
@@ -25,12 +26,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final notifier = ref.read(settingsProvider.notifier);
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: Text('设置'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        forceMaterialTransparency: true,
-      ),
+      appBar: AutoAppBar.generateAppBar(context: context, title: '设置'),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -233,25 +229,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               value: settings.blurEffect,
               onChanged: notifier.setBlurEffect,
             ),
-            ListTile(
-              leading: Icon(Icons.tablet, color: _getPrimaryColor(context)),
-              title: Text('平板模式'),
-              subtitle: Text(
-                ref
-                    .read(settingsManagerProvider)
-                    .getTabletModeText(settings.tabletMode),
-              ),
-              trailing: DropdownButton<String>(
-                value: settings.tabletMode,
-                items: [
-                  DropdownMenuItem(value: 'auto', child: Text('自动')),
-                  DropdownMenuItem(value: 'on', child: Text('强制打开')),
-                  DropdownMenuItem(value: 'off', child: Text('强制关闭')),
-                ],
-                onChanged: notifier.setTabletMode,
-              ),
-            ),
-
             // 窗口行为（仅桌面端显示）
             if (PlatformHelper.isDesktop) ...[
               _buildSectionTitle('窗口行为'),
@@ -498,7 +475,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     showAboutDialog(
       context: context,
       applicationName: 'BiliMusic',
-      applicationVersion: '1.10.2',
+      applicationVersion: '1.10.3',
       applicationIcon: Image.asset(
         "assets/ic_launcher.png",
         width: 84,

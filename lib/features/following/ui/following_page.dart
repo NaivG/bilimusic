@@ -9,6 +9,7 @@ import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/domain/bili_following.dart';
 import 'package:bilimusic/domain/up_profile.dart';
 import 'package:bilimusic/features/following/following_service.dart';
+import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 
 /// 「查看关注」页：列出自己关注的全部 UP 主。
 class FollowingPage extends ConsumerStatefulWidget {
@@ -132,17 +133,9 @@ class _FollowingPageState extends ConsumerState<FollowingPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: Text(_total > 0 ? '我的关注（$_total）' : '我的关注'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        forceMaterialTransparency: true,
-        leading: ShellPageManager.instance.canPop
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
-                onPressed: () => ShellPageManager.instance.pop(),
-              )
-            : null,
+      appBar: AutoAppBar.generateAppBar(
+        context: context,
+        title: _total > 0 ? '我的关注（$_total）' : '我的关注',
       ),
       body: _buildBody(),
     );
