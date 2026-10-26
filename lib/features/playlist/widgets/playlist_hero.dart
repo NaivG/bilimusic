@@ -4,8 +4,10 @@ import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/playlist.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/widgets/app_menu_button.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/core/network/network_config.dart';
+import 'package:super_context_menu/super_context_menu.dart';
 
 /// Lucent-style hero section for playlist page.
 /// Displays cover art, metadata, pill buttons, and action icons.
@@ -356,60 +358,34 @@ class PlaylistHero extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        PopupMenuButton<_PlaylistMoreAction>(
+        AppMenuButton(
           tooltip: '更多',
-          icon: Icon(
-            Icons.more_horiz,
-            color: colorScheme.onSurfaceVariant,
-            size: 22,
-          ),
+          icon: Icons.more_horiz,
+          color: colorScheme.onSurfaceVariant,
+          iconSize: 22,
           padding: const EdgeInsets.all(8),
-          onSelected: (action) {
-            switch (action) {
-              case _PlaylistMoreAction.exportEntries:
-                onExportEntries?.call();
-                break;
-              case _PlaylistMoreAction.importEntries:
-                onImportEntries?.call();
-                break;
-            }
-          },
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              value: _PlaylistMoreAction.exportEntries,
-              enabled: songs.isNotEmpty && onExportEntries != null,
-              child: const _MoreMenuItem(
-                icon: Icons.file_upload_outlined,
-                label: '导出条目',
+          menuBuilder: (context) => Menu(
+            children: [
+              MenuAction(
+                title: '导出条目',
+                image: MenuImage.icon(Icons.file_upload_outlined),
+                attributes: MenuActionAttributes(
+                  disabled: songs.isEmpty || onExportEntries == null,
+                ),
+                callback: () => onExportEntries?.call(),
               ),
-            ),
-            PopupMenuItem(
-              value: _PlaylistMoreAction.importEntries,
-              enabled: canImportEntries && onImportEntries != null,
-              child: const _MoreMenuItem(
-                icon: Icons.file_download_outlined,
-                label: '导入条目',
+              MenuAction(
+                title: '导入条目',
+                image: MenuImage.icon(Icons.file_download_outlined),
+                attributes: MenuActionAttributes(
+                  disabled: !canImportEntries || onImportEntries == null,
+                ),
+                callback: () => onImportEntries?.call(),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
-    );
-  }
-}
-
-enum _PlaylistMoreAction { exportEntries, importEntries }
-
-class _MoreMenuItem extends StatelessWidget {
-  const _MoreMenuItem({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [Icon(icon, size: 20), const SizedBox(width: 12), Text(label)],
     );
   }
 }
