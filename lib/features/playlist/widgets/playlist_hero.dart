@@ -14,22 +14,24 @@ class PlaylistHero extends StatelessWidget {
   final Playlist playlist;
   final List<Music> songs;
   final bool isLandscape;
-  final bool isFavorited;
   final VoidCallback? onPlayAll;
   final VoidCallback? onShufflePlay;
-  final VoidCallback? onToggleFavorite;
   final VoidCallback? onAddToPlaylist;
+  final VoidCallback? onExportEntries;
+  final VoidCallback? onImportEntries;
+  final bool canImportEntries;
 
   const PlaylistHero({
     super.key,
     required this.playlist,
     this.songs = const [],
     required this.isLandscape,
-    this.isFavorited = false,
     this.onPlayAll,
     this.onShufflePlay,
-    this.onToggleFavorite,
     this.onAddToPlaylist,
+    this.onExportEntries,
+    this.onImportEntries,
+    this.canImportEntries = true,
   });
 
   @override
@@ -354,38 +356,60 @@ class PlaylistHero extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Favorite toggle
-        IconButton(
-          onPressed: onToggleFavorite,
-          icon: Icon(
-            isFavorited ? Icons.favorite : Icons.favorite_border,
-            color: isFavorited
-                ? colorScheme.error
-                : colorScheme.onSurfaceVariant,
-            size: 22,
-          ),
-          tooltip: isFavorited ? '取消收藏' : '收藏',
-          style: IconButton.styleFrom(
-            padding: const EdgeInsets.all(8),
-            minimumSize: const Size(40, 40),
-          ),
-        ),
-        const SizedBox(width: 4),
-        // More options
-        IconButton(
-          onPressed: () {},
+        PopupMenuButton<_PlaylistMoreAction>(
+          tooltip: '更多',
           icon: Icon(
             Icons.more_horiz,
             color: colorScheme.onSurfaceVariant,
             size: 22,
           ),
-          tooltip: '更多',
-          style: IconButton.styleFrom(
-            padding: const EdgeInsets.all(8),
-            minimumSize: const Size(40, 40),
-          ),
+          padding: const EdgeInsets.all(8),
+          onSelected: (action) {
+            switch (action) {
+              case _PlaylistMoreAction.exportEntries:
+                onExportEntries?.call();
+                break;
+              case _PlaylistMoreAction.importEntries:
+                onImportEntries?.call();
+                break;
+            }
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: _PlaylistMoreAction.exportEntries,
+              enabled: songs.isNotEmpty && onExportEntries != null,
+              child: const _MoreMenuItem(
+                icon: Icons.file_upload_outlined,
+                label: '导出条目',
+              ),
+            ),
+            PopupMenuItem(
+              value: _PlaylistMoreAction.importEntries,
+              enabled: canImportEntries && onImportEntries != null,
+              child: const _MoreMenuItem(
+                icon: Icons.file_download_outlined,
+                label: '导入条目',
+              ),
+            ),
+          ],
         ),
       ],
+    );
+  }
+}
+
+enum _PlaylistMoreAction { exportEntries, importEntries }
+
+class _MoreMenuItem extends StatelessWidget {
+  const _MoreMenuItem({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [Icon(icon, size: 20), const SizedBox(width: 12), Text(label)],
     );
   }
 }
