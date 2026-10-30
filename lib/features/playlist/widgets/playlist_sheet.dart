@@ -308,8 +308,9 @@ class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
             ),
           ),
           onDismissed: (_) {
+            // 删的是正在播的那首时要接播下一首，走 Coordinator 的命令。
             ref
-                .read(playlistCommandsProvider.notifier)
+                .read(playbackCommandsProvider.notifier)
                 .removeFromPlaylist(music);
           },
           child: PlaylistItem(

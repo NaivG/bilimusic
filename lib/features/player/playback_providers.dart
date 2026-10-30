@@ -155,8 +155,9 @@ class PlaybackCommands extends Notifier<void> {
   Future<void> playPrevious() => _pc.playPrevious();
   Future<void> playAtIndex(int index) => _pc.playAtIndex(index);
 
-  // 清空队列带停播放器副作用，留在 Coordinator（纯数据操作见 playlistCommandsProvider）。
+  // 会改变「当前播哪首」的队列操作留在 Coordinator
   Future<void> clearPlaylist() => _pc.clearPlaylist();
+  Future<void> removeFromPlaylist(Music music) => _pc.removeFromPlaylist(music);
   Future<void> playNextFromIndex(Music music) => _pc.playNextFromIndex(music);
 
   Future<void> setVolume(double value) => _dual.setVolume(value);

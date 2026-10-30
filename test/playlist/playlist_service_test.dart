@@ -191,6 +191,84 @@ void main() {
     });
   });
 
+  group('删除队列曲目', () {
+    Future<PlaylistService> seeded() async {
+      final service = PlaylistService();
+      await service.initialize();
+      await service.addAllToPlaylist([
+        music(id: 'BV1', cid: '1'),
+        music(id: 'BV2', cid: '2'),
+        music(id: 'BV3', cid: '3'),
+      ]);
+      return service;
+    }
+
+    test('删除正在播放的曲目：索引落到后继曲目', () async {
+      final service = await seeded();
+      service.setCurrentIndex(1);
+
+      await service.removeFromPlaylist(music(id: 'BV2', cid: '2'));
+
+      expect(service.currentPlaylist.value.map((m) => m.key).toList(), [
+        'BV1_1',
+        'BV3_3',
+      ]);
+      expect(service.currentIndexSync, 1);
+      expect(service.currentMusic?.key, 'BV3_3');
+    });
+
+    test('删除队尾的当前曲目：索引环绕到队首', () async {
+      final service = await seeded();
+      service.setCurrentIndex(2);
+
+      await service.removeFromPlaylist(music(id: 'BV3', cid: '3'));
+
+      expect(service.currentPlaylist.value.map((m) => m.key).toList(), [
+        'BV1_1',
+        'BV2_2',
+      ]);
+      expect(service.currentIndexSync, 0);
+      expect(service.currentMusic?.key, 'BV1_1');
+    });
+
+    test('删除当前曲目之前的行：索引前移，当前曲目不变', () async {
+      final service = await seeded();
+      service.setCurrentIndex(2);
+
+      await service.removeFromPlaylist(music(id: 'BV1', cid: '1'));
+
+      expect(service.currentPlaylist.value.map((m) => m.key).toList(), [
+        'BV2_2',
+        'BV3_3',
+      ]);
+      expect(service.currentIndexSync, 1);
+      expect(service.currentMusic?.key, 'BV3_3');
+    });
+
+    test('删除当前曲目之后的行：索引不变', () async {
+      final service = await seeded();
+      service.setCurrentIndex(0);
+
+      await service.removeFromPlaylist(music(id: 'BV3', cid: '3'));
+
+      expect(service.currentIndexSync, 0);
+      expect(service.currentMusic?.key, 'BV1_1');
+    });
+
+    test('唯一一首当前曲目被删后索引置空', () async {
+      final service = PlaylistService();
+      await service.initialize();
+      await service.addToPlaylist(music(id: 'BV1', cid: '1'));
+      service.setCurrentIndex(0);
+
+      await service.removeFromPlaylist(music(id: 'BV1', cid: '1'));
+
+      expect(service.currentPlaylist.value, isEmpty);
+      expect(service.currentIndexSync, isNull);
+      expect(service.currentMusic, isNull);
+    });
+  });
+
   group('备份导入导出', () {
     test('当前队列、自定义标签和 kv 表可往返', () async {
       final service = PlaylistService();

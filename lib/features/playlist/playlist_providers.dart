@@ -142,9 +142,9 @@ final isFavoriteProvider = Provider.family<bool, Music>((ref, music) {
   return favorites.any((m) => m.key == music.key);
 });
 
-/// 播放列表命令 - 收藏/队列等纯数据操作的单一 UI 门面（直连 PlaylistService）。
+/// 播放列表命令 - 收藏/排序等纯数据操作的单一 UI 门面（直连 PlaylistService）。
 ///
-/// 播放控制（playMusic/pause/…）与清空队列（需停播放器）走 `playbackCommandsProvider`；
+/// 会改变播放器行为的队列操作（删除当前曲目、清空队列）走 `playbackCommandsProvider`；
 /// 通知栏的收藏态由 PlayerCoordinator 监听 favorites 变化刷新，本门面无需回调。
 class PlaylistCommands extends Notifier<void> {
   PlaylistService get _ps => ref.read(_playlistServiceProvider);
@@ -158,8 +158,6 @@ class PlaylistCommands extends Notifier<void> {
 
   Future<void> addAllToPlaylist(List<Music> musics) =>
       _ps.addAllToPlaylist(musics);
-
-  Future<void> removeFromPlaylist(Music music) => _ps.removeFromPlaylist(music);
 
   Future<void> moveInPlaylist(int from, int to) => _ps.moveInPlaylist(from, to);
 

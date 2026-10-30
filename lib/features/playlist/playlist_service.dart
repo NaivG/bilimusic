@@ -609,6 +609,10 @@ class PlaylistService {
     await _loadCurrentPlaylist();
   }
 
+  /// 从当前队列移除一首曲目。
+  ///
+  /// 只做数据与索引记账：删的是播放器里装载着的那首时，指针落到删除位置
+  /// 上的后继（删到队尾环绕回队首），播放侧由调用方接续。
   Future<void> removeFromPlaylist(Music music) async {
     final list = _currentPlaylist.value;
     final removeIdx = _findQueueIndex(list, music);
@@ -623,13 +627,10 @@ class PlaylistService {
     final currentIdx = _currentIndex.value;
     if (currentIdx != null) {
       if (removeIdx == currentIdx) {
-        if (newList.isNotEmpty) {
-          _currentIndex.value = removeIdx < newList.length
-              ? removeIdx
-              : removeIdx - 1;
-        } else {
-          _currentIndex.value = null;
-        }
+        // 指针落到删除位置上的后继曲目，删到队尾时按 next 的环绕语义回到队首。
+        _currentIndex.value = newList.isEmpty
+            ? null
+            : removeIdx % newList.length;
       } else if (removeIdx < currentIdx) {
         _currentIndex.value = currentIdx - 1;
       }
