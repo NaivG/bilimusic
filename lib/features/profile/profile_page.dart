@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/shared/widgets/long_press_menu.dart';
 import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/features/auth/logout_session.dart';
+import 'package:bilimusic/features/auth/ui/force_logout_dialog.dart';
 import 'package:bilimusic/features/auth/user_manager.dart';
 import 'package:bilimusic/domain/playlist.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/core/network/passport_client.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
@@ -74,46 +75,51 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   // 退出登录
   //
   // 先请求服务端注销当前 SESSDATA（`/login/exit/v2`，PassportClient.logout），
-  // 成功才动本地——服务端没注销成功就清本地，网络一抖用户就被"登丢"了：
-  // 本地 Cookie 看似清干净了，服务端会话却还活着。失败时本地登录态原样保留。
-  // 本地清理只摘会话 Cookie：`clearSession()` 按名字清掉 SESSDATA / bili_jct /
-  // DedeUserID 等登录态，保留 buvid3 / b_nut / bili_ticket 这些设备标识
-  // （清掉它们等于下次启动要从零自举，白白多几次撞风控的机会）。
-  // 落盘由 jar 的 saver 钩子自动完成，这里不再手写 prefs；
-  // refresh_token 凭据（PassportStore）一并清掉。
+  // 成功才直接清本地。服务端没注销成功（网络不通 / 登录态已过期被拒）时询问
+  // 是否强制退出。
+  // 本地清理只摘会话 Cookie（见 `clearLocalLoginState`），保留 buvid3 / b_nut /
+  // bili_ticket 这些设备标识。
   Future<void> _logout() async {
     final passport = PassportClient();
+    Object? failure;
     try {
       await passport.logout();
-
-      // 清 refresh_token 凭据；失败不拦着登出（Cookie 才是登录态的事实来源）。
-      try {
-        await ref.read(passportStoreProvider).clear();
-      } catch (e) {
-        debugPrint('refresh_token 清理失败: $e');
-      }
-
-      // 只摘会话 Cookie，保留设备标识。
-      NetworkConfig.cookieJar.clearSession();
-
-      // 清除用户缓存
-      await ref.read(userManagerProvider).clear();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('已退出登录')));
-      }
     } catch (e) {
-      debugPrint('退出登录失败: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('退出登录失败：服务端注销未完成，本地登录态保持不变')),
-        );
-      }
+      failure = e;
     } finally {
       passport.close();
     }
+
+    if (failure != null) {
+      debugPrint('退出登录失败: $failure');
+      await _offerForceLogout(failure);
+      return;
+    }
+
+    await _clearSessionLocally();
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已退出登录')));
+    }
   }
+
+  /// 服务端注销失败后的兜底：确认后仅在本地退出登录。
+  Future<void> _offerForceLogout(Object error) async {
+    if (!mounted) return;
+    final confirmed = await showForceLogoutDialog(context, error: error);
+    if (!confirmed || !mounted) return;
+
+    await _clearSessionLocally();
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已在本地强制退出登录')));
+    }
+  }
+
+  Future<void> _clearSessionLocally() => clearLocalLoginState(
+    passportStore: ref.read(passportStoreProvider),
+    userManager: ref.read(userManagerProvider),
+  );
 
   // 显示退出登录确认对话框
   void _showLogoutDialog() {
