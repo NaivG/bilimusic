@@ -135,6 +135,9 @@ jobs:
           # Linux arm64
           - name: linux-arm
             os: ubuntu-24.04-arm
+          # Windows arm64
+          - name: windows-arm
+            os: windows-11-arm
 
     steps:
       # 检出代码
@@ -164,16 +167,16 @@ jobs:
       # 设置Flutter环境
       # 全平台锁 Flutter 3.47.5，避免 SDK 分叉：
       #   - x64 走 stable 通道 + 指定版本，下载官方 SDK 压缩包；
-      #   - arm64 只能走 master（Flutter 未发布 Linux arm64 SDK 压缩包）。
+      #   - arm64 只能走 master（Flutter 未发布 Linux / Windows arm64 SDK 压缩包）。
       - name: Set up Flutter
-        if: matrix.name != 'linux-arm'
+        if: matrix.name != 'linux-arm' && matrix.name != 'windows-arm'
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           flutter-version: 3.47.5
 
       - name: Set up Flutter arm64
-        if: matrix.name == 'linux-arm'
+        if: matrix.name == 'linux-arm' || matrix.name == 'windows-arm'
         uses: subosito/flutter-action@v2
         with:
           channel: master
@@ -242,8 +245,70 @@ jobs:
           flutter build linux
 
       - name: Build Windows
-        if: matrix.name == 'windows'
+        if: matrix.name == 'windows' || matrix.name == 'windows-arm'
         run: flutter build windows
+
+      # ARM64 产物校验：目标架构由宿主决定，一旦 SDK 退回 x64 或插件按宿主架构
+      # 挑了预编译二进制（如打包 libmpv 的插件），产物会静默混进 x64。这里直接读
+      # PE 头断言整包都是 ARM64（0xAA64）。
+      - name: Verify Windows arm64 artifacts
+        if: matrix.name == 'windows-arm'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $releaseDir = 'build/windows/arm64/runner/Release'
+          if (-not (Test-Path $releaseDir)) {
+            Write-Host "::error::未找到 $releaseDir"
+            Get-ChildItem 'build/windows' -ErrorAction SilentlyContinue |
+              ForEach-Object { Write-Host "  实际产物目录：$($_.FullName)" }
+            Write-Host "::error::目标架构跟随宿主 Dart VM，多半是取到了 x64 的 Dart SDK"
+            exit 1
+          }
+
+          function Get-PeMachine([string]$Path) {
+            $fs = [System.IO.File]::OpenRead($Path)
+            try {
+              $br = [System.IO.BinaryReader]::new($fs)
+              if ($br.ReadUInt16() -ne 0x5A4D) { return $null }
+              $null = $fs.Seek(0x3C, [System.IO.SeekOrigin]::Begin)
+              $peOffset = $br.ReadInt32()
+              $null = $fs.Seek($peOffset, [System.IO.SeekOrigin]::Begin)
+              if ($br.ReadUInt32() -ne 0x00004550) { return $null }
+              return [int]$br.ReadUInt16()
+            }
+            finally {
+              $fs.Dispose()
+            }
+          }
+
+          $machineNames = @{ 0xAA64 = 'ARM64'; 0xA641 = 'ARM64EC'; 0x8664 = 'x64'; 0x014C = 'x86' }
+          $binaries = @(Get-ChildItem $releaseDir -Recurse -File |
+            Where-Object { $_.Extension -in '.dll', '.exe' })
+          if ($binaries.Count -eq 0) {
+            Write-Host "::error::$releaseDir 下没有任何 dll/exe"
+            exit 1
+          }
+
+          $wrong = @()
+          foreach ($file in $binaries) {
+            $machine = Get-PeMachine $file.FullName
+            if ($null -eq $machine) { continue }
+            $arch = if ($machineNames.ContainsKey($machine)) {
+              $machineNames[$machine]
+            } else {
+              '0x{0:X4}' -f $machine
+            }
+            Write-Host ("{0,-46} {1}" -f $file.Name, $arch)
+            if ($machine -ne 0xAA64 -and $machine -ne 0xA641) {
+              $wrong += "$($file.Name) ($arch)"
+            }
+          }
+
+          if ($wrong.Count -gt 0) {
+            Write-Host "::error::以下产物不是 ARM64：$($wrong -join ', ')"
+            exit 1
+          }
+          Write-Host "OK: $($binaries.Count) 个 dll/exe 全部为 ARM64"
 
       # macOS 构建：runner 自带 Xcode + CocoaPods，无需再装 brew/gem（本地虚拟机才需要）
       - name: Build macOS
@@ -335,6 +400,8 @@ jobs:
             zip -r bilimusic_linux-arm64-${{ steps.read_build_env.outputs.FULL_VERSION }}.zip build/linux/arm64/release/bundle
           elif [ "${{ matrix.name }}" = "windows" ]; then
             powershell Compress-Archive build/windows/x64/runner/Release bilimusic_win32_x64-${{ steps.read_build_env.outputs.FULL_VERSION }}.zip
+          elif [ "${{ matrix.name }}" = "windows-arm" ]; then
+            powershell Compress-Archive build/windows/arm64/runner/Release bilimusic_win32_arm64-${{ steps.read_build_env.outputs.FULL_VERSION }}.zip
           elif [ "${{ matrix.name }}" = "macos" ]; then
             # 必须用 ditto：zip 会丢失 .app 内的符号链接与扩展属性，破坏包的代码签名
             ditto -c -k --sequesterRsrc --keepParent \

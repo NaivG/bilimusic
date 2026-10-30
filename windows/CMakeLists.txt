@@ -58,6 +58,13 @@ add_subdirectory("runner")
 
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
+#
+# CMAKE_SYSTEM_PROCESSOR 由 CMake 按宿主进程架构（PROCESSOR_ARCHITECTURE）推断，
+# 不跟随 -A 指定的目标平台。按它挑预编译二进制的插件（如构建期下载 libmpv 的插件）
+# 会挑成宿主架构，这里按生成器平台纠正；x64 目标不受影响。
+if(CMAKE_GENERATOR_PLATFORM MATCHES "ARM64")
+  set(CMAKE_SYSTEM_PROCESSOR "ARM64")
+endif()
 include(flutter/generated_plugins.cmake)
 
 
