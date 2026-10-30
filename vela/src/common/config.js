@@ -188,6 +188,24 @@ export const CONFIG = {
      *      （makeProgressive 对网桥返回 null），播放器依然要等整份下完才拿到落点。
      */
     WRITE_BATCH: 32 * 1024,
+    /**
+     * 跨 VM 下载租约（见 audioCache.js 顶部的「跨 VM 语义」）。
+     *
+     *   LEASE_TTL       租约多久没刷新就算持有者已死（页面 VM 随页面销毁，
+     *                   崩溃/切页不会有人来 unlock）。每 HEARTBEAT 刷一次。
+     *   LEASE_HEARTBEAT 续租间隔：一首歌在蓝牙上要下几十秒，必须证明自己还活着。
+     *   LEASE_CONFIRM   写后回读的等待。storage 没有 CAS，两个 VM 同时起跑时靠这一次
+     *                   回读把其中一个挡在门外。
+     *   LEASE_POLL      等别人下完时的轮询间隔（每次轮询顺带看一眼缓存是否已就位）。
+     *   LEASE_WAIT_MAX  等别人的上限。比整份下载的总闸（WHOLE_DOWNLOAD_TIMEOUT）宽一点：
+     *                   正常情况下对方总会下完（缓存命中）或失败（让出租约）。注意 fetch
+     *                   分块通道没有总闸（只有单块重试），慢到超过这里就报错。
+     */
+    LEASE_TTL: 45 * 1000,
+    LEASE_HEARTBEAT: 15 * 1000,
+    LEASE_CONFIRM: 60,
+    LEASE_POLL: 400,
+    LEASE_WAIT_MAX: 6 * 60 * 1000,
   },
 
   // 收藏夹列表每页条数（接口定义域 1-20）
@@ -207,6 +225,10 @@ export const CONFIG = {
     // header 打包形态」是**这台机的运行时事实**，不是这次网络的状态 —— 探明一次就写下来，
     // 以后每个页面 VM、每次启动都不再把整条探测阶梯撞一遍（蓝牙上那是好几秒的白白下载）。
     DL_CAPS: 'bilimusic_dl_caps',
+    // 跨 VM 下载租约：`<AUDIO_LEASE>_<缓存键>` → { owner, ts }（见 AUDIO_CACHE 里
+    // LEASE_* 的说明与 audioCache 的「跨 VM 语义」）。按缓存键一条，互不覆盖 ——
+    // 一首歌的租约读写不能顺带冲掉另一首歌的租约。
+    AUDIO_LEASE: 'bilimusic_audio_lease',
     // 本地收藏表：手表本机的收藏夹（与 B 站账号收藏夹无关，免登录可用）。
     // 存的是归一化条目数组（common/favorites.js 定形状），每个 VM 操作前整表读、
     // 改完整表写（改动低频且由点击触发，不上播放态那套 ver 水位协议）。
