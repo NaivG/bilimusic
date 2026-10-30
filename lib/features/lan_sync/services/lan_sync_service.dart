@@ -120,15 +120,6 @@ class LanSyncService {
 
     settings.addListener(_onSettingsChanged);
 
-    try {
-      _server = await ServerSocket.bind(InternetAddress.anyIPv4, _port);
-      _acceptSub = _server!.listen(_onAccept);
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('LanSyncService: bind failed: $e');
-      }
-    }
-
     _mdnsPeerSub = _mdns.peerStream.listen(_onPeerDiscovered);
     _mdnsLostSub = _mdns.lostStream.listen(_onPeerLost);
 
@@ -136,6 +127,8 @@ class LanSyncService {
     coordinator.playerState.addListener(_onCoordinatorChanged);
     coordinator.playlist.addListener(_onPlaylistChanged);
 
+    // 以落盘模式做首次收敛：`off` 时不监听端口、不广播。
+    _mode = LanSyncMode.off;
     _onSettingsChanged();
   }
 
@@ -145,10 +138,7 @@ class LanSyncService {
 
     settings.removeListener(_onSettingsChanged);
 
-    await _acceptSub?.cancel();
-    _acceptSub = null;
-    await _server?.close();
-    _server = null;
+    await _stopListening();
 
     await _mdnsPeerSub?.cancel();
     await _mdnsLostSub?.cancel();
@@ -163,7 +153,11 @@ class LanSyncService {
     _playlistBroadcastDebouncer?.cancel();
     _playlistBroadcastDebouncer = null;
 
-    for (final s in _sessions.values.toList()) {
+    final sessions = <LanSession>{
+      ..._sessions.values,
+      ..._pendingSessions.values,
+    };
+    for (final s in sessions) {
       await s.dispose();
     }
     _sessions.clear();
@@ -177,10 +171,79 @@ class LanSyncService {
     final newMode = LanSyncMode.fromString(settings.lanSyncMode);
     if (newMode == _mode) return;
     _mode = newMode;
-    unawaited(_mdns.start(identity: identity, mode: newMode, port: _port));
+    unawaited(_applyMode(newMode));
+  }
+
+  /// 按 [mode] 收敛监听端口、会话与 mDNS 广播。
+  ///
+  /// 监听套接字只在模式非 `off` 时存在：关闭同步后不再接任何连接，
+  /// 已建立的会话一并断开。
+  Future<void> _applyMode(LanSyncMode mode) async {
+    if (!_started) return;
+    if (mode.acceptsConnections) {
+      await _startListening();
+      if (!_started || mode != _mode) return;
+      await _mdns.start(identity: identity, mode: mode, port: _port);
+      return;
+    }
+
+    _broadcastDebouncer?.cancel();
+    _broadcastDebouncer = null;
+    _playlistBroadcastDebouncer?.cancel();
+    _playlistBroadcastDebouncer = null;
+
+    await _stopListening();
+    await _closeSessions();
+    await _mdns.stop();
+  }
+
+  /// 绑定接收端口；模式已切走时放弃这次绑定。
+  Future<void> _startListening() async {
+    if (_server != null) return;
+    try {
+      final server = await ServerSocket.bind(InternetAddress.anyIPv4, _port);
+      if (!_started || !_mode.acceptsConnections) {
+        await server.close();
+        return;
+      }
+      _server = server;
+      _acceptSub = server.listen(_onAccept);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('LanSyncService: bind failed: $e');
+      }
+    }
+  }
+
+  Future<void> _stopListening() async {
+    await _acceptSub?.cancel();
+    _acceptSub = null;
+    await _server?.close();
+    _server = null;
+  }
+
+  /// 断开所有会话并清空对端列表（关闭同步时调用）。
+  Future<void> _closeSessions() async {
+    final sessions = <LanSession>{
+      ..._sessions.values,
+      ..._pendingSessions.values,
+    };
+    _sessions.clear();
+    _pendingSessions.clear();
+    _peers.clear();
+    _lastRemoteByPeer.clear();
+    for (final session in sessions) {
+      await session.close(reason: ByeReason.disconnect);
+    }
+    if (!_peersController.isClosed) _peersController.add(const []);
   }
 
   void _onAccept(Socket socket) {
+    // 关闭瞬间可能还有已排队的连接：直接丢弃，不发 hello，也不出示 token。
+    if (!_mode.acceptsConnections) {
+      unawaited(socket.close());
+      return;
+    }
     final session = LanSession.fromAcceptedSocket(socket);
     final key = '${socket.remoteAddress.address}:${socket.remotePort}';
     _pendingSessions[key] = session;
@@ -188,7 +251,8 @@ class LanSyncService {
     session.stateChanges.listen((state) {
       _handleSessionState(session, key, state);
     });
-    _sendHello(session);
+    // 被动方不回发 hello：token 是持久配对凭据，必须等对端先出示并校验
+    // 通过后，才在 hello-ack 里回带。
   }
 
   void _onPeerDiscovered(PeerDevice peer) {
@@ -213,15 +277,33 @@ class LanSyncService {
     if (_peers.remove(peerId) != null) _emitPeers();
   }
 
+  /// hello 可携带的本机 token。
+  ///
+  /// 只有私有模式且对端早已配对（本机持有其 token）时才出示；首次配对
+  /// 与公共连接都不得携带持久凭据。
+  static String? helloTokenFor(
+    LanSyncMode mode, {
+    required bool peerPaired,
+    required String selfToken,
+  }) {
+    if (!mode.exposesPairingToken || !peerPaired || selfToken.isEmpty) {
+      return null;
+    }
+    return selfToken;
+  }
+
   void _sendHello(LanSession session) {
-    final token = pairing.selfToken.isNotEmpty ? pairing.selfToken : null;
     session.send(
       HelloMessage(
         id: identity.id,
         name: identity.name,
         platform: identity.platform,
         mode: _mode.mdnsValue,
-        token: token,
+        token: helloTokenFor(
+          _mode,
+          peerPaired: pairing.expectedTokenFor(session.peerId) != null,
+          selfToken: pairing.selfToken,
+        ),
       ),
     );
   }
@@ -235,7 +317,7 @@ class LanSyncService {
       case PinMessage m:
         _handlePin(session, keyOrPeerId, m);
       case PinAckMessage m:
-        _handlePinAck(session, keyOrPeerId, m);
+        _handlePinAck(session, m);
       case StateMessage m:
         _handleState(session, m);
       case PlaylistMessage m:
@@ -310,6 +392,11 @@ class LanSyncService {
   }
 
   void _handleHello(LanSession session, String key, HelloMessage msg) {
+    if (!_mode.acceptsConnections) {
+      // 已关闭同步：不回 ack、不做配对，直接断开。
+      unawaited(session.close());
+      return;
+    }
     if (session.peerId.isEmpty) {
       // accept 路径：补全身份
       session.setPeerIdentity(id: msg.id, name: msg.name);
@@ -384,13 +471,12 @@ class LanSyncService {
       }
       // 等待 PIN；state 留在 helloSent
     } else {
-      // 公共模式：直接接受只读；不传播私有拓扑。
+      // 公共模式：直接接受只读；不传播私有拓扑，也不回带本机 token。
       session.send(
         HelloAckMessage(
           ok: true,
           peerId: identity.id,
           peerName: identity.name,
-          token: pairing.selfToken.isNotEmpty ? pairing.selfToken : null,
           version: 2,
         ),
       );
@@ -401,6 +487,11 @@ class LanSyncService {
 
   void _handleHelloAck(LanSession session, String peerId, HelloAckMessage msg) {
     session.peerProtocolVersion = msg.version;
+    if (msg.peerId != null && msg.peerId != peerId) {
+      // 应答方身份与拨号目标不一致（mDNS 记录过期或被冒充），拒绝。
+      unawaited(session.close());
+      return;
+    }
     if (msg.ok) {
       final knownToken = pairing.expectedTokenFor(peerId);
       final tokenMatches =
@@ -416,11 +507,16 @@ class LanSyncService {
       _sendCurrentState(session);
       if (session.isPrivate) _sendRoster(session);
     } else if (msg.reason == 'need_pin') {
+      if (!session.expectsPrivate) {
+        // 公共只读连接不需要 PIN；对端要求配对说明握手异常，直接断开。
+        unawaited(session.close());
+        return;
+      }
       session.transitionTo(LanSessionState.awaitingPin);
       // 用户先前在 pairWith 里预填过 PIN：直接发
       final pending = _pendingPinCodes.remove(peerId);
       if (pending != null) {
-        session.send(PinMessage(code: pending, token: pairing.selfToken));
+        session.send(PinMessage(code: pending));
       } else if (session.isInitiator) {
         // 兜底：发起方走到这里意味着 pairWith 未预填 PIN（当前 UI 不会
         // 触发，留作将来"无 PIN 主动连接"入口的兼容路径）。
@@ -434,6 +530,12 @@ class LanSyncService {
   }
 
   void _handlePin(LanSession session, String key, PinMessage msg) {
+    // PIN 配对只属于私有模式。
+    if (!_mode.acceptsPrivate) {
+      session.send(const PinAckMessage(ok: false));
+      unawaited(session.close());
+      return;
+    }
     if (!pairing.verifyPin(msg.code)) {
       session.send(const PinAckMessage(ok: false));
       unawaited(session.close());
@@ -453,10 +555,23 @@ class LanSyncService {
     }
   }
 
-  void _handlePinAck(LanSession session, String peerId, PinAckMessage msg) {
+  void _handlePinAck(LanSession session, PinAckMessage msg) {
+    // pin-ack 只在 PIN 流程中途有效：发起方发出 PinMessage 后（awaitingPin），
+    // 被动方校验过对端 PIN 后（也是 awaitingPin）。其他时机收到的一律视为
+    // 伪造的凭据升级，直接断开。
+    if (!_mode.acceptsPrivate ||
+        session.state != LanSessionState.awaitingPin ||
+        session.peerId.isEmpty) {
+      unawaited(session.close());
+      return;
+    }
     if (!msg.ok) {
       _pairingResultController.add(
-        PairingResult(peerId: peerId, ok: false, reason: '对端拒绝或 PIN 错误'),
+        PairingResult(
+          peerId: session.peerId,
+          ok: false,
+          reason: '对端拒绝或 PIN 错误',
+        ),
       );
       unawaited(session.close());
       return;
@@ -467,14 +582,14 @@ class LanSyncService {
       if (msg.code == null || !pairing.verifyPin(msg.code!)) {
         session.send(const PinAckMessage(ok: false));
         _pairingResultController.add(
-          PairingResult(peerId: peerId, ok: false, reason: '对端 PIN 错误'),
+          PairingResult(peerId: session.peerId, ok: false, reason: '对端 PIN 错误'),
         );
         unawaited(session.close());
         return;
       }
       // 双方 PIN 都验证通过
       if (msg.token != null && msg.token!.isNotEmpty) {
-        unawaited(pairing.rememberDirectPeer(peerId, msg.token!));
+        unawaited(pairing.rememberDirectPeer(session.peerId, msg.token!));
       }
       session.send(
         PinAckMessage(
@@ -486,12 +601,17 @@ class LanSyncService {
       session.transitionTo(LanSessionState.syncing);
       _sendCurrentState(session);
       _sendRoster(session);
-      _pairingResultController.add(PairingResult(peerId: peerId, ok: true));
+      _pairingResultController.add(
+        PairingResult(peerId: session.peerId, ok: true),
+      );
     } else {
       // B 端：A 发回的最终回执——双方 PIN 都已通过验证，进入 syncing。
-      if (msg.token != null && msg.token!.isNotEmpty) {
-        unawaited(pairing.rememberDirectPeer(peerId, msg.token!));
+      // 回执必须带 A 的 token，否则不能据此建立私有会话。
+      if (msg.token == null || msg.token!.isEmpty) {
+        unawaited(session.close());
+        return;
       }
+      unawaited(pairing.rememberDirectPeer(session.peerId, msg.token!));
       session.isPrivate = true;
       session.transitionTo(LanSessionState.syncing);
       _sendCurrentState(session);
@@ -772,6 +892,12 @@ class LanSyncService {
   /// token 缺失时降级走 [pairWith]（UI 会弹 PIN）；token 失效时由对端
   /// _handleHelloAck 返回 need_pin，再走 PIN 流。
   Future<void> connectPaired(PeerDevice peer) async {
+    if (!_mode.acceptsConnections) return;
+    if (!_mode.acceptsPrivate || peer.mode != LanSyncMode.private) {
+      // 任一端的公共模式都没有私有会话，退化为只读连接。
+      await connectPublic(peer);
+      return;
+    }
     final token = pairing.expectedTokenFor(peer.id);
     if (token == null) {
       // token 缺失视为"需要走 PIN"，调用方 UI 应弹 PIN 框
@@ -787,7 +913,7 @@ class LanSyncService {
     });
     await session.connect();
     if (session.state == LanSessionState.closed) {
-      _sessions.remove(peer.id);
+      if (_sessions[peer.id] == session) _sessions.remove(peer.id);
       return;
     }
     session.transitionTo(LanSessionState.helloSent);
@@ -796,11 +922,14 @@ class LanSyncService {
   }
 
   Future<void> _startPair(PeerDevice peer, {String? pinCode}) async {
+    if (!_mode.acceptsConnections) return;
+    // PIN 配对只属于私有模式。
+    if (pinCode != null && !_mode.acceptsPrivate) return;
     // 已有 awaitingPin 的 session：直接发 pin
     final existing = _sessions[peer.id];
     if (existing != null) {
       if (existing.state == LanSessionState.awaitingPin && pinCode != null) {
-        existing.send(PinMessage(code: pinCode, token: pairing.selfToken));
+        existing.send(PinMessage(code: pinCode));
       }
       return;
     }
@@ -813,7 +942,7 @@ class LanSyncService {
     });
     await session.connect();
     if (session.state == LanSessionState.closed) {
-      _sessions.remove(peer.id);
+      if (_sessions[peer.id] == session) _sessions.remove(peer.id);
       return;
     }
     session.transitionTo(LanSessionState.helloSent);
@@ -827,6 +956,8 @@ class LanSyncService {
   ///
   /// 把 PIN 通过 PinAck.code 回传给 A，由 A 端做最终 verifyPin 校验。
   Future<void> acceptPeerPairing(String peerId, String peerPin) async {
+    // 配对只属于私有模式；公共/关闭状态下不得回传本机 token。
+    if (!_mode.acceptsPrivate) return;
     final session = _sessions[peerId];
     if (session == null) return;
     if (session.state != LanSessionState.awaitingPin) return;
