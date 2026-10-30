@@ -37,12 +37,15 @@ class WbiKeys {
   String toString() => 'WbiKeys(imgKey: $imgKey, subKey: $subKey)';
 }
 
+/// 口令获取方式。`force` 为 true 时必须绕过获取方自己的缓存重新拉取。
+typedef WbiKeyFetcher = Future<WbiKeys> Function({bool force});
+
 /// WBI 签名器。
 ///
 /// 签名是**部分接口**的要求，且真正的门槛往往在风控而不是签名本身，
 /// 所以这里做成**按需签名**，而不是给每个请求都摊一次 md5 + 口令刷新：
 ///   - 默认不签，调用方显式 `signed: true` 才签；
-///   - `BiliClient` 在撞上风控（`-352` / `-412` / HTTP 412）且当次没签名时，
+///   - `BiliClient` 在撞上风控（`-352` / `-412` / HTTP 412）时，
 ///     会自动刷新口令并补签重试一次。
 class WbiSigner {
   WbiSigner({
@@ -52,7 +55,7 @@ class WbiSigner {
   }) : _clock = clock ?? DateTime.now;
 
   /// 口令获取方式（通常走 nav 或 GenWebTicket 接口）。
-  final Future<WbiKeys> Function() fetchKeys;
+  final WbiKeyFetcher fetchKeys;
 
   /// 本地缓存时长。口令每日更替，默认 6 小时足够保守。
   final Duration ttl;
@@ -61,6 +64,9 @@ class WbiSigner {
 
   WbiKeys? _cached;
   Future<WbiKeys>? _inflight;
+
+  /// 下一次取口令是否必须绕过 [fetchKeys] 自己的缓存。
+  bool _bustNextFetch = false;
 
   /// 重排映射表，长度 64。
   static const List<int> mixinKeyEncTab = [
@@ -71,32 +77,42 @@ class WbiSigner {
   ];
 
   /// 拿口令。命中缓存直接返回；并发调用共享同一次请求。
+  ///
+  /// [force] 为 true 时不信任本地缓存，并要求 [fetchKeys] 也绕过自己的缓存；
+  /// [invalidate] 之后的一次调用同样会走这条路径。
   Future<WbiKeys> keys({bool force = false}) {
+    final bust = force || _bustNextFetch;
     final cached = _cached;
-    if (!force &&
+    if (!bust &&
         cached != null &&
         _clock().difference(cached.fetchedAt) < ttl) {
       return Future.value(cached);
     }
     final pending = _inflight;
     if (pending != null) return pending;
-    final future = _load();
+    final future = _load(force: bust);
     _inflight = future;
     return future;
   }
 
-  Future<WbiKeys> _load() async {
+  Future<WbiKeys> _load({required bool force}) async {
     try {
-      final keys = await fetchKeys();
+      final keys = await fetchKeys(force: force);
       _cached = keys;
+      // 只有真正强制取回的那次才算刷新完成；失败或复用在飞请求时保留标记，
+      // 下一次仍然要求一把新钥匙。
+      if (force) _bustNextFetch = false;
       return keys;
     } finally {
       _inflight = null;
     }
   }
 
-  /// 丢弃缓存（签到风控、口令过期时调用）。
-  void invalidate() => _cached = null;
+  /// 丢弃缓存。下一次 [keys] 会要求口令来源绕过自身缓存重新取。
+  void invalidate() {
+    _cached = null;
+    _bustNextFetch = true;
+  }
 
   /// 给参数签名，返回可直接拼进 URL 的 query。
   ///

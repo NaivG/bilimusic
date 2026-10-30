@@ -65,7 +65,7 @@ void main() {
     }) {
       final stamp = fetchedAt ?? DateTime.utc(2026, 1, 1);
       return WbiSigner(
-        fetchKeys: () async {
+        fetchKeys: ({bool force = false}) async {
           onFetch();
           return WbiKeys.fromKeys(imgKey, subKey, fetchedAt: stamp);
         },
@@ -101,11 +101,109 @@ void main() {
       expect(calls, 2);
     });
 
+    test('invalidate 后的一次取口令要求来源强制重取，之后恢复缓存', () async {
+      final forces = <bool>[];
+      final signer = WbiSigner(
+        fetchKeys: ({bool force = false}) async {
+          forces.add(force);
+          return WbiKeys.fromKeys(
+            imgKey,
+            subKey,
+            fetchedAt: DateTime.utc(2026, 1, 1),
+          );
+        },
+        clock: () => DateTime.utc(2026, 1, 1, 0, 30),
+      );
+
+      await signer.keys();
+      signer.invalidate();
+      await signer.keys();
+      await signer.keys();
+
+      expect(forces, [false, true]);
+    });
+
+    test('keys(force: true) 绕过缓存并把 force 传给来源', () async {
+      final forces = <bool>[];
+      final signer = WbiSigner(
+        fetchKeys: ({bool force = false}) async {
+          forces.add(force);
+          return WbiKeys.fromKeys(
+            imgKey,
+            subKey,
+            fetchedAt: DateTime.utc(2026, 1, 1),
+          );
+        },
+        clock: () => DateTime.utc(2026, 1, 1, 0, 30),
+      );
+
+      await signer.keys();
+      await signer.keys(force: true);
+      await signer.keys(force: true);
+
+      expect(forces, [false, true, true]);
+    });
+
+    test('强制刷新成功后缓存换成新口令', () async {
+      const imgKey2 = '0123456789abcdef0123456789abcdef';
+      var calls = 0;
+      final signer = WbiSigner(
+        fetchKeys: ({bool force = false}) async {
+          calls++;
+          return calls == 1
+              ? WbiKeys.fromKeys(
+                  imgKey,
+                  subKey,
+                  fetchedAt: DateTime.utc(2026, 1, 1),
+                )
+              : WbiKeys.fromKeys(
+                  imgKey2,
+                  subKey,
+                  fetchedAt: DateTime.utc(2026, 1, 1),
+                );
+        },
+        clock: () => DateTime.utc(2026, 1, 1, 0, 30),
+      );
+
+      final first = await signer.keys();
+      final refreshed = await signer.keys(force: true);
+      final cached = await signer.keys();
+
+      expect(first.mixinKey, isNot(refreshed.mixinKey));
+      expect(cached.mixinKey, refreshed.mixinKey);
+      expect(calls, 2);
+    });
+
+    test('强制刷新失败后保留刷新标记，下一次仍然强制重取', () async {
+      const imgKey2 = '0123456789abcdef0123456789abcdef';
+      final forces = <bool>[];
+      final signer = WbiSigner(
+        fetchKeys: ({bool force = false}) async {
+          forces.add(force);
+          if (forces.length == 2) throw StateError('nav 不可用');
+          return WbiKeys.fromKeys(
+            forces.length == 1 ? imgKey : imgKey2,
+            subKey,
+            fetchedAt: DateTime.utc(2026, 1, 1),
+          );
+        },
+        clock: () => DateTime.utc(2026, 1, 1, 0, 30),
+      );
+
+      await signer.keys();
+      signer.invalidate();
+      await expectLater(signer.keys(), throwsStateError);
+      final refreshed = await signer.keys();
+
+      expect(forces, [false, true, true]);
+      expect(refreshed.mixinKey, WbiSigner.mixinKeyOf(imgKey2, subKey));
+    });
+
     test('超过 ttl 后重新取（口令每日更替）', () async {
       var calls = 0;
       var now = DateTime.utc(2026, 1, 1);
       final signer = WbiSigner(
-        fetchKeys: () async {
+        fetchKeys: ({bool force = false}) async {
           calls++;
           return WbiKeys.fromKeys(imgKey, subKey, fetchedAt: now);
         },
@@ -122,7 +220,7 @@ void main() {
     test('并发调用共享同一次请求', () async {
       var calls = 0;
       final signer = WbiSigner(
-        fetchKeys: () async {
+        fetchKeys: ({bool force = false}) async {
           calls++;
           await Future<void>.delayed(const Duration(milliseconds: 10));
           return WbiKeys.fromKeys(
@@ -142,7 +240,7 @@ void main() {
     test('取口令失败后不缓存失败结果，下次会重试', () async {
       var calls = 0;
       final signer = WbiSigner(
-        fetchKeys: () async {
+        fetchKeys: ({bool force = false}) async {
           calls++;
           if (calls == 1) throw StateError('nav 未返回 wbi_img');
           return WbiKeys.fromKeys(
