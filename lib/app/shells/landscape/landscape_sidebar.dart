@@ -8,7 +8,7 @@ import 'package:super_context_menu/super_context_menu.dart';
 
 /// 横屏模式新侧边栏 - 基于ParticleMusic风格
 class LandscapeSidebar extends ConsumerWidget {
-  /// 顶层导航(发现/搜索/设置)当前高亮标签；进入歌单页时为 null，
+  /// 顶层导航（首页/发现/设置）当前高亮标签；进入歌单页时为 null，
   /// 使任何顶层导航项都不显示高亮，让被点击的歌单独占视觉焦点。
   final String? selectedLabel;
   final List<Playlist> playlists;
@@ -69,15 +69,6 @@ class LandscapeSidebar extends ConsumerWidget {
                       isSelected: selectedLabel == 'discover',
                       selectedItemColor: selectedItemColor,
                       onTap: () => onNavTap('discover'),
-                    ),
-                    // 搜索
-                    _SidebarItem(
-                      icon: Icons.search,
-                      activeIcon: Icons.search,
-                      label: '搜索',
-                      isSelected: selectedLabel == 'search',
-                      selectedItemColor: selectedItemColor,
-                      onTap: () => onNavTap('search'),
                     ),
                     const SizedBox(height: 10),
                     const Divider(

@@ -48,7 +48,7 @@ class TrayMenu implements TrayMenuContent {
   static const String _idleLabel = '未在播放';
 
   /// 设置页在顶层 tab 中的下标（见 ShellPageManager.goToTab / selectedTabIndex）。
-  static const int _settingsTabIndex = 4;
+  static const int _settingsTabIndex = 3;
 
   /// 播放队列页用的歌单 id：不是系统歌单，页面按传进去的 songs 走临时歌单分支。
   static const String _queuePlaylistId = 'queue';

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/domain/music.dart';
@@ -11,6 +11,7 @@ import 'package:bilimusic/shared/widgets/cards/music_list_item.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
+import 'package:bilimusic/features/search/search_providers.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 
@@ -105,6 +106,11 @@ class _HomeContentState extends ConsumerState<HomeContent> {
     );
   }
 
+  void _openSearchEntry() {
+    ref.read(searchSuggestProvider.notifier).clear();
+    ShellPageManager.instance.push(ShellPage.searchEntry);
+  }
+
   void _playMusic(Music music) {
     // cid 缺失时 playMusic 内部会经 ApiService.ensureCid 补齐
     ref.read(playbackCommandsProvider.notifier).playMusic(music);
@@ -158,9 +164,7 @@ class _HomeContentState extends ConsumerState<HomeContent> {
               prefixIcon: Icon(Icons.search, color: Colors.grey.shade600),
               contentPadding: const EdgeInsets.symmetric(vertical: 10),
             ),
-            onTap: () {
-              ShellPageManager.instance.goToTab(2);
-            },
+            onTap: _openSearchEntry,
           ),
         ),
         actions: [
@@ -208,9 +212,7 @@ class _HomeContentState extends ConsumerState<HomeContent> {
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
-            onPressed: () {
-              ShellPageManager.instance.goToTab(2);
-            },
+            onPressed: _openSearchEntry,
           ),
         ],
       );

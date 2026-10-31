@@ -13,6 +13,7 @@ import 'package:bilimusic/domain/bili_item.dart';
 import 'package:bilimusic/domain/hot_song.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/search_result.dart';
+import 'package:bilimusic/domain/search_suggest.dart';
 import 'package:bilimusic/core/network/av_bv.dart';
 
 /// 离线查表钩子：命中且音质够用时返回本地文件路径与实际音质，否则 null。
@@ -389,6 +390,28 @@ class ApiService {
     } on BiliNetworkException catch (e) {
       debugPrint('[ApiService] search($query): network $e');
       return SearchResponse.empty(query);
+    }
+  }
+
+  /// 搜索联想词。
+  ///
+  /// 联想接口挂在 `s.search.bilibili.com` 上，响应是 `{code, result}`、没有
+  /// 通用的 `data` 字段，因此用 [BiliClient.getJson] 读完整响应体。
+  Future<List<SearchSuggest>> fetchSearchSuggest(String term) async {
+    final trimmed = term.trim();
+    if (trimmed.isEmpty) return const [];
+
+    try {
+      final json = await _client.getJson(
+        '/main/suggest',
+        query: {'term': trimmed, 'main_ver': 'v1', 'highlight': ''},
+        baseUrl: NetworkConfig.searchSuggestBase,
+        retry: false,
+      );
+      return SearchSuggest.listFromResponse(json);
+    } on BiliException catch (e) {
+      debugPrint('[ApiService] fetchSearchSuggest($trimmed): $e');
+      return const [];
     }
   }
 

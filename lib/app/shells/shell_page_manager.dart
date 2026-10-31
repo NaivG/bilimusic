@@ -5,7 +5,7 @@ import 'package:bilimusic/domain/up_profile.dart';
 enum ShellPage {
   home,
   discover,
-  search,
+  searchEntry,
   searchResults,
   profile,
   settings,
@@ -88,21 +88,28 @@ class ShellPageManager extends ChangeNotifier {
   String? get activePlaylistId =>
       currentPage == ShellPage.playlist ? getArgs<String>('playlistId') : null;
 
+  /// 顶层导航（首页/发现/我的/设置）的下标；搜索是压栈的中间态，
+  /// 压栈时沿用入口所在分区的下标，避免导航高亮跳到不存在的搜索 Tab。
   int get selectedTabIndex {
-    switch (_stack.last.page) {
+    for (var i = _stack.length - 1; i >= 0; i--) {
+      final index = _tabIndexFor(_stack[i].page);
+      if (index != null) return index;
+    }
+    return 0;
+  }
+
+  static int? _tabIndexFor(ShellPage page) {
+    switch (page) {
       case ShellPage.home:
         return 0;
       case ShellPage.discover:
         return 1;
-      case ShellPage.search:
-      case ShellPage.searchResults:
-        return 2;
       case ShellPage.profile:
-        return 3;
+        return 2;
       case ShellPage.settings:
-        return 4;
+        return 3;
       default:
-        return 0;
+        return null;
     }
   }
 
@@ -140,9 +147,8 @@ class ShellPageManager extends ChangeNotifier {
     final page = switch (index) {
       0 => ShellPage.home,
       1 => ShellPage.discover,
-      2 => ShellPage.search,
-      3 => ShellPage.profile,
-      4 => ShellPage.settings,
+      2 => ShellPage.profile,
+      3 => ShellPage.settings,
       _ => ShellPage.home,
     };
     _stack

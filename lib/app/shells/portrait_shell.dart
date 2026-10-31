@@ -34,7 +34,6 @@ class PortraitShell extends ConsumerWidget {
   bool get _showBottomBar {
     return currentPage == ShellPage.home ||
         currentPage == ShellPage.discover ||
-        currentPage == ShellPage.search ||
         currentPage == ShellPage.profile ||
         currentPage == ShellPage.settings;
   }
@@ -112,11 +111,6 @@ class PortraitShell extends ConsumerWidget {
                     icon: Icon(Icons.explore_outlined),
                     activeIcon: Icon(Icons.explore),
                     label: '发现',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.search_outlined),
-                    activeIcon: Icon(Icons.search),
-                    label: '搜索',
                   ),
                   BottomNavigationBarItem(
                     icon: Icon(Icons.person_outlined),

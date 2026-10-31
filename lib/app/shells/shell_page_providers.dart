@@ -20,13 +20,10 @@ class ShellPageState {
         return 0;
       case ShellPage.discover:
         return 1;
-      case ShellPage.search:
-      case ShellPage.searchResults:
-        return 2;
       case ShellPage.profile:
-        return 3;
+        return 2;
       case ShellPage.settings:
-        return 4;
+        return 3;
       default:
         return 0;
     }
@@ -82,9 +79,8 @@ class ShellPageManagerNotifier extends Notifier<ShellPageState> {
     final page = switch (index) {
       0 => ShellPage.home,
       1 => ShellPage.discover,
-      2 => ShellPage.search,
-      3 => ShellPage.profile,
-      4 => ShellPage.settings,
+      2 => ShellPage.profile,
+      3 => ShellPage.settings,
       _ => ShellPage.home,
     };
     replace(page);
