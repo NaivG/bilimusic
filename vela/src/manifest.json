@@ -1,8 +1,8 @@
 {
   "package": "github.naivg.bilimusic",
   "name": "bilimusic",
-  "versionName": "1.10.3",
-  "versionCode": 255,
+  "versionName": "1.10.4",
+  "versionCode": 280,
   "minAPILevel": 2,
   "icon": "/common/logo.png",
   "deviceTypeList": [
