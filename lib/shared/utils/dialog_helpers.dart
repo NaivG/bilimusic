@@ -110,7 +110,7 @@ void showSongInfoDialog(
         children: [
           infoRow('标题', title),
           infoRow('艺术家', artist),
-          infoRow('专辑', album),
+          if (album.trim().isNotEmpty) infoRow('专辑', album),
           infoRow('时长', formatDuration(duration)),
           infoRow('来源', 'Bilibili'),
         ],

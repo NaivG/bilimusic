@@ -146,7 +146,8 @@ class DiscoverCache {
 
   final Future<SharedPreferences> Function() _preferences;
 
-  static const String hotSongsKey = 'discover_hot_songs_v1';
+  // v2：榜单条目带相关视频身份，与旧结构不兼容
+  static const String hotSongsKey = 'discover_hot_songs_v2';
   static const String musicRankKey = 'discover_music_rank_v1';
   static const String musicFeedKey = 'discover_music_feed_v1';
 

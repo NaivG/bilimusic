@@ -173,7 +173,11 @@ class Music {
       id == other.id && (cid.isEmpty || other.cid.isEmpty || cid == other.cid);
 
   /// 「artist - album」副标题行（列表项通用，分隔符统一为 ` - `）。
-  String get subtitleText => '${artist.displayName} - $album';
+  ///
+  /// 没有专辑信息（如热歌榜播放的相关视频）时只显示艺术家。
+  String get subtitleText => album.trim().isEmpty
+      ? artist.displayName
+      : '${artist.displayName} - $album';
 
   /// 获取当前分P
   Page? get currentPage {

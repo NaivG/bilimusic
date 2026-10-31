@@ -1,11 +1,14 @@
 import 'package:bilimusic/domain/artist.dart';
 import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/domain/related_video.dart';
 
 /// 版权音乐「热歌榜」的一期条目。
 ///
-/// 榜单是歌曲维度的（歌名 / 歌手 / 专辑 / 热度 / 排名），与 B 站稿件维度不同；
-/// 每个条目都带一首可直接播放的创作稿件（`creation_bvid` + `creation_first_cid`），
-/// 播放时用 [toMusic] 转成 [Music]。
+/// 一条目由两部分组成：
+///   - 歌曲维度的榜单信息（歌名 / 歌手 / 专辑 / 热度 / 排名），只用于热歌榜
+///     列表的行头渲染；
+///   - 一条可播放的相关视频（`creation_*` 字段），[toMusic] 直接以它的
+///     标题 / UP 主 / 封面 / 时长构造 [Music]。
 ///
 /// `can_listen` 一类的版权音源字段不在这里：本项目只能播 B 站稿件，
 /// 官方音源能不能听与播放链路无关。
@@ -28,20 +31,23 @@ class HotSong {
   /// 专辑名，接口可能为空。
   final String album;
 
-  /// 封面：优先官方歌曲封面，缺失回退创作稿件封面。
+  /// 榜单歌曲封面（`mv_cover`），缺失时回退相关视频封面。
   final String coverUrl;
 
   /// 热度值（榜单口径，不是播放量）。
   final int heat;
 
-  /// 创作稿件时长（秒）。
+  /// 相关视频时长（秒）。
   final int durationSeconds;
 
-  /// 可直接播放的创作稿件 bvid；空串表示本期没有可用稿件。
+  /// 可直接播放的相关视频 bvid；空串表示本期没有可用稿件。
   final String bvid;
 
-  /// 创作稿件的首 P cid，拿到即可直接取流。
+  /// 相关视频的首 P cid，拿到即可直接取流。
   final String cid;
+
+  /// 相关视频的身份信息；[bvid] 为空时为 null。
+  final RelatedVideo? relatedVideo;
 
   /// 榜单给的成就标签，如「重回榜单」「最高排名1」。
   final List<String> achievements;
@@ -58,34 +64,41 @@ class HotSong {
     this.durationSeconds = 0,
     this.bvid = '',
     this.cid = '',
+    this.relatedVideo,
     this.achievements = const [],
   });
 
-  /// 是否能播（没有创作稿件就只能看名字）。
+  /// 是否能播（没有相关视频就只能看名字）。
   bool get isPlayable => bvid.isNotEmpty;
 
   /// 相对上期的名次变化：正数上升、负数下降、null 表示新上榜。
   int? get rankDelta => lastRank <= 0 ? null : lastRank - rank;
 
-  /// 「歌手 - 专辑」副标题，与 [Music.subtitleText] 同一分隔符。
+  /// 榜单行头的副标题：「歌手 - 专辑」，与 [Music.subtitleText] 同一分隔符。
   String get subtitleText => album.trim().isEmpty
       ? singer
       : '${singer.isEmpty ? '未知歌手' : singer} - $album';
 
-  /// 转成可播放的曲目。
+  /// 转成可播放的曲目：元数据全部取相关视频。
   ///
-  /// `artist` 用歌手名而不是稿件 UP 主：热歌榜是歌曲榜，播放页显示的应该是
-  /// 谁唱的。稿件 UP 归版权榜的 `creation_nickname`，与"这首歌归谁"无关。
-  Music toMusic() => Music(
-    id: bvid,
-    cid: cid,
-    title: title,
-    artist: Artist(name: singer),
-    album: album,
-    coverUrl: coverUrl,
-    duration: durationSeconds > 0 ? Duration(seconds: durationSeconds) : null,
-    audioUrl: '',
-  );
+  /// 歌名 / 歌手 / 专辑只属于榜单行头，不能带进播放链路，否则播放页显示的
+  /// 是一首歌、实际播的却是另一条投稿。
+  Music toMusic() {
+    final video = relatedVideo;
+    return Music(
+      id: bvid,
+      cid: cid,
+      title: video?.title ?? '',
+      artist: Artist(
+        mid: video?.uploaderMid ?? 0,
+        name: video?.uploaderName ?? '',
+      ),
+      album: '',
+      coverUrl: video?.coverUrl ?? '',
+      duration: durationSeconds > 0 ? Duration(seconds: durationSeconds) : null,
+      audioUrl: '',
+    );
+  }
 
   /// 解析 `copyright-music-publicity/toplist/music_list` 的单条。
   factory HotSong.fromToplistJson(Map<String, dynamic> json) {
@@ -93,6 +106,7 @@ class HotSong {
     final creationCover = (json['creation_cover'] ?? '').toString().trim();
     final achievements = json['achievements'];
     final cid = _asInt(json['creation_first_cid']);
+    final bvid = (json['creation_bvid'] ?? '').toString();
     return HotSong(
       rank: _asInt(json['rank']),
       lastRank: _asInt(json['last_rank']),
@@ -103,9 +117,19 @@ class HotSong {
       coverUrl: mvCover.isNotEmpty ? mvCover : creationCover,
       heat: _asInt(json['heat']),
       durationSeconds: _asInt(json['creation_duration']),
-      bvid: (json['creation_bvid'] ?? '').toString(),
+      bvid: bvid,
       // cid=0 表示接口没给，留空让播放链路自己补，别当成合法分P
       cid: cid > 0 ? '$cid' : '',
+      relatedVideo: bvid.isEmpty
+          ? null
+          : RelatedVideo(
+              bvid: bvid,
+              title: (json['creation_title'] ?? '').toString(),
+              uploaderName: (json['creation_nickname'] ?? '').toString(),
+              uploaderMid: _asInt(json['creation_up']),
+              playCount: _asInt(json['creation_play']),
+              coverUrl: creationCover,
+            ),
       achievements: achievements is List
           ? achievements.map((e) => e.toString()).toList()
           : const [],
@@ -115,6 +139,8 @@ class HotSong {
   /// 从落盘缓存回读（字段名与 [toJson] 对齐）。
   factory HotSong.fromJson(Map<String, dynamic> json) {
     final achievements = json['achievements'];
+    final bvid = (json['bvid'] ?? '').toString();
+    final storedVideo = json['relatedVideo'];
     return HotSong(
       rank: _asInt(json['rank']),
       lastRank: _asInt(json['lastRank']),
@@ -125,8 +151,13 @@ class HotSong {
       coverUrl: (json['coverUrl'] ?? '').toString(),
       heat: _asInt(json['heat']),
       durationSeconds: _asInt(json['durationSeconds']),
-      bvid: (json['bvid'] ?? '').toString(),
+      bvid: bvid,
       cid: (json['cid'] ?? '').toString(),
+      relatedVideo: bvid.isEmpty
+          ? null
+          : storedVideo is Map
+          ? RelatedVideo.fromJson(Map<String, dynamic>.from(storedVideo))
+          : RelatedVideo(bvid: bvid),
       achievements: achievements is List
           ? achievements.map((e) => e.toString()).toList()
           : const [],
@@ -145,6 +176,7 @@ class HotSong {
     'durationSeconds': durationSeconds,
     'bvid': bvid,
     'cid': cid,
+    'relatedVideo': relatedVideo?.toJson(),
     'achievements': achievements,
   };
 

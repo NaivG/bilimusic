@@ -8,6 +8,7 @@ import 'package:bilimusic/domain/hot_song.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/discover/discover_providers.dart';
 import 'package:bilimusic/features/discover/widgets/discover_music_tile.dart';
+import 'package:bilimusic/features/discover/widgets/hot_song_card.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
@@ -273,75 +274,15 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
           itemCount: hot.songs.length,
           itemBuilder: (context, index) {
             final song = hot.songs[index];
-            return DiscoverMusicTile(
-              rank: song.rank,
-              title: song.title,
-              subtitle: song.subtitleText,
-              coverUrl: song.coverUrl,
-              cacheKey: 'hot-${song.musicId}',
-              enabled: song.isPlayable,
+            return HotSongCard(
+              song: song,
               onTap: () => _playHotSong(song),
               contextMenuBuilder: _musicContextMenu(song.toMusic()),
-              trailing: _buildHotTrailing(context, song),
             );
           },
         ),
       ),
     ];
-  }
-
-  Widget _buildHotTrailing(BuildContext context, HotSong song) {
-    final theme = Theme.of(context);
-    final delta = song.rankDelta;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          _formatHeat(song.heat),
-          style: TextStyle(
-            fontSize: 11,
-            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.65),
-          ),
-        ),
-        const SizedBox(height: 2),
-        if (delta == null)
-          Text(
-            'NEW',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.primary,
-            ),
-          )
-        else if (delta == 0)
-          Text(
-            '—',
-            style: TextStyle(
-              fontSize: 10,
-              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-            ),
-          )
-        else
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                delta > 0 ? Icons.arrow_drop_up : Icons.arrow_drop_down,
-                size: 14,
-                color: delta > 0 ? Colors.green : Colors.redAccent,
-              ),
-              Text(
-                '${delta.abs()}',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: delta > 0 ? Colors.green : Colors.redAccent,
-                ),
-              ),
-            ],
-          ),
-      ],
-    );
   }
 
   // ---------------------------------------------------------- 音乐区排行
@@ -493,12 +434,6 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
   static String _formatDate(DateTime date) {
     String two(int value) => value.toString().padLeft(2, '0');
     return '${date.year}-${two(date.month)}-${two(date.day)}';
-  }
-
-  static String _formatHeat(int heat) {
-    if (heat <= 0) return '';
-    if (heat >= 10000) return '${(heat / 10000).toStringAsFixed(1)}万热度';
-    return '$heat 热度';
   }
 }
 

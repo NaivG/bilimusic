@@ -50,6 +50,10 @@ HotSong _hotSong(String title, int rank) => HotSong.fromToplistJson({
   'creation_bvid': 'BV-$title',
   'creation_first_cid': 1,
   'creation_duration': 120,
+  'creation_title': '视频-$title',
+  'creation_nickname': 'UP-$title',
+  'creation_up': 42,
+  'creation_play': 502170,
 });
 
 /// 用新鲜缓存把三个分区喂满：页面打开不联网，只验证渲染。
@@ -107,6 +111,10 @@ void main() {
     expect(find.textContaining('第 229 期'), findsOneWidget);
     expect(find.text('排行一'), findsOneWidget);
     expect(find.text('推荐一'), findsOneWidget);
+
+    // 热歌行是上下两段：歌曲行头 + 相关视频卡
+    expect(find.text('视频-热歌一'), findsOneWidget);
+    expect(find.textContaining('50.2万播放'), findsNWidgets(2));
 
     // 榜单尾部：两个条目都带热度与名次变化
     expect(find.textContaining('万热度'), findsNWidgets(2));
