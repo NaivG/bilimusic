@@ -6,48 +6,85 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/search_result.dart';
+import 'package:bilimusic/domain/search_suggest.dart';
 
-class SearchState {
-  final String query;
-  final bool shouldSearch;
+/// 搜索中间态的联想词状态。
+class SearchSuggestState {
+  /// 当前输入的关键词（已 trim）。
+  final String term;
 
-  const SearchState({this.query = '', this.shouldSearch = false});
+  /// 接口返回的联想词，按返回顺序排列。
+  final List<SearchSuggest> items;
 
-  SearchState copyWith({String? query, bool? shouldSearch}) {
-    return SearchState(
-      query: query ?? this.query,
-      shouldSearch: shouldSearch ?? this.shouldSearch,
-    );
-  }
+  final bool isLoading;
+
+  const SearchSuggestState({
+    this.term = '',
+    this.items = const [],
+    this.isLoading = false,
+  });
 }
 
-class SearchStateNotifier extends Notifier<SearchState> {
+/// 搜索联想：输入防抖后拉取，只采纳最后一次输入对应的响应。
+class SearchSuggestNotifier extends Notifier<SearchSuggestState> {
+  static const Duration _debounceDuration = Duration(milliseconds: 250);
+
+  Timer? _debounce;
+  int _generation = 0;
+
   @override
-  SearchState build() => const SearchState();
-
-  void setQuery(String query) {
-    // Always re-arm shouldSearch: even when the query is unchanged (e.g. the
-    // user resubmits the same text after markSearched() flipped it to false),
-    // this call must signal "run a search now" so the listener fires.
-    state = SearchState(query: query, shouldSearch: query.isNotEmpty);
+  SearchSuggestState build() {
+    ref.onDispose(() => _debounce?.cancel());
+    return const SearchSuggestState();
   }
 
-  void clear() {
-    if (state.query.isNotEmpty || state.shouldSearch) {
-      state = const SearchState();
+  /// 输入变化时调用：空串立即清空，其余防抖后请求联想词。
+  void update(String raw) {
+    _debounce?.cancel();
+    final term = raw.trim();
+    final generation = ++_generation;
+
+    if (term.isEmpty) {
+      if (state.term.isNotEmpty || state.items.isNotEmpty || state.isLoading) {
+        state = const SearchSuggestState();
+      }
+      return;
     }
+
+    state = SearchSuggestState(term: term, isLoading: true);
+    _debounce = Timer(_debounceDuration, () => _load(term, generation));
   }
 
-  void markSearched() {
-    if (state.shouldSearch) {
-      state = state.copyWith(shouldSearch: false);
+  Future<void> _load(String term, int generation) async {
+    final items = await ref.read(apiServiceProvider).fetchSearchSuggest(term);
+    if (!ref.mounted || generation != _generation) return;
+    state = SearchSuggestState(term: term, items: items);
+  }
+
+  /// 提交搜索时记录关键词，不再为它发联想请求（返回中间态时由页面重新拉）。
+  void remember(String raw) {
+    _debounce?.cancel();
+    _generation++;
+    final term = raw.trim();
+    state = term.isEmpty
+        ? const SearchSuggestState()
+        : SearchSuggestState(term: term);
+  }
+
+  /// 退出搜索中间态时清空。
+  void clear() {
+    _debounce?.cancel();
+    _generation++;
+    if (state.term.isNotEmpty || state.items.isNotEmpty || state.isLoading) {
+      state = const SearchSuggestState();
     }
   }
 }
 
-final searchStateProvider = NotifierProvider<SearchStateNotifier, SearchState>(
-  SearchStateNotifier.new,
-);
+final searchSuggestProvider =
+    NotifierProvider<SearchSuggestNotifier, SearchSuggestState>(
+      SearchSuggestNotifier.new,
+    );
 
 /// 一次关键词搜索的完整结果。
 ///
@@ -125,8 +162,8 @@ class SearchResultsNotifier extends Notifier<SearchResultsState> {
   @override
   SearchResultsState build() => const SearchResultsState();
 
-  /// 用 [rawQuery] 重新搜索。入口只有搜索页（含横屏标题栏），搜索结果页本身
-  /// 只消费本状态，因此压栈/返回不会触发网络请求。
+  /// 用 [rawQuery] 重新搜索。入口只有竖屏搜索中间态页与横屏标题栏，
+  /// 搜索结果页本身只消费本状态，因此压栈/返回不会触发网络请求。
   Future<void> search(String rawQuery) async {
     final query = rawQuery.trim();
     final generation = ++_generation;

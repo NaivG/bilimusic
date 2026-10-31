@@ -173,7 +173,11 @@ class Music {
       id == other.id && (cid.isEmpty || other.cid.isEmpty || cid == other.cid);
 
   /// 「artist - album」副标题行（列表项通用，分隔符统一为 ` - `）。
-  String get subtitleText => '${artist.displayName} - $album';
+  ///
+  /// 没有专辑信息（如热歌榜播放的相关视频）时只显示艺术家。
+  String get subtitleText => album.trim().isEmpty
+      ? artist.displayName
+      : '${artist.displayName} - $album';
 
   /// 获取当前分P
   Page? get currentPage {
@@ -257,17 +261,24 @@ Artist _artistFromJson(Map<String, dynamic> json) {
 }
 
 /// 解析稿件卡片 JSON 的创作者：优先 `owner` 对象，退回扁平的 `author` / `mid` / `upic`。
+///
+/// `author` 有两种形态：分区推荐流（`region/feed/rcmd`）给的是
+/// `{mid, name}` 对象，搜索类端点给的是昵称字符串；前者能直接拿到 mid。
 Artist _artistFromCard(Map<String, dynamic> json) {
   final owner = json['owner'];
   if (owner is Map) return Artist.fromOwner(owner);
 
   final author = json['author'];
-  final name = author is Map
-      ? author['name']?.toString() ?? ''
-      : author?.toString() ?? '';
+  if (author is Map) {
+    return Artist(
+      mid: Artist.parseMid(author['mid']),
+      name: author['name']?.toString() ?? '',
+      face: normalizeFaceUrl(json['upic']),
+    );
+  }
   return Artist(
-    mid: int.tryParse(json['mid']?.toString() ?? '') ?? 0,
-    name: name,
+    mid: Artist.parseMid(json['mid']),
+    name: author?.toString() ?? '',
     face: normalizeFaceUrl(json['upic']),
   );
 }

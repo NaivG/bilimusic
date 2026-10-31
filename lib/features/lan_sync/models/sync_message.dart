@@ -75,9 +75,13 @@ final class HelloAckMessage extends SyncMessage {
   };
 }
 
-/// 私有模式配对：发起方提交对端的 6 位 PIN，并携带本端 token（首次连接时生成）。
+/// 私有模式配对：发起方提交对端的 6 位 PIN。
+///
+/// 本机 token 不在此消息中交换，由 [PinAckMessage] 在双方 PIN 校验通过后回带。
 final class PinMessage extends SyncMessage {
   final String code;
+
+  /// 旧协议遗留字段；当前收发双方都不使用。
   final String? token;
 
   const PinMessage({required this.code, this.token});

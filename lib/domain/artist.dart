@@ -22,7 +22,7 @@ class Artist {
 
   /// 从 `owner` 风格的对象构造（`view` / `archive/related` / 关注列表等）。
   factory Artist.fromOwner(Map<dynamic, dynamic> owner) => Artist(
-    mid: _asMid(owner['mid']),
+    mid: parseMid(owner['mid']),
     name: owner['name']?.toString() ?? '',
     face: owner['face']?.toString() ?? '',
   );
@@ -36,7 +36,7 @@ class Artist {
     String nameKey = 'author',
     String faceKey = 'upic',
   }) => Artist(
-    mid: _asMid(json['mid']),
+    mid: parseMid(json['mid']),
     name: json[nameKey]?.toString() ?? '',
     face: normalizeFaceUrl(json[faceKey]),
   );
@@ -52,7 +52,8 @@ class Artist {
   @override
   String toString() => 'Artist($mid, $name)';
 
-  static int _asMid(Object? value) {
+  /// 把接口里的 mid（int / num / 数字字符串）收敛成 int，认不出就是 0。
+  static int parseMid(Object? value) {
     if (value is int) return value;
     if (value is num) return value.toInt();
     return int.tryParse(value?.toString() ?? '') ?? 0;

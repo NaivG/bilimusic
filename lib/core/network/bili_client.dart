@@ -20,7 +20,7 @@ typedef RiskControlHandler = void Function(BiliApiException error, Uri uri);
 ///   - 回收响应里的 `Set-Cookie`（用 `headersSplitValues`，不靠正则猜逗号边界）
 ///   - 校验 `statusCode == 200` 与业务 `code == 0`，统一抛 [BiliException]
 ///   - 传输层失败按退避重试；写请求自动带 `csrf`
-///   - WBI **按需签名**：`signed: true` 才签；没签名却撞上风控时自动补签重试一次
+///   - WBI **按需签名**：`signed: true` 才签；撞上风控时自动刷新口令并补签重试一次
 ///
 /// 典型用法：
 /// ```dart
@@ -435,7 +435,17 @@ class BiliClient {
     if (signed) {
       // 签名后的 query 必须与参与哈希的字符串逐字节一致，
       // 所以这里自己拼 query，不经过 Uri 的 queryParameters（它会把空格编成 +）。
-      final signedQuery = await wbi.signQuery(params);
+      //
+      // 取口令可能发网络请求（补签重试时更是强制刷新）：这里必须把底层异常
+      // 收敛成 [BiliException]，否则调用方的 `on BiliException` 兜不住裸超时。
+      final String signedQuery;
+      try {
+        signedQuery = await wbi.signQuery(params);
+      } on BiliException {
+        rethrow;
+      } catch (error) {
+        throw BiliNetworkException(null, 'WBI 口令获取失败：$error', cause: error);
+      }
       return Uri.parse('$root$normalized?$signedQuery');
     }
 

@@ -45,7 +45,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   void initState() {
     super.initState();
-    _loadCountries();
+    // 桌面端仅支持扫码登录，国家/地区列表只服务于短信登录，无需加载
+    if (!PlatformHelper.isDesktop) {
+      _loadCountries();
+    }
   }
 
   @override
@@ -549,31 +552,43 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
   }
 
+  /// 登录方式切换栏。桌面端仅提供扫码登录，不显示密码登录与短信登录。
+  Widget _buildModeSwitcher() {
+    if (PlatformHelper.isDesktop) {
+      return const SizedBox.shrink();
+    }
+    return SegmentedButton<_LoginMode>(
+      segments: const [
+        ButtonSegment(value: _LoginMode.sms, label: Text('短信登录')),
+        ButtonSegment(value: _LoginMode.password, label: Text('密码登录')),
+        ButtonSegment(value: _LoginMode.qr, label: Text('扫码登录')),
+      ],
+      selected: {_mode},
+      onSelectionChanged: (Set<_LoginMode> newSelection) {
+        setState(() {
+          _mode = newSelection.first;
+        });
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // 桌面端强制扫码登录
+    final mode = PlatformHelper.isDesktop ? _LoginMode.qr : _mode;
+
     return Scaffold(
       appBar: AutoAppBar.generateAppBar(context: context, title: '登录'),
+      backgroundColor: Colors.transparent,
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // 切换登录方式
-            SegmentedButton<_LoginMode>(
-              segments: const [
-                ButtonSegment(value: _LoginMode.sms, label: Text('短信登录')),
-                ButtonSegment(value: _LoginMode.password, label: Text('密码登录')),
-                ButtonSegment(value: _LoginMode.qr, label: Text('扫码登录')),
-              ],
-              selected: {_mode},
-              onSelectionChanged: (Set<_LoginMode> newSelection) {
-                setState(() {
-                  _mode = newSelection.first;
-                });
-              },
-            ),
+            _buildModeSwitcher(),
             SizedBox(height: 20),
-            if (_mode == _LoginMode.qr)
+            if (mode == _LoginMode.qr)
               _buildQrTab()
             else
               _buildSmsOrPasswordTab(),

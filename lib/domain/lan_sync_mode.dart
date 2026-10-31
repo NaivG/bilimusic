@@ -11,6 +11,14 @@ enum LanSyncMode {
   /// 本地是否接受私有配对连接。
   bool get acceptsPrivate => this == LanSyncMode.private;
 
+  /// 本地是否监听 TCP 接收连接；`off` 一律不监听。
+  bool get acceptsConnections => this != LanSyncMode.off;
+
+  /// 是否允许在握手消息里携带本机配对 token。
+  ///
+  /// token 是持久配对凭据，只有私有模式才对外出示。
+  bool get exposesPairingToken => this == LanSyncMode.private;
+
   /// 在 mDNS TXT 中广播的字符串。
   ///
   /// 映射到对端的解析：

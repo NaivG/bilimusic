@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/features/settings/settings_manager.dart';
@@ -32,11 +31,10 @@ class SettingsState {
 
   // 音频输出四项 + 免责说明。
   //
-  // 这里**只镜像、不提供 setter**：四项的唯一写入口是 PlayerCoordinator
-  // （先落 SettingsManager 再推 A/B 两路播放器），UI 走
-  // `audioOutputCommandsProvider`；manager `notifyListeners` 之后
-  // [_onManagerChanged] 会把新值带回来。协议闸门是例外——它不进引擎，
-  // 由 [SettingsNotifier.acceptAudioOutputDisclaimer] 直接委托 manager。
+  // 四项的唯一写入口是 PlayerCoordinator（先落 SettingsManager 再推
+  // A/B 两路播放器），UI 走`audioOutputCommandsProvider`；manager
+  //`notifyListeners` 之后[_onManagerChanged] 会把新值带回来。
+  // 协议闸门例外——它不进引擎，由 [SettingsNotifier.acceptAudioOutputDisclaimer] 直接委托 manager。
   final bool audioOutputDisclaimerAccepted;
   final int audioDelayMs;
   final bool audioExclusive;
@@ -118,7 +116,7 @@ class SettingsState {
   }
 
   /// 从 manager 拉一份完整快照。[build] 与 [_onManagerChanged] 共用，
-  /// 否则加字段时两处必然漏一边（历史上漏过）。
+  /// 否则加字段时两处必然漏一边。
   factory SettingsState.fromManager(SettingsManager s) {
     return SettingsState(
       notificationsEnabled: s.notificationsEnabled,
@@ -159,9 +157,10 @@ class SettingsNotifier extends Notifier<SettingsState> {
     state = SettingsState.fromManager(ref.read(_settingsManagerProvider));
   }
 
+  /// 委托给 SettingsManager：开关的内存缓存由 manager 持有，
+  /// manager notify 之后由 [_onManagerChanged] 把新状态带回来。
   Future<void> setNotificationsEnabled(bool value) async {
-    state = state.copyWith(notificationsEnabled: value);
-    await _save('notifications_enabled', value);
+    await ref.read(_settingsManagerProvider).setNotificationsEnabled(value);
   }
 
   /// 委托给 SettingsManager 落盘并刷新其内存缓存：
@@ -173,38 +172,30 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
   Future<void> setAppearance(String? value) async {
     if (value == null) return;
-    state = state.copyWith(appearance: value);
-    await _save('appearance', value);
+    await ref.read(_settingsManagerProvider).setAppearance(value);
   }
 
   Future<void> setTheme(String? value) async {
     if (value == null) return;
-    state = state.copyWith(theme: value);
-    await _save('theme', value);
+    await ref.read(_settingsManagerProvider).setTheme(value);
   }
 
+  /// 委托给 SettingsManager：manager notify 之后
+  /// [_onManagerChanged] 会把新状态带回来。
   Future<void> setAutoPlayNext(bool value) async {
-    // 委托给 SettingsManager：PlayerCoordinator 触发切歌时读的是
-    // manager 的内存缓存（settings_manager.dart），绕过 manager 直接写
-    // prefs 会让播放器一直用启动时的旧值——「改设置要重启才生效」。
-    // manager notify 之后 [_onManagerChanged] 会把新状态带回来，
-    // 所以这里不要再 copyWith + 直接 _save。crossfade 系列同因。
     await ref.read(_settingsManagerProvider).setAutoPlayNext(value);
   }
 
   Future<void> setShowLyrics(bool value) async {
-    state = state.copyWith(showLyrics: value);
-    await _save('show_lyrics', value);
+    await ref.read(_settingsManagerProvider).setShowLyrics(value);
   }
 
   Future<void> setFluidBackground(bool value) async {
-    state = state.copyWith(fluidBackground: value);
-    await _save('fluid_background', value);
+    await ref.read(_settingsManagerProvider).setFluidBackground(value);
   }
 
   Future<void> setBlurEffect(bool value) async {
-    state = state.copyWith(blurEffect: value);
-    await _save('blur_effect', value);
+    await ref.read(_settingsManagerProvider).setBlurEffect(value);
   }
 
   /// 同意音频输出页的免责说明。不进引擎，直接委托 manager 落盘
@@ -216,7 +207,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
         .setAudioOutputDisclaimerAccepted(true);
   }
 
-  /// 委托给 SettingsManager（理由见 [setAutoPlayNext]）：
+  /// 委托给 SettingsManager：
   /// PlayerCoordinator 每次触发过渡都读 manager.crossfadeEnabled /
   /// crossfadeDuration / preloadSeconds 的内存缓存。
   Future<void> setCrossfadeEnabled(bool value) async {
@@ -224,12 +215,12 @@ class SettingsNotifier extends Notifier<SettingsState> {
   }
 
   /// 委托给 SettingsManager：夹取范围（1–10 秒）与「时长不得超过预加载
-  /// 时间」的不变量由 manager 统一维护，别在本类再抄一份。
+  /// 时间」的不变量由 manager 统一维护。
   Future<void> setCrossfadeDuration(int value) async {
     await ref.read(_settingsManagerProvider).setCrossfadeDuration(value);
   }
 
-  /// 委托给 SettingsManager（理由见 [setAutoPlayNext]）。
+  /// 委托给 SettingsManager。
   Future<void> setCrossfadeAuto(bool value) async {
     await ref.read(_settingsManagerProvider).setCrossfadeAuto(value);
   }
@@ -241,8 +232,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
   }
 
   /// 委托给 SettingsManager（理由见 [setAutoPlayNext]）：
-  /// LanSyncService 监听 manager 的 notifyListeners 在运行时切换模式，
-  /// 绕过 manager 直接写 prefs 会让服务一直停在启动时的旧模式。
+  /// LanSyncService 监听 manager 的 notifyListeners 在运行时切换模式。
   Future<void> setLanSyncMode(String? value) async {
     if (value == null) return;
     await ref.read(_settingsManagerProvider).setLanSyncMode(value);
@@ -261,25 +251,9 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
   /// 委托给 SettingsManager：除了落盘还要同步 TitleMetaFilter 静态开关
   /// （API 解析入口读的是它），manager notify 之后 [_onManagerChanged]
-  /// 会把新状态带回来。不要绕过 manager 直接写 prefs——那样静态开关
-  /// 与 manager 缓存都会漏更新。
+  /// 会把新状态带回来。
   Future<void> setTitleMetaFilterEnabled(bool value) async {
     await ref.read(_settingsManagerProvider).setTitleMetaFilterEnabled(value);
-  }
-
-  Future<void> _save(String key, dynamic value) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (value is bool) {
-        await prefs.setBool(key, value);
-      } else if (value is String) {
-        await prefs.setString(key, value);
-      } else if (value is int) {
-        await prefs.setInt(key, value);
-      }
-    } catch (e) {
-      debugPrint('Error saving setting $key: $e');
-    }
   }
 }
 

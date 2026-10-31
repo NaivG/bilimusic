@@ -11,6 +11,7 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
 import 'package:bilimusic/core/network/network_config.dart';
+import 'package:bilimusic/features/update/logic/host_arch.dart';
 import 'package:bilimusic/features/update/release_resolver.dart';
 
 /// 更新安装阶段
@@ -48,18 +49,22 @@ class UpdateInstaller {
   /// 解析当前平台应下载的资产（按 CI 产物命名规则匹配）
   Future<ReleaseAsset> resolveCurrentPlatformAsset() async {
     final assets = await _resolver.fetchLatestAssets();
+    // 桌面端 zip 按架构分包，必须换入与自身二进制同架构的那份。
+    final arch = Platform.isWindows || Platform.isLinux
+        ? await detectHostArch(Platform.resolvedExecutable)
+        : HostArch.unknown;
     ReleaseAsset? asset;
     if (Platform.isWindows) {
       asset = ReleaseResolver.pick(
         assets,
         extension: '.zip',
-        nameIncludes: ['win32_x64'],
+        nameIncludes: [arch.isArm64 ? 'win32_arm64' : 'win32_x64'],
       );
     } else if (Platform.isLinux) {
       asset = ReleaseResolver.pick(
         assets,
         extension: '.zip',
-        nameIncludes: ['linux-x64'],
+        nameIncludes: [arch.isArm64 ? 'linux-arm64' : 'linux-x64'],
       );
     } else if (Platform.isAndroid) {
       asset = ReleaseResolver.pick(

@@ -16,6 +16,8 @@
     <a href="https://riverpod.dev/"><img src="https://img.shields.io/badge/Riverpod-3.x-3D5AFE?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0NSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSI4Ii8+PC9zdmc+" alt="Riverpod"></a>
     <a href="https://github.com/RichardLitt/standard-readme"><img src="https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=badge" alt="standard-readme"></a>
   </p>
+
+  <a href="https://trendshift.io/repositories/319657?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-319657" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/319657/daily?language=Dart" alt="NaivG%2Fbilimusic | Trendshift" width="250" height="55"/></a>
 </div>
 
 
@@ -89,7 +91,7 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 
 | 平台 | 状态 | 备注 |
 | --- | --- | --- |
-| **Windows** 10+ | ✅ 稳定 | 解压即用，`x64`架构 |
+| **Windows** 10+ | ✅ 稳定 | 解压即用，`x64`或`arm64`架构 |
 | **Linux** | ✅ 稳定 | Ubuntu 20.04+ 或主流发行版，`x64`或`arm64`架构；需要[安装依赖](#直接安装) |
 | **Android** 12+ | ✅ 稳定 | 按设备架构选择 APK（`arm64-v8a` / `armeabi-v7a` / `x86_64`），或全平台 AAB |
 | **macOS 12+, with Metal Support** | ⚠️ 实验性 | CI 产出 ad-hoc 签名的未公证 `.app`，也可从源码构建 |

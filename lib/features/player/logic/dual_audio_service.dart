@@ -41,10 +41,19 @@ class PlayerStateInfo {
   }
 }
 
+/// 一次 crossfade 事务的状态，随调用链传递并在各 await 之后自查。
+class _CrossfadeTxn {
+  bool aborted = false;
+
+  /// 中止是否来自 pause()。swap 前被暂停时仍要补一次角色交换：
+  /// Coordinator 的索引 / 元数据已指向下一首，active 也该停在那首上。
+  bool abortByPause = false;
+}
+
 /// 双播放器音频服务（引擎：mpv_audio_kit / libmpv）
 /// 管理两个Player实例交替工作,实现真正的交叉淡入淡出
 ///
-/// 与 just_audio 的关键差异（换引擎后的常驻约定）：
+/// 与 just_audio 的关键差异：
 /// - 系统媒体会话（通知栏 / SMTC / MPRIS）由 `audio_service` 独占，
 ///   两个 Player 不得调 `setMediaSession`（每进程单例，第二个持有者抛
 ///   StateError）；
@@ -113,6 +122,10 @@ class DualAudioService {
   // 每次 playActive / stop / beginPlayRequest 都会自增这里，旧请求醒来后
   // 发现世代已变就整段放弃，不再产生任何副作用。
   int _playEpoch = 0;
+
+  // 在途 crossfade 事务。用户暂停 / 停止 / 切歌时经 [_abortCrossfade] 置位，
+  // 在途事务在每个 await 之后只认自己这一份标记，以「中止」收尾。
+  _CrossfadeTxn? _crossfadeTxn;
 
   /// 应用层音量是 0.0–1.0 线性值，mpv 的 `volume` 是 0–100 百分比。
   /// 全链路**只此一处换算**，所有调用点一律传应用层值。
@@ -690,6 +703,7 @@ class DualAudioService {
   /// 元数据下突然响起来，直到新流就绪才被替换。
   void beginPlayRequest() {
     _playEpoch++;
+    _abortCrossfade();
     if (!_initialized || _disposed) return;
     final player = _activePlayer.player;
     if (player.state.playing) return;
@@ -702,6 +716,8 @@ class DualAudioService {
 
   /// 使用活跃播放器播放URL（或本地文件路径）
   Future<void> playActive(String url) async {
+    // 新的播放请求优先于在途 crossfade，让事务停在原处。
+    _abortCrossfade();
     final epoch = ++_playEpoch;
     try {
       debugPrint('[DualAudioService] 开始播放 $url');
@@ -771,7 +787,9 @@ class DualAudioService {
   /// 只认 [url] 对得上的那条流；fade 进行中 standby 是正在接管的另一路，
   /// 绝不能在这里停。
   Future<void> discardStandby(String url) async {
-    if (isFading) return;
+    // crossfade 事务可能还在 prime 阶段（isFading 尚未置位），standby 照样
+    // 是马上要接管的那一路，不能停。
+    if (_crossfadeTxn != null || isFading) return;
     if (_standbyPlayer.currentUrl != url) return;
     debugPrint('[DualAudioService] 丢弃过期预加载 $url');
     await _standbyPlayer.player.stop();
@@ -779,9 +797,23 @@ class DualAudioService {
     await _standbyPlayer.player.setVolume(_toMpvVolume(_numericalValue.value));
   }
 
+  /// 作废在途 crossfade（若有）：曲线在下一 tick 退出，收尾也不会再拉起 active。
+  ///
+  /// [byPause] 只影响「swap 前被中止」时的收尾：暂停发生在 prime 阶段时
+  /// 仍要把角色换到新曲，否则 resume 会播回旧曲，而索引 / 通知已指向新曲。
+  void _abortCrossfade({bool byPause = false}) {
+    final txn = _crossfadeTxn;
+    if (txn == null) return;
+    if (!txn.aborted) debugPrint('[DualAudioService] 中止在途 Crossfade');
+    // 只有「本次事务的每一次中止都来自暂停」才补交换；一旦有播放/停止类
+    // 意图进来过，角色就交给那条接管路径。
+    txn.abortByPause = txn.aborted ? (txn.abortByPause && byPause) : byPause;
+    txn.aborted = true;
+  }
+
   /// 执行交叉淡入淡出切换（编排：_primeStandby → swap → fade curve → finalize）
   Future<void> executeCrossfade(int durationMs) async {
-    if (isFading) {
+    if (_crossfadeTxn != null || isFading) {
       debugPrint('[DualAudioService] Crossfade已在进行中,跳过');
       return;
     }
@@ -793,21 +825,50 @@ class DualAudioService {
 
     debugPrint('[DualAudioService] 开始Crossfade,时长${durationMs}ms');
 
+    final txn = _CrossfadeTxn();
+    _crossfadeTxn = txn;
     try {
-      await _primeStandby();
+      await _primeStandby(txn);
+      if (txn.aborted) {
+        // 暂停落在 prime 阶段：目标曲目已装进 standby，补交换后 active
+        // 停在它上面（暂停态）。停止/切歌则交给各自的接管路径，不交换。
+        if (txn.abortByPause) _swapPlayers();
+        await _settleAbortedCrossfade();
+        return;
+      }
+
       // 立即交换角色，让 UI 切到新 active
       _swapPlayers();
 
       // 延长延迟确保AudioTrack完全启动
       await Future.delayed(Duration(milliseconds: _audioTrackStartupDelay));
+      if (txn.aborted) {
+        await _settleAbortedCrossfade();
+        return;
+      }
 
-      await _performFadeCurve(durationMs);
-      await _finalizeSwap();
+      await _performFadeCurve(durationMs, txn);
+      if (txn.aborted) {
+        await _settleAbortedCrossfade();
+        return;
+      }
+
+      await _finalizeSwap(txn);
+      if (txn.aborted) {
+        await _settleAbortedCrossfade();
+        return;
+      }
     } catch (e) {
       debugPrint('[DualAudioService] Crossfade失败 $e');
-      await _recoverFromCrossfadeError();
+      // 已中止的事务只做收尾。
+      if (txn.aborted) {
+        await _settleAbortedCrossfade();
+      } else {
+        await _recoverFromCrossfadeError();
+      }
       rethrow;
     } finally {
+      if (identical(_crossfadeTxn, txn)) _crossfadeTxn = null;
       // fade 结束时清掉 fadeCountdown，但保留 Playing/Paused 本身
       final cur = _playerState.value;
       if (cur is PlayerPlaying) {
@@ -816,18 +877,42 @@ class DualAudioService {
     }
   }
 
+  /// 中止收尾：不重新拉起 active、也不补 play()。
+  ///
+  /// standby 上是本次事务不要的那一路（prime 阶段中止时是待命的新曲；
+  /// swap 后、或补交换后是正在淡出的旧曲），一律卸掉；两路音量归位到
+  /// 用户值，让后续 resume / 播放从干净状态开始。
+  Future<void> _settleAbortedCrossfade() async {
+    debugPrint('[DualAudioService] Crossfade已中止，收起两路');
+    _relativeVolume.value = 1.0;
+    final v = _numericalValue.value;
+    try {
+      await _activePlayer.player.setVolume(_toMpvVolume(v));
+      _activePlayer.volume = v;
+      await _standbyPlayer.player.stop();
+      _standbyPlayer.reset();
+      await _standbyPlayer.player.setVolume(_toMpvVolume(v));
+      _standbyPlayer.volume = v;
+    } catch (e) {
+      debugPrint('[DualAudioService] Crossfade中止收尾失败 $e');
+    }
+  }
+
   /// Step 1：准备待命播放器（音量 + seek + play）。
   /// 音量故意给到 `_standbyVolume * _numericalValue`（非 0），避免 AudioTrack
   /// 进入长时间 mute；乘上用户音量，确保不会超过用户设定的听感峰值。
-  Future<void> _primeStandby() async {
+  Future<void> _primeStandby(_CrossfadeTxn txn) async {
     final primeVolume = _standbyVolume * _numericalValue.value;
     await _standbyPlayer.player.setVolume(_toMpvVolume(primeVolume));
     _standbyPlayer.volume = primeVolume;
+    // 暂停/停止可能落在上面几个 await 之间，事务已中止就别再起播。
+    if (txn.aborted) return;
     _relativeVolume.value = 0.0;
     // 走到这里 isReady 已由就绪信号置位（executeCrossfade 守卫过），文件已解码，
     // seek 不会再撞"加载中"窗口（加载中的 seek 会抛 MpvException）。
     // 位置本就在 0，这里是契约保底。
     await _standbyPlayer.player.seek(Duration.zero);
+    if (txn.aborted) return;
 
     // mpv 的 play() 是乐观写入（意图轴同步置位）+ 异步命令：内部先等 bring-up
     // 再发 pause=no，命令回复在事件 isolate 上异步落地。这里保持 fire-and-forget，
@@ -864,7 +949,10 @@ class DualAudioService {
 
   /// Step 3：按 wall clock 在 50Hz 节奏上连续推进 active/standby 音量。
   /// 相对音量模型：实际音量 = _numericalValue（用户设定）× _relativeVolume（fade 比率）
-  Future<void> _performFadeCurve(int durationMs) async {
+  Future<void> _performFadeCurve(int durationMs, _CrossfadeTxn txn) async {
+    // 进入曲线前就要确认事务还在，暂停/停止可能落在 swap 与这里之间。
+    if (txn.aborted) return;
+
     // 标记进入 fading 子态（Coordinator 会持续更新 fadeCountdown）
     _playerState.value = PlayerPlaying(
       fadeCountdown: (durationMs / 1000).ceil(),
@@ -875,8 +963,9 @@ class DualAudioService {
 
     final completer = Completer<void>();
     Timer.periodic(const Duration(milliseconds: tickMs), (timer) {
-      // 先检查 pause 中断：pause() 已把状态切到 PlayerPaused，本 tick 直接退出
-      if (_playerState.value is PlayerPaused) {
+      // 暂停 / 停止 / 切歌都会中止事务，曲线停在当前音量，收尾交给
+      // executeCrossfade 的 aborted 分支。
+      if (txn.aborted) {
         timer.cancel();
         if (!completer.isCompleted) completer.complete();
         return;
@@ -895,12 +984,18 @@ class DualAudioService {
   }
 
   /// Step 4-6：fade 完成后把 active 音量拉满、停止旧 active、归位 standby。
-  Future<void> _finalizeSwap() async {
+  Future<void> _finalizeSwap(_CrossfadeTxn txn) async {
+    // 用户在曲线结束前后按了暂停/停止：不归位音量、更不把新 active 拉起来。
+    if (txn.aborted) return;
+
     // 重置相对比率为 1.0，active 拉回到用户音量
     _relativeVolume.value = 1.0;
     final v = _numericalValue.value;
     await _activePlayer.player.setVolume(_toMpvVolume(v));
     _activePlayer.volume = v;
+
+    // setVolume 的 await 期间用户可能已经暂停：意图已变，不能补 play()。
+    if (txn.aborted) return;
 
     // 确保新 active 仍在播放（意图轴判断）
     if (!_activePlayer.player.state.playWhenReady) {
@@ -956,6 +1051,7 @@ class DualAudioService {
   /// 如果url为null，则只取消crossfade状态，不播放新歌曲
   Future<void> cancelAndPlay(String? url) async {
     // 取消过渡也意味着「当前这次装载不再作数」。
+    _abortCrossfade();
     _playEpoch++;
     // 清掉 fade 子态
     if (_playerState.value is PlayerPlaying) {
@@ -975,23 +1071,39 @@ class DualAudioService {
   }
 
   /// 暂停播放
+  ///
+  /// crossfade 窗口内两路都在出声（旧曲淡出、新曲淡入）。同时作废
+  /// 在途事务，曲线停在当前音量。
   Future<void> pause() async {
-    if (isFading) {
-      // fade 中断：先把两路音量归位到稳定的"active 静音 / standby 用户音量"状态，
-      // 避免残留 fade 中间值；再切到 Paused，_performFadeCurve 下一个 tick 自行退出。
-      final v = _numericalValue.value;
-      await _activePlayer.player.setVolume(_toMpvVolume(0));
-      _activePlayer.volume = 0;
-      await _standbyPlayer.player.setVolume(_toMpvVolume(v));
-      _standbyPlayer.volume = v;
-      _relativeVolume.value = 1.0;
+    final wasCrossfading = _crossfadeTxn != null || isFading;
+    _abortCrossfade(byPause: true);
+    _relativeVolume.value = 1.0;
+    // 完成态是 _recomputeAudioState 的去重判据
+    final cur = _playerState.value;
+    if (cur is PlayerPlaying || cur is PlayerBuffering) {
       _playerState.value = PlayerPaused();
-      debugPrint('[DualAudioService] Crossfade中暂停');
-    } else {
-      await _activePlayer.player.pause();
     }
-    // 不在这里手动设置状态，让意图轴监听器自动处理
-    // 这样可以避免手动设置与监听器回调之间的竞态条件
+
+    // 两路同时按：swap 之后 standby 上可能还是满音量的旧曲，
+    // 串行等 active 的 pause 回复会让它多响一会儿。
+    await Future.wait([
+      _activePlayer.player.pause(),
+      _standbyPlayer.player.pause(),
+    ]);
+
+    // 两路音量归位到用户值：暂停期间不出声，resume 后即是用户设定音量。
+    final v = _numericalValue.value;
+    await Future.wait([
+      _activePlayer.player.setVolume(_toMpvVolume(v)),
+      _standbyPlayer.player.setVolume(_toMpvVolume(v)),
+    ]);
+    _activePlayer.volume = v;
+    _standbyPlayer.volume = v;
+    debugPrint(
+      wasCrossfading
+          ? '[DualAudioService] Crossfade中暂停（两路已按住）'
+          : '[DualAudioService] 暂停',
+    );
   }
 
   /// 恢复播放
@@ -1009,7 +1121,8 @@ class DualAudioService {
 
   /// 停止播放
   Future<void> stop() async {
-    // 先作废在途装载：stop 之后旧请求不得再 play()。
+    // 先作废在途装载与 crossfade：stop 之后旧请求不得再 play()。
+    _abortCrossfade();
     _playEpoch++;
     await _activePlayer.player.stop();
     await _standbyPlayer.player.stop();
@@ -1062,6 +1175,7 @@ class DualAudioService {
       return;
     }
     _disposed = true;
+    _abortCrossfade();
     _playEpoch++;
     debugPrint('[DualAudioService] 开始释放资源');
 

@@ -33,6 +33,10 @@ const writes = [] // {uri, length, append, ok}
 let tmpReadAllowed = false
 /** 是否禁止从 tmp 拷出（默认按文档：copy 的 srcUri 允许 tmp） */
 let copyFromTmpDenied = false
+/** true = 所有 copy 都失败（模拟空间不足） */
+let copyDenied = false
+/** >0 = copy「成功」但只写出这么多字节（模拟边拷边断：最容易骗过对账的形态） */
+let copyTruncateTo = 0
 /**
  * tmp 分区的 `readText` 行为。官方「文件存储」章把 Temp 写成「只读，**只能通过特定
  * API 获取（如 file.readText）**」—— 也就是真机上可能"读不了 readArrayBuffer / copy，
@@ -270,9 +274,14 @@ const file = {
       failCall(fail, 301, 'src not found')
       return
     }
+    if (copyDenied) {
+      failCall(fail, 202, 'storage full')
+      return
+    }
     copies.push({ srcUri, dstUri })
     later(() => {
-      files.set(dstUri, { data: hit.data.slice(), mtime: Date.now() })
+      const data = copyTruncateTo > 0 ? hit.data.slice(0, copyTruncateTo) : hit.data.slice()
+      files.set(dstUri, { data, mtime: Date.now() })
       okCall(success, dstUri)
     })
   },
@@ -317,6 +326,11 @@ export function __seed(uri, content) {
   files.set(uri, { data: new Uint8Array(data), mtime: Date.now() })
 }
 
+/** 直接删掉一个文件（测「发布前对账」用：模拟该发布的文件其实没落成） */
+export function __delete(uri) {
+  return files.delete(uri)
+}
+
 /**
  * 这台机型的 tmp 分区能不能被 readArrayBuffer 直接读。
  * 默认 **false**（照真机：`responseType:'file'` 给的 uri 直接读回 202 参数错误）。
@@ -328,6 +342,19 @@ export function __setTmpReadAllowed(on) {
 /** 模拟「连 file.copy 都不许以 tmp 为源」的机型（两条读法都会失败） */
 export function __setCopyFromTmpDenied(on) {
   copyFromTmpDenied = !!on
+}
+
+/** 模拟 file.copy 直接失败（空间不足 / 权限）：验证发布失败后还能在收尾时改名转正 */
+export function __setCopyDenied(on) {
+  copyDenied = !!on
+}
+
+/**
+ * 模拟 file.copy「回调成功、但只写出 n 字节」（边拷边断）。这是最阴的一种：
+ * 长度对账必须能发现它，否则正式名字下就是一份半成品。
+ */
+export function __setCopyTruncate(n) {
+  copyTruncateTo = Math.max(0, Number(n) || 0)
 }
 
 /**
@@ -369,6 +396,8 @@ export function __reset() {
   textReads.length = 0
   tmpReadAllowed = false
   copyFromTmpDenied = false
+  copyDenied = false
+  copyTruncateTo = 0
   tmpReadTextMode = 'denied'
 }
 

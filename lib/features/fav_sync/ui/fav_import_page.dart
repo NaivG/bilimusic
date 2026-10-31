@@ -205,7 +205,10 @@ class _FavImportPageState extends ConsumerState<FavImportPage> {
               builder: (context) => ImportProgressDialog(
                 folderName: folder.title,
                 importTask: (onProgress) async {
-                  final r = await _syncManager.syncSingleFolder(folder);
+                  final r = await _syncManager.syncSingleFolder(
+                    folder,
+                    onProgress: onProgress,
+                  );
                   return r;
                 },
               ),

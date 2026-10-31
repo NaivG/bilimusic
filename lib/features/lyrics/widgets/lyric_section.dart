@@ -345,11 +345,15 @@ class _LyricSectionState extends State<LyricSection> {
                       color: Colors.white.withValues(alpha: 0.9),
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      source.name,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 14,
+                    Expanded(
+                      child: Text(
+                        source.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   ],

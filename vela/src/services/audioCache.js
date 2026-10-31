@@ -16,15 +16,23 @@
  *     继续落。收尾（搬进缓存目录 + 改名转正）延到**下一次查询该曲目**时做
  *     （finalizeFor）—— 音频还握着落点路径的时候，绝不动那个文件。
  *
- * 命名与目录来自 CONFIG.AUDIO_CACHE，写入一律走 .part 临时名，完整后改名：
+ * 命名与目录来自 CONFIG.AUDIO_CACHE，写入一律走 .part 临时名，完成后才出现正式名字：
  *   internal://cache/bilimusic_audio/bm_a_bv_BV1xxx.m4a.part → bm_a_bv_BV1xxx.m4a
- * 改名是「完成」的唯一标志 —— 崩溃/断电留下的 .part 会被 bootCleanup 删掉，
- * 绝不会被 access() 命中，所以播到的本地文件一定是 CRC 全过的完整文件。
+ * 「正式名字」是「完成」的唯一标志：整份下完是改名；边下边播的那份落点还握在音频手里
+ * ，完成时拷一份过去（见 publishProgressive）。两种情况都必须在**校验过长度**
+ * 之后才让正式名字出现。
  *
  * 跨 VM 语义：本服务与 playerService 一样是**每个 VM 一份实例**。在途下载表
  * （inflight）只在下载发起的那个 VM 里可见 —— 别的 VM 看不到它，但共享的是同一个
- * 文件系统，access() 命中即复用；极端情况下两个 VM 可能为同一首歌各下一份
- * （同名 .part 互相覆盖，落盘字节由 CRC 逐帧保证一致），不会产生孤儿文件。
+ * 文件系统。`.part` 路径只由缓存键决定，所以两个 VM 同时下同一首会往同一个文件里
+ * 交错 append。
+ *
+ * 因此「谁在写这个缓存键」必须跨 VM 可见，落盘到 @system.storage 的租约
+ * （`bilimusic_audio_lease_<键>`，字段 owner + ts）：
+ *   - 开工前抢租约，抢不到就等着 —— 对方下完直接命中缓存，比两个 VM 抢同一条带宽更好；
+ *   - 写着的时候定时续租，崩溃/切页留下的是「过期租约」，下一个 VM 等 TTL 过去再接手；
+ *   - 发布前**对账长度**（第二道门）：`.part` 只由本 VM 写，长度对不上就是有别人动过，
+ *     宁可丢掉重下，也不许把一份坏字节改名成「完整缓存」（改名不可逆，一坏就是永久的）。
  */
 
 import file from '@system.file'
@@ -233,32 +241,236 @@ function cancelEntry(entry, reason) {
   }
 }
 
+/* --------------------------- 跨 VM 下载租约 --------------------------- */
+
+/**
+ * 「这一秒谁在写某个缓存键」—— 落盘到 @system.storage（唯一跨 VM 通道）。
+ *
+ * 协议（没有 CAS 可用，只能靠「写后回读」+ 心跳 + 过期接手）：
+ *
+ *   1. 读租约：别人的还没过期 → 不抢，进等待（见 claimDownloadLease）；
+ *   2. 写自己的牌子（owner = 本 VM 的随机 id，ts = now）；
+ *   3. LEASE_CONFIRM 之后回读：名字不是自己就认输去等 —— 这一步挡的是「两个 VM
+ *      同一刻起跑」：两边都写，后写的那个赢，先写的那个在回读时看到别人的名字；
+ *   4. 持有期间每 LEASE_HEARTBEAT 续一次 ts（长下载不能被判死）；
+ *   5. 用完**只摘自己的牌子**（租约可能已经过期并被别人接手，别把别人的删了）。
+ *
+ * 租约保护的只是「别同时写」；发布前还有一道长度对账（见 completeDownload）。
+ */
+const VM_ID =
+  'vm_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8)
+
+function leaseKeyOf(key) {
+  return CONFIG.STORAGE_KEYS.AUDIO_LEASE + '_' + key
+}
+
+/** 读租约参数（配置缺项时用兜底值：心跳设成 0 会把 storage 打爆，宁可自己兜住） */
+function leaseCfg(name, fallback) {
+  const v = CACHE_CFG[name]
+  return typeof v === 'number' && v > 0 ? v : fallback
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/** 读租约 → {owner, ts} | null（读不到/坏数据一律当没有：租约只是并发保护，不该堵下载） */
+async function readLease(key) {
+  try {
+    const saved = await Storage.getJson(leaseKeyOf(key), null)
+    if (!saved || typeof saved !== 'object') return null
+    const ts = Number(saved.ts) || 0
+    const owner = String(saved.owner || '')
+    if (!owner || !ts) return null
+    return { owner, ts }
+  } catch (e) {
+    return null
+  }
+}
+
+/** 写/续自己的租约；失败返回 false（storage 坏掉时照常下载，只少了这道保护） */
+async function writeLease(key) {
+  try {
+    const ok = await Storage.setJson(leaseKeyOf(key), { owner: VM_ID, ts: Date.now() })
+    return ok !== false
+  } catch (e) {
+    return false
+  }
+}
+
+/** 别人的租约还新鲜吗（自己的、没有、已过期都不算「被占」） */
+function isForeignLiveLease(lease) {
+  if (!lease || lease.owner === VM_ID) return false
+  const ttl = leaseCfg('LEASE_TTL', 45000)
+  const age = Date.now() - lease.ts
+  // 比现在超前一个 TTL 以上：时钟被调过（两块表对不上），当过期处理 ——
+  // 否则一个未来时间戳会把这首歌永远卡在「别人在写」上。
+  if (age < -ttl) return false
+  return age < ttl
+}
+
+/**
+ * 续租心跳。被别的 VM 接手就**不再刷新**。
+ *
+ * `lease.pending` 记着**这一拍**还在路上：releaseLease 要等它落定再摘牌，否则
+ * 「松手之后又被这一拍写回去」会留下一枚无人持有的租约，把别人堵到 TTL。
+ */
+function startLease(key) {
+  const lease = { key, held: true, timer: null, pending: null }
+  const beat = () => {
+    if (!lease.held) return
+    lease.pending = readLease(key)
+      .then((cur) => {
+        if (!lease.held) return
+        if (cur && cur.owner !== VM_ID) {
+          lease.held = false
+          if (lease.timer) clearInterval(lease.timer)
+          console.warn('[AudioCache] 下载租约已被别的 VM 接手，不再续租:', key)
+          return
+        }
+        return writeLease(key)
+      })
+      .catch(() => {})
+  }
+  lease.timer = setInterval(beat, leaseCfg('LEASE_HEARTBEAT', 15000))
+  // Node 离线自检里别让心跳把进程吊住（真机没有 unref）
+  if (lease.timer && typeof lease.timer.unref === 'function') lease.timer.unref()
+  return lease
+}
+
+/**
+ * 松手（幂等）：先停心跳、等这一拍落定，再**只在牌子还是自己的时候**摘掉。
+ *
+ * 读自己 → 删键之间还有一次 IPC 的窗口（刚被别的 VM 接手时可能把它删掉）。storage
+ * 没有 CAS，这个窗口关不掉；后果也有限：对方下一拍心跳会把牌子写回来，最长 15 秒，
+ * 期间最多多一个 VM 拿到租约 —— 那种情况由发布前的长度对账拦下。
+ */
+async function releaseLease(lease) {
+  if (!lease || !lease.held) return
+  lease.held = false
+  if (lease.timer) clearInterval(lease.timer)
+  try {
+    if (lease.pending) await lease.pending
+    const cur = await readLease(lease.key)
+    if (cur && cur.owner === VM_ID) await Storage.remove(leaseKeyOf(lease.key))
+  } catch (e) {
+    // 摘不掉也无所谓：过 TTL 就失效，别人照常接手
+  }
+}
+
+/**
+ * 抢一次租约。
+ * @returns {Promise<{lease?:object, wait?:boolean}>} lease=拿到了（null 表示 storage
+ *   写不进去、没有保护）；wait=true 表示别的 VM 正持有，调用方去等。
+ */
+async function tryAcquireLease(key) {
+  const prev = await readLease(key)
+  if (isForeignLiveLease(prev)) return { wait: true }
+  const wrote = await writeLease(key)
+  if (!wrote) {
+    console.warn('[AudioCache] 下载租约写不进 storage（照常下载，跨 VM 保护失效）:', key)
+    return { lease: null }
+  }
+  // 写后回读：两个 VM 同时起跑时，后写的赢，先写的在这里看到别人的名字就认输。
+  // 这一等就是「对方晚到的写」的窗口 —— 只看一眼不够，所以 LEASE_CONFIRM 给得比
+  // 一次 storage 往返宽（真机上 storage IPC 通常几毫秒）。
+  await sleep(leaseCfg('LEASE_CONFIRM', 60))
+  const check = await readLease(key)
+  if (check && check.owner !== VM_ID) return { wait: true }
+  return { lease: startLease(key) }
+}
+
+/** 这首歌有没有被取消（在途表在下载发起前就登记好了，见 ensureTrackFile） */
+function isKeyCancelled(key) {
+  const entry = inflight.get(key)
+  return !!(entry && entry.cancelled)
+}
+
+/**
+ * 抢租约；别人持有时等他 —— 等他下完（缓存出现，直接复用）或松手（失败/被杀，
+ * TTL 过期后接手重下）。等的时候顺带看一眼缓存，命中就不必再抢了。
+ *
+ * @returns {Promise<{lease: object|null, reused?: boolean}>} reused=true 表示别人
+ *   已经下好了（调用方直接返回缓存命中，不再下载）
+ */
+async function claimDownloadLease(key, finalUri) {
+  const waitMax = leaseCfg('LEASE_WAIT_MAX', 6 * 60 * 1000)
+  const deadline = Date.now() + waitMax
+  let announced = false
+  while (true) {
+    if (isKeyCancelled(key)) {
+      throw makeBridgeError(BRIDGE_ERRORS.CANCELLED, '传输已被取消（等别的 VM 下完）')
+    }
+    const got = await tryAcquireLease(key)
+    if (got.lease !== undefined) return { lease: got.lease }
+    if (!announced) {
+      console.log('[AudioCache] 另一个页面正在下载这首，等它下完:', key)
+      announced = true
+    }
+    if (await access(finalUri)) return { reused: true }
+    if (Date.now() > deadline) {
+      throw new Error(
+        '另一个页面正在下载这首（等了 ' + Math.round(waitMax / 1000) + ' 秒还没结束）'
+      )
+    }
+    await sleep(leaseCfg('LEASE_POLL', 400))
+  }
+}
+
 /* --------------------------- 边下边播：提前交付与收尾 --------------------------- */
 
 /**
- * 已开播但还没转正的完整文件表：key -> {srcUri, finalUri, bytes}。
+ * 已开播但还没收尾的完整文件表：key -> {srcUri, finalUri, bytes}。
  *
- * 边下边播的落点就是音频**正在读**的那个文件 —— 收尾（搬进缓存目录、改名转正）必须
- * 等到没人读它的时候再做。这里只登记，动手的永远是 finalizeFor：在下一次查询该曲目
- * 时（ensureTrackFile / getCachedFile / prefetchTrack 的缓存判断之前）触发，那时旧的
- * audio.src 已被换掉，动文件是安全的。改名是「完成」的唯一标志，延后不豁免 ——
- * 没转正之前 access(finalUri) 永远不命中，绝不会拿在长的文件冒充完整缓存。
+ * 边下边播的落点就是音频**正在读**的那个文件 —— 它不能搬，但下完会**拷**一份到正式
+ * 名字（见 publishProgressive），所以从下载完成那一刻起，缓存对别的 VM 就是可见的。
+ * 这里只登记「落点还占着」，动手的永远是 finalizeFor：在下一次查询该曲目时
+ * （ensureTrackFile / getCachedFile / prefetchTrack 的缓存判断之前）触发，那时旧的
+ * audio.src 已被换掉，删落点是安全的。收尾同样是幂等的，没来得及收的落点由启动清理兜底。
  */
 const pendingFinalize = new Map()
 
 /**
- * 把一首「边下边播」下完的文件收尾转正（幂等；没有待收尾项时是零开销的查表）。
- * 失败不重试（先摘牌再动手）：残片交给启动清理 / 重下时的孤儿收编，别让一次
- * move 失败变成每次查询都撞一遍的固定动作。
+ * 把一首「边下边播」下完的文件收尾（幂等；没有待收尾项时是零开销的查表）。
+ *
+ * 两种落点，两种收法：
+ *   - 完成时已经**拷**过一份到正式名字（见 publishProgressive）→ 这里只收掉落点；
+ *   - 拷贝没做成（空间不足等）→ 这时音频已经换掉了 src，改名转正才是安全的。
+ * 两条路都先对账长度：正式名字上那份必须正好是 p.bytes，落点也必须正好是 p.bytes ——
+ * 对不上就当坏文件丢掉，绝不让它顶着一个「完整缓存」的名字留下来。
+ *
+ * 失败不重试（先摘牌再动手）：残片交给启动清理 / 重下时的孤儿收编。
  */
 async function finalizeFor(key) {
   const p = pendingFinalize.get(key)
   if (!p) return
   pendingFinalize.delete(key)
   try {
-    if (p.srcUri !== p.finalUri) {
-      if (await access(p.finalUri)) await deleteFile(p.finalUri) // 旧的坏/过期文件让位（与转正路径同一纪律）
-      await moveIntoPlace(p.srcUri, p.finalUri)
+    if (p.srcUri === p.finalUri) return
+    const have = await sizeOrUnknown(p.finalUri)
+    if (have > 0 && have === p.bytes) {
+      await deleteFile(p.srcUri) // 正式缓存已就位：落点用完即弃
+      console.log('[AudioCache] 边播边下的落点已收尾（正式缓存已在）:', key, p.bytes, 'bytes')
+      return
+    }
+    const srcSize = await sizeOrUnknown(p.srcUri)
+    if (srcSize < 0) {
+      // 读不到长度（≠ 0 字节）：别拿一次瞬时 stat 失败去销毁一份下好的文件 ——
+      // 落点还在就重新登记，下次查询再收；真没了（文件被删）就摘牌走人。
+      if (await access(p.srcUri)) pendingFinalize.set(key, p)
+      return
+    }
+    if (srcSize === 0 || srcSize !== p.bytes) {
+      await deleteFile(p.srcUri)
+      console.warn('[AudioCache] 边播边下的落点长度对不上（' + srcSize + '/' + p.bytes + '），不转正')
+      return
+    }
+    if (have > 0) await deleteFile(p.finalUri) // 旧文件长度不符：让位
+    await moveIntoPlace(p.srcUri, p.finalUri)
+    const got = await sizeOrUnknown(p.finalUri)
+    if (got > 0 && got !== p.bytes) {
+      await deleteFile(p.finalUri)
+      throw new Error('收尾转正后长度不符（' + got + '/' + p.bytes + ' 字节）')
     }
     console.log('[AudioCache] 边播边下的缓存已转正:', key, p.bytes, 'bytes')
   } catch (e) {
@@ -538,7 +750,7 @@ function bytesToText(bytes, maxBytes) {
  * @returns {Promise<{bytes:number, chunked:boolean}>}
  */
 async function downloadNativeToFile(url, partUri, onProgress, isCancelled, prog) {
-  await deleteFile(partUri) // 上一次的残片：从现在这一份重新开始写
+  // 清场由 runCandidates 做（每条候选都从零开始写），这里只从 0 记账
   let written = 0
   let total = null
   let stallAt = -1 // 上一轮的 written，用于识别「原地打转」
@@ -1024,13 +1236,30 @@ function waitDownloadComplete(mod, token, landedUri, partUri, expected, onProgre
   })
 }
 
-/** 文件字节数（拿不到就当 0：它是进度与对账用的，不是正确性的前提） */
+/** 文件字节数（拿不到就当 0：它是进度用的，不是正确性的前提） */
 async function sizeOf(uri) {
   try {
     const info = await callFs('get', { uri })
     return (info && Number(info.length)) || 0
   } catch (e) {
     return 0
+  }
+}
+
+/**
+ * 文件字节数；**读不到返回 -1**。
+ *
+ * 判「长度对不对」的地方必须用这个：`sizeOf` 把「stat 失败」和「0 字节」混成一个数，
+ * 一次瞬时的原生失败就会让对账把一份好文件当坏文件删掉。判据写 `> 0` / `!==` 时，
+ * 用 -1 把「不知道」和「真的是 0」分开。
+ */
+async function sizeOrUnknown(uri) {
+  try {
+    const info = await callFs('get', { uri })
+    const n = info && Number(info.length)
+    return typeof n === 'number' && isFinite(n) && n >= 0 ? n : -1
+  } catch (e) {
+    return -1
   }
 }
 
@@ -1741,7 +1970,7 @@ function parseRangeOffset(value) {
 }
 
 /**
- * 下载公共体：解析取流地址 → 落盘 → 转正 → 清理。
+ * 下载公共体：抢租约 → 解析取流地址 → 落盘 → 转正 → 清理。
  * ensure（正式播放）与 prefetch（预取）共用，只有 keep 名单和日志前缀不同。
  *
  * **候选地址**：B 站每条流都带 backupUrl（不同 CDN 节点），「同一首固定失败」
@@ -1752,6 +1981,9 @@ function parseRangeOffset(value) {
  * 落够阈值就把落点提前交付出去（外层 promise 提前 resolve），剩余字节的下载与收尾
  * 挂在返回值里的 done promise 上。整份先下完（小文件/预取/网桥）时行为与从前完全一致。
  *
+ * **租约**：整段下载（含边下边播的剩余字节）都在租约里，done 落定才松手 ——
+ * 松早了别的 VM 就会接手往同一个 .part 里写。
+ *
  * @param {string} kind 'play'（可边下边播）| 'prefetch'（只整份）
  * @returns {Promise<{uri:string, cached:boolean, bytes?:number, progressive?:boolean,
  *                     done?:Promise<{uri:string, cached:boolean, bytes:number}>}>}
@@ -1761,40 +1993,74 @@ async function downloadToCache(key, track, opts, kindLabel, kind) {
   const finalUri = uriOf(fileNameOf(key))
   const partUri = uriOf(partNameOf(key))
 
-  // 1) 取流地址（可能多条候选）。resolveUrl 会顺手把 cid 补回曲目对象
-  //    （预取也算数，正式播直接受益）
-  const urls = normalizeCandidates(await o.resolveUrl(track))
-  if (!urls.length) throw new Error('取流失败：没有可用的音频地址')
-  await ensureDir()
+  // 0) 抢跨 VM 租约。别人正在下同一首时不并行抢带宽，等它 —— 它下完就是缓存命中
+  //    （`reused`），它失败/被杀就由 TTL 过期后的我们接手。
+  const claim = await claimDownloadLease(key, finalUri)
+  if (claim.reused) {
+    console.log('[AudioCache]', kindLabel, '另一个 VM 已下好，直接复用:', key)
+    return { uri: finalUri, cached: true }
+  }
 
-  // 2) 边下边播：交付与收尾分成两个 promise。playableSignal 在落够阈值时兑现
-  //    （提前交付），donePromise 在整份下完并登记收尾时兑现（真正完成）。
-  //    谁先到算谁的：文件先下完了（小文件/收编），就是普通的一次整份交付。
+  // 边下边播：交付与收尾分成两个 promise。playableSignal 在落够阈值时兑现
+  // （提前交付），donePromise 在整份下完并登记收尾时兑现（真正完成）。
+  // 谁先到算谁的：文件先下完了（小文件/收编），就是普通的一次整份交付。
   let firePlayable = null
   const playableSignal = new Promise((resolve) => {
     firePlayable = resolve
   })
   const prog = makeProgressive(kind, firePlayable)
+
   if (!prog) {
-    const written = await runCandidates(key, urls, partUri, o, null, kindLabel)
-    return completeDownload(key, finalUri, partUri, written, null, o, kindLabel)
+    try {
+      // 抢到租约的这一刻，上一个持有者可能刚好下完（它在我们回读之后才松手）
+      if (await access(finalUri)) {
+        console.log('[AudioCache]', kindLabel, '轮到本 VM 时缓存已就位:', key)
+        return { uri: finalUri, cached: true }
+      }
+      const urls = await resolveCacheUrls(o, track)
+      await ensureDir()
+      const written = await runCandidates(key, urls, partUri, o, null, kindLabel)
+      return await completeDownload(key, finalUri, partUri, written, null, o, kindLabel)
+    } finally {
+      await releaseLease(claim.lease)
+    }
   }
 
   const donePromise = (async () => {
-    const written = await runCandidates(key, urls, partUri, o, prog, kindLabel)
-    return completeDownload(key, finalUri, partUri, written, prog, o, kindLabel)
+    try {
+      if (await access(finalUri)) return { uri: finalUri, cached: true }
+      const urls = await resolveCacheUrls(o, track)
+      await ensureDir()
+      const written = await runCandidates(key, urls, partUri, o, prog, kindLabel)
+      return await completeDownload(key, finalUri, partUri, written, prog, o, kindLabel)
+    } finally {
+      await releaseLease(claim.lease)
+    }
   })()
-  const early = await Promise.race([
-    playableSignal,
-    donePromise.then(
-      (v) => ({ __done: v }),
-      (e) => {
-        throw e
-      }
-    ),
-  ])
-  if (early && early.__done) return early.__done
-  return { uri: early.uri, cached: false, bytes: early.got, progressive: true, done: donePromise }
+  try {
+    const early = await Promise.race([
+      playableSignal,
+      donePromise.then(
+        (v) => ({ __done: v }),
+        (e) => {
+          throw e
+        }
+      ),
+    ])
+    if (early && early.__done) return early.__done
+    return { uri: early.uri, cached: false, bytes: early.got, progressive: true, done: donePromise }
+  } catch (e) {
+    // 提前交付之前的失败：donePromise 的 finally 已经松手，这里只是兜住竞态
+    await releaseLease(claim.lease)
+    throw e
+  }
+}
+
+/** 取流地址规范化 + 空检查（两条下载路径共用；resolveUrl 会顺手把 cid 补回曲目对象） */
+async function resolveCacheUrls(o, track) {
+  const urls = normalizeCandidates(await o.resolveUrl(track))
+  if (!urls.length) throw new Error('取流失败：没有可用的音频地址')
+  return urls
 }
 
 /**
@@ -1820,6 +2086,10 @@ async function runCandidates(key, urls, partUri, o, prog, kindLabel) {
     if (i > 0) {
       console.warn('[AudioCache]', kindLabel, '换用候选地址', i + 1, '/', urls.length)
     }
+    // 每次尝试都从零开始写：.part 里**只能**有本 VM 这一条地址的字节。
+    // 租约保证此刻没有别的 VM 在写，所以这里删掉的是残片（上次崩的 / 上一条地址的）。
+    // 网桥通道是纯 append（自己不会截断），不删就会往旧残片后面接 —— 拼出两段来源不同的音频。
+    if (!(prog && prog.fired)) await deleteFile(partUri)
     try {
       return await downloadOneCandidate(key, urls[i], partUri, o, prog)
     } catch (e) {
@@ -1848,21 +2118,112 @@ async function runCandidates(key, urls, partUri, o, prog, kindLabel) {
 }
 
 /**
- * 落盘完成后的收尾。已开播（边下边播）时**只登记不搬动** —— 落点还是音频在读的文件，
- * 转正延到 finalizeFor（下一次查询该曲目时）；否则照旧：改名转正 + 按保留名单清理。
+ * 落盘完成后的收尾（发布）。
+ *
+ * **发布前必须对账长度**：`.part` 只由持有租约的本 VM 写，落盘字节数 `written` 是
+ * 自己的记账 —— 两者对不上，说明文件被别人动过（租约过期后另一个 VM 接手、旧版本
+ * 客户端、清理动作）。这时**绝不能**改名转正：改名是「完成」的唯一标志，一份坏字节
+ * 一旦转正就会一直冒充缓存，那首歌永远放不了。宁可丢掉重下。
+ *
+ * 已开播（边下边播）时落点还握在音频手里，所以**只拷不搬**（见 publishProgressive）：
+ * 搬走等于把在播的歌从脚底下抽走，而拷贝让「正式名字」立刻可见 —— 别的 VM 不会因为
+ * 看不见缓存去重下一份（重下的第一步就是删掉在播的那份）。
  */
 async function completeDownload(key, finalUri, partUri, written, prog, o, kindLabel) {
   if (prog && prog.fired) {
     const srcUri = prog.playableUri || partUri
+    await publishProgressive(key, srcUri, finalUri, written, kindLabel)
     pendingFinalize.set(key, { srcUri, finalUri, bytes: written })
-    console.log('[AudioCache]', kindLabel, '落盘完成（边下边播，转正延后）:', key, written, 'bytes')
+    console.log('[AudioCache]', kindLabel, '落盘完成（边下边播，落点仍在播）:', key, written, 'bytes')
     return { uri: srcUri, cached: false, bytes: written, progressive: true }
   }
-  if (await access(finalUri)) await deleteFile(finalUri) // 旧的坏/过期文件让位
+  // 落盘长度对不上 = 有别人动过这个文件。标记 lengthMismatch，好让上层重来一次
+  // （租约的写后回读只是启发式，storage 又没有 CAS —— 真撞上过一次并发竞争而已）。
+  const onDisk = await sizeOrUnknown(partUri)
+  if (onDisk <= 0 || onDisk !== written) {
+    await deleteFile(partUri)
+    const err = new Error(
+      '落盘长度对不上（.part 有 ' + onDisk + ' 字节，本次写入 ' + written + ' 字节），已丢弃重下'
+    )
+    err.lengthMismatch = true
+    throw err
+  }
+  const prev = await sizeOrUnknown(finalUri)
+  if (prev > 0 && prev === written) {
+    // 正式名字上已经是同样长的一份：留它，收掉我们这份刚写完的落点
+    await deleteFile(partUri)
+    console.log('[AudioCache]', kindLabel, '缓存已由别的 VM 发布，收掉本 VM 的落点:', key, written, 'bytes')
+    await pruneCache(o.keepKeys || [key])
+    return { uri: finalUri, cached: true, bytes: written }
+  }
+  if (prev > 0) await deleteFile(finalUri) // 旧的、长度对不上的文件让位
   await moveFile(partUri, finalUri)
+  const got = await sizeOrUnknown(finalUri)
+  if (got > 0 && got !== written) {
+    await deleteFile(finalUri)
+    const err = new Error('转正后长度不符（' + got + ' / ' + written + ' 字节），已丢弃重下')
+    err.lengthMismatch = true
+    throw err
+  }
   console.log('[AudioCache]', kindLabel, '完成:', key, written, 'bytes')
   await pruneCache(o.keepKeys || [key])
   return { uri: finalUri, cached: false, bytes: written }
+}
+
+/**
+ * 边下边播的落点**拷**一份到正式名字（不搬）—— 缓存从下载完成这一刻起对所有 VM 可见。
+ *
+ * 为什么值得多写一次盘：不发布的话，另一个 VM 查不到缓存就会自己下一份（蓝牙上再来
+ * 几十秒），而它开工第一件事是删 `.part` —— 删掉的正是这一份**正在播**的文件。
+ *
+ * **先拷到中转名、对账、再改名**：`file.copy` 不是 rename，边拷边有字节，而正式名字是
+ * 别的 VM 唯一的「完成」判据（它们只凭 access 就认）—— 边拷边露出正式名字，等待方就会
+ * 拿到半份文件；拷贝中途失败更会把半份永久留在正式名下。中转名挂 `.part-<VM_ID>.pub`
+ * （属于 `.part` 家族：不算已缓存，启动清理/淘汰都认得；按 VM 分名，两个 VM 同时发布
+ * 也不会互删对方正在拷的那份）。
+ *
+ * 拷不动/长度不符都只是「这次不发布」：落点照常在播，收尾时由 finalizeFor 走老的
+ * 改名转正（那时音频已经换掉 src，搬是安全的）。
+ */
+async function publishProgressive(key, srcUri, finalUri, bytes, kindLabel) {
+  // 中转名按 VM 分：租约万一被打穿、两个 VM 同时发布时，不会互相删掉对方正在拷的那份
+  const tmpUri = finalUri + '.part-' + VM_ID + '.pub'
+  try {
+    if (srcUri === finalUri) return
+    if (await access(finalUri)) return // 正式名字已经有了（别的 VM 拷过 / 上次转正过）
+    const srcSize = await sizeOrUnknown(srcUri)
+    if (srcSize !== bytes) {
+      console.warn('[AudioCache] 边播边下的落点长度对不上（' + srcSize + '/' + bytes + '），不发布缓存')
+      return
+    }
+    await deleteFile(tmpUri) // 上一次没收走的中转文件
+    await copyFile(srcUri, tmpUri)
+    const copied = await sizeOrUnknown(tmpUri)
+    if (copied !== bytes) {
+      await deleteFile(tmpUri)
+      console.warn('[AudioCache] 边播边下的缓存拷贝长度不符（' + copied + '/' + bytes + '），不发布')
+      return
+    }
+    if (await access(finalUri)) {
+      // 拷贝期间别的 VM 抢先发布了：它的正式缓存留着，我们自己这份中转的收掉
+      await deleteFile(tmpUri)
+      return
+    }
+    await moveFile(tmpUri, finalUri)
+    const got = await sizeOrUnknown(finalUri)
+    if (got > 0 && got !== bytes) {
+      await deleteFile(finalUri)
+      console.warn('[AudioCache] 边播边下的缓存发布后长度不符（' + got + '/' + bytes + '），已删除')
+      return
+    }
+    console.log('[AudioCache]', kindLabel, '边播边下的缓存已就地发布（落点仍在播）:', key, bytes, 'bytes')
+  } catch (e) {
+    await deleteFile(tmpUri) // 半份中转文件不许留
+    console.warn(
+      '[AudioCache] 边播边下的缓存就地发布失败（收尾时再转正）:',
+      e && e.message ? e.message : e
+    )
+  }
 }
 
 /**
@@ -1997,18 +2358,28 @@ export async function ensureTrackFile(track, opts) {
   const existing = inflight.get(key)
   if (existing && existing.promise) return existing.promise
 
-  const finalUri = uriOf(fileNameOf(key))
-  if (await access(finalUri)) {
-    console.log('[AudioCache] 缓存命中:', key)
-    const o = opts || {}
-    await pruneCache(o.keepKeys && o.keepKeys.length ? o.keepKeys : [key])
-    return { uri: finalUri, cached: true }
-  }
-
+  // **先同步占位，再做异步的缓存判断**：同一 tick 里的第二次调用（连点同一首、播放页与
+  // app VM 同时起播）必须复用这条 promise。
   const entry = registerInflight(key, 'play', track)
+  const finalUri = uriOf(fileNameOf(key))
   entry.promise = (async () => {
     try {
-      const res = await downloadToCache(key, track, opts, '落盘', 'play')
+      if (await access(finalUri)) {
+        console.log('[AudioCache] 缓存命中:', key)
+        const o = opts || {}
+        await pruneCache(o.keepKeys && o.keepKeys.length ? o.keepKeys : [key])
+        return { uri: finalUri, cached: true }
+      }
+      let res
+      try {
+        res = await downloadToCache(key, track, opts, '落盘', 'play')
+      } catch (e) {
+        // 落盘长度对不上：租约的写后回读只是启发式（storage 没有 CAS），真撞上了一次
+        // 并发竞争而已。丢掉重来一次 —— 第二轮多半能分开，用户不该为一次竞争看到失败。
+        if (!(e && e.lengthMismatch)) throw e
+        console.warn('[AudioCache] 落盘长度对不上（另一个 VM 抢过租约？），丢弃重下一次:', e.message)
+        res = await downloadToCache(key, track, opts, '落盘', 'play')
+      }
       if (res && res.progressive && res.done) {
         // 在途表要活到「剩余字节下完」为止：预取复用、prune 跳过、取消机制都靠它
         entry.done = res.done
@@ -2095,8 +2466,19 @@ export function cancelAll() {
 }
 
 /**
+ * 这条缓存键此刻被**别的 VM** 持着租约吗？用于清理动作的避让：
+ * 清理是「删文件」，而别的 VM 可能正往那个 `.part` 里写（写完还要转正）。
+ * 判断失败（storage 读不到）一律当没被占 —— 清理本来就是尽力而为。
+ */
+async function leasedByOtherVm(key) {
+  if (!key) return false
+  return isForeignLiveLease(await readLease(key))
+}
+
+/**
  * 按保留名单清理：名单外的完整文件删掉，所有无人认领的 .part 残片删掉。
- * 在途下载（inflight 表里的）一律跳过 —— 那是正在写的文件。
+ * 在途下载（inflight 表里的）一律跳过 —— 那是正在写的文件；
+ * **别的 VM 在写的**同样跳过（本 VM 的在途表看不见它，只能问 storage 的租约）。
  *
  * @param {string[]} keepKeys 要保留的缓存键（当前 + 下一首 + 上一首）
  * @returns {Promise<number>} 删除的文件数
@@ -2116,6 +2498,8 @@ export async function pruneCache(keepKeys) {
     if (inflight.has(key)) continue // 在途下载的 .part（或刚下完待消费的）不动
     if (pendingFinalize.has(key)) continue // 边下边播下完待转正的（可能在播/待收尾），别动
     if (!isPartName(name) && keep[key]) continue
+    // 租约只在**真要删**的时候问一次：它是一次 storage IPC，别对目录里每个文件都问
+    if (await leasedByOtherVm(key)) continue // 别的 VM 正在写这首：删了就是把它那份写坏
     await deleteFile(files[i].uri)
     removed++
   }
@@ -2148,7 +2532,7 @@ export async function cleanupOrphans() {
   return inDir + inRoot
 }
 
-/** 扫一个目录里属于本服务的 `.part` 家族残片（在途下载的除外） */
+/** 扫一个目录里属于本服务的 `.part` 家族残片（在途下载的、别的 VM 正在写的除外） */
 async function sweepParts(dirUri) {
   const files = await listDir(dirUri)
   let removed = 0
@@ -2158,6 +2542,7 @@ async function sweepParts(dirUri) {
     const key = keyFromName(name)
     if (!key) continue // 不是本服务命名的文件，不碰
     if (inflight.has(key)) continue
+    if (await leasedByOtherVm(key)) continue // 别的 VM 正在写：这不是残片
     await deleteFile(files[i].uri)
     removed++
   }
@@ -2176,7 +2561,10 @@ export async function clearAudioCache() {
   let removed = 0
   for (let i = 0; i < files.length; i++) {
     const name = baseName(files[i] && files[i].uri)
-    if (!keyFromName(name) && !isPartName(name)) continue // 外来文件不碰
+    const key = keyFromName(name)
+    if (!key && !isPartName(name)) continue // 外来文件不碰
+    // 别的 VM 正在写的落点跳过：删了就是把它那次下载写坏（它自己的在途表在别的 VM 里）
+    if (await leasedByOtherVm(key)) continue
     await deleteFile(files[i].uri)
     removed++
   }
@@ -2212,17 +2600,23 @@ export function formatBytes(bytes) {
 /**
  * 「重取这首」：本地播放出错时的兜底 —— 删掉缓存与残片后按 ensure 全流程重来。
  * 只重试一次的纪律由 playerService._retriedLocal 把守，这里只管删干净。
+ *
+ * 别的 VM 正持有这首的租约时**只跳过落点**（`.part` 与缓存目录根上那份）。
  */
 export async function refreshTrackFile(track, opts) {
   const key = buildCacheKey(track)
   if (key && !inflight.has(key)) {
-    // 在途下载的文件不能删：下载器还在按自己的 written 往里追加，
-    // 删了它会把后续字节追加进一个空文件 —— 拼出一份长度对不上的坏缓存。
-    // （边下边播更不能删：那可能正是音频在读的文件。）
     await deleteFile(uriOf(fileNameOf(key)))
-    await deleteFile(uriOf(partNameOf(key)))
-    // 整份原生下载的落点在缓存目录根上（见 downloadViaRequest）：一并清掉
-    await deleteFile(CACHE_ROOT_URI + partNameOf(key))
+    if (await leasedByOtherVm(key)) {
+      console.log('[AudioCache] 另一个 VM 正在下载这首，不删它的落点:', key)
+    } else {
+      // 在途下载的文件不能删：下载器还在按自己的 written 往里追加，
+      // 删了它会把后续字节追加进一个空文件 —— 拼出一份长度对不上的坏缓存。
+      // （边下边播更不能删：那可能正是音频在读的文件。）
+      await deleteFile(uriOf(partNameOf(key)))
+      // 整份原生下载的落点在缓存目录根上（见 downloadViaRequest）：一并清掉
+      await deleteFile(CACHE_ROOT_URI + partNameOf(key))
+    }
   }
   return ensureTrackFile(track, opts)
 }

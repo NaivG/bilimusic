@@ -68,6 +68,23 @@ class FavSyncManager extends ChangeNotifier {
         _records = [];
       }
     }
+    await _dedupeRecords();
+  }
+
+  /// 按 folderMediaId 去重，同一收藏夹只保留最近一次导入的记录
+  Future<void> _dedupeRecords() async {
+    if (_records.length < 2) return;
+    final byFolder = <int, FavImportRecord>{};
+    for (final record in _records) {
+      final kept = byFolder[record.folderMediaId];
+      if (kept == null || record.lastImportedAt.isAfter(kept.lastImportedAt)) {
+        byFolder[record.folderMediaId] = record;
+      }
+    }
+    if (byFolder.length == _records.length) return;
+    _records = byFolder.values.toList();
+    await _persistRecords();
+    notifyListeners();
   }
 
   /// 持久化导入记录
@@ -135,7 +152,7 @@ class FavSyncManager extends ChangeNotifier {
       failedCount: result.failedCount,
       status: ImportStatus.synced,
     );
-    _records.add(record);
+    _putRecord(record);
     await _persistRecords();
     notifyListeners();
 
@@ -161,21 +178,32 @@ class FavSyncManager extends ChangeNotifier {
     return result;
   }
 
-  /// 重新同步单个收藏夹（先删除旧歌曲再导入）
-  Future<ImportResult> syncSingleFolder(BiliFavFolder folder) async {
+  /// 重新同步单个收藏夹：清空原歌单后把收藏夹最新内容写回同一个歌单
+  Future<ImportResult> syncSingleFolder(
+    BiliFavFolder folder, {
+    void Function(int processed, int total, int failed)? onProgress,
+  }) async {
     final record = findRecord(folder.mediaId);
     if (record == null) {
-      return ImportResult(successCount: 0, failedCount: 0);
+      return const ImportResult(successCount: 0, failedCount: 0);
     }
 
-    // 清空旧歌曲
+    // 原歌单已被本地删除，按新导入处理
+    if (_playlistService.getPlaylistInfo(record.playlistId) == null) {
+      return importFolderAsNewPlaylist(folder, onProgress: onProgress);
+    }
+
+    // 清空旧歌曲，复用原歌单重新导入
     await _playlistService.removeSongsFromPlaylist(
       record.playlistId,
       await _playlistService.loadPlaylistSongs(record.playlistId),
     );
 
-    // 重新导入
-    return importFolderAsNewPlaylist(folder);
+    return appendFolderToPlaylist(
+      folder,
+      record.playlistId,
+      onProgress: onProgress,
+    );
   }
 
   /// 同步所有已导入的收藏夹
@@ -232,6 +260,12 @@ class FavSyncManager extends ChangeNotifier {
   }
 
   // ==================== 内部方法 ====================
+
+  /// 写入导入记录：同一收藏夹只保留一条，重复导入不会追加第二条
+  void _putRecord(FavImportRecord record) {
+    _records.removeWhere((r) => r.folderMediaId == record.folderMediaId);
+    _records.add(record);
+  }
 
   /// 遍历收藏夹所有分页资源，转换为 Music 并导入到歌单
   Future<ImportResult> _collectAndImportSongs(

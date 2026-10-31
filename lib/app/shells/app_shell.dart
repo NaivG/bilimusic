@@ -66,6 +66,22 @@ class _AppShellState extends ConsumerState<AppShell> {
       return const PipOverlay();
     }
 
+    final useLandscapeLayout = LandscapeBreakpoints.shouldUseLandscapeLayout(
+      context,
+    );
+    // 竖屏搜索中间态是独立页面；转成横屏后改由标题栏驱动联想，退出这一页。
+    if (useLandscapeLayout && _pageManager.basePage == ShellPage.searchEntry) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final stillLandscape = LandscapeBreakpoints.shouldUseLandscapeLayout(
+          context,
+        );
+        if (stillLandscape && _pageManager.basePage == ShellPage.searchEntry) {
+          _pageManager.pop();
+        }
+      });
+    }
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -79,7 +95,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           final currentPage = _pageManager.currentPage;
 
           // 横屏布局优先判断
-          if (LandscapeBreakpoints.shouldUseLandscapeLayout(context)) {
+          if (useLandscapeLayout) {
             return _buildLandscapeShell(currentPage);
           }
 

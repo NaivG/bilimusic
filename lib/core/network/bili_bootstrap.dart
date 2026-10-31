@@ -167,9 +167,11 @@ class BiliBootstrap {
   /// 取 WBI 口令。
   ///
   /// 优先用 GenWebTicket 顺带返回的（零额外请求），否则走 nav 接口。
-  Future<WbiKeys> fetchWbiKeys() async {
+  /// [force] 为 true 时跳过 6 小时缓存重新取。
+  Future<WbiKeys> fetchWbiKeys({bool force = false}) async {
     final cached = _ticketKeys;
-    if (cached != null &&
+    if (!force &&
+        cached != null &&
         _clock().difference(cached.fetchedAt) < const Duration(hours: 6)) {
       return cached;
     }

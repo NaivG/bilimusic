@@ -6,17 +6,24 @@ import 'package:window_manager/window_manager.dart';
 
 /// 横屏模式标题栏 - 基于ParticleMusic风格
 class LandscapeTitleBar extends StatelessWidget {
+  /// 标题栏高度；联想面板贴在它下面。
+  static const double height = 75;
+
   final VoidCallback? onBack;
-  final String? pendingQuery;
-  final Function(String query)? onSearchSubmit;
+  final TextEditingController searchController;
+  final FocusNode searchFocusNode;
+  final ValueChanged<String> onSearchChanged;
+  final ValueChanged<String> onSearchSubmit;
   final VoidCallback? onSettingsTap;
   final VoidCallback? onProfileTap;
 
   const LandscapeTitleBar({
     super.key,
+    required this.searchController,
+    required this.searchFocusNode,
+    required this.onSearchChanged,
+    required this.onSearchSubmit,
     this.onBack,
-    this.pendingQuery,
-    this.onSearchSubmit,
     this.onSettingsTap,
     this.onProfileTap,
   });
@@ -29,7 +36,7 @@ class LandscapeTitleBar extends StatelessWidget {
     final searchFieldColor = palette.searchField;
 
     return SizedBox(
-      height: 75,
+      height: height,
       child: Stack(
         children: [
           // 可拖拽区域 + 双击最大化
@@ -61,44 +68,45 @@ class LandscapeTitleBar extends StatelessWidget {
                 child: _buildLogo(colorScheme),
               ),
               // 搜索框 - 位于侧栏右侧，始终带返回按钮
-              if (onSearchSubmit != null)
-                Positioned(
-                  left: 220,
-                  top: 0,
-                  bottom: 0,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    decoration: BoxDecoration(
-                      border: BoxBorder.fromLTRB(
-                        left: BorderSide(
-                          color: colorScheme.outline.withValues(alpha: 0.1),
-                        ),
+              Positioned(
+                left: 220,
+                top: 0,
+                bottom: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  decoration: BoxDecoration(
+                    border: BoxBorder.fromLTRB(
+                      left: BorderSide(
+                        color: colorScheme.outline.withValues(alpha: 0.1),
                       ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          color: iconColor,
-                          onPressed: onBack,
-                          icon: const Icon(
-                            Icons.arrow_back_ios_rounded,
-                            size: 20,
-                          ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        color: iconColor,
+                        onPressed: onBack,
+                        icon: const Icon(
+                          Icons.arrow_back_ios_rounded,
+                          size: 20,
                         ),
-                        const SizedBox(width: 8),
-                        _TitleSearchField(
-                          hintText: '搜索音乐、视频、用户...',
-                          pendingQuery: pendingQuery,
-                          iconColor: iconColor,
-                          searchFieldColor: searchFieldColor,
-                          textColor: colorScheme.onSurface,
-                          onSubmitted: onSearchSubmit!,
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 8),
+                      _TitleSearchField(
+                        controller: searchController,
+                        focusNode: searchFocusNode,
+                        hintText: '搜索音乐、视频、用户...',
+                        iconColor: iconColor,
+                        searchFieldColor: searchFieldColor,
+                        textColor: colorScheme.onSurface,
+                        onChanged: onSearchChanged,
+                        onSubmitted: onSearchSubmit,
+                      ),
+                    ],
                   ),
                 ),
+              ),
               // 右侧设置和窗口控制
               Positioned(
                 right: 30,
@@ -172,17 +180,21 @@ class LandscapeTitleBar extends StatelessWidget {
 }
 
 /// 标题栏搜索框
-class _TitleSearchField extends StatefulWidget {
+class _TitleSearchField extends StatelessWidget {
+  final TextEditingController controller;
+  final FocusNode focusNode;
   final String hintText;
-  final String? pendingQuery;
-  final Function(String query) onSubmitted;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSubmitted;
   final Color iconColor;
   final Color searchFieldColor;
   final Color textColor;
 
   const _TitleSearchField({
+    required this.controller,
+    required this.focusNode,
     required this.hintText,
-    this.pendingQuery,
+    required this.onChanged,
     required this.onSubmitted,
     required this.iconColor,
     required this.searchFieldColor,
@@ -190,79 +202,57 @@ class _TitleSearchField extends StatefulWidget {
   });
 
   @override
-  State<_TitleSearchField> createState() => _TitleSearchFieldState();
-}
-
-class _TitleSearchFieldState extends State<_TitleSearchField> {
-  late TextEditingController _textController;
-  final FocusNode _focusNode = FocusNode();
-
-  @override
-  void initState() {
-    super.initState();
-    _textController = TextEditingController(text: widget.pendingQuery ?? '');
-  }
-
-  @override
-  void dispose() {
-    _textController.dispose();
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: 260,
       height: 40,
-      child: TapRegion(
-        onTapOutside: (_) {
-          FocusManager.instance.primaryFocus?.unfocus();
+      child: ValueListenableBuilder<TextEditingValue>(
+        valueListenable: controller,
+        builder: (context, value, child) {
+          return TextField(
+            controller: controller,
+            focusNode: focusNode,
+            style: TextStyle(fontSize: 14, color: textColor),
+            decoration: InputDecoration(
+              hintText: hintText,
+              hintStyle: TextStyle(
+                fontSize: 14,
+                color: textColor.withValues(alpha: 0.5),
+              ),
+              contentPadding: EdgeInsets.zero,
+              prefixIcon: Icon(
+                Icons.search,
+                color: iconColor.withValues(alpha: 0.65),
+                size: 18,
+              ),
+              suffixIcon: value.text.isNotEmpty
+                  ? IconButton(
+                      onPressed: () {
+                        controller.clear();
+                        onChanged('');
+                      },
+                      icon: Icon(
+                        Icons.close,
+                        size: 18,
+                        color: iconColor.withValues(alpha: 0.65),
+                      ),
+                    )
+                  : null,
+              filled: true,
+              fillColor: searchFieldColor,
+              hoverColor: Colors.transparent,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+            ),
+            onSubmitted: (query) {
+              final trimmed = query.trim();
+              if (trimmed.isNotEmpty) onSubmitted(trimmed);
+            },
+            onChanged: onChanged,
+          );
         },
-        child: TextField(
-          controller: _textController,
-          focusNode: _focusNode,
-          style: TextStyle(fontSize: 14, color: widget.textColor),
-          decoration: InputDecoration(
-            hintText: widget.hintText,
-            hintStyle: TextStyle(
-              fontSize: 14,
-              color: widget.textColor.withValues(alpha: 0.5),
-            ),
-            contentPadding: EdgeInsets.zero,
-            prefixIcon: Icon(
-              Icons.search,
-              color: widget.iconColor.withValues(alpha: 0.65),
-              size: 18,
-            ),
-            suffixIcon: _textController.text.isNotEmpty
-                ? IconButton(
-                    onPressed: () {
-                      _textController.clear();
-                      setState(() {});
-                    },
-                    icon: Icon(
-                      Icons.close,
-                      size: 18,
-                      color: widget.iconColor.withValues(alpha: 0.65),
-                    ),
-                  )
-                : null,
-            filled: true,
-            fillColor: widget.searchFieldColor,
-            hoverColor: Colors.transparent,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide.none,
-            ),
-          ),
-          onSubmitted: (query) {
-            if (query.isNotEmpty) {
-              widget.onSubmitted(query);
-            }
-          },
-          onChanged: (_) => setState(() {}),
-        ),
       ),
     );
   }

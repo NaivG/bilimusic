@@ -10,3 +10,14 @@ String formatDuration(Duration duration) {
   final seconds = twoDigits(duration.inSeconds.remainder(60));
   return '$minutes:$seconds';
 }
+
+/// 计数缩写：`1.2亿` / `50.2万`，不足一万原样输出。
+String formatCount(int count) {
+  if (count >= 100000000) {
+    return '${(count / 100000000).toStringAsFixed(1)}亿';
+  }
+  if (count >= 10000) {
+    return '${(count / 10000).toStringAsFixed(1)}万';
+  }
+  return '$count';
+}

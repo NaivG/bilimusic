@@ -24,7 +24,10 @@
  *      无授权与断连的错误归类；桩扮演的是真插件，跑真实协议往返）
  *  12. B 档音频链路（第 16-19 节：v4 开放长度流的 CRC32 / 乱序重组 / go-back-N 重传 /
  *      取消与空闲超时；audioCache 缓存管理的复用 / .part 转正 / 清理 / 预取取消；
- *      网桥机型「落盘 → 播本地文件 → 预取下一首」的端到端）
+ *      网桥机型「落盘 → 播本地文件 → 预取下一首」的端到端；**第 18j 节跨 VM**：
+ *      两个 page 同下一首只下一份、同 VM 连点只下一份、storage 租约的等待与过期接手、
+ *      发布前长度对账（交错追加 / 残缺拷贝 / 拷贝失败）与失败重下一次、
+ *      边下边播的原子发布（`.part-<VM>.pub` 中转 → 改名））
  *  13. 本地收藏（第 20 节：条目归一化剥掉易变的取流字段 / toggle 纯逻辑 /
  *      跨 VM 走 storage 的整表读写 / 播放页 ♥ 与更多页、本地收藏页的接线）
  */
@@ -2799,6 +2802,12 @@ interconnectStub.__reset()
 
 console.log('\n[18] 音频缓存管理（audioCache）')
 
+// 跨 VM 租约的「写后回读」在真机上要盖住 storage IPC 的抖动（LEASE_CONFIRM），
+// 离线自检里桩的读写都是 setTimeout(0)，20ms 已经足够让两个 VM 的写都落定。
+// 18j 结束时还原 —— 这是测试专用口子，别漏到后面的用例里。
+const savedLeaseConfirm = CONFIG.AUDIO_CACHE.LEASE_CONFIRM
+CONFIG.AUDIO_CACHE.LEASE_CONFIRM = 20
+
 const fileStub = await import('../scripts/stubs/system.file.mjs')
 fileStub.__reset()
 // 这台「机型」没有 @system.fetch（第 15 节已把它关掉）⇒ 本节的 cacheVm 走网桥 v4 流通道。
@@ -3901,6 +3910,355 @@ eq('没有标识 → 空串（网桥机型播不了，报错说人话）', cache
 
 interconnectStub.__reset()
 fileStub.__reset()
+
+/* --------- 18j. 跨 VM：两个 page 同下一首（storage 租约 + 发布前长度对账） ---------
+ *
+ * 真机现场：app VM 收到 onended 往下一首走，播放页 VM 同时点了同一首 —— 两个 VM 各有
+ * 一份 audioCache 实例（inflight 表互不可见），而 `.part` 路径只由缓存键决定，于是两边
+ * 交错 append 到同一个文件：各自的记账都自洽，双方都报完成，文件却是两段字节的拼接
+ * （700 KiB 的源能写成 1 171 456 字节），之后那首歌永远放不了。
+ *
+ * 本节是这句话的回归：并发起跑只能有一份下载，最终文件长度与内容都必须等于源；
+ * 另验「等别人下完」「租约过期接手」「清理避让在写的租约」与「发布前的长度对账」。
+ */
+console.log('\n[18j] 跨 VM 同下一首（storage 租约 + 发布前长度对账）')
+
+fetchFeatureAvailable = true
+const xvmApiVm = await import('../src/services/api.js')
+xvmApiVm.__resetNativeProbe()
+fileStub.__reset()
+fetchStub.__reset()
+fetchStub.__setChunkBytes(256 * 1024) // 700 KiB ⇒ 3 笔 Range（256K + 256K + 188K）
+const LEASE_PREFIX = CONFIG.STORAGE_KEYS.AUDIO_LEASE + '_'
+storageStub.__seed({ [CONFIG.STORAGE_KEYS.DL_CAPS]: '' }) // 从 fetch 通道走，别被上面的「判死」记录带偏
+
+const xvmSize = 700 * 1024
+const xvmBody = 'PART0-' + 'p'.repeat(xvmSize - 6)
+const xvmUrl = 'https://cdn.example/BVXVM1.m4s'
+fetchStub.__setFile(xvmUrl, xvmBody)
+const xvmTrack = { bvid: 'BVXVM1' }
+const xvmFinal = AUDIO_DIR + cacheNameOf('bv_BVXVM1')
+const xvmPart = xvmFinal + '.part'
+const xvmResolve = async () => xvmUrl
+const xvmVm2 = await import('../src/services/audioCache.js?vm=cache-xvm2')
+const xvmVm3 = await import('../src/services/audioCache.js?vm=cache-xvm3')
+
+// 两个 VM 同一 tick 起跑 —— 这就是「两个页面同下一首歌」的那一瞬
+const xvmSettled = await Promise.allSettled([
+  xvmVm2.ensureTrackFile(xvmTrack, { resolveUrl: xvmResolve }),
+  xvmVm3.ensureTrackFile(xvmTrack, { resolveUrl: xvmResolve }),
+])
+eq(
+  '★ 两个 VM 同时下同一首都成功（不再互相写坏 .part / 互相删掉对方在写的文件）',
+  xvmSettled.map((s) => s.status),
+  ['fulfilled', 'fulfilled']
+)
+eq(
+  '★ 只下了一份（700 KiB = 3 笔 Range；另一个 VM 等它下完直接命中缓存）',
+  fetchStub.__requests().filter((r) => r.url === xvmUrl).length,
+  3
+)
+eq(
+  '★ 最终文件长度 = 源长度 716800（不是两份拼出来的 1171456）',
+  fileStub.__files()[xvmFinal],
+  xvmSize
+)
+ok(
+  '★ 最终文件字节与源完全一致',
+  Buffer.from(fileStub.__bytes(xvmFinal) || new Uint8Array(0)).toString('utf8') === xvmBody,
+  '落盘 ' + ((fileStub.__bytes(xvmFinal) || []).length || 0) + ' 字节 / 源 ' + xvmBody.length + ' 字节'
+)
+ok(
+  '★ 没有留下 .part 残片',
+  !fileStub.__exists(xvmPart),
+  JSON.stringify(Object.keys(fileStub.__files()))
+)
+ok(
+  '★ 两边拿到的是同一个正式缓存文件',
+  xvmSettled.every((s) => s.value && s.value.uri === xvmFinal),
+  JSON.stringify(xvmSettled.map((s) => s.value && s.value.uri))
+)
+ok(
+  '★ 租约用完即摘（storage 里不留残余）',
+  !storageStub.__dump()[LEASE_PREFIX + 'bv_BVXVM1'],
+  JSON.stringify(storageStub.__dump()[LEASE_PREFIX + 'bv_BVXVM1'])
+)
+
+// 18j-2. 别人正在写：不抢带宽，等它 —— 缓存一出现就用它，自己一笔请求都不发
+const waitBody = 'WAITED-' + 'w'.repeat(3000)
+const waitUrl = 'https://cdn.example/BVXVM2.m4s'
+fetchStub.__setFile(waitUrl, waitBody)
+const waitTrack = { bvid: 'BVXVM2' }
+const waitFinal = AUDIO_DIR + cacheNameOf('bv_BVXVM2')
+const waitLeaseKey = LEASE_PREFIX + 'bv_BVXVM2'
+storageStub.__seed({
+  [waitLeaseKey]: JSON.stringify({ owner: 'vm_other_page', ts: Date.now() }),
+})
+const waitVm = await import('../src/services/audioCache.js?vm=cache-xvm-wait')
+const waitStarted = Date.now()
+const waitPromise = waitVm.ensureTrackFile(waitTrack, { resolveUrl: async () => waitUrl })
+// 200ms 后「另一个 VM 下完了」：正式缓存出现（它的 .part 不归我们管）
+setTimeout(() => fileStub.__seed(waitFinal, waitBody), 200)
+const waitRes = await waitPromise
+const waitElapsed = Date.now() - waitStarted
+ok(
+  '★ 租约在别人手里时不并发下同一首（等它下完）',
+  waitElapsed >= 200, // 至少等过那一拍，不是「看一眼就自己开下」
+  '等了 ' + waitElapsed + 'ms'
+)
+eq('★ 等到的缓存直接复用（不再自己下一份）', waitRes.cached, true)
+eq('★ 等待期间一笔网络请求都没发', fetchStub.__requests().filter((r) => r.url === waitUrl).length, 0)
+storageStub.__seed({ [waitLeaseKey]: '' })
+
+// 18j-3. 租约过期（持有者随页面销毁）：直接接手，不用干等
+const deadBody = 'DEAD-VM-' + 'd'.repeat(4000)
+const deadUrl = 'https://cdn.example/BVXVM3.m4s'
+fetchStub.__setFile(deadUrl, deadBody)
+const deadTrack = { bvid: 'BVXVM3' }
+const deadLeaseKey = LEASE_PREFIX + 'bv_BVXVM3'
+storageStub.__seed({
+  [deadLeaseKey]: JSON.stringify({
+    owner: 'vm_killed_page',
+    ts: Date.now() - CONFIG.AUDIO_CACHE.LEASE_TTL - 5000,
+  }),
+})
+const deadVm = await import('../src/services/audioCache.js?vm=cache-xvm-dead')
+const deadStarted = Date.now()
+const deadRes = await deadVm.ensureTrackFile(deadTrack, { resolveUrl: async () => deadUrl })
+const deadElapsed = Date.now() - deadStarted
+eq(
+  '★ 租约过期（持有者已随页面销毁）时直接接手落地',
+  Buffer.from(fileStub.__bytes(deadRes.uri) || new Uint8Array(0)).toString('utf8'),
+  deadBody
+)
+ok(
+  '★ 接手不用等 TTL 走完（过期就是过期）',
+  deadElapsed < 2000,
+  '等了 ' + deadElapsed + 'ms'
+)
+ok('★ 僵尸租约被覆盖、用完摘干净', !storageStub.__dump()[deadLeaseKey], String(storageStub.__dump()[deadLeaseKey]))
+
+// 18j-4. 清理动作要避让在写的租约：别的 VM 的 .part 不是残片
+const leasedPart = AUDIO_DIR + cacheNameOf('bv_BVXVM4') + '.part'
+const leasedLeaseKey = LEASE_PREFIX + 'bv_BVXVM4'
+fileStub.__seed(leasedPart, 'being-written')
+storageStub.__seed({
+  [leasedLeaseKey]: JSON.stringify({ owner: 'vm_other_page', ts: Date.now() }),
+})
+await xvmVm2.pruneCache([])
+ok('★ 别的 VM 正在写的 .part 不被当成残片删掉', fileStub.__exists(leasedPart))
+storageStub.__seed({ [leasedLeaseKey]: '' })
+await xvmVm2.pruneCache([])
+ok('★ 租约一放开就照常清掉', !fileStub.__exists(leasedPart))
+
+// 18j-5. 边下边播：落点还在播时也要让正式缓存**立刻**可见 ——
+// 看不见缓存的话，另一个 VM 会自己重下一份，而它开工第一件事就是删掉在播的那份。
+const progSize = 1200 * 1024
+const progBody = 'PROG-' + 'g'.repeat(progSize - 5)
+const progUrl = 'https://cdn.example/BVXVM5.m4s'
+fetchStub.__setFile(progUrl, progBody)
+const progTrack = { bvid: 'BVXVM5' }
+const progFinal = AUDIO_DIR + cacheNameOf('bv_BVXVM5')
+const progPart = progFinal + '.part'
+const progVm = await import('../src/services/audioCache.js?vm=cache-xvm-prog')
+const progRes = await progVm.ensureTrackFile(progTrack, { resolveUrl: async () => progUrl })
+eq('★ 落够阈值先出声（progressive）', progRes.progressive, true)
+eq('★ 交付的落点就是还在长的 .part', progRes.uri, progPart)
+await progRes.done
+eq('★ 边播边下的落点长度与源一致', fileStub.__files()[progPart], progSize)
+eq('★ 正式缓存立刻可见（落点不搬，拷一份）', fileStub.__files()[progFinal], progSize)
+ok(
+  '★ 发布的缓存内容完整',
+  Buffer.from(fileStub.__bytes(progFinal) || new Uint8Array(0)).toString('utf8') === progBody,
+  '发布 ' + ((fileStub.__bytes(progFinal) || []).length || 0) + ' 字节 / 源 ' + progBody.length + ' 字节'
+)
+const progCached = await progVm.getCachedFile(progTrack)
+eq('★ 收尾后命中正式缓存', progCached, progFinal)
+ok('★ 落点已收掉（不占着两份）', !fileStub.__exists(progPart))
+
+// 18j-6. 发布前对账：落点长度不对就**永远不许**转正（那就是"永久的坏缓存"）
+const badSize = 1200 * 1024
+const badBody = 'BADPROG-' + 'q'.repeat(badSize - 8)
+const badUrl = 'https://cdn.example/BVXVM6.m4s'
+fetchStub.__setFile(badUrl, badBody)
+const badTrack = { bvid: 'BVXVM6' }
+const badFinal = AUDIO_DIR + cacheNameOf('bv_BVXVM6')
+const badPart = badFinal + '.part'
+const badVm = await import('../src/services/audioCache.js?vm=cache-xvm-bad')
+const badRes = await badVm.ensureTrackFile(badTrack, { resolveUrl: async () => badUrl })
+await badRes.done
+fileStub.__delete(badFinal) // 模拟「就地发布没做成」（空间不足等）：只剩落点
+fileStub.__seed(badPart, 'truncated') // 落点被写坏（短了一截）
+const badCached = await badVm.getCachedFile(badTrack)
+eq('★ 长度对不上的落点绝不转正（查询返回空）', badCached, '')
+ok('★ 坏落点被删掉', !fileStub.__exists(badPart))
+ok('★ 也没留下正式缓存', !fileStub.__exists(badFinal))
+
+// 18j-7. 同一个 VM 里连点同一首：在途表要先占位、再做异步的缓存判断，
+// 否则两条调用会同时走到下载 —— 那是「两个 VM 同下一首」的同 VM 版本（同样写坏 .part）。
+const sameBody = 'SAME-VM-' + 's'.repeat(3000)
+const sameUrl = 'https://cdn.example/BVXVM7.m4s'
+fetchStub.__setFile(sameUrl, sameBody)
+const sameVm = await import('../src/services/audioCache.js?vm=cache-xvm-same')
+const sameVmTrack = { bvid: 'BVXVM7' }
+const sameBefore = fetchStub.__requests().filter((r) => r.url === sameUrl).length
+const samePair = await Promise.all([
+  sameVm.ensureTrackFile(sameVmTrack, { resolveUrl: async () => sameUrl }),
+  sameVm.ensureTrackFile(sameVmTrack, { resolveUrl: async () => sameUrl }),
+])
+eq(
+  '★ 同一 VM 里连点同一首也只下一份（在途表先占位）',
+  fetchStub.__requests().filter((r) => r.url === sameUrl).length - sameBefore,
+  1
+)
+ok(
+  '★ 两次调用拿到同一个落点（复用在途 promise，不是各起一份）',
+  samePair[0].uri === samePair[1].uri && samePair[0].uri === AUDIO_DIR + cacheNameOf('bv_BVXVM7'),
+  JSON.stringify(samePair.map((r) => r.uri))
+)
+
+// 18j-8. 发布前对账的**行为**回归：下载途中落点被别人追加过（租约失效后的交错写），
+// 必须拒绝发布；而且会**重来一次**（并发竞争不该变成用户看到的一次失败）。
+// 用 onProgress 往 .part 末尾追加一截来模拟另一个 VM 的 append：每轮都追加，
+// 所以两轮都会撞上对账 —— 请求数 = 2 就是「确实重试了一次」的证据。
+const guardBody = 'GUARD-' + 'g'.repeat(4000)
+const guardUrl = 'https://cdn.example/BVXVM8.m4s'
+fetchStub.__setFile(guardUrl, guardBody)
+const guardTrack = { bvid: 'BVXVM8' }
+const guardFinal = AUDIO_DIR + cacheNameOf('bv_BVXVM8')
+const guardPart = guardFinal + '.part'
+const guardLeaseKey = LEASE_PREFIX + 'bv_BVXVM8'
+const guardVm = await import('../src/services/audioCache.js?vm=cache-xvm-guard')
+const guardBase = fetchStub.__requests().filter((r) => r.url === guardUrl).length
+let guardErr = null
+try {
+  await guardVm.ensureTrackFile(guardTrack, {
+    resolveUrl: async () => guardUrl,
+    keepKeys: ['bv_BVXVM8'],
+    onProgress: () => {
+      const cur = fileStub.__bytes(guardPart) || new Uint8Array(0)
+      const extra = new Uint8Array(cur.length + 512)
+      extra.set(cur, 0)
+      fileStub.__seed(guardPart, extra) // 模拟别人往落点里追加了 512 字节
+    },
+  })
+} catch (e) {
+  guardErr = e
+}
+ok(
+  '★ 落点被别人追加过：发布前对账拒绝（不留坏缓存）',
+  !!guardErr && /长度对不上/.test(guardErr.message || ''),
+  guardErr ? guardErr.message : '没有报错'
+)
+eq(
+  '★ 对账失败后丢弃重下**一次**（并发竞争不该直接变成用户可见的失败）',
+  fetchStub.__requests().filter((r) => r.url === guardUrl).length - guardBase,
+  2
+)
+ok('★ 撞过对账的落点没被转正', !fileStub.__exists(guardFinal))
+ok('★ 坏残片已删', !fileStub.__exists(guardPart))
+ok('★ 重试两次都失败后租约也摘干净了', !storageStub.__dump()[guardLeaseKey])
+
+// 18j-9. 残留 .part（崩溃 / 上个 VM 留下的）不能接在新字节后面：
+// 网桥通道是纯 append，开工不清场就会拼出「旧残片 + 这一份」的坏文件；
+// 原生通道虽然第一笔用覆盖写，但落点比源长时文件尾巴会留下来 —— 长度照样对不上。
+// 残留**特意比源长**：残留更短时覆盖写会把首部盖成正确字节、长度也刚好，这条就假绿了。
+const staleBody = 'STALE-' + 'a'.repeat(2000)
+const stalePartUrl = 'https://cdn.example/BVXVM9.m4s'
+fetchStub.__setFile(stalePartUrl, staleBody)
+const staleTrack = { bvid: 'BVXVM9' }
+const staleFinal = AUDIO_DIR + cacheNameOf('bv_BVXVM9')
+fileStub.__seed(staleFinal + '.part', 'LEFT-OVER-' + 'x'.repeat(8 * 1024)) // 8 KB > 源 2006 B
+const staleVm = await import('../src/services/audioCache.js?vm=cache-xvm-stale')
+const staleBase = fetchStub.__requests().filter((r) => r.url === stalePartUrl).length
+const staleRes = await staleVm.ensureTrackFile(staleTrack, { resolveUrl: async () => stalePartUrl })
+eq(
+  '★ 残留 .part 先清场再写（不用靠「长度对不上→重试」兜底，只发 1 次请求）',
+  fetchStub.__requests().filter((r) => r.url === stalePartUrl).length - staleBase,
+  1
+)
+ok(
+  '★ 残留 .part 不会把旧残片接在新字节前面',
+  Buffer.from(fileStub.__bytes(staleRes.uri) || new Uint8Array(0)).toString('utf8') === staleBody,
+  '落盘 ' + ((fileStub.__bytes(staleRes.uri) || []).length || 0) + ' 字节 / 源 ' + staleBody.length + ' 字节'
+)
+
+// 18j-10. 边下边播的「就地发布」必须是**原子**的：拷贝只写了一半（回调还成功）时，
+// 正式名字绝不能出现（别的 VM 只凭 access 就认它是完整缓存）。
+// 收尾时由 finalizeFor 用落点改名转正 —— 这条兜底也要能成。
+const atomicBody = 'ATOMIC-' + 'c'.repeat(1200 * 1024)
+const atomicUrl = 'https://cdn.example/BVXVM10.m4s'
+fetchStub.__setFile(atomicUrl, atomicBody)
+const atomicTrack = { bvid: 'BVXVM10' }
+const atomicFinal = AUDIO_DIR + cacheNameOf('bv_BVXVM10')
+const atomicPart = atomicFinal + '.part'
+const atomicVm = await import('../src/services/audioCache.js?vm=cache-xvm-atomic')
+fileStub.__setCopyTruncate(4096) // 拷「成功」但只写出 4 KB
+const atomicRes = await atomicVm.ensureTrackFile(atomicTrack, { resolveUrl: async () => atomicUrl })
+await atomicRes.done
+ok('★ 拷贝只写了一半 → 正式名字不出现（发布是原子的）', !fileStub.__exists(atomicFinal))
+const atomicTmpNames = Object.keys(fileStub.__files()).filter((u) => u.indexOf('bv_BVXVM10') >= 0 && u.indexOf('.part-') >= 0)
+ok('★ 半份中转文件也不留（.part-<VM>.pub）', atomicTmpNames.length === 0, JSON.stringify(atomicTmpNames))
+const atomicCopies = fileStub.__copies().filter((c) => c.dstUri.indexOf('bv_BVXVM10') >= 0)
+ok(
+  '★ 发布走中转名：拷贝的落点不是正式名字（边拷边露出正式名字，等待方就会拿到半份）',
+  atomicCopies.length > 0 && atomicCopies.every((c) => c.dstUri.indexOf('.part-') > 0),
+  JSON.stringify(atomicCopies.map((c) => c.dstUri))
+)
+const atomicCached = await atomicVm.getCachedFile(atomicTrack)
+eq('★ 收尾走落点改名转正（兜底照样成）', atomicCached, atomicFinal)
+ok(
+  '★ 转正后的内容完整',
+  Buffer.from(fileStub.__bytes(atomicFinal) || new Uint8Array(0)).toString('utf8') === atomicBody,
+  '落盘 ' + ((fileStub.__bytes(atomicFinal) || []).length || 0) + ' 字节 / 源 ' + atomicBody.length + ' 字节'
+)
+ok('★ 落点收掉了', !fileStub.__exists(atomicPart))
+fileStub.__setCopyTruncate(0)
+
+// 18j-11. 拷贝直接失败（空间不足）：同样不发布，收尾时改名转正照样能成
+const denyBody = 'DENY-' + 'd'.repeat(1200 * 1024) // 够长才会走边下边播（PROGRESSIVE_MIN × 2）
+const denyCopyUrl = 'https://cdn.example/BVXVM11.m4s'
+fetchStub.__setFile(denyCopyUrl, denyBody)
+const denyTrack = { bvid: 'BVXVM11' }
+const denyFinal = AUDIO_DIR + cacheNameOf('bv_BVXVM11')
+const denyVm = await import('../src/services/audioCache.js?vm=cache-xvm-deny')
+fileStub.__setCopyDenied(true)
+const denyRes = await denyVm.ensureTrackFile(denyTrack, { resolveUrl: async () => denyCopyUrl })
+await denyRes.done
+ok('★ 拷贝失败 → 正式名字不出现', !fileStub.__exists(denyFinal))
+fileStub.__setCopyDenied(false)
+const denyCached = await denyVm.getCachedFile(denyTrack)
+eq('★ 拷贝失败后的兜底转正', denyCached, denyFinal)
+ok(
+  '★ 兜底转正的内容完整',
+  Buffer.from(fileStub.__bytes(denyFinal) || new Uint8Array(0)).toString('utf8') === denyBody,
+  '落盘 ' + ((fileStub.__bytes(denyFinal) || []).length || 0) + ' 字节 / 源 ' + denyBody.length + ' 字节'
+)
+
+// 还原机型前提：第 19 节要的是「网桥机型」
+CONFIG.AUDIO_CACHE.LEASE_CONFIRM = savedLeaseConfirm
+fetchFeatureAvailable = false
+fetchStub.__setChunkBytes(0)
+fetchStub.__reset()
+fileStub.__reset()
+const leaseKeys = [
+  'bv_BVXVM1',
+  'bv_BVXVM2',
+  'bv_BVXVM3',
+  'bv_BVXVM4',
+  'bv_BVXVM5',
+  'bv_BVXVM6',
+  'bv_BVXVM7',
+  'bv_BVXVM8',
+  'bv_BVXVM9',
+  'bv_BVXVM10',
+  'bv_BVXVM11',
+]
+const leaseDump = {}
+leaseKeys.forEach((k) => {
+  leaseDump[LEASE_PREFIX + k] = ''
+})
+storageStub.__seed(leaseDump)
 
 console.log('\n[19] B 档端到端（网桥机型：落盘播放 + 预取）')
 

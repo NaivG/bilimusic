@@ -5,6 +5,7 @@ import 'package:bilimusic/shared/utils/responsive.dart';
 class SearchBarWidget extends StatefulWidget {
   final TextEditingController controller;
   final Function(String) onSearch;
+  final ValueChanged<String>? onChanged;
   final VoidCallback? onClear;
   final bool autoFocus;
   final String hintText;
@@ -14,6 +15,7 @@ class SearchBarWidget extends StatefulWidget {
     super.key,
     required this.controller,
     required this.onSearch,
+    this.onChanged,
     this.onClear,
     this.autoFocus = false,
     this.hintText = '输入音乐名称、艺术家或BV/AV号',
@@ -76,6 +78,7 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
                   icon: const Icon(Icons.clear, size: 20),
                   onPressed: () {
                     widget.controller.clear();
+                    widget.onChanged?.call('');
                     widget.onClear?.call();
                   },
                 )
@@ -90,6 +93,7 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
         ),
         onSubmitted: widget.onSearch,
         onChanged: (value) {
+          widget.onChanged?.call(value);
           if (value.isEmpty) {
             widget.onClear?.call();
           }
@@ -118,6 +122,7 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
                   icon: const Icon(Icons.clear, size: 20),
                   onPressed: () {
                     widget.controller.clear();
+                    widget.onChanged?.call('');
                     widget.onClear?.call();
                   },
                 )
@@ -132,6 +137,7 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
         ),
         onSubmitted: widget.onSearch,
         onChanged: (value) {
+          widget.onChanged?.call(value);
           if (value.isEmpty) {
             widget.onClear?.call();
           }

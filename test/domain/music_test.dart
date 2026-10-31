@@ -14,6 +14,24 @@ void main() {
     audioUrl: '',
   );
 
+  group('Music.subtitleText', () {
+    test('有专辑时显示「艺术家 - 专辑」', () {
+      expect(music('BV1', '1').subtitleText, 'artist - album');
+    });
+
+    test('没有专辑时只显示艺术家', () {
+      final track = Music(
+        id: 'BV1',
+        title: '视频',
+        artist: const Artist(name: 'UP 主'),
+        album: '',
+        coverUrl: '',
+        audioUrl: '',
+      );
+      expect(track.subtitleText, 'UP 主');
+    });
+  });
+
   group('Music.sameTrackAs', () {
     test('空 cid 视为通配：先入列后回填 cid 仍算同一首', () {
       final pending = music('BV1', '');

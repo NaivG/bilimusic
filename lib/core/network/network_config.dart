@@ -23,6 +23,7 @@ class NetworkConfig {
   static const String apiBase = 'https://api.bilibili.com';
   static const String webBase = 'https://www.bilibili.com';
   static const String searchBase = 'https://search.bilibili.com';
+  static const String searchSuggestBase = 'https://s.search.bilibili.com';
   static const String passportBase = 'https://passport.bilibili.com';
 
   /// B 站 JSON 接口通用的 Accept。

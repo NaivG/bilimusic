@@ -565,6 +565,42 @@ class PlayerCoordinator {
     await _playlistService.moveInPlaylist(newIndex, currentIndex + 1);
   }
 
+  /// 从当前播放队列删除一首曲目。
+  ///
+  /// 删的是播放器里装载着的那首时，数据层会把指针落到删除位置上的后继
+  /// 曲目（删到队尾则环绕回队首），这里随即切过去播；队列被删空则停播。
+  /// 删其他曲目只动数据，正在播放的音频不受影响。
+  Future<void> removeFromPlaylist(Music music) async {
+    final current = _playlistService.currentMusic;
+    final removingCurrent = current != null && _sameTrack(current, music);
+
+    // 先同步摘掉内存队列：Dismissible 的 onDismissed 返回后，父级必须在
+    // 同一帧把该行移出控件树，不能等停播 / 切歌的异步流程。
+    final removal = _playlistService.removeFromPlaylist(music);
+
+    if (!removingCurrent) {
+      await removal;
+      return;
+    }
+
+    // 被删曲目的在途取流不得再落到播放器上（它已经不在队列里了）。
+    _cancelPendingPlayIntent();
+    _debounceTimer?.cancel();
+    _clearPreloadState();
+    if (_isCountdownActive || _audioService.isFading) {
+      // 与手动切歌一致：crossfade 进行中先取消过渡，再照常切下一首。
+      _stopCountdown();
+      await _audioService.cancelAndPlay(null);
+    }
+    await removal;
+
+    if (_playlistService.currentMusic == null) {
+      await stop();
+    } else {
+      await _playCurrentTrack();
+    }
+  }
+
   /// 清空播放列表（带停播放器副作用；纯数据操作由 UI 经 playlistCommands 直连 Service）
   Future<void> clearPlaylist() async {
     _cancelPendingPlayIntent();
@@ -737,6 +773,10 @@ class PlayerCoordinator {
     if (_crossfadeStartTime == null) return;
     final activeMs = _activeCrossfadeMs;
     if (activeMs == null) return;
+
+    // 过渡窗口内用户可能已经暂停 / 停止：倒计时只能刷新 fade 子态，
+    // 不能把状态机从 Paused / Idle / Buffering 拽回 Playing。
+    if (_audioService.playerState.value is! PlayerPlaying) return;
 
     final elapsed = DateTime.now().difference(_crossfadeStartTime!);
     final remaining = Duration(milliseconds: activeMs) - elapsed;

@@ -140,10 +140,12 @@ export function fetch(options) {
   const { url, method = 'GET', header = {}, data, responseType, success, fail } = options || {}
   requests.push({ url, method, header, data, responseType })
 
-  // 持续失败（一直生效，直到传入 null/0 清掉）：验「下载彻底失败」的报错链路
+  // 持续失败（一直生效，直到传入 null/0 清掉）：验「下载彻底失败」的报错链路。
+  // 闭包里**先抓住当下这份**：定时器落地前测试可能已经把它清掉，读模块变量会炸。
   if (failAlways) {
+    const failNow = failAlways
     setTimeout(() => {
-      if (typeof fail === 'function') fail(failAlways.data, failAlways.code)
+      if (typeof fail === 'function') fail(failNow.data, failNow.code)
     }, delayMs)
     return
   }
