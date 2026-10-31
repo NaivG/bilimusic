@@ -708,7 +708,7 @@ class ApiService {
   // ====================================================================
 
   /// 音乐主分区的 v1 `tid`，排行榜 `rid` 用它。
-  static const int musicRankingRid = 3;
+  static const int musicRankingRid = 1003;
 
   /// `region/feed/rcmd` 的 `from_region`：**v2 主分区号**，音乐 = 1003。
   ///
