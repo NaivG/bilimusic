@@ -32,7 +32,7 @@ class SettingsState {
   // 音频输出四项 + 免责说明。
   //
   // 四项的唯一写入口是 PlayerCoordinator（先落 SettingsManager 再推
-  // A/B 两路播放器），UI 走`audioOutputCommandsProvider`；manager 
+  // A/B 两路播放器），UI 走`audioOutputCommandsProvider`；manager
   //`notifyListeners` 之后[_onManagerChanged] 会把新值带回来。
   // 协议闸门例外——它不进引擎，由 [SettingsNotifier.acceptAudioOutputDisclaimer] 直接委托 manager。
   final bool audioOutputDisclaimerAccepted;
