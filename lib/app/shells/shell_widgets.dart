@@ -8,6 +8,7 @@ import 'package:bilimusic/features/settings/settings_provider.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
 import 'package:bilimusic/shared/widgets/background_blur_widget.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
+import 'package:bilimusic/features/discover/ui/discover_page.dart';
 import 'package:bilimusic/features/playlist/playlist_page.dart';
 import 'package:bilimusic/features/search/ui/search_overlay.dart';
 import 'package:bilimusic/features/search/ui/search_results_overlay.dart';
@@ -46,6 +47,8 @@ Widget buildShellPageContent({
   switch (page) {
     case ShellPage.home:
       return homePage;
+    case ShellPage.discover:
+      return const DiscoverPage();
     case ShellPage.search:
       return const SearchOverlay();
     case ShellPage.searchResults:

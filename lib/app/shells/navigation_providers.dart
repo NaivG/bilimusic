@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/domain/music.dart';
 
-enum ShellContentType { home, search, profile, settings, playlist }
+enum ShellContentType { home, discover, search, profile, settings, playlist }
 
 class ShellNavigationState {
   final ShellContentType contentType;
@@ -50,9 +50,10 @@ class ShellNavigationNotifier extends Notifier<ShellNavigationState> {
   void goToTab(int index) {
     final contentType = switch (index) {
       0 => ShellContentType.home,
-      1 => ShellContentType.search,
-      2 => ShellContentType.profile,
-      3 => ShellContentType.settings,
+      1 => ShellContentType.discover,
+      2 => ShellContentType.search,
+      3 => ShellContentType.profile,
+      4 => ShellContentType.settings,
       _ => ShellContentType.home,
     };
     state = state.copyWith(

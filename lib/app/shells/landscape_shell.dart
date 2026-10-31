@@ -98,13 +98,13 @@ class LandscapeShell extends ConsumerWidget {
       onBack: () => pageManager.pop(),
       onSearchSubmit: (query) {
         ref.read(searchStateProvider.notifier).setQuery(query);
-        pageManager.goToTab(1);
+        pageManager.goToTab(2);
       },
       onSettingsTap: () {
-        pageManager.goToTab(3);
+        pageManager.goToTab(4);
       },
       onProfileTap: () {
-        pageManager.goToTab(2);
+        pageManager.goToTab(3);
       },
     );
   }
@@ -125,7 +125,7 @@ class LandscapeShell extends ConsumerWidget {
     );
   }
 
-  /// 当前应高亮的顶层导航项（发现/搜索/设置）。
+  /// 当前应高亮的顶层导航项（首页/发现/搜索/设置）。
   /// 在歌单页时返回 null——此时侧边栏的视觉焦点由
   /// [ShellPageManager.activePlaylistId] 交给对应歌单项，避免
   /// 「歌单项和发现同时高亮」或「在歌单页却仍高亮发现」的视觉残留。
@@ -138,10 +138,12 @@ class LandscapeShell extends ConsumerWidget {
       case 0:
         return 'home';
       case 1:
-        return 'search';
+        return 'discover';
       case 2:
-        return 'profile';
+        return 'search';
       case 3:
+        return 'profile';
+      case 4:
         return 'settings';
       default:
         return 'home';
@@ -153,11 +155,14 @@ class LandscapeShell extends ConsumerWidget {
       case 'home':
         pageManager.goToTab(0);
         break;
-      case 'search':
+      case 'discover':
         pageManager.goToTab(1);
         break;
+      case 'search':
+        pageManager.goToTab(2);
+        break;
       case 'settings':
-        pageManager.goToTab(3);
+        pageManager.goToTab(4);
         break;
     }
   }

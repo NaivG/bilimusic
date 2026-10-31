@@ -257,17 +257,24 @@ Artist _artistFromJson(Map<String, dynamic> json) {
 }
 
 /// 解析稿件卡片 JSON 的创作者：优先 `owner` 对象，退回扁平的 `author` / `mid` / `upic`。
+///
+/// `author` 有两种形态：分区推荐流（`region/feed/rcmd`）给的是
+/// `{mid, name}` 对象，搜索类端点给的是昵称字符串；前者能直接拿到 mid。
 Artist _artistFromCard(Map<String, dynamic> json) {
   final owner = json['owner'];
   if (owner is Map) return Artist.fromOwner(owner);
 
   final author = json['author'];
-  final name = author is Map
-      ? author['name']?.toString() ?? ''
-      : author?.toString() ?? '';
+  if (author is Map) {
+    return Artist(
+      mid: Artist.parseMid(author['mid']),
+      name: author['name']?.toString() ?? '',
+      face: normalizeFaceUrl(json['upic']),
+    );
+  }
   return Artist(
-    mid: int.tryParse(json['mid']?.toString() ?? '') ?? 0,
-    name: name,
+    mid: Artist.parseMid(json['mid']),
+    name: author?.toString() ?? '',
     face: normalizeFaceUrl(json['upic']),
   );
 }

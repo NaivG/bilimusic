@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/domain/music.dart';
@@ -159,7 +159,7 @@ class _HomeContentState extends ConsumerState<HomeContent> {
               contentPadding: const EdgeInsets.symmetric(vertical: 10),
             ),
             onTap: () {
-              ShellPageManager.instance.goToTab(1);
+              ShellPageManager.instance.goToTab(2);
             },
           ),
         ),
@@ -209,7 +209,7 @@ class _HomeContentState extends ConsumerState<HomeContent> {
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () {
-              ShellPageManager.instance.goToTab(1);
+              ShellPageManager.instance.goToTab(2);
             },
           ),
         ],

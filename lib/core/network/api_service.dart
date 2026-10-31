@@ -10,6 +10,7 @@ import 'package:bilimusic/domain/bili_fav_folder.dart';
 import 'package:bilimusic/domain/bili_fav_resource.dart';
 import 'package:bilimusic/domain/bili_following.dart';
 import 'package:bilimusic/domain/bili_item.dart';
+import 'package:bilimusic/domain/hot_song.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/search_result.dart';
 import 'package:bilimusic/core/network/av_bv.dart';
@@ -677,5 +678,162 @@ class ApiService {
       debugPrint('[FollowingAPI] fetchUserSpaceVideos($mid): $e');
       return (songs: const <Music>[], total: 0);
     }
+  }
+
+  // ====================================================================
+  //  发现（平台数据态）
+  // ====================================================================
+
+  /// 音乐主分区的 v1 `tid`，排行榜 `rid` 用它。
+  static const int musicRankingRid = 3;
+
+  /// `region/feed/rcmd` 的 `from_region`：**v2 主分区号**，音乐 = 1003。
+  ///
+  /// 不是 v1 的 `tid=3`——传 3 会被接口以 -400 拒绝。
+  static const int musicRegionFeedId = 1003;
+
+  /// 音乐区排行榜（`/x/web-interface/ranking/v2`）。
+  ///
+  /// 一次返回整榜（约 97 条、原始响应约 150 KB）且**没有分页参数**，
+  /// 所以这里按 [limit] 截断后再交出去；调用方必须落缓存，别在页面里反复拉。
+  /// 条目自带 `cid`，点击即可直接取流。
+  Future<({String note, List<Music> items})> fetchMusicRanking({
+    int limit = 30,
+  }) async {
+    try {
+      final data = await _client.get(
+        '/x/web-interface/ranking/v2',
+        query: {'rid': '$musicRankingRid', 'type': 'all'},
+      );
+      final map = data is Map<String, dynamic> ? data : const {};
+      final list = map['list'] is List ? map['list'] as List : const [];
+      final items = <Music>[];
+      for (final raw in list) {
+        if (raw is! Map) continue;
+        final music = _musicFromCard(_stringKeys(raw));
+        if (music.id.isEmpty) continue;
+        items.add(music);
+        if (items.length >= limit) break;
+      }
+      return (note: map['note']?.toString() ?? '', items: items);
+    } on BiliException catch (e) {
+      debugPrint('[DiscoverAPI] fetchMusicRanking: $e');
+      return (note: '', items: const <Music>[]);
+    }
+  }
+
+  /// 版权音乐「热歌榜」当期（`music.bilibili.com/pc/rank`）。
+  ///
+  /// 两步：`all_period` 找最新一期的 id（按 `publish_time` 取最大，
+  /// 不依赖年份分组的顺序），再 `music_list` 取该期 20 首歌。
+  /// 每首歌都带创作稿件 bvid/cid，可直接播。
+  Future<({int listId, int period, DateTime? publishedAt, List<HotSong> songs})>
+  fetchHotSongs({int listType = 1}) async {
+    const empty = (listId: 0, period: 0, publishedAt: null, songs: <HotSong>[]);
+    try {
+      final periods = await _client.get(
+        '/x/copyright-music-publicity/toplist/all_period',
+        query: {'list_type': '$listType'},
+      );
+      final list = periods is Map ? periods['list'] : null;
+      if (list is! Map) return empty;
+
+      Map? latest;
+      for (final perYear in list.values) {
+        if (perYear is! List) continue;
+        for (final raw in perYear) {
+          if (raw is! Map) continue;
+          final ts = raw['publish_time'];
+          if (ts is! num) continue;
+          final latestTs = latest?['publish_time'];
+          if (latest == null ||
+              (latestTs is num && ts.toInt() > latestTs.toInt())) {
+            latest = raw;
+          }
+        }
+      }
+      if (latest == null) return empty;
+
+      final listId = (latest['ID'] as num?)?.toInt() ?? 0;
+      if (listId <= 0) return empty;
+      final period = (latest['priod'] as num?)?.toInt() ?? 0;
+      final publishedAt = (latest['publish_time'] as num?)?.toInt();
+
+      final detail = await _client.get(
+        '/x/copyright-music-publicity/toplist/music_list',
+        query: {'list_id': '$listId'},
+      );
+      final songs = detail is Map && detail['list'] is List
+          ? (detail['list'] as List)
+                .whereType<Map>()
+                .map((e) => HotSong.fromToplistJson(_stringKeys(e)))
+                .where((s) => s.rank > 0)
+                .toList()
+          : <HotSong>[];
+      songs.sort((a, b) => a.rank.compareTo(b.rank));
+      return (
+        listId: listId,
+        period: period,
+        publishedAt: publishedAt == null
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(publishedAt * 1000),
+        songs: songs,
+      );
+    } on BiliException catch (e) {
+      debugPrint('[DiscoverAPI] fetchHotSongs: $e');
+      return empty;
+    }
+  }
+
+  /// 音乐区推荐流（`region/feed/rcmd`）。
+  ///
+  /// [page] 就是 `display_id`，从 1 开始；`request_cnt` 上限 20。
+  /// 接口用 `62013` 表示该页没有内容，这里当"没有更多"返回空列表。
+  Future<List<Music>> fetchMusicRegionFeed({
+    int page = 1,
+    int count = 20,
+  }) async {
+    try {
+      final data = await _client.get(
+        '/x/web-interface/region/feed/rcmd',
+        query: {
+          'display_id': '$page',
+          'request_cnt': '${count.clamp(1, 20)}',
+          'from_region': '$musicRegionFeedId',
+          'device': 'web',
+          'plat': '30',
+        },
+      );
+      final map = data is Map<String, dynamic> ? data : const {};
+      final archives = map['archives'] is List
+          ? map['archives'] as List
+          : const [];
+      final items = <Music>[];
+      for (final raw in archives) {
+        if (raw is! Map) continue;
+        final music = _musicFromCard(_stringKeys(raw));
+        if (music.id.isEmpty) continue;
+        items.add(music);
+      }
+      return items;
+    } on BiliApiException catch (e) {
+      // 62013 = 该页暂无内容
+      if (e.code != 62013) {
+        debugPrint('[DiscoverAPI] fetchMusicRegionFeed($page): $e');
+      }
+      return const <Music>[];
+    } on BiliException catch (e) {
+      debugPrint('[DiscoverAPI] fetchMusicRegionFeed($page): $e');
+      return const <Music>[];
+    }
+  }
+
+  /// 稿件卡片 → [Music]：补上列表端点给的 `cid`（`fromArchiveJson` 不读它）。
+  Music _musicFromCard(Map<String, dynamic> json) {
+    final music = Music.fromArchiveJson(json);
+    final cid = json['cid']?.toString() ?? '';
+    // cid=0 表示接口没给合法分P，留空让播放链路自己补
+    if (cid.isEmpty || cid == '0') return music;
+    return music.copyWith(cid: cid);
   }
 }

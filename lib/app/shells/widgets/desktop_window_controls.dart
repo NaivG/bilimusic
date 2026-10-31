@@ -108,9 +108,10 @@ class DesktopNavBar extends StatelessWidget {
 
     final navItems = [
       _NavItem(Icons.home_outlined, Icons.home, '首页', 0),
-      _NavItem(Icons.search_outlined, Icons.search, '搜索', 1),
-      _NavItem(Icons.person_outlined, Icons.person, '我的', 2),
-      _NavItem(Icons.settings_outlined, Icons.settings, '设置', 3),
+      _NavItem(Icons.explore_outlined, Icons.explore, '发现', 1),
+      _NavItem(Icons.search_outlined, Icons.search, '搜索', 2),
+      _NavItem(Icons.person_outlined, Icons.person, '我的', 3),
+      _NavItem(Icons.settings_outlined, Icons.settings, '设置', 4),
     ];
 
     return Container(

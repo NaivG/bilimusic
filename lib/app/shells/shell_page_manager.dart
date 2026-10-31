@@ -4,6 +4,7 @@ import 'package:bilimusic/domain/up_profile.dart';
 
 enum ShellPage {
   home,
+  discover,
   search,
   searchResults,
   profile,
@@ -91,13 +92,15 @@ class ShellPageManager extends ChangeNotifier {
     switch (_stack.last.page) {
       case ShellPage.home:
         return 0;
+      case ShellPage.discover:
+        return 1;
       case ShellPage.search:
       case ShellPage.searchResults:
-        return 1;
-      case ShellPage.profile:
         return 2;
-      case ShellPage.settings:
+      case ShellPage.profile:
         return 3;
+      case ShellPage.settings:
+        return 4;
       default:
         return 0;
     }
@@ -136,9 +139,10 @@ class ShellPageManager extends ChangeNotifier {
   void goToTab(int index) {
     final page = switch (index) {
       0 => ShellPage.home,
-      1 => ShellPage.search,
-      2 => ShellPage.profile,
-      3 => ShellPage.settings,
+      1 => ShellPage.discover,
+      2 => ShellPage.search,
+      3 => ShellPage.profile,
+      4 => ShellPage.settings,
       _ => ShellPage.home,
     };
     _stack

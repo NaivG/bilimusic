@@ -52,14 +52,23 @@ class LandscapeSidebar extends ConsumerWidget {
                 child: ListView(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   children: [
-                    // 发现音乐
+                    // 首页（用户态主页）
                     _SidebarItem(
                       icon: Icons.home_outlined,
                       activeIcon: Icons.home,
-                      label: '发现',
+                      label: '首页',
                       isSelected: selectedLabel == 'home',
                       selectedItemColor: selectedItemColor,
                       onTap: () => onNavTap('home'),
+                    ),
+                    // 发现（平台榜单/推荐）
+                    _SidebarItem(
+                      icon: Icons.explore_outlined,
+                      activeIcon: Icons.explore,
+                      label: '发现',
+                      isSelected: selectedLabel == 'discover',
+                      selectedItemColor: selectedItemColor,
+                      onTap: () => onNavTap('discover'),
                     ),
                     // 搜索
                     _SidebarItem(
