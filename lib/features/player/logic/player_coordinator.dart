@@ -774,6 +774,10 @@ class PlayerCoordinator {
     final activeMs = _activeCrossfadeMs;
     if (activeMs == null) return;
 
+    // 过渡窗口内用户可能已经暂停 / 停止：倒计时只能刷新 fade 子态，
+    // 不能把状态机从 Paused / Idle / Buffering 拽回 Playing。
+    if (_audioService.playerState.value is! PlayerPlaying) return;
+
     final elapsed = DateTime.now().difference(_crossfadeStartTime!);
     final remaining = Duration(milliseconds: activeMs) - elapsed;
 
