@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:super_context_menu/super_context_menu.dart';
 
 import 'package:bilimusic/domain/artist.dart';
 import 'package:bilimusic/domain/hot_song.dart';
@@ -109,6 +110,62 @@ void main() {
 
     // 榜单尾部：两个条目都带热度与名次变化
     expect(find.textContaining('万热度'), findsNWidgets(2));
+
+    // 可播的曲目行都挂上了右键 / 长按菜单（热歌 2 + 排行 2 + 推荐 1）
+    expect(find.byType(ContextMenuWidget), findsNWidgets(5));
+  });
+
+  testWidgets('没有可用稿件的热歌行不挂右键菜单', (tester) async {
+    _stubPathProvider();
+    SharedPreferences.setMockInitialValues({});
+    final cache = DiscoverCache();
+    final now = DateTime.now();
+    await cache.writeHotSongs(
+      HotSongsCache(
+        songs: [
+          HotSong.fromToplistJson({
+            'rank': 1,
+            'last_rank': 0,
+            'music_title': '不可播热歌',
+            'singer': '歌手B',
+            'heat': 100,
+            'creation_bvid': '',
+          }),
+          _hotSong('可播热歌', 2),
+        ],
+        fetchedAt: now,
+        listId: 445,
+        period: 230,
+        publishedAt: DateTime(2026, 10, 30),
+      ),
+    );
+    await cache.writeMusicRank(
+      MusicRankCache(items: [_music('BVrank1', '排行一')], fetchedAt: now),
+    );
+    await cache.writeMusicFeed(
+      MusicFeedCache(
+        items: [_music('BVfeed1', '推荐一')],
+        fetchedAt: now,
+        page: 1,
+      ),
+    );
+
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: DiscoverPage())),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('不可播热歌'), findsOneWidget);
+    // 不可播的热歌行不接管菜单，其余三行（可播热歌 / 排行 / 推荐）各一个。
+    expect(find.byType(ContextMenuWidget), findsNWidgets(3));
   });
 
   testWidgets('窄屏（手机竖屏）下不溢出', (tester) async {

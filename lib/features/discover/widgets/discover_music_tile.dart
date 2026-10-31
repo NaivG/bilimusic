@@ -6,6 +6,7 @@ import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:super_context_menu/super_context_menu.dart';
 
 /// 发现页的曲目行：可选排名列 + 封面 + 标题/副标题 + 自定义尾部。
 class DiscoverMusicTile extends StatefulWidget {
@@ -22,9 +23,12 @@ class DiscoverMusicTile extends StatefulWidget {
   /// 右侧附加信息（热度、时长等）。
   final Widget? trailing;
 
-  /// 不可播放时置灰并禁用点击。
+  /// 不可播放时置灰并禁用点击，同时不挂载右键/长按菜单。
   final bool enabled;
   final VoidCallback? onTap;
+
+  /// 右键 / 长按菜单的构建器；为 null 或 [enabled] 为 false 时不接管。
+  final MenuProvider? contextMenuBuilder;
 
   const DiscoverMusicTile({
     super.key,
@@ -36,6 +40,7 @@ class DiscoverMusicTile extends StatefulWidget {
     this.trailing,
     this.enabled = true,
     this.onTap,
+    this.contextMenuBuilder,
   });
 
   @override
@@ -51,7 +56,7 @@ class _DiscoverMusicTileState extends State<DiscoverMusicTile> {
     final palette = context.appPalette;
     final accent = theme.colorScheme.primary;
 
-    return MouseRegion(
+    final row = MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
@@ -132,6 +137,10 @@ class _DiscoverMusicTileState extends State<DiscoverMusicTile> {
         ),
       ),
     );
+
+    final menuBuilder = widget.contextMenuBuilder;
+    if (!widget.enabled || menuBuilder == null) return row;
+    return ContextMenuWidget(menuProvider: menuBuilder, child: row);
   }
 
   Widget _buildCover(ThemeData theme) {

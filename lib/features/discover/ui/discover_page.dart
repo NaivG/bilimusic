@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/domain/hot_song.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/discover/discover_providers.dart';
@@ -11,6 +12,8 @@ import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/utils/formatters.dart';
+import 'package:bilimusic/shared/widgets/long_press_menu.dart';
+import 'package:super_context_menu/super_context_menu.dart';
 
 /// 发现页：B 站平台数据（热歌榜 / 音乐区排行 / 音乐区推荐流）。
 ///
@@ -104,6 +107,20 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+    );
+  }
+
+  /// 曲目行的右键 / 长按菜单：与搜索结果、歌单列表共用同一套菜单。
+  ///
+  /// 菜单在展开时才读取 Provider，页面构建期不会初始化播放器与歌单服务。
+  MenuProvider _musicContextMenu(Music music) {
+    return (_) => buildMusicContextMenu(
+      context: context,
+      music: music,
+      playerCoordinator: ref.read(playerCoordinatorProvider),
+      commands: ref.read(playlistCommandsProvider.notifier),
+      playlistService: ref.read(playlistServiceProvider),
+      ref: ref,
     );
   }
 
@@ -264,6 +281,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
               cacheKey: 'hot-${song.musicId}',
               enabled: song.isPlayable,
               onTap: () => _playHotSong(song),
+              contextMenuBuilder: _musicContextMenu(song.toMusic()),
               trailing: _buildHotTrailing(context, song),
             );
           },
@@ -381,6 +399,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
               coverUrl: music.safeCoverUrl,
               cacheKey: music.id,
               onTap: () => _playMusic(music),
+              contextMenuBuilder: _musicContextMenu(music),
               trailing: _buildDuration(context, music),
             );
           },
@@ -449,6 +468,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
               coverUrl: music.safeCoverUrl,
               cacheKey: music.id,
               onTap: () => _playMusic(music),
+              contextMenuBuilder: _musicContextMenu(music),
               trailing: _buildDuration(context, music),
             );
           },
