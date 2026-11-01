@@ -60,10 +60,15 @@ dependencies:
   color_thief_dart: ^0.1.0
   # audio_session 保留：换 mpv_audio_kit 后失去 just_audio 内置的打断处理，
   # 后续用它补回音频焦点（configure + interruptionEventStream）。
+  #
+  # 上游没有 ohos 实现，也没有平台接口层（不是联邦化插件），只能整包 vendored 到
+  # packages/audio_session（基于 0.2.2，补了 ohos/ 与 lib/src/ohos.dart）。而
+  # audio_service 自己也依赖 audio_session，pub 不允许「root 用 path、别人用
+  # hosted」这种来源不一致，所以它的 path 依赖只能写在 dependency_overrides 里
+  # （见文件末尾）。这里保留 hosted 约束，去掉 override 时会自然退回 pub.dev。
   audio_session: ^0.2.2
   rxdart: ^0.28.0
   flutter_lyric: ^3.0.2
-  file_picker: ^10.3.3
   dart_tui: ^2.0.0 # TUI 客户端,不参与 App UI
   ffi: ^2.2.0 # TUI 的 libmpv FFI 封装使用
   window_manager: ^0.4.3
@@ -89,6 +94,42 @@ dependencies:
 #  just_aaudio:
 #    path: ../just_aaudio
 
+  # ==================== OpenHarmony 平台实现 ====================
+  # Flutter 官方插件的 OHOS 平台实现（federated 包）。
+  shared_preferences_ohos: ^2.2.0
+  path_provider_ohos: ^2.2.1
+  url_launcher_ohos: ^6.3.0
+
+  # 本仓库自己的 OHOS 引导层（不是三方适配包）。
+  # 见 packages/mpv_audio_kit_ohos/README.md。
+  mpv_audio_kit_ohos:
+    path: packages/mpv_audio_kit_ohos
+
+  # audio_service 的 OHOS 平台实现。
+  # 见 packages/audio_service_ohos/README.md。
+  audio_service_ohos:
+    path: packages/audio_service_ohos
+
+  # share_plus 的 OHOS 平台实现（同样 implements + platforms.ohos）。
+  # 见 packages/share_plus_ohos/README.md。
+  share_plus_ohos:
+    path: packages/share_plus_ohos
+  
+  permission_handler_ohos:
+    git:
+      url: https://gitcode.com/CPF-Flutter/flutter_permission_handler.git
+      ref: 12.0.1-ohos-1.0.0
+      path: permission_handler_ohos
+  sqflite_ohos:
+    git:
+      url: https://gitcode.com/CPF-Flutter/flutter_sqflite.git
+      ref: 2.4.2-ohos-1.0.0
+      path: sqflite_ohos
+  file_picker_ohos:
+    git:
+      url: https://gitcode.com/CPF-Flutter/fluttertpc_file_picker.git
+      ref: 10.3.8-ohos-1.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -101,6 +142,13 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   file: ^7.0.1
   sqlite3: ^3.6.0
+
+
+dependency_overrides:
+  # 音频焦点与打断事件：上游没有平台接口层，整包 vendored 到 packages/audio_session
+  # （基于 0.2.2，补了 ohos/ 与 lib/src/ohos.dart）。
+  audio_session:
+    path: packages/audio_session
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

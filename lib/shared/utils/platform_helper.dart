@@ -40,6 +40,12 @@ class PlatformHelper {
   static bool get isDesktop =>
       Platform.isWindows || Platform.isLinux || Platform.isMacOS;
 
+  /// 判断是否为 OpenHarmony / HarmonyOS 平台。
+  ///
+  /// 不用 `Platform.isOhos`：普通 Flutter SDK 的 `dart:io` 没有该字段，
+  /// 这里用 `operatingSystem` 字符串判断，保证同一份代码在其它平台可编译。
+  static bool get isOhos => Platform.operatingSystem == 'ohos';
+
   /// 判断是否为Android平台
   static bool get isAndroid => Platform.isAndroid;
 

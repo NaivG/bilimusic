@@ -1,0 +1,56 @@
+{
+  "module": {
+    "name": "entry",
+    "type": "entry",
+    "description": "$string:module_desc",
+    "mainElement": "EntryAbility",
+    "deviceTypes": [
+      "phone"
+    ],
+    "deliveryWithInstall": true,
+    "installationFree": false,
+    "pages": "$profile:main_pages",
+    "abilities": [
+      {
+        "name": "EntryAbility",
+        "srcEntry": "./ets/entryability/EntryAbility.ets",
+        "description": "$string:EntryAbility_desc",
+        "icon": "$media:icon",
+        "label": "$string:EntryAbility_label",
+        "startWindowIcon": "$media:icon",
+        "startWindowBackground": "$color:start_window_background",
+        "exported": true,
+        // 后台音频播放：audio_service 的 OHOS 实现用 AVSession 承接媒体会话，
+        // 声明这个后台模式才能退到后台继续播（配合 KEEP_BACKGROUND_RUNNING）。
+        "backgroundModes": [
+          "audioPlayback"
+        ],
+        "skills": [
+          {
+            "entities": [
+              "entity.system.home"
+            ],
+            "actions": [
+              "action.system.home"
+            ]
+          }
+        ]
+      }
+    ],
+    "requestPermissions": [
+      {
+        "name": "ohos.permission.INTERNET"
+      },
+      // 与 EntryAbility.backgroundModes 配套：长时音频任务需要这个权限。
+      {
+        "name": "ohos.permission.KEEP_BACKGROUND_RUNNING",
+        "usedScene": {
+          "abilities": [
+            "EntryAbility"
+          ],
+          "when": "always"
+        }
+      }
+    ]
+  }
+}

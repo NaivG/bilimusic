@@ -1,0 +1,27 @@
+name: audio_service_ohos
+description: >-
+  audio_service 的 OpenHarmony / HarmonyOS 平台实现：用 AVSession 承接媒体会话、
+  媒体通知与后台播放。Dart 侧不写胶水，front-end 包仍用 pub.dev 上的 audio_service。
+version: 0.18.18
+publish_to: 'none'
+
+environment:
+  sdk: ^3.6.0
+  flutter: ">=3.27.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+
+flutter:
+  # 联邦化平台实现包：front-end 是 pub.dev 的 audio_service，本包只补 ohos 平台。
+  # 官方 Flutter SDK 不认识 `ohos` 这个平台键，会把它当作「没有任何平台」的插件跳过，
+  # 因此本包可以随仓库提交，不影响 Windows / Linux / Android / iOS 的构建。
+  plugin:
+    implements: audio_service
+    platforms:
+      ohos:
+        pluginClass: AudioServicePlugin

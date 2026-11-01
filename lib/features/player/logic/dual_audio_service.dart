@@ -109,7 +109,13 @@ class DualAudioService {
   Function(Duration)? onPositionChanged;
   Function(AudioState)? onStateChanged;
 
-  DualAudioService();
+  /// 后端不可用时的占位模式：不创建 libmpv 播放器，播放器操作直接返回。
+  ///
+  /// OHOS 上由 `MpvAudioKitOhos.ensureInitialized()` 的结果决定；其它平台恒为 false。
+  final bool _placeholder;
+
+  // ignore: prefer_initializing_formals
+  DualAudioService({bool placeholder = false}) : _placeholder = placeholder;
 
   // initialize() 是否已跑过（见其注释里的幂等说明）。
   bool _initialized = false;
@@ -151,6 +157,11 @@ class DualAudioService {
   /// just_audio 时代只是白建两个 AudioPlayer，mpv 时代等于白养两份 libmpv
   /// 句柄与事件 isolate（还要重复挂监听），必须拦下。
   void initialize() {
+    if (_placeholder) {
+      _initialized = true;
+      debugPrint('[DualAudioService] 占位模式，跳过 libmpv 播放器创建');
+      return;
+    }
     if (_initialized) {
       debugPrint('[DualAudioService] 已初始化，跳过重复 initialize');
       return;
@@ -593,6 +604,7 @@ class DualAudioService {
   /// 只在两路都成功应用时才听感一致；下次启动会整体重放。调用方
   /// （PlayerCoordinator）拿到的是已吞错的 Future，可安全 await。
   Future<void> setAudioEffects(mpv.AudioEffects effects) async {
+    if (_placeholder) return;
     if (!_initialized) {
       debugPrint('[DualAudioService] 未初始化，跳过效果下发');
       return;
@@ -627,6 +639,7 @@ class DualAudioService {
     String what,
     Future<void> Function(mpv.PlayerApi player) apply,
   ) async {
+    if (_placeholder) return;
     if (!_initialized) {
       debugPrint('[DualAudioService] 未初始化，跳过$what 下发');
       return;
@@ -1197,7 +1210,7 @@ class DualAudioService {
     // dispose() 幂等，且内部会先摘媒体会话再拆 libmpv（不需要手动清理）。
     //
     // 只在 initialize() 真的跑过时走。
-    if (_initialized) {
+    if (_initialized && !_placeholder) {
       for (final info in [_playerA, _playerB]) {
         try {
           await info.player.stop();

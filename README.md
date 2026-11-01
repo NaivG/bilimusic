@@ -21,7 +21,7 @@
 </div>
 
 
-BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。基于 Flutter 一次覆盖 Windows、Linux、Android，对 macOS、iOS 提供实验性支持，同时支持 Xiaomi Vela, Chrome Extension 等平台。
+BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。基于 Flutter 一次覆盖 Windows、Linux、Android、HarmonyOS，对 macOS、iOS 提供实验性支持，同时支持 Xiaomi Vela, Chrome Extension 等平台。
 它不复制视频平台，只做播放器该做的事：搜索、整理、连续播放与跨设备同步。
 
 <div align="center">
@@ -99,6 +99,7 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 | **Web** | ⏸️ 暂停支持 | **1.9.2 为支持 Web 的最新版本**，解压后部署到 Web 服务器，需配置 CORS |
 | **Xiaomi Vela** | ✅ 稳定 | 适用于小米、红米手表系列（API 2+），下载安装`.rpk`，详见[小米 Vela 手表端](#小米-vela-手表端) |
 | **Chrome Extension** | ✅ 稳定 | 浏览器内播放，尚未打包需手动安装，详见[Chrome Extension](#chrome-extension) |
+| **Harmony OS** 5.0+ | 🧪 适配中 | 可从源码构建，详见 [ohos/README.md](ohos/README.md) |
 
 关于应用内更新：Android / Windows / Linux 支持；macOS 跳转 Releases（见[更新与版本](#更新与版本)）。
 

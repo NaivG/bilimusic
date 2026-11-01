@@ -6,6 +6,7 @@ import 'package:window_manager/window_manager.dart';
 import 'package:bilimusic/app/app_lifecycle.dart';
 import 'package:bilimusic/app/desktop_tray.dart';
 import 'package:bilimusic/app/app_navigator_key.dart';
+import 'package:bilimusic/app/ohos/ohos_boot_screen.dart';
 import 'package:bilimusic/app/window_listener.dart';
 import 'package:flutter/material.dart';
 
@@ -21,6 +22,7 @@ import 'package:bilimusic/core/network/network_config.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:mpv_audio_kit/mpv_audio_kit.dart';
+import 'package:mpv_audio_kit_ohos/mpv_audio_kit_ohos.dart';
 import 'package:snownlp/snownlp_flutter.dart';
 
 import 'package:bilimusic/features/update/update_checker.dart';
@@ -51,11 +53,45 @@ Future<void> _setupMainWindow() async {
   }
 }
 
+/// 启动阶段（OHOS 诊断用）：VM service 里直接读这个顶层变量，判断是
+/// 绑定初始化、首帧调度还是某个插件初始化卡住了。
+String startupStage = 'main-entry';
+
+/// 绑定初始化异常（正常为 null）。
+String? startupBindingError;
+
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  startupStage = 'binding-start';
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
+  } catch (error, stack) {
+    startupStage = 'binding-error';
+    startupBindingError = '$error\n$stack';
+    debugPrint('[BiliMusic/startup] binding failed: $startupBindingError');
+    return;
+  }
+  startupStage = 'binding-done';
+  debugPrint(
+    '[BiliMusic/startup] main entered '
+    '(os=${Platform.operatingSystem})',
+  );
 
   // snownlp 模型文件懒加载。
   useFlutterAssetLoader();
+  startupStage = 'asset-ready';
+
+  // OHOS 首帧先由启动壳兜住：它不依赖任何插件，保证「白屏」至少变成
+  // 可观测的启动状态；随后再尝试初始化真正的 App。
+  if (PlatformHelper.isOhos) {
+    runApp(const OhosBootScreen());
+    startupStage = 'boot-screen';
+    // 让启动壳先画出一帧（runApp 只是 schedule，不 await 就不会让出事件循环）。
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    startupStage = 'boot-frame-yielded';
+    debugPrint('[BiliMusic/startup] OHOS boot screen shown');
+    await _bootstrapOhos();
+    return;
+  }
 
   if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
     // 桌面端 sqflite FFI 初始化
@@ -79,6 +115,23 @@ void main() async {
   await _bootstrapApp();
 }
 
+/// OHOS 分支：先画启动壳，再拉起真正的 App。
+///
+/// 插件侧已经接入（shared_preferences / path_provider / sqflite / audio_service
+/// 等都有 OHOS 平台实现，见 pubspec 的 `*_ohos` 和 dependency_overrides），
+/// libmpv 由 `mpv_audio_kit_ohos` 引导（`packages/` 下的本地包），所以这里和
+/// `_bootstrapApp()` 走同一条路；异常落到启动壳上便于排查。
+Future<void> _bootstrapOhos() async {
+  startupStage = 'ohos-bootstrap';
+  ohosBootState.value = const OhosBootState(status: '初始化应用服务…');
+  try {
+    await _bootstrapApp(ohos: true);
+  } catch (error, stack) {
+    debugPrint('[BiliMusic/ohos] bootstrap failed: $error\n$stack');
+    ohosBootState.value = OhosBootState(status: '启动失败，首帧已保留', error: '$error');
+  }
+}
+
 /// 有落点冲突就问用户 + 归档 + 重启；没有冲突时立即返回。
 ///
 /// 冲突这条路上这个函数**不应该返回**：用户选完之后 shell 会用
@@ -96,7 +149,13 @@ Future<void> _resolveDatabasePlacementIfNeeded() async {
 }
 
 /// 预检之后的常规启动：网络配置 → 组合根 → 音频服务 → 窗口 → `runApp`。
-Future<void> _bootstrapApp() async {
+///
+/// [ohos] 为 true 时 libmpv 走 `mpv_audio_kit_ohos` 的引导（上游没有 ohos
+/// 分支），其余插件（存储 / 数据库 / 媒体会话）走同一条路。
+Future<void> _bootstrapApp({bool ohos = false}) async {
+  startupStage = 'network-start';
+  debugPrint('[BiliMusic/startup] _bootstrapApp begin (ohos=$ohos)');
+
   // 注入 Cookie 持久化(NetworkConfig 保持纯 Dart,便于 CLI/TUI 宿主复用)。
   // 落盘的是 CookieJar 的 `{version, cookies:[…]}` 格式；老版本存下的扁平
   // `{"SESSDATA":"…"}` 由 `CookieJar.load` 就地迁移。
@@ -107,23 +166,36 @@ Future<void> _bootstrapApp() async {
 
   // 初始化网络配置：只等读盘 + 旧格式迁移；设备标识 / bili_ticket 的自举放后台。
   await NetworkConfig.init(waitForBootstrap: false);
+  startupStage = 'network-done';
+  debugPrint('[BiliMusic/startup] network config ready');
 
-  // 初始化 mpv_audio_kit（播放引擎）。
-  //
-  // **全平台无条件调用**，不再带 isDesktop 门：ensureInitialized 内部的平台
-  // quirk 要在 Linux/macOS/iOS 上执行 setlocale(LC_NUMERIC, "C")（libmpv 的
-  // API 契约，否则可能 abort），Windows/Android 跳过该步但孤儿句柄清理仍要
-  // 登记。位置保持在 ProviderContainer 之前——dualAudioServiceProvider 会
-  // 创建 Player。
-  MpvAudioKit.ensureInitialized();
+  if (!ohos) {
+    // 初始化 mpv_audio_kit（播放引擎）。
+    //
+    // **全平台无条件调用**，不再带 isDesktop 门：ensureInitialized 内部的平台
+    // quirk 要在 Linux/macOS/iOS 上执行 setlocale(LC_NUMERIC, "C")（libmpv 的
+    // API 契约，否则可能 abort），Windows/Android 跳过该步但孤儿句柄清理仍要
+    // 登记。位置保持在 ProviderContainer 之前——dualAudioServiceProvider 会
+    // 创建 Player。
+    MpvAudioKit.ensureInitialized();
+  } else {
+    // OHOS 没有上游的实现分支：由 mpv_audio_kit_ohos 补 libmpv 定位、locale
+    // 与启动自检。自检失败只记录，dualAudioServiceProvider 会退回占位播放器。
+    final boot = MpvAudioKitOhos.ensureInitialized();
+    startupStage = boot.ready ? 'libmpv-ready' : 'libmpv-unavailable';
+    debugPrint('[BiliMusic/startup] ${boot.summary}');
+  }
 
   // 构造 Riverpod 容器，让依赖关系通过 ref.watch 编译期声明
+  startupStage = 'container-start';
   final container = ProviderContainer();
   // 登记给 AppLifecycleManager：退出时统一释放（摘托盘 → 收音频 → 释放容器 → 关窗口）
   AppLifecycleManager.instance.attachContainer(container);
 
   // 读取 playerCoordinator（首次读取会触发依赖图所有服务初始化）
   final coordinator = container.read(playerCoordinatorProvider);
+  startupStage = 'container-ready';
+  debugPrint('[BiliMusic/startup] provider container ready');
 
   // 音频焦点补偿：由 audio_session 在启动期补齐引擎侧焦点管理
   //（configure + 打断/拔耳机监听）。Provider 是惰性的，
@@ -178,6 +250,7 @@ Future<void> _bootstrapApp() async {
   // 否则系统媒体会话会被留到进程收尾阶段才析构 —— 那条路径在 Windows 上会崩
   // （audio_service_win#5，见 app_lifecycle.dart）
   AppLifecycleManager.instance.attachAudioHandler(audioHandler);
+  startupStage = 'audio-ready';
 
   // 初始化桌面窗口
   if (PlatformHelper.isDesktop) {
@@ -189,12 +262,15 @@ Future<void> _bootstrapApp() async {
     }
   }
 
+  debugPrint('[BiliMusic/startup] runApp');
+  startupStage = 'run-app';
   runApp(
     UncontrolledProviderScope(
       container: container,
       child: MyApp(audioHandler: audioHandler),
     ),
   );
+  startupStage = 'app-running';
 }
 
 /// 根Widget，负责管理播放器管理器实例
