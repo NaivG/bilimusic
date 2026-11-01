@@ -7,6 +7,7 @@
 > [!NOTE]
 > 仓库还有几份面向不同读者的文档，按需查阅：
 > - [`README.md`](README.md) —— 项目介绍、安装与使用说明。
+> - [`ARCHITECTURE.md`](ARCHITECTURE.md) —— 分层、目录结构、启动顺序、网络与存储模型。
 > - [`SECURITY.md`](SECURITY.md) —— 安全策略、漏洞上报通道与「贡献者须知」。
 > - [`vela/README.md`](vela/README.md) —— 小米 Vela 手表端的完整文档。
 
@@ -71,6 +72,10 @@ cd bilimusic
 flutter pub get
 flutter run -d <device-id>     # 不带 -d 则用默认设备
 ```
+
+首次 `flutter pub get` 若卡在 gitcode 的 Git LFS 鉴权（`Authorization error ... objects/batch`），
+带上 `GIT_LFS_SKIP_SMUDGE=1` 再跑一次 —— pub 只要源码树，不需要那个 10MB 的示例数据：
+`GIT_LFS_SKIP_SMUDGE=1 flutter pub get`（PowerShell：`$env:GIT_LFS_SKIP_SMUDGE='1'; flutter pub get`）。
 
 Linux 首次构建若缺托盘依赖：
 
@@ -211,6 +216,8 @@ UI / Riverpod Provider → PlayerCoordinator → DualAudioService → ApiService
 
 > [!NOTE]
 > 新增可测逻辑优先写成**纯 Dart 类 / 纯函数**，放在 `logic/`、`core/` 或 `vela/src/common/`，不要绑到 UI 上——只有这样它才能被 `flutter test` / `npm run verify` 覆盖。
+>
+> 分层、目录结构与启动 / 存储顺序的完整说明见 [`ARCHITECTURE.md`](ARCHITECTURE.md)。
 
 ---
 

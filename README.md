@@ -2,9 +2,10 @@
   <img src="./assets/ic_launcher.png" alt="BiliMusic logo" width="120" />
 
   # BiliMusic
-  <p><strong>把哔哩哔哩里的声音，整理成一张属于你的播放桌面。</strong></p>
+
+  <p><strong>刷 B 站的音乐，值得一个正经的播放器。</strong></p>
   <p>基于 Flutter 的 B 站音乐播放器 · 跨平台 · GUI/TUI/Vela/Extension · 漫游发现 · 局域网同步</p>
-  
+
   <p>
     <a href="https://github.com/NaivG/bilimusic/releases"><img src="https://img.shields.io/github/v/release/NaivG/bilimusic?label=release&sort=semver" alt="Latest release"></a>
     <a href="https://github.com/NaivG/bilimusic/stargazers"><img src="https://img.shields.io/github/stars/NaivG/bilimusic?style=flat" alt="Stars"></a>
@@ -21,8 +22,8 @@
 </div>
 
 
-BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。基于 Flutter 一次覆盖 Windows、Linux、Android、HarmonyOS，对 macOS、iOS 提供实验性支持，同时支持 Xiaomi Vela, Chrome Extension 等平台。
-它不复制视频平台，只做播放器该做的事：搜索、整理、连续播放与跨设备同步。
+BiliMusic 是一个用 Flutter 写的 B 站音乐播放器，一套代码覆盖 Windows、Linux、Android 和 HarmonyOS，macOS 和 iOS 是实验性支持，另外还有小米 Vela 手表端和 Chrome 扩展。
+它只做播放器该做的事：搜索、整理、连续播放、跨设备同步。
 
 <div align="center">
   <sub>如果这个项目对你有帮助，欢迎 ⭐ Star 支持一下！</sub>
@@ -47,18 +48,21 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
   - [漫游模式](#漫游模式)
   - [设备同步](#设备同步)
 - [核心特性](#核心特性)
+  - [发现与推荐](#发现与推荐)
+  - [播放体验](#播放体验)
+  - [整理与同步](#整理与同步)
+  - [TUI 客户端](#tui-客户端)
 - [界面预览](#界面预览)
 - [登录与数据](#登录与数据)
 - [更新与版本](#更新与版本)
 - [技术架构](#技术架构)
-- [代码导航](#代码导航)
 - [主要依赖](#主要依赖)
 - [开发命令](#开发命令)
 - [路线图](#路线图)
-- [维护者](#维护者)
-- [致谢](#致谢)
 - [社区与讨论](#社区与讨论)
 - [如何贡献](#如何贡献)
+- [维护者](#维护者)
+- [致谢](#致谢)
 - [许可证](#许可证)
 - [Star History](#star-history)
 
@@ -67,41 +71,38 @@ BiliMusic 是一款围绕 B 站音频内容打造的跨平台音乐播放器。�
 ## 安全
 
 > [!IMPORTANT]
-> BiliMusic 仅供学习交流使用，不得用于**任何**商业用途。所有数据和文档均使用网络公开资源，本项目不进行任何逆向、修改、破解等行为。
+> BiliMusic 仅供学习交流使用，不得用于**任何**商业用途。所有数据和文档都来自网络公开资源，本项目不做任何逆向、修改或破解。
 >
-> BiliMusic 只提供音频播放能力，不提供任何视听内容；音乐及视频内容的版权归原作者所有，请尊重版权并合理使用。
-
+> BiliMusic 只提供音频播放能力，不提供任何视听内容。音乐和视频的版权归原作者所有，请尊重版权、合理使用。
 
 ---
 
 ## 背景
 
-主流 B 站客户端是完整的视频平台，对「只想听声音」的场景并不友好：后台播放受限、歌单能力弱、跨设备体验割裂。BiliMusic 把 B 站视为音乐内容源，专注于播放器的本职——搜索、整理、播放、漫游、同步。
+主流 B 站客户端是完整的视频平台，对「只想听声音」这件事并不友好：后台播放受限，歌单能力弱，跨设备体验也割裂。BiliMusic 把 B 站当成音乐内容源，只围绕听歌来做。
 
-技术选型上，Flutter 提供一套代码覆盖桌面与移动端；Riverpod 承担状态管理与依赖注入；mpv_audio_kit（libmpv）负责音频解码；局域网同步通过 mDNS 与 TCP 配对实现。代码按 UI / 状态 / 编排 / 领域模型 / 基础设施分层，核心网络与存储层保持纯 Dart，以便 TUI 复用。
-
-> 作者本人也是重度听歌爱好者，软件的开发会注重使用体验，在上线新功能时会反复打磨<s>（其实是听了半天）</s>，这一块不用担心。
+> 作者本人也是重度听歌用户，开发时会在意使用体验，新功能上线前会反复打磨<s>（其实是听了半天）</s>，这块不用太担心。
 
 ---
 
 ## 平台支持
 
 > [!IMPORTANT]
-> 从 v2.0 开始，BiliMusic 将迁移至 AGP 9.0，这会升级 Android-SDK 版本至 Android 14，请自行留意兼容性。
+> 从 v2.0 起，BiliMusic 会迁到 AGP 9.0，Android SDK 版本跟着升到 14，装之前留意一下兼容性。
 
 | 平台 | 状态 | 备注 |
 | --- | --- | --- |
-| **Windows** 10+ | ✅ 稳定 | 解压即用，`x64`或`arm64`架构 |
-| **Linux** | ✅ 稳定 | Ubuntu 20.04+ 或主流发行版，`x64`或`arm64`架构；需要[安装依赖](#直接安装) |
+| **Windows** 10+ | ✅ 稳定 | 解压即用，`x64` 或 `arm64` 架构 |
+| **Linux** | ✅ 稳定 | Ubuntu 20.04+ 或主流发行版，`x64` 或 `arm64` 架构；需要[安装依赖](#直接安装) |
 | **Android** 12+ | ✅ 稳定 | 按设备架构选择 APK（`arm64-v8a` / `armeabi-v7a` / `x86_64`），或全平台 AAB |
 | **macOS 12+, with Metal Support** | ⚠️ 实验性 | CI 产出 ad-hoc 签名的未公证 `.app`，也可从源码构建 |
 | **iOS 15+** | ⚠️ 实验性 | CI 产出无签名 `.ipa`，也可从源码构建 |
 | **Web** | ⏸️ 暂停支持 | **1.9.2 为支持 Web 的最新版本**，解压后部署到 Web 服务器，需配置 CORS |
-| **Xiaomi Vela** | ✅ 稳定 | 适用于小米、红米手表系列（API 2+），下载安装`.rpk`，详见[小米 Vela 手表端](#小米-vela-手表端) |
-| **Chrome Extension** | ✅ 稳定 | 浏览器内播放，尚未打包需手动安装，详见[Chrome Extension](#chrome-extension) |
-| **Harmony OS** 5.0+ | 🧪 适配中 | 可从源码构建，详见 [ohos/README.md](ohos/README.md) |
+| **Xiaomi Vela** | ✅ 稳定 | 小米、红米手表系列（API 2+），下载 `.rpk` 安装，详见[小米 Vela 手表端](#小米-vela-手表端) |
+| **Chrome Extension** | ✅ 稳定 | 浏览器内播放，还没打包，需要手动安装，详见[Chrome Extension](#chrome-extension) |
+| **HarmonyOS** 5.0+ | 🧪 即将推出 | 可从源码构建，详见 [ohos/README.md](ohos/README.md) |
 
-关于应用内更新：Android / Windows / Linux 支持；macOS 跳转 Releases（见[更新与版本](#更新与版本)）。
+应用内更新支持 Android、Windows、Linux；macOS 会跳转到 Releases 页面（见[更新与版本](#更新与版本)）。
 
 ---
 
@@ -134,6 +135,8 @@ flutter run               # 默认设备
 flutter run -d <device-id> # 指定设备
 ```
 
+> 首次 `flutter pub get` 报 `git-lfs ... Authorization error`：上游 `permission_handler_ohos` 把示例目录里那个 10MB 的 `icudtl.dat` 放在 gitcode 的 Git LFS 上，匿名拉取会被拒。pub 只要源码树，需要跳过 smudge（PowerShell：`$env:GIT_LFS_SKIP_SMUDGE='1'; flutter pub get`）。
+
 ### 构建发布版本
 
 ```bash
@@ -146,7 +149,7 @@ flutter build ios
 
 ### 终端客户端（TUI）
 
-仓库附带一个实验性终端客户端，与 App 共享登录状态（当前基于 Windows 下的 libmpv）：
+仓库里附带一个实验性终端客户端，和 App 共用登录状态（目前基于 Windows 下的 libmpv）：
 
 ```bash
 dart run bin/bilimusic_tui.dart            # 交互式 TUI
@@ -155,9 +158,9 @@ dart run bin/bilimusic_tui.dart --smoke    # 无终端驱动完整循环
 dart run bin/bilimusic_tui.dart --preview  # 静态设计预览（假数据，无网络无声）
 ```
 
-#### 小米 Vela 手表端
+### 小米 Vela 手表端
 
-`vela/` 是与 Flutter 主项目并列的小米 Vela JS 快应用形态手表客户端，与主项目**不共享代码、不共享包管理**。该手表端走 `npm`，不跑 `flutter pub`：
+`vela/` 是给小米 Vela 手表写的 JS 快应用，和 Flutter 主项目并列，不共享代码也不共享包管理。它走 `npm`，不跑 `flutter pub`：
 
 ```bash
 cd vela
@@ -167,28 +170,26 @@ npm run start                     # AIoT-IDE 调试启动（aiot server --watch�
 npm run build                     # 构建 RPK（aiot build）
 ```
 
-> 详细设计目标、适配机型表、安装教程、目录结构等，请阅读 [`vela/README.md`](vela/README.md)。
+> 设计目标、适配机型、安装教程、目录结构，见 [`vela/README.md`](vela/README.md)。
 
-#### Chrome Extension
+### Chrome Extension
 
-BiliMusic 的 Chrome 扩展端（MV3 架构），与主项目**不共享代码、不共享包管理**。
+Chrome 扩展端（MV3），同样和主项目不共享代码与包管理，需要 **Chrome 116+**。
 
-需要 **Chrome 116+**。
+还没有打包上架，把仓库拉下来手动装：
 
-目前尚未打包，在拉取仓库后手动安装：
+1. 拉取远程 UI 资源：
 
-  1. 拉取远程 UI 资源：
+   ```shell
+   node extension/scripts/gen_daisyui_subset.mjs        # daisyUI 组件子集
+   node extension/scripts/gen_fontawesome_subset.mjs    # FA 图标子集 + woff2
+   ```
 
-  ```shell
-  node extension/scripts/gen_daisyui_subset.mjs        # daisyUI 组件子集
-  node extension/scripts/gen_fontawesome_subset.mjs    # FA 图标子集 + woff2
-  ```
+2. 打开 `chrome://extensions`
+3. 右上角打开「开发者模式」
+4. 「加载已解压的扩展程序」→ 选择本 `extension/` 目录
 
-  2. 打开 `chrome://extensions`
-  3. 右上角打开「开发者模式」
-  4. 「加载已解压的扩展程序」→ 选择本 `extension/` 目录
-
-详见 [`extension/README.md`](extension/README.md)
+详见 [`extension/README.md`](extension/README.md)。
 
 ---
 
@@ -219,42 +220,46 @@ BiliMusic 的 Chrome 扩展端（MV3 架构），与主项目**不共享代码�
 
 ### 设备同步
 
-同局域网内开启设备同步：应用通过 mDNS 发现设备，通过二维码或配对请求建立信任连接，之后可同步播放状态、队列与远程控制。
+在同一个局域网里打开设备同步，应用会用 mDNS 找设备，扫码或发配对请求建立信任，之后就能同步播放状态和队列，也能远程控制。
 
 ---
 
 ## 核心特性
 
-**发现与推荐**
+### 发现与推荐
+
 - 支持 `BV` 号、`AV` 号与关键词搜索。
 - 首页推荐、猜你喜欢、播放历史。
 - 基于 simhash + SnowNLP 的相关度排序与漫游补队列。
 - 三种漫游风格：**相似 / 平衡 / 探索**。
 
-**播放体验**
+### 播放体验
+
 - 播放 / 暂停 / 上一首 / 下一首 / 进度跳转；定时关闭。
 - 多 P 视频切换、顺序 / 随机 / 单曲循环。
-- A/B 双播放器 + equal-power 曲线的交叉淡入淡出；可开启「自动淡入淡出」按曲目时长自动推导时长与触发位置。
-- 多档音质选择，DASH 音频流按选择取流并回显实际生效音质。
-- 音效与均衡器（设置 → 音效与均衡器）：8 段参数化自定义频点均衡器、压缩器、交叉回馈、立体声增强、回声/混响；内置听感预设与耳机校准预设（Harman Over-Ear 2018 / Harman In-Ear 2019 / AutoEq In-Ear），按目标响应曲线对锚点采样得到目标增益。
-- 音频输出（设置 → 音频输出）：输出设备切换、音频延迟、硬件直通（独占模式）、强制 DAC 采样率。
+- A/B 双播放器 + equal-power 曲线的交叉淡入淡出；打开「自动淡入淡出」后，淡入淡出时长和触发位置按曲目时长自动推导。
+- 多档音质可选，DASH 音频流按选择取流，界面上显示实际生效的音质。
+- 音效与均衡器（设置 → 音效与均衡器）：8 段均衡器，频点可自定义，另有压缩器、交叉回馈、立体声增强、回声与混响。内置听感预设和耳机校准预设（Harman Over-Ear 2018 / Harman In-Ear 2019 / AutoEq In-Ear），按目标响应曲线在锚点上采样算出增益。
+- 音频输出（设置 → 音频输出）：切换输出设备、调音频延迟、硬件直通（独占模式）、强制 DAC 采样率。
 - 后台播放、系统媒体通知、桌面托盘、Windows SMTC 与 Linux MPRIS 媒体键控制、音量持久化。
 - 详情页与长按菜单支持一键打开 B 站原网页。
 - 动态歌词：自动匹配、逐字点亮、辉光效果。
-- 主题系统：Lucent / Nocturne / Verdant / Gruvbox / Nord / Solarized 六套主题，运行时切换并按封面主色适配。
-- 标题元数据过滤（实验性）：基于 AST 树解析标题结构，从 B 站标题中剥离【MV】【中字】等视频平台元信息，同时保留 Hi-Res / 杜比等音质标识。
-- 离线缓存：歌曲可下载到本地，断网也能继续播放。
+- 主题系统：Lucent / Nocturne / Verdant / Gruvbox / Nord / Solarized 六套主题，运行时切换，并按封面主色适配。
+- 标题元数据过滤（实验性）：用 AST 解析标题结构，把【MV】【中字】这类视频平台元信息从 B 站标题里剥掉，Hi-Res、杜比这些音质标识留着。
+- 离线缓存：歌曲下载到本地，断网也能播。
 
-**整理与同步**
+### 整理与同步
+
 - 本地歌单：创建、编辑、删除、拖拽排序、滑动删除。
-- B 站收藏夹导入并跟踪同步状态。
+- 导入 B 站收藏夹，并跟踪同步状态。
 - mDNS 局域网发现 + TCP 二维码配对 + 远程播放控制。
 - 支持手表、折叠屏外屏与近方形 PiP 窗口布局。
 
-**终端客户端（TUI）**
-- 主页与搜索结果两页布局，支持关键词 / `BV` / `AV` 搜索、播放、暂停与切歌，键盘与鼠标可用。
-- FFI 直驱 libmpv（复用 App 构建产物里的 libmpv），与 App 共享登录态与网络层。
-- 附带 `--probe` / `--smoke` / `--preview` 自检、驱动与预览模式。
+### TUI 客户端
+
+- 主页与搜索结果两页布局，支持关键词 / `BV` / `AV` 搜索、播放、暂停与切歌，键盘鼠标都能用。
+- FFI 直驱 libmpv（复用 App 构建产物里的 libmpv），和 App 共享登录态与网络层。
+- 带 `--probe` / `--smoke` / `--preview` 三个参数，分别做自检、无终端驱动和静态预览。
 
 > [!NOTE]
 > 我们不考虑做对接音乐平台的歌曲元数据匹配，介于视频平台的内容差距较大，相对来说性价比过低。
@@ -283,11 +288,7 @@ BiliMusic 的 Chrome 扩展端（MV3 架构），与主项目**不共享代码�
 
 ## 登录与数据
 
-部分 B 站功能需要登录：
-
-- **移动端**：通过 [gt3_flutter_plugin](https://pub.dev/packages/gt3_flutter_plugin) 完成账号密码登录。
-- **桌面端**：使用 B 站 App 扫码登录。
-- **数据迁移**：可在数据管理中导出 / 导入完整备份（设置、歌单、收藏、播放历史、播放队列、自定义标签、音效、口味画像与登录状态），便于换机。
+部分 B 站功能要登录。移动端通过 [gt3_flutter_plugin](https://pub.dev/packages/gt3_flutter_plugin) 完成账号密码登录，桌面端用 B 站 App 扫码。数据管理里可以把设置、歌单、收藏、播放历史、播放队列、自定义标签、音效、口味画像和登录状态整份导出，换机后再导回去。
 
 > **数据存储**：歌单、收藏和历史保存在本地 SQLite；设置使用 `shared_preferences`；网络资源与歌词进入本地缓存；歌曲可另存为离线缓存，断网可播。桌面端启动时会检测多份数据库副本，发现冲突时引导选择保留哪一份，落选副本改名归档、绝不删除。迁移或清理前请做好备份。
 
@@ -295,7 +296,7 @@ BiliMusic 的 Chrome 扩展端（MV3 架构），与主项目**不共享代码�
 
 ## 更新与版本
 
-应用启动后自动检查一次新版本，发现更新时弹出更新日志与「立即更新」按钮。检查与下载是两套独立操作：
+应用启动后会检查一次新版本，有更新就弹出更新日志和「立即更新」按钮。
 
 | 环节 | 来源 | 说明 |
 | --- | --- | --- |
@@ -303,84 +304,17 @@ BiliMusic 的 Chrome 扩展端（MV3 架构），与主项目**不共享代码�
 | 更新日志 | `assets/version.json` 的 `changelog` | 应用内「设置 → 更新日志」读取随包内置的同一份数据 |
 | 下载 | GitHub Releases API | 点击更新时实时取下载地址与 sha256 摘要 |
 
-各平台行为：
-
-- **Android**：经 `flutter_app_update` 下载 APK 并拉起系统安装页；Android 13+ 会先申请通知权限以展示下载进度。
-- **Windows / Linux**：下载便携版 zip，校验 sha256 后原地替换文件并重启。
-- **macOS**：不支持应用内更新，点击后跳转 Releases 页面手动下载。
+Android 走 `flutter_app_update` 下载 APK 再拉起系统安装页，13 及以上会先申请通知权限，用来显示下载进度。Windows 和 Linux 下载便携版 zip，校验 sha256 后原地替换文件并重启。macOS 不支持应用内更新，点击后跳到 Releases 页面手动下载。
 
 ---
 
 ## 技术架构
 
-### 一次播放请求的路径
+项目里有四个并列的客户端：Flutter 主端（`lib/`）、终端客户端（`bin/`）、小米 Vela 手表端（`vela/`）、Chrome 扩展（`extension/`）。主端和终端客户端共用同一套纯 Dart 的网络与存储层，OpenHarmony 宿主（`ohos/`）也复用 `lib/`；Vela 和扩展则各自独立，只跟主项目共用 B 站接口协议。
 
-```text
-UI / Riverpod Provider
-        ↓
-PlayerCoordinator  ←── RoamingService
-        ↓
-DualAudioService  ←── NotificationService / PiP / LAN Sync
-        ↓
-ApiService
-        ↓
-BiliClient  ←── Bilibili API
-```
+技术选型上，Flutter 一套代码覆盖桌面和移动端，Riverpod 管状态与依赖注入，音频解码交给 mpv_audio_kit（libmpv），局域网同步用 mDNS 发现加 TCP 配对。代码按 UI / 状态 / 编排 / 领域模型 / 基础设施分层，`lib/core/` 保持纯 Dart 以便 TUI 复用；长生命周期服务只在 `lib/app/app_providers.dart` 这一处组合根创建与释放，UI 只消费 Provider。
 
-### 分层职责
-
-| 层 | 目录 | 职责 |
-| --- | --- | --- |
-| UI | `features/*/ui/` · `widgets/` · `app/shells/` | 页面、组件、横竖屏与方屏布局 |
-| 状态 | `features/*/*_providers.dart` · `app/shells/` | Riverpod 状态、命令与页面导航 |
-| 编排 | `features/*/logic/` · `services/` | 播放编排、漫游、局域网同步、登录等业务流程 |
-| 领域模型 | `domain/` | 纯共享数据模型 |
-| 基础设施 | `core/` | HTTP 客户端、异常体系、SQLite 与缓存 |
-| 视觉系统 | `shared/theme/` | Palette、Token、主题注册切换 |
-| 组合根 | `app/app_providers.dart` | 长生命周期服务的创建与释放 |
-
-> 长生命周期服务统一在 `lib/app/app_providers.dart` 中创建与释放；UI 只消费 Provider，不直接实例化业务管理器。
-
----
-
-## 代码导航
-
-```text
-lib/
-├── main.dart                  # 应用入口：窗口、数据库、audio_service 初始化
-├── app/                       # app_providers.dart 组合根 + shells/ 应用外壳、导航与桌面托盘
-├── core/                      # 无 UI 基础设施
-│   ├── network/               # BiliClient、ApiService、PassportClient 与异常体系
-│   └── storage/               # AppDatabase(SQLite) 与 CacheManager
-├── domain/                    # 纯共享模型：Music、Playlist、BiliItem、PeerDevice 等
-├── features/                  # 功能模块，内部按 logic/ models/ ui/ 分层
-│   ├── player/                # PlayerCoordinator、DualAudioService、通知、PiP、正在播放页；
-│   │                          # 音频输出 providers、均衡器 / 压缩器 / 交叉回馈 / 回声 / 立体声效果链与预设
-│   ├── lyrics/                # 歌词检索、多源匹配与逐字渲染
-│   ├── playlist/              # 歌单 / 收藏 / 历史的单一数据源
-│   ├── roam/                  # 漫游模式：simhash 排序、种子多样性与风格策略
-│   ├── lan_sync/              # 局域网同步：mDNS 发现、二维码配对、远程控制
-│   ├── offline/               # 离线缓存：下载管理、断网播放与缓存清理
-│   ├── auth/                  # 扫码登录、验证码与 Cookie 管理
-│   ├── fav_sync/              # B 站收藏夹导入与同步状态跟踪
-│   ├── home/ search/ profile/ # 首页推荐、搜索、个人中心
-│   └── settings/ update/      # 设置（含音效与均衡器 / 音频输出页）、数据迁移；更新检查、Release 解析、应用内更新与更新日志
-└── shared/                    # 跨模块共享：widgets/、theme/(Lucent/Nocturne/Verdant/Gruvbox/Nord/Solarized)、utils/
-
-vela/                           # 小米 Vela JS 快应用手表端
-├── src/
-│   ├── app.ux                  # 启动自举：控制类音频事件绑定 + 登录态/播放态恢复
-│   ├── manifest.json           # features 与 config.background 后台运行声明
-│   ├── common/                 # 纯函数：配置、解析、音量、跨 VM 播放态、网桥协议
-│   ├── pages/                  # player / more / recommend / fav / favDetail / login / volume / about
-│   └── services/               # 会话、请求收口、网桥会话、音频缓存、B 站接口、扫码登录、播放服务
-├── scripts/                    # 离线自检（纯 Node）+ aiot-hooks 与 @system.* 桩（仅离线测试用）
-└── README.md                   # Vela 端完整文档
-
-bin/
-├── bilimusic_tui.dart         # 终端客户端入口（dart_tui + libmpv FFI）
-└── tui/                       # TUI 内部实现：mpv_player(FFI)、tui_api、app_model、probe
-```
+分层职责、一次播放请求的路径、完整目录结构、启动与退出顺序、网络与存储模型、平台差异与架构约束，见 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
 ---
 
@@ -417,7 +351,7 @@ flutter test          # 运行测试
 flutter run           # 调试运行
 ```
 
-> 提交改动前建议至少执行 `flutter analyze` 与 `dart format .`，并在目标平台完成一次构建验证。
+> 提交改动前，至少跑一遍 `flutter analyze` 和 `dart format .`，并在目标平台构建验证一次。
 
 ---
 
@@ -429,7 +363,7 @@ flutter run           # 调试运行
 
 ## 社区与讨论
 
-日常交流、提问与想法都欢迎到 [GitHub Discussions](https://github.com/NaivG/bilimusic/discussions)：
+日常交流、提问、想法都欢迎来 [GitHub Discussions](https://github.com/NaivG/bilimusic/discussions)：
 
 | 想做的事 | 去哪里 |
 | --- | --- |
@@ -442,7 +376,20 @@ flutter run           # 调试运行
 | 查看版本发布与项目公告 | [Announcements](https://github.com/NaivG/bilimusic/discussions/categories/announcements) |
 
 > [!TIP]
-> 已经能稳定复现、确认是缺陷的问题，请直接开 [Issue](https://github.com/NaivG/bilimusic/issues/new/choose)，Issue 模板会引导你补齐平台与版本。**发帖前请先搜索**，也**不要在公开帖子里粘贴 Cookie、账号信息等敏感数据**。
+> 已经能稳定复现、确认是缺陷的问题，请直接开 [Issue](https://github.com/NaivG/bilimusic/issues/new/choose)，Issue 模板会引导你补齐平台与版本。发帖前请先搜索，也不要在公开帖子里粘贴 Cookie、账号信息等敏感数据。
+
+---
+
+## 如何贡献
+
+报问题走 [Issue](https://github.com/NaivG/bilimusic/issues)，讨论去 [Discussions](https://github.com/NaivG/bilimusic/discussions)（分类和用法见[社区与讨论](#社区与讨论)），代码改动直接提 Pull Request。提交前请尽量做到：
+
+1. 说明复现环境、平台与具体步骤。
+2. 保持改动聚焦，并遵循现有 Flutter / Dart 代码风格。
+3. 执行 `flutter analyze` 和相关测试。
+4. 不提交 Cookie、账号信息、构建产物或其他敏感数据。
+
+> 完整的开发环境、分支模型、提交规范、测试要求与代码硬性规则，见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
 
 ---
 
@@ -462,19 +409,6 @@ flutter run           # 调试运行
 - GitHub Actions：[FlutterHub](https://github.com/xmaihh/FlutterHub)
 - README 规范：[standard-readme](https://github.com/RichardLitt/standard-readme)
 - SnowNLP 文本处理：[SnowNLP](https://github.com/isnowfy/snownlp)
-
----
-
-## 如何贡献
-
-欢迎通过 [Issue](https://github.com/NaivG/bilimusic/issues) 报告问题、在 [Discussions](https://github.com/NaivG/bilimusic/discussions) 参与讨论（分类与用法见[社区与讨论](#社区与讨论)），或提交 Pull Request 改进功能。提交前请尽量：
-
-1. 说明复现环境、平台与具体步骤。
-2. 保持改动聚焦，并遵循现有 Flutter / Dart 代码风格。
-3. 执行 `flutter analyze` 和相关测试。
-4. 不提交 Cookie、账号信息、构建产物或其他敏感数据。
-
-> 完整的开发环境、分支模型、提交规范、测试要求与代码硬性规则，见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
 
 ---
 
