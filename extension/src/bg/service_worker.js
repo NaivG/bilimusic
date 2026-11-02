@@ -182,7 +182,7 @@ async function notify(title, message, { silent = false } = {}) {
   if (!settings.notify && silent !== 'force') return
   chrome.notifications.create({
     type: 'basic',
-    iconUrl: 'icons/icon.png',
+    iconUrl: 'icons/icon128.png',
     title,
     message,
     priority: silent ? 0 : 1,
