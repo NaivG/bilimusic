@@ -18,6 +18,7 @@ import 'package:bilimusic/shared/utils/responsive.dart';
 import 'package:bilimusic/shared/widgets/music_cover.dart';
 import 'package:bilimusic/features/player/widgets/landscape_seek_bar.dart';
 import 'package:bilimusic/features/player/widgets/landscape_volume_bar.dart';
+import 'package:bilimusic/features/player/widgets/playback_buttons.dart';
 
 /// 横屏模式底部播放器控制栏 - Lucent设计语言
 class LandscapeBottomControl extends ConsumerWidget {
@@ -260,115 +261,60 @@ class LandscapeBottomControl extends ConsumerWidget {
   ) {
     final smallSize = 40.0;
     final isPlaying = playerState is PlayerPlaying;
+    final commands = ref.read(playbackCommandsProvider.notifier);
+    // 底栏保留桌面悬停反馈：浅色圆形底 + 轻微放大，静置时仍是无底色图标。
+    final hoverColor = context.appPalette.surfacePressed.withValues(alpha: 0.5);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _buildSmallButton(
+        PlaybackControlButton(
           icon: playMode.icon,
           size: smallSize,
-          iconSize: smallSize * 0.6,
-          color: iconColor.withValues(alpha: 0.7),
-          onTap: () =>
-              ref.read(playbackCommandsProvider.notifier).togglePlayMode(),
+          iconSize: smallSize * 0.78,
+          iconColor: iconColor.withValues(alpha: 0.7),
+          hoverColor: hoverColor,
+          onTap: commands.togglePlayMode,
         ),
         const SizedBox(width: 16),
-        _buildSmallButton(
+        PlaybackControlButton(
           icon: Icons.skip_previous_rounded,
           size: smallSize,
-          iconSize: smallSize * 0.65,
-          color: iconColor.withValues(alpha: 0.85),
-          onTap: () =>
-              ref.read(playbackCommandsProvider.notifier).playPrevious(),
+          iconSize: smallSize * 0.78,
+          iconColor: iconColor.withValues(alpha: 0.85),
+          hoverColor: hoverColor,
+          onTap: commands.playPrevious,
         ),
         const SizedBox(width: 16),
-        ScaleOnHover(
-          hoverScale: 1.05,
-          child: Container(
-            width: mainButtonSize,
-            height: mainButtonSize,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: accentColor,
-              boxShadow: [
-                BoxShadow(
-                  color: accentColor.withValues(alpha: 0.3),
-                  blurRadius: 12,
-                  spreadRadius: 1,
-                ),
-              ],
-            ),
-            child: IconButton(
-              onPressed: () {
-                if (isPlaying) {
-                  ref.read(playbackCommandsProvider.notifier).pause();
-                } else {
-                  ref.read(playbackCommandsProvider.notifier).resume();
-                }
-              },
-              icon: AnimatedSwitcher(
-                duration: AppTokens.standardDuration,
-                switchInCurve: AppTokens.standardEasing,
-                switchOutCurve: AppTokens.standardEasing,
-                transitionBuilder: switcherFadeTransition,
-                child: Icon(
-                  isPlaying ? Icons.pause : Icons.play_arrow,
-                  key: ValueKey(isPlaying),
-                  size: mainButtonSize * 0.5,
-                  color: Colors.white,
-                ),
-              ),
-              splashRadius: mainButtonSize * 0.5,
-              padding: EdgeInsets.zero,
-              constraints: BoxConstraints(
-                minWidth: mainButtonSize,
-                minHeight: mainButtonSize,
-              ),
-            ),
-          ),
+        PlaybackPlayPauseButton(
+          isPlaying: isPlaying,
+          size: mainButtonSize,
+          iconSize: mainButtonSize * 0.8,
+          iconColor: accentColor,
+          hoverColor: accentColor.withValues(alpha: 0.14),
+          onTap: isPlaying ? commands.pause : commands.resume,
         ),
         const SizedBox(width: 16),
-        _buildSmallButton(
+        PlaybackControlButton(
           icon: Icons.skip_next_rounded,
           size: smallSize,
-          iconSize: smallSize * 0.65,
-          color: iconColor.withValues(alpha: 0.85),
-          onTap: () => ref.read(playbackCommandsProvider.notifier).playNext(),
+          iconSize: smallSize * 0.78,
+          iconColor: iconColor.withValues(alpha: 0.85),
+          hoverColor: hoverColor,
+          onTap: commands.playNext,
         ),
         const SizedBox(width: 16),
         if (onPlayList != null)
-          _buildSmallButton(
+          PlaybackControlButton(
             icon: Icons.queue_music,
             size: smallSize,
-            iconSize: smallSize * 0.6,
-            color: iconColor.withValues(alpha: 0.7),
+            iconSize: smallSize * 0.78,
+            iconColor: iconColor.withValues(alpha: 0.7),
+            hoverColor: hoverColor,
             onTap: onPlayList,
           ),
       ],
-    );
-  }
-
-  Widget _buildSmallButton({
-    required IconData icon,
-    required double size,
-    required double iconSize,
-    required Color color,
-    required VoidCallback? onTap,
-  }) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: ScaleOnHover(
-        hoverScale: 1.12,
-        child: IconButton(
-          onPressed: onTap,
-          icon: Icon(icon, size: iconSize, color: color),
-          splashRadius: size * 0.5,
-          padding: EdgeInsets.zero,
-          constraints: BoxConstraints(minWidth: size, minHeight: size),
-        ),
-      ),
     );
   }
 

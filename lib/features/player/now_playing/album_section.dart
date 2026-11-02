@@ -405,7 +405,7 @@ class _AlbumSectionState extends ConsumerState<AlbumSection>
         SizedBox(width: m.gapSide),
         // 上一曲
         PlaybackControlButton(
-          icon: Icons.skip_previous,
+          icon: Icons.skip_previous_rounded,
           size: m.sideButtonSize,
           iconSize: m.sideIconSize,
           iconColor: Colors.white.withValues(alpha: 0.9),
@@ -417,14 +417,13 @@ class _AlbumSectionState extends ConsumerState<AlbumSection>
           isPlaying: widget.isPlaying,
           size: m.mainButtonSize,
           iconSize: m.mainIconSize,
-          iconColor: Colors.black.withValues(alpha: 0.9),
-          backgroundColor: Colors.white.withValues(alpha: 0.9),
+          iconColor: Colors.white,
           onTap: widget.onPlayPause,
         ),
         SizedBox(width: m.gapMain),
         // 下一曲
         PlaybackControlButton(
-          icon: Icons.skip_next,
+          icon: Icons.skip_next_rounded,
           size: m.sideButtonSize,
           iconSize: m.sideIconSize,
           iconColor: Colors.white.withValues(alpha: 0.9),
@@ -573,8 +572,8 @@ class _AlbumMetrics {
       actionSize: actionSize,
       mainButtonSize: mainButtonSize,
       sideButtonSize: sideButtonSize,
-      mainIconSize: mainButtonSize * 0.5,
-      sideIconSize: sideButtonSize * 0.65,
+      mainIconSize: mainButtonSize * 0.8,
+      sideIconSize: sideButtonSize * 0.85,
       gapMain: mainButtonSize * 0.35,
       gapSide: mainButtonSize * 0.38,
       gapCoverInfo: coverSize * 0.2,
