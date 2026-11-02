@@ -890,7 +890,7 @@ class _PanelActions extends StatelessWidget {
             ),
             FilledButton.tonalIcon(
               onPressed: hasRemoteQueue ? onFollow : null,
-              icon: const Icon(Icons.download_for_offline_outlined, size: 18),
+              icon: const Icon(Icons.swap_horiz_outlined, size: 18),
               label: const Text('跟随此设备'),
             ),
           ],

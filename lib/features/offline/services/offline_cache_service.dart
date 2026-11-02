@@ -391,7 +391,7 @@ class OfflineCacheService extends ChangeNotifier {
         existingRecord != null &&
         isQualitySufficient(existingRecord, qualityId) &&
         existingRecord.filePath.isNotEmpty) {
-      return existingRecord;
+      return await _refreshCoverIfNeeded(existingRecord, music.coverUrl);
     }
 
     final cid = _effectiveCid(music);
@@ -471,6 +471,7 @@ class OfflineCacheService extends ChangeNotifier {
         cid: cid,
         title: music.title,
         artist: music.artist.displayName,
+        coverUrl: music.coverUrl,
         filePath: file.path,
         qualityId: qualityId,
         fileSize: received,
@@ -531,7 +532,7 @@ class OfflineCacheService extends ChangeNotifier {
     if (!replace &&
         existing != null &&
         isQualitySufficient(existing, qualityId)) {
-      return existing;
+      return _refreshCoverIfNeeded(existing, music.coverUrl);
     }
 
     final dir = Directory(_requireBaseDir());
@@ -557,6 +558,7 @@ class OfflineCacheService extends ChangeNotifier {
       cid: cid,
       title: music.title,
       artist: music.artist.displayName,
+      coverUrl: music.coverUrl,
       filePath: saved.path,
       qualityId: qualityId,
       fileSize: await saved.length(),
@@ -720,6 +722,29 @@ class OfflineCacheService extends ChangeNotifier {
   /// `music.cid` 去 [find]，cid 为空的 [Music] 就会查不到自己的记录。
   String effectiveCid(Music music) => _effectiveCid(music);
 
+  /// 已有记录音质够用时，顺手把封面地址补上/更新。
+  Future<OfflineTrack> _refreshCoverIfNeeded(
+    OfflineTrack track,
+    String coverUrl,
+  ) async {
+    final cover = coverUrl.trim();
+    if (cover.isEmpty || cover == track.coverUrl) return track;
+    final updated = OfflineTrack(
+      bvid: track.bvid,
+      cid: track.cid,
+      title: track.title,
+      artist: track.artist,
+      coverUrl: cover,
+      filePath: track.filePath,
+      qualityId: track.qualityId,
+      fileSize: track.fileSize,
+      downloadedAt: track.downloadedAt,
+    );
+    await _upsert(updated);
+    notifyListeners();
+    return updated;
+  }
+
   /// 写入/覆盖一条离线记录（同曲重下时按 (bvid, cid) 覆盖）。
   Future<void> _upsert(OfflineTrack track) async {
     await _db!.insert('downloads', {
@@ -727,6 +752,7 @@ class OfflineCacheService extends ChangeNotifier {
       'cid': track.cid,
       'title': track.title,
       'artist': track.artist,
+      'cover_url': track.coverUrl,
       'file_path': track.filePath,
       'quality_id': track.qualityId,
       'file_size': track.fileSize,

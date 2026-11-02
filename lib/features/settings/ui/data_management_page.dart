@@ -306,6 +306,22 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
                     ),
                     child: Column(
                       children: [
+                        ListTile(
+                          leading: Icon(
+                            Icons.library_music_outlined,
+                            color: _getPrimaryColor(context),
+                          ),
+                          title: const Text('查看离线音乐'),
+                          subtitle: Text('$_offlineCount 首 · $_offlineSize'),
+                          trailing: const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                          ),
+                          onTap: () {
+                            ShellPageManager.instance.push(ShellPage.offline);
+                          },
+                        ),
+                        _buildDivider(),
                         if (OfflineCacheService.supportsDirectoryPicker) ...[
                           ListTile(
                             leading: Icon(

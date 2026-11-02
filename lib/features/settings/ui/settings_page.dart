@@ -299,6 +299,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             // 数据管理
             _buildSectionTitle('数据'),
             ListTile(
+              leading: Icon(
+                Icons.download_outlined,
+                color: _getPrimaryColor(context),
+              ),
+              title: Text('离线缓存'),
+              subtitle: Text('查看已下载到本地的音乐、占用空间与删除'),
+              trailing: Icon(Icons.arrow_forward_ios_rounded),
+              onTap: () {
+                ShellPageManager.instance.push(ShellPage.offline);
+              },
+            ),
+            ListTile(
               leading: Icon(Icons.insights, color: _getPrimaryColor(context)),
               title: Text('音乐画像'),
               subtitle: Text('口味关键词、推荐依据与手动重建'),

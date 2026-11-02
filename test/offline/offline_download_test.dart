@@ -24,13 +24,13 @@ void main() {
 
   const payload = 'FAKE-M4S-BYTES-0123456789';
 
-  Music sampleMusic() => Music(
+  Music sampleMusic({String coverUrl = ''}) => Music(
     id: 'BV1xx411c7mD',
     cid: '12345',
     title: '晴天',
     artist: const Artist(name: '周杰伦'),
     album: '',
-    coverUrl: '',
+    coverUrl: coverUrl,
     audioUrl: '',
   );
 
@@ -46,6 +46,7 @@ void main() {
               cid TEXT NOT NULL,
               title TEXT,
               artist TEXT,
+              cover_url TEXT,
               file_path TEXT NOT NULL,
               quality_id TEXT,
               file_size INTEGER DEFAULT 0,
@@ -104,6 +105,18 @@ void main() {
     expect(await service.totalBytes(), payload.length);
   });
 
+  test('下载时把封面地址一并登记，查表还原不丢封面', () async {
+    const cover = 'https://i0.hdslb.com/bfs/archive/cover.jpg';
+    final track = await service.download(
+      music: sampleMusic(coverUrl: cover),
+      audioUrl: 'https://cdn.example.com/x.m4s',
+      qualityId: '30280',
+    );
+
+    expect(track.coverUrl, cover);
+    expect((await service.find('BV1xx411c7mD', '12345'))?.coverUrl, cover);
+  });
+
   test('重复下载同音质直接返回已有文件，不产生第二个文件', () async {
     final first = await service.download(
       music: sampleMusic(),
@@ -117,6 +130,26 @@ void main() {
     );
     expect(second.filePath, first.filePath);
     expect(await service.count(), 1);
+  });
+
+  test('重复下载时把旧记录缺失的封面地址补上，音频文件不动', () async {
+    const cover = 'https://i0.hdslb.com/bfs/archive/cover.jpg';
+    final first = await service.download(
+      music: sampleMusic(),
+      audioUrl: 'https://cdn.example.com/x.m4s',
+      qualityId: '30280',
+    );
+    expect(first.coverUrl, isEmpty);
+
+    final second = await service.download(
+      music: sampleMusic(coverUrl: cover),
+      audioUrl: 'https://cdn.example.com/x.m4s',
+      qualityId: '30280',
+    );
+
+    expect(second.filePath, first.filePath);
+    expect(second.coverUrl, cover);
+    expect((await service.find('BV1xx411c7mD', '12345'))?.coverUrl, cover);
   });
 
   test('HTTP 非 200 时不留下 .part 残片，也不写库', () async {
@@ -169,15 +202,17 @@ void main() {
   test('持久化已有文件（命中临时缓存的路径）会从源文件改名过来', () async {
     final source = File(p.join(baseDir.path, 'cache-hit.m4s'));
     await source.writeAsString(payload);
+    const cover = 'https://i0.hdslb.com/bfs/archive/cover.jpg';
 
     final track = await service.persistFromFile(
-      music: sampleMusic(),
+      music: sampleMusic(coverUrl: cover),
       sourcePath: source.path,
       qualityId: '30232',
     );
 
     expect(track, isNotNull);
     expect(await File(track!.filePath).readAsString(), payload);
+    expect(track.coverUrl, cover, reason: '封面地址要跟音频一起入表');
     // 同盘 rename 会把源文件移走（临时缓存不必再留一份）。
     expect(await source.exists(), isFalse);
     expect(await service.count(), 1);

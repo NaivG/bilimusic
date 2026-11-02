@@ -43,13 +43,13 @@ void main() {
   late ApiService api;
   late ProviderContainer container;
 
-  Music sampleMusic() => Music(
+  Music sampleMusic({String coverUrl = ''}) => Music(
     id: 'BV1xx411c7mD',
     cid: '12345',
     title: '晴天',
     artist: const Artist(name: '周杰伦'),
     album: '',
-    coverUrl: '',
+    coverUrl: coverUrl,
     audioUrl: '',
   );
 
@@ -71,6 +71,7 @@ void main() {
               cid TEXT NOT NULL,
               title TEXT,
               artist TEXT,
+              cover_url TEXT,
               file_path TEXT NOT NULL,
               quality_id TEXT,
               file_size INTEGER DEFAULT 0,
@@ -146,6 +147,23 @@ void main() {
     );
     expect(await service.count(), 1);
     expect(_audioFilesIn(baseDir), hasLength(1));
+  });
+
+  test('重下已缓存的同一首：只补封面，不重新取流', () async {
+    const cover = 'https://i0.hdslb.com/bfs/archive/cover.jpg';
+    final first = await notifier().download(sampleMusic());
+    final downloadsBefore = musicCache.downloadCount;
+
+    final second = await notifier().download(sampleMusic(coverUrl: cover));
+
+    expect(second.filePath, first.filePath);
+    expect(second.coverUrl, cover);
+    expect(
+      musicCache.downloadCount,
+      downloadsBefore,
+      reason: '离线命中直接返回本地文件，不该重新联网',
+    );
+    expect((await service.find('BV1xx411c7mD', '12345'))?.coverUrl, cover);
   });
 
   test('清空离线缓存后再次下载同一首：不该误报落盘失败（文件其实已落盘）', () async {

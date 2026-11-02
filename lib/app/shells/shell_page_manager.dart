@@ -9,6 +9,7 @@ enum ShellPage {
   searchResults,
   profile,
   settings,
+  offline,
   detail,
   playlist,
   changelog,

@@ -98,6 +98,16 @@ class LandscapeSidebar extends ConsumerWidget {
                       selectedItemColor: selectedItemColor,
                       onTap: () => onPlaylistTap?.call('history'),
                     ),
+                    // 离线缓存
+                    _SidebarItem(
+                      icon: Icons.download_outlined,
+                      activeIcon: Icons.download,
+                      label: '离线缓存',
+                      iconColor: Colors.teal,
+                      isSelected: selectedLabel == 'offline',
+                      selectedItemColor: selectedItemColor,
+                      onTap: () => onNavTap('offline'),
+                    ),
                     const SizedBox(height: 10),
                     const Divider(
                       height: 1,

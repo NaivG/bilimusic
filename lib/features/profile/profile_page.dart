@@ -365,6 +365,29 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
         const Divider(height: 1),
 
+        // 离线缓存
+        ListTile(
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.teal.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.download_outlined,
+              color: Colors.teal,
+            ),
+          ),
+          title: const Text('离线缓存'),
+          subtitle: const Text('查看已下载到本地的音乐'),
+          trailing: const Icon(Icons.arrow_forward_ios),
+          onTap: () {
+            ShellPageManager.instance.push(ShellPage.offline);
+          },
+        ),
+
+        const Divider(height: 1),
+
         // 漫游模式
         const RoamSection(),
 

@@ -14,6 +14,7 @@ import 'package:bilimusic/features/search/ui/search_entry_page.dart';
 import 'package:bilimusic/features/search/ui/search_results_overlay.dart';
 import 'package:bilimusic/features/profile/profile_page.dart';
 import 'package:bilimusic/features/settings/ui/settings_page.dart';
+import 'package:bilimusic/features/offline/ui/offline_page.dart';
 import 'package:bilimusic/features/player/now_playing/detail_page.dart';
 import 'package:bilimusic/features/update/ui/changelog_page.dart';
 import 'package:bilimusic/features/auth/ui/cookie_page.dart';
@@ -58,6 +59,8 @@ Widget buildShellPageContent({
       return const ProfilePage();
     case ShellPage.settings:
       return const SettingsPage();
+    case ShellPage.offline:
+      return const OfflinePage();
     case ShellPage.detail:
       return const DetailPage();
     case ShellPage.playlist:

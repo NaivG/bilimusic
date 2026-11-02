@@ -250,6 +250,9 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
     if (widget.pageManager.currentPage == ShellPage.playlist) {
       return null;
     }
+    if (widget.pageManager.currentPage == ShellPage.offline) {
+      return 'offline';
+    }
     final index = widget.pageManager.selectedTabIndex;
     switch (index) {
       case 0:
@@ -275,6 +278,11 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
         break;
       case 'settings':
         widget.pageManager.goToTab(3);
+        break;
+      case 'offline':
+        if (widget.pageManager.currentPage != ShellPage.offline) {
+          widget.pageManager.push(ShellPage.offline);
+        }
         break;
     }
   }
