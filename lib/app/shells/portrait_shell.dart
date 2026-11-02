@@ -72,11 +72,9 @@ class _PortraitShellState extends ConsumerState<PortraitShell> {
 
   /// 是否显示悬浮迷你播放器。
   bool _showMiniPlayer(bool alwaysShowMiniPlayer) {
-    if (
-      widget.currentPage == ShellPage.detail ||
-      widget.currentPage == ShellPage.roamOnboarding ||
-      widget.currentPage == ShellPage.login
-    ) {
+    if (widget.currentPage == ShellPage.detail ||
+        widget.currentPage == ShellPage.roamOnboarding ||
+        widget.currentPage == ShellPage.login) {
       return false;
     }
     return _showBottomBar || alwaysShowMiniPlayer;
