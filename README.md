@@ -100,7 +100,7 @@ BiliMusic 是一个用 Flutter 写的 B 站音乐播放器，一套代码覆盖 
 | **Web** | ⏸️ 暂停支持 | **1.9.2 为支持 Web 的最新版本**，解压后部署到 Web 服务器，需配置 CORS |
 | **Xiaomi Vela** | ✅ 稳定 | 小米、红米手表系列（API 2+），下载 `.rpk` 安装，详见[小米 Vela 手表端](#小米-vela-手表端) |
 | **Chrome Extension** | ✅ 稳定 | 浏览器内播放，还没打包，需要手动安装，详见[Chrome Extension](#chrome-extension) |
-| **HarmonyOS** 5.0+ | 🧪 即将推出 | 可从源码构建，详见 [ohos/README.md](ohos/README.md) |
+| **HarmonyOS / OpenHarmony** 5.0+ | 🧪 Beta | 可从源码构建，尚未使用私钥打包，需要使用`hdc`工具侧载至设备 |
 
 应用内更新支持 Android、Windows、Linux；macOS 会跳转到 Releases 页面（见[更新与版本](#更新与版本)）。
 
