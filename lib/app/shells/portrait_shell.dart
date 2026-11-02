@@ -108,9 +108,13 @@ class _PortraitShellState extends ConsumerState<PortraitShell> {
     final selectedIndex = widget.pageManager.selectedTabIndex;
     final showMiniPlayer = _showMiniPlayer(alwaysShowMiniPlayer);
     final miniPlayerCanAutoHide = _miniPlayerCanAutoHide(alwaysShowMiniPlayer);
+    // 从迷你播放器的定位里扣掉键盘高度，让它保持屏幕上的原位，再由收缩后的 body 底边（键盘上沿）
+    // 裁掉，呈现被键盘直接盖住的效果。
+    // 你别管路子野不野，你就说有没有解决问题吧.jpg
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     final bottomInset = _showBottomBar
         ? 0.0
-        : MediaQuery.paddingOf(context).bottom;
+        : MediaQuery.viewPaddingOf(context).bottom;
 
     return Scaffold(
       appBar: widget.isPcPlatform
@@ -143,7 +147,7 @@ class _PortraitShellState extends ConsumerState<PortraitShell> {
             Positioned(
               left: 0,
               right: 0,
-              bottom: 16 + bottomInset,
+              bottom: 16 + bottomInset - keyboardInset,
               child: ValueListenableBuilder<bool>(
                 valueListenable: _miniPlayerHidden,
                 builder: (context, hidden, _) => _buildMiniPlayer(
