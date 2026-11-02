@@ -12,6 +12,7 @@ import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/playlist/widgets/playlist_song_list.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 
 /// 歌手页（UP 页）：页头 + TA 的投稿列表。
 ///
@@ -199,6 +200,7 @@ class _ArtistPageState extends ConsumerState<ArtistPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
+      appBar: AutoAppBar.generateAppBar(context: context, title: "UP 详情"),
       body: SafeArea(
         child: Column(
           children: [

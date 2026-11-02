@@ -5,6 +5,7 @@ import 'package:bilimusic/domain/playlist.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/playlist/widgets/playlist_hero.dart';
 import 'package:bilimusic/features/playlist/widgets/playlist_song_list.dart';
+import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 
 /// Portrait playlist page with hero Column + track list in a single scroll.
 class PortraitPlaylistPage extends ConsumerWidget {
@@ -41,6 +42,7 @@ class PortraitPlaylistPage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
+      appBar: AutoAppBar.generateAppBar(context: context, title: "歌单详情"),
       body: CustomScrollView(
         slivers: [
           // Top spacing
