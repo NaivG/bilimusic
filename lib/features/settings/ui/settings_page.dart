@@ -229,6 +229,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               value: settings.blurEffect,
               onChanged: notifier.setBlurEffect,
             ),
+            _buildSwitchListTile(
+              icon: Icons.play_circle_outline,
+              title: '始终显示迷你播放器（竖屏）',
+              subtitle: '在其他页面也显示；向下滚动时自动隐藏',
+              value: settings.alwaysShowMiniPlayer,
+              onChanged: notifier.setAlwaysShowMiniPlayer,
+            ),
+
             // 窗口行为（仅桌面端显示）
             if (PlatformHelper.isDesktop) ...[
               _buildSectionTitle('窗口行为'),
