@@ -3,7 +3,6 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-  file_selector_linux
   irondash_engine_context
   mpv_audio_kit
   restart_app
