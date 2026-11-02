@@ -28,7 +28,7 @@ class NowPlayingActionBar extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           PlaybackControlButton(
-            icon: Icons.sync_rounded,
+            icon: Icons.cast_rounded,
             size: _buttonSize,
             iconSize: _iconSize,
             iconColor: Colors.white.withValues(alpha: 0.7),
