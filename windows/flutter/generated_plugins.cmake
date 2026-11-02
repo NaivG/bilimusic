@@ -5,7 +5,6 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   audio_service_win
   bonsoir_windows
-  file_selector_windows
   irondash_engine_context
   mpv_audio_kit
   permission_handler_windows

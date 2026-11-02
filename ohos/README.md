@@ -76,9 +76,12 @@ TAG 约定 `x.y.z-ohos-1.0.0`（`x.y.z` 是该适配基于的上游版本）只�
 
 ### 三个例外
 
-- **`file_picker` 整包改名**：适配仓库把包名改成了 `file_picker_ohos`（入口
-  `lib/file_picker_ohos.dart`），不是独立平台实现包，所以直接替换依赖并对齐了 4 处
-  import。它自带全平台实现，其它平台的 picker 行为与原包一致。
+- **`file_picker` 整包 vendored**：它不是联邦化插件，没法只补一个 `platforms.ohos`
+  的实现包。`packages/file_picker` 以官方 10.3.10 为基线，加上适配仓库的 `ohos/`；
+  Dart 侧只多一条 `Platform.operatingSystem == 'ohos'` 的 `saveFile` 分支。不要再
+  换回社区那个改名成 `file_picker_ohos` 的仓库：它的 podspec 名字和包名对不上，
+  iOS 会在 `pod install` 阶段直接报 `No podspec found`。细节见
+  `packages/file_picker/VENDORED.md`。
 - **`audio_session` 只能 vendored**：见上。它的 Dart 代码被改过（公共 API 加了
   `ohosAudioAttributes` 等），改的是**所有平台都会编译**的文件，所以平台判定一律用
   `Platform.operatingSystem == 'ohos'`，绝不能用只有鸿蒙 SDK 才有的

@@ -125,10 +125,10 @@ dependencies:
       url: https://gitcode.com/CPF-Flutter/flutter_sqflite.git
       ref: 2.4.2-ohos-1.0.0
       path: sqflite_ohos
-  file_picker_ohos:
-    git:
-      url: https://gitcode.com/CPF-Flutter/fluttertpc_file_picker.git
-      ref: 10.3.8-ohos-1.0.0
+  # file_picker 不是联邦化插件，只能整包 vendored：官方 10.3.10 + ohos/。
+  # 见 packages/file_picker/VENDORED.md。
+  file_picker:
+    path: packages/file_picker
 
 dev_dependencies:
   flutter_test:
