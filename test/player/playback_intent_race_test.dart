@@ -15,6 +15,7 @@ import 'package:bilimusic/features/player/logic/dual_audio_service.dart';
 import 'package:bilimusic/features/player/logic/notification_service.dart';
 import 'package:bilimusic/features/player/logic/player_coordinator.dart';
 import 'package:bilimusic/features/playlist/playlist_service.dart';
+import 'package:bilimusic/features/roam/models/roam_style.dart';
 import 'package:bilimusic/features/roam/roaming_service.dart';
 import 'package:bilimusic/features/settings/settings_manager.dart';
 
@@ -25,6 +26,15 @@ class _FakeDualAudioService extends DualAudioService {
 
   @override
   ValueNotifier<PlayMode> get playMode => _mode;
+
+  @override
+  void setPlayMode(PlayMode mode) => _mode.value = mode;
+
+  @override
+  void togglePlayMode() {
+    final next = (_mode.value.index + 1) % PlayMode.values.length;
+    _mode.value = PlayMode.values[next];
+  }
 
   @override
   bool get isPlaying => false;
@@ -120,6 +130,21 @@ class _FakePlaylistService extends PlaylistService {
   }
 
   @override
+  Future<void> clearPlaylist() async {
+    _tracks.value = [];
+    _index.value = null;
+  }
+
+  @override
+  Future<void> addAllToPlaylist(List<Music> musics) async {
+    final unique = List<Music>.of(_tracks.value);
+    for (final m in musics) {
+      if (!unique.any((e) => e.id == m.id && e.cid == m.cid)) unique.add(m);
+    }
+    _tracks.value = unique;
+  }
+
+  @override
   Future<void> initialize() async {}
 
   @override
@@ -157,6 +182,20 @@ class _FakeApiService extends ApiService {
     expect(completer, isNotNull, reason: '没有等待中的取流：$id');
     completer!.complete((path: path, qualityId: '30280'));
   }
+}
+
+/// 立即返回取流结果，供不需要控制完成顺序的编排测试使用。
+class _ImmediateApiService extends ApiService {
+  _ImmediateApiService() : super(musicCache: _FakeCacheManager());
+
+  @override
+  Future<({String path, String qualityId})> getAudioUrl(
+    Music music, {
+    String qualityId = '30280',
+  }) async => (path: '/cache/${music.id}.m4a', qualityId: qualityId);
+
+  @override
+  Future<Music> ensureCid(Music music) async => music;
 }
 
 Music _music(String id) => Music(
@@ -282,6 +321,50 @@ void main() {
     await pendingPlay;
 
     expect(audio.played, ['<stop>']);
+
+    await coordinator.dispose();
+  });
+
+  test('漫游期间锁定顺序播放，退出后仍为顺序播放', () async {
+    final m1 = _music('BV1');
+    final playlist = _FakePlaylistService(const [], 0);
+    final audio = _FakeDualAudioService();
+    final api = _ImmediateApiService();
+
+    final coordinator = PlayerCoordinator(
+      audioService: audio,
+      audioEffectsService: AudioEffectsService(),
+      settingsManager: SettingsManager(),
+      playlistService: playlist,
+      notificationService: NotificationService(),
+      apiService: api,
+      roamingService: RoamingService(
+        client: BiliClient(),
+        playlistService: playlist,
+      ),
+    );
+
+    // 漫游前的随机播放不应带进漫游队列。
+    audio.playMode.value = PlayMode.shuffle;
+
+    await coordinator.applyRoamPlaylist(
+      songs: [m1],
+      style: RoamStyle.similar,
+      seeds: [m1],
+    );
+
+    expect(coordinator.isRoaming, isTrue);
+    expect(audio.playMode.value, PlayMode.sequential);
+
+    // 漫游期间切换播放模式必须被忽略。
+    coordinator.togglePlayMode();
+    coordinator.setPlayMode(PlayMode.loop);
+    expect(audio.playMode.value, PlayMode.sequential);
+
+    // 退出漫游后保持顺序播放，不恢复漫游前的随机模式。
+    coordinator.stopRoam();
+    expect(coordinator.isRoaming, isFalse);
+    expect(audio.playMode.value, PlayMode.sequential);
 
     await coordinator.dispose();
   });

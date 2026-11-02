@@ -8,6 +8,7 @@ import 'package:bilimusic/features/player/models/player_state.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/player/widgets/crossfade_indicator.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
+import 'package:bilimusic/features/roam/roam_providers.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
@@ -52,6 +53,7 @@ class LandscapeBottomControl extends ConsumerWidget {
 
     final currentMusic = ref.watch(currentMusicProvider);
     final playMode = ref.watch(playModeProvider);
+    final isRoaming = ref.watch(isRoamingProvider);
     final playerState = ref.watch(playerStateProvider);
     final barHeight = _barHeight(context);
     final hPadding = LandscapeBreakpoints.getHorizontalPadding(context);
@@ -96,6 +98,7 @@ class LandscapeBottomControl extends ConsumerWidget {
                         accentColor,
                         seekBarColor,
                         playMode,
+                        isRoaming,
                         playerState,
                       ),
                     ),
@@ -216,6 +219,7 @@ class LandscapeBottomControl extends ConsumerWidget {
     Color accentColor,
     Color seekBarColor,
     PlayMode playMode,
+    bool isRoaming,
     PlayerState playerState,
   ) {
     final width = MediaQuery.of(context).size.width;
@@ -232,6 +236,7 @@ class LandscapeBottomControl extends ConsumerWidget {
           accentColor,
           mainButtonSize,
           playMode,
+          isRoaming,
           playerState,
         ),
         if (showSeekBar) ...[
@@ -257,6 +262,7 @@ class LandscapeBottomControl extends ConsumerWidget {
     Color accentColor,
     double mainButtonSize,
     PlayMode playMode,
+    bool isRoaming,
     PlayerState playerState,
   ) {
     final smallSize = 40.0;
@@ -270,12 +276,13 @@ class LandscapeBottomControl extends ConsumerWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         PlaybackControlButton(
-          icon: playMode.icon,
+          icon: playMode.iconFor(isRoaming: isRoaming),
           size: smallSize,
           iconSize: smallSize * 0.78,
           iconColor: iconColor.withValues(alpha: 0.7),
           hoverColor: hoverColor,
-          onTap: commands.togglePlayMode,
+          // 漫游时底层固定顺序播放，不允许切换
+          onTap: isRoaming ? null : commands.togglePlayMode,
         ),
         const SizedBox(width: 16),
         PlaybackControlButton(

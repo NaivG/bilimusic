@@ -18,8 +18,8 @@ import 'package:mpv_audio_kit/mpv_audio_kit.dart' as mpv;
 
 /// 漫游会话：进入 roam 时创建，退出 roam 时置 null。
 ///
-/// 与 [PlayMode] 完全正交——roam 期间 PlayMode 不变（用户可继续按 sequential/
-/// shuffle 播）。退出 roam 只清空本会话，队列保留。
+/// 漫游期间 [PlayMode] 被固定为 [PlayMode.sequential] 且不可切换.
+/// 退出 roam 后保持顺序播放，只清空本会话，队列保留。
 class _RoamSession {
   final RoamStyle style;
   final int refillThreshold;
@@ -453,16 +453,20 @@ class PlayerCoordinator {
     await _audioService.seek(position);
   }
 
-  /// 切换播放模式
+  /// 切换播放模式。
+  ///
+  /// 漫游期间固定为 [PlayMode.sequential]，直接忽略切换请求。
   void togglePlayMode() {
+    if (_roamSession != null) return;
     _audioService.togglePlayMode();
   }
 
   /// 显式设置播放模式（与 togglePlayMode 互不影响）。
   ///
-  /// 仅接受 [PlayMode] 中的值；漫游模式由 [startRoam]/[stopRoam] 控制，
-  /// 不通过 [setPlayMode] 进入或退出。
+  /// 仅接受 [PlayMode] 中的值；漫游期间只允许顺序播放，忽略所有切换请求。
+  /// 漫游模式本身由 [startRoam]/[stopRoam] 控制，不通过 [setPlayMode] 进入或退出。
   void setPlayMode(PlayMode mode) {
+    if (_roamSession != null) return;
     _audioService.setPlayMode(mode);
   }
 
@@ -987,7 +991,7 @@ class PlayerCoordinator {
   /// - 清空当前播放列表（接受丢失当前进度，符合 网易云/Spotify RF 的 UX）
   /// - 加载歌单所有歌曲（系统 favorites / 用户自建歌单）
   /// - 从 currentIndex = 0 开始播放
-  /// - 创建 [_RoamSession] 激活懒加载
+  /// - 创建 [_RoamSession] 激活懒加载，并把播放模式固定为顺序播放
   ///
   /// 空歌单保护：歌单为空时直接 return，不创建 session、不抛错。
   Future<void> startRoam(String playlistId, RoamStyle style) async {
@@ -1064,7 +1068,7 @@ class PlayerCoordinator {
     );
   }
 
-  /// 退出漫游模式：停用 session，队列保留并继续按当前 PlayMode 播。
+  /// 退出漫游模式：停用 session，播放模式切回顺序播放，队列保留。
   void stopRoam() {
     if (_roamSession == null) return;
     _setRoamSession(null);
@@ -1074,10 +1078,12 @@ class PlayerCoordinator {
   /// 统一的漫游会话写入点：切换会话并同步 [roamingNotifier]。
   ///
   /// 所有漫游会话变更都必须走这里，否则漫游 UI 会与实际状态脱节。
+  /// 进入与退出都强制回到 [PlayMode.sequential]。
   void _setRoamSession(_RoamSession? session) {
     if (identical(_roamSession, session)) return;
     _roamSession = session;
     roamingNotifier.value = session != null;
+    _audioService.setPlayMode(PlayMode.sequential);
   }
 
   /// 采用远端对端推送的队列到本机播放（同步面板的「跟随此设备」）。

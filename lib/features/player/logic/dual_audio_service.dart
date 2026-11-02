@@ -1164,8 +1164,8 @@ class DualAudioService {
 
   /// 显式设置播放模式（与 togglePlayMode 互不影响）。
   ///
-  /// 仅支持 [PlayMode] 中的值，漫游模式（roam）由 PlayerCoordinator 内部状态机
-  /// 管理，独立于 [PlayMode]，不在此处暴露。
+  /// 仅支持 [PlayMode] 中的值；漫游期间固定顺序播放（不可切换）由
+  /// PlayerCoordinator 负责锁定与恢复，本层只负责执行切模式指令。
   void setPlayMode(PlayMode mode) {
     _playMode.value = mode;
     debugPrint('[DualAudioService] setPlayMode $mode');
