@@ -6,6 +6,7 @@ import 'package:bilimusic/domain/playlist.dart';
 import 'package:bilimusic/domain/taste_profile.dart';
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/features/home/logic/recommendation_manager.dart';
+import 'package:bilimusic/features/home/widgets/greeting_card.dart';
 import 'package:bilimusic/features/home/widgets/playlist_card.dart';
 import 'package:bilimusic/shared/widgets/cards/music_list_item.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
@@ -84,31 +85,41 @@ class _HomeContentState extends ConsumerState<HomeContent> {
     });
   }
 
+  /// 每日推荐的曲目池：优先个性化推荐，尚未生成时回退官方推荐。
+  List<Music> get _dailyRecommendedSongs =>
+      guessYouLikeList.isNotEmpty ? guessYouLikeList : recommendedList;
+
   Playlist _buildDailyRecommendedPlaylist() {
     final base = DefaultPlaylists.recommended;
+    final songs = _dailyRecommendedSongs;
     return Playlist(
       id: base.id,
       name: base.name,
       description: base.description,
-      coverUrl: guessYouLikeList.isNotEmpty
-          ? guessYouLikeList.first.safeCoverUrl
-          : (recommendedList.isNotEmpty
-                ? recommendedList.first.safeCoverUrl
-                : ''),
-      songCount: guessYouLikeList.isNotEmpty
-          ? guessYouLikeList.length
-          : recommendedList.length,
+      coverUrl: songs.isNotEmpty ? songs.first.safeCoverUrl : '',
+      songCount: songs.length,
       source: base.source,
       isDefault: base.isDefault,
       createdAt: base.createdAt,
       updatedAt: base.updatedAt,
-      songs: guessYouLikeList.isNotEmpty ? guessYouLikeList : recommendedList,
+      songs: songs,
     );
   }
 
   void _openSearchEntry() {
     ref.read(searchSuggestProvider.notifier).clear();
     ShellPageManager.instance.push(ShellPage.searchEntry);
+  }
+
+  void _playSomething() {
+    final songs = _dailyRecommendedSongs;
+    if (songs.isEmpty) return;
+    final index = DateTime.now().microsecondsSinceEpoch % songs.length;
+    _playMusic(songs[index]);
+  }
+
+  void _openRoamOnboarding() {
+    ShellPageManager.instance.push(ShellPage.roamOnboarding);
   }
 
   void _playMusic(Music music) {
@@ -135,6 +146,7 @@ class _HomeContentState extends ConsumerState<HomeContent> {
     Widget content = CustomScrollView(
       slivers: [
         if (widget.showAppBar) _buildAppBar(context, screenSize),
+        _buildGreetingSection(screenSize),
         _buildPlaylistSection(context, screenSize),
         _buildRecommendationSection(context, screenSize),
         _buildHistorySection(context, screenSize),
@@ -219,6 +231,26 @@ class _HomeContentState extends ConsumerState<HomeContent> {
     }
   }
 
+  SliverPadding _buildGreetingSection(ScreenSize screenSize) {
+    final isDesktop = screenSize == ScreenSize.desktop;
+    final canShuffle = _dailyRecommendedSongs.isNotEmpty;
+
+    return SliverPadding(
+      padding: EdgeInsets.fromLTRB(
+        isDesktop ? 32.0 : 24.0,
+        isDesktop ? 16.0 : (widget.showAppBar ? 4.0 : 12.0),
+        isDesktop ? 32.0 : 24.0,
+        4.0,
+      ),
+      sliver: SliverToBoxAdapter(
+        child: GreetingCard(
+          onShuffle: canShuffle ? _playSomething : null,
+          onStartRoam: _openRoamOnboarding,
+        ),
+      ),
+    );
+  }
+
   Widget _buildSectionHeader(String title, Color accentColor, bool isDesktop) {
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -293,9 +325,7 @@ class _HomeContentState extends ConsumerState<HomeContent> {
                       playlist: _buildDailyRecommendedPlaylist(),
                       onTap: () => ShellPageManager.instance.goToPlaylist(
                         playlistId: 'recommended',
-                        songs: guessYouLikeList.isNotEmpty
-                            ? guessYouLikeList
-                            : recommendedList,
+                        songs: _dailyRecommendedSongs,
                       ),
                     ),
                   ],

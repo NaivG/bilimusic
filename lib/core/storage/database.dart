@@ -22,13 +22,16 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._();
 
   static const String _dbFileName = 'playlist.db';
-  static const int _version = 2;
+  static const int _version = 3;
   static const String _migrationFlagKey = 'sqflite_migration_v1_done';
 
   /// v2 新增：离线缓存（downloads 表）。
   /// 注意：此后每加一张表，`_onCreate` 与 `_onUpgrade` **两处都要补**——
   /// 新装用户走 onCreate，老用户走 onUpgrade，漏一处就会出现"表不存在"。
   static const int _versionWithDownloads = 2;
+
+  /// v3 新增：离线记录保存封面地址（`downloads.cover_url`）。
+  static const int _versionWithOfflineCover = 3;
 
   Database? _db;
 
@@ -346,7 +349,8 @@ class AppDatabase {
   /// 离线缓存索引表。
   ///
   /// 主键 (bvid, cid)：与 [Music.key] 同一判等语义，多 P 视频按分 P 各存一份。
-  /// 只存"文件在哪、什么音质、多大"，音频本体是用户可见的普通文件，不进数据库。
+  /// 只存"文件在哪、什么音质、多大、封面是哪张"，音频本体是用户可见的
+  /// 普通文件，不进数据库。
   void _createDownloadsTable(Batch batch) {
     batch.execute('''
       CREATE TABLE IF NOT EXISTS downloads (
@@ -354,6 +358,7 @@ class AppDatabase {
         cid TEXT NOT NULL,
         title TEXT,
         artist TEXT,
+        cover_url TEXT,
         file_path TEXT NOT NULL,
         quality_id TEXT,
         file_size INTEGER DEFAULT 0,
@@ -377,7 +382,39 @@ class AppDatabase {
       _createDownloadsTable(batch);
     }
     await batch.commit(noResult: true);
+
+    // v3：给已有 downloads 表补封面列。按 PRAGMA 判断而不是只看版本号，
+    // 对"表刚由上面补建出来"的库也安全（那时列已经在了）。
+    if (oldVersion < _versionWithOfflineCover) {
+      await _ensureDownloadsCoverColumn(db);
+    }
     debugPrint('[AppDatabase] upgraded $oldVersion -> $newVersion');
+  }
+
+  Future<void> _ensureDownloadsCoverColumn(Database db) async {
+    final table = await db.query(
+      'sqlite_master',
+      columns: ['name'],
+      where: 'type = ? AND name = ?',
+      whereArgs: ['table', 'downloads'],
+      limit: 1,
+    );
+    // 历史库存在 user_version=2 却没有 downloads 表的情况（早期版本号迁移链
+    // 不完整）。这时直接补建整张表，而不是对不存在的表 ALTER 一下崩在启动。
+    if (table.isEmpty) {
+      final batch = db.batch();
+      _createDownloadsTable(batch);
+      await batch.commit(noResult: true);
+      return;
+    }
+
+    final columns = await db.rawQuery('PRAGMA table_info(downloads)');
+    final hasCover = columns.any(
+      (row) => row['name']?.toString() == 'cover_url',
+    );
+    if (!hasCover) {
+      await db.execute('ALTER TABLE downloads ADD COLUMN cover_url TEXT');
+    }
   }
 
   /// 一次性迁移：把旧 SharedPreferences 里残留的列表数据塞到 sqflite 里, 并删除旧 key。

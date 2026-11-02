@@ -124,7 +124,7 @@ Menu buildMusicContextMenu({
       if (ref != null)
         MenuAction(
           title: '离线缓存',
-          image: MenuImage.icon(Icons.download_for_offline_outlined),
+          image: MenuImage.icon(Icons.download_outlined),
           callback: () =>
               performOfflineDownload(ref: ref, music: music, context: context),
         ),

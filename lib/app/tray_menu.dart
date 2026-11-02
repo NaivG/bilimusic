@@ -23,6 +23,7 @@ typedef _MenuSnapshot = ({
   bool hasCurrent,
   bool isPlaying,
   bool isFavorite,
+  bool isRoaming,
   PlayMode playMode,
 });
 
@@ -111,7 +112,10 @@ class TrayMenu implements TrayMenuContent {
       ..state = _state(snapshot.isFavorite);
     _queueItem?.isEnabled = snapshot.hasQueue;
     for (final entry in _playModeItems.entries) {
-      entry.value.state = _state(entry.key == snapshot.playMode);
+      entry.value
+        ..state = _state(entry.key == snapshot.playMode)
+        // 漫游期间底层固定顺序播放，不允许切换
+        ..isEnabled = !snapshot.isRoaming;
     }
   }
 
@@ -259,6 +263,7 @@ class TrayMenu implements TrayMenuContent {
     _coordinator.currentIndexNotifier.addListener(_onPlayerStateChanged);
     _coordinator.playerState.addListener(_onPlayerStateChanged);
     _coordinator.playMode.addListener(_onPlayerStateChanged);
+    _coordinator.roamingNotifier.addListener(_onPlayerStateChanged);
     _coordinator.favorites.addListener(_onPlayerStateChanged);
   }
 
@@ -267,6 +272,7 @@ class TrayMenu implements TrayMenuContent {
     _coordinator.currentIndexNotifier.removeListener(_onPlayerStateChanged);
     _coordinator.playerState.removeListener(_onPlayerStateChanged);
     _coordinator.playMode.removeListener(_onPlayerStateChanged);
+    _coordinator.roamingNotifier.removeListener(_onPlayerStateChanged);
     _coordinator.favorites.removeListener(_onPlayerStateChanged);
   }
 
@@ -280,6 +286,7 @@ class TrayMenu implements TrayMenuContent {
       hasCurrent: music != null,
       isPlaying: _coordinator.isPlaying,
       isFavorite: music != null && _playlistService.isFavorite(music),
+      isRoaming: _coordinator.isRoaming,
       playMode: _coordinator.playMode.value,
     );
   }

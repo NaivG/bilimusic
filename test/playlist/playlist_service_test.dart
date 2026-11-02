@@ -269,6 +269,23 @@ void main() {
     });
   });
 
+  group('删除播放历史', () {
+    test('按曲目 key 同时清理内存与落盘行', () async {
+      final db = await openDb();
+      final service = PlaylistService();
+      await service.initialize();
+      final track = music(id: 'BV1', cid: '1');
+
+      await service.addToPlayHistory(track);
+      expect(service.playHistorySnapshot.map((m) => m.key), ['BV1_1']);
+
+      await service.removeFromPlayHistory(track);
+
+      expect(service.playHistorySnapshot, isEmpty);
+      expect(await db.query('play_history'), isEmpty);
+    });
+  });
+
   group('备份导入导出', () {
     test('当前队列、自定义标签和 kv 表可往返', () async {
       final service = PlaylistService();

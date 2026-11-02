@@ -12,6 +12,9 @@ class SettingsState {
   final String appearance;
   final String theme;
   final bool autoPlayNext;
+
+  /// 竖屏下是否在详情页之外的其他页面也显示迷你播放器。
+  final bool alwaysShowMiniPlayer;
   final bool showLyrics;
   final bool fluidBackground;
   final bool blurEffect;
@@ -46,6 +49,7 @@ class SettingsState {
     this.appearance = 'system',
     this.theme = 'lucent',
     this.autoPlayNext = true,
+    this.alwaysShowMiniPlayer = true,
     this.showLyrics = true,
     this.fluidBackground = true,
     this.blurEffect = true,
@@ -70,6 +74,7 @@ class SettingsState {
     String? appearance,
     String? theme,
     bool? autoPlayNext,
+    bool? alwaysShowMiniPlayer,
     bool? showLyrics,
     bool? fluidBackground,
     bool? blurEffect,
@@ -93,6 +98,7 @@ class SettingsState {
       appearance: appearance ?? this.appearance,
       theme: theme ?? this.theme,
       autoPlayNext: autoPlayNext ?? this.autoPlayNext,
+      alwaysShowMiniPlayer: alwaysShowMiniPlayer ?? this.alwaysShowMiniPlayer,
       showLyrics: showLyrics ?? this.showLyrics,
       fluidBackground: fluidBackground ?? this.fluidBackground,
       blurEffect: blurEffect ?? this.blurEffect,
@@ -123,6 +129,7 @@ class SettingsState {
       appearance: s.appearance,
       theme: s.theme,
       autoPlayNext: s.autoPlayNext,
+      alwaysShowMiniPlayer: s.alwaysShowMiniPlayer,
       showLyrics: s.showLyrics,
       fluidBackground: s.fluidBackground,
       blurEffect: s.blurEffect,
@@ -184,6 +191,10 @@ class SettingsNotifier extends Notifier<SettingsState> {
   /// [_onManagerChanged] 会把新状态带回来。
   Future<void> setAutoPlayNext(bool value) async {
     await ref.read(_settingsManagerProvider).setAutoPlayNext(value);
+  }
+
+  Future<void> setAlwaysShowMiniPlayer(bool value) async {
+    await ref.read(_settingsManagerProvider).setAlwaysShowMiniPlayer(value);
   }
 
   Future<void> setShowLyrics(bool value) async {

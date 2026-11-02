@@ -287,15 +287,25 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
     await ref.read(playbackCommandsProvider.notifier).playMusic(music);
   }
 
-  /// 从歌单移除歌曲
+  /// 从歌单移除单首歌曲
   Future<void> _removeSong(Music music) async {
-    if (widget.playlistId == null) return;
+    await _removeSongs([music]);
+  }
+
+  /// 批量删除歌曲；返回是否实际删除了内容。
+  Future<bool> _removeSongs(List<Music> songs) async {
+    final playlistId = widget.playlistId;
+    if (playlistId == null || songs.isEmpty) return false;
 
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('确认删除'),
-        content: Text('确定要从歌单中移除"${music.title}"吗？'),
+        content: Text(
+          songs.length == 1
+              ? '确定要从歌单中移除"${songs.single.title}"吗？'
+              : '确定要从歌单中删除选中的 ${songs.length} 首歌曲吗？',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -309,19 +319,58 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
       ),
     );
 
-    if (confirm == true) {
-      await ref.read(playlistServiceProvider).removeSongsFromPlaylist(
-        widget.playlistId!,
-        [music],
-      );
-      setState(() {
-        _songs.remove(music);
-      });
+    if (confirm != true || !mounted) return false;
 
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('已从歌单中移除"${music.title}"')));
+    try {
+      await _applyRemoval(playlistId, songs);
+    } catch (e) {
+      _showSnack('删除失败：$e');
+      return false;
+    }
+    if (!mounted) return false;
+
+    final removedKeys = songs.map((music) => music.key).toSet();
+    _syncSongs(
+      _songs.where((music) => !removedKeys.contains(music.key)).toList(),
+    );
+    _showSnack(
+      songs.length == 1
+          ? '已从歌单中移除"${songs.single.title}"'
+          : '已删除 ${songs.length} 首歌曲',
+    );
+    return true;
+  }
+
+  /// 按歌单类型分派删除：收藏 / 历史 / 播放队列走各自的数据源，
+  /// 推荐与用户歌单走 playlist_song 表，其余临时歌单只改本地列表。
+  Future<void> _applyRemoval(String playlistId, List<Music> songs) async {
+    final service = ref.read(playlistServiceProvider);
+
+    if (playlistId == 'favorites') {
+      for (final music in songs) {
+        await service.removeFromFavorites(music);
       }
+      return;
+    }
+
+    if (playlistId == 'history') {
+      for (final music in songs) {
+        await service.removeFromPlayHistory(music);
+      }
+      return;
+    }
+
+    if (playlistId == 'queue') {
+      final commands = ref.read(playbackCommandsProvider.notifier);
+      for (final music in songs) {
+        await commands.removeFromPlaylist(music);
+      }
+      return;
+    }
+
+    if (playlistId == 'recommended' ||
+        service.getPlaylistInfo(playlistId) != null) {
+      await service.removeSongsFromPlaylist(playlistId, songs);
     }
   }
 
@@ -342,6 +391,7 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
         currentPlaylist: _currentPlaylist,
         onSongTap: _playSong,
         onRemoveSong: _removeSong,
+        onRemoveMany: _removeSongs,
         onPlayAll: _playAll,
         onShufflePlay: _shufflePlay,
         onAddToPlaylist: _addAllToPlaylist,
@@ -358,6 +408,7 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
       currentPlaylist: _currentPlaylist,
       onSongTap: _playSong,
       onRemoveSong: _removeSong,
+      onRemoveMany: _removeSongs,
       onPlayAll: _playAll,
       onShufflePlay: _shufflePlay,
       onAddToPlaylist: _addAllToPlaylist,

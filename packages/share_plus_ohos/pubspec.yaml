@@ -1,0 +1,26 @@
+name: share_plus_ohos
+description: >-
+  share_plus 的 OpenHarmony / HarmonyOS 平台实现：把文本 / 文件 / URI 交给系统分享面板。
+version: 12.0.1
+publish_to: 'none'
+
+environment:
+  sdk: ^3.6.0
+  flutter: ">=3.27.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+
+flutter:
+  # 联邦化平台实现包：front-end 是 pub.dev 的 share_plus，本包只补 ohos 平台。
+  # 官方 Flutter SDK 不认识 `ohos` 平台键，会把本包当作「没有任何平台」的插件跳过。
+  plugin:
+    implements: share_plus
+    platforms:
+      ohos:
+        package: dev.fluttercommunity.plus.share
+        pluginClass: SharePlusOhosPlugin

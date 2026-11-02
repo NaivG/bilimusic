@@ -12,6 +12,7 @@ class OfflineTrack {
     required this.cid,
     required this.title,
     required this.artist,
+    this.coverUrl = '',
     required this.filePath,
     required this.qualityId,
     required this.fileSize,
@@ -26,6 +27,9 @@ class OfflineTrack {
 
   final String title;
   final String artist;
+
+  /// 下载时曲目的封面地址。
+  final String coverUrl;
 
   /// 落盘时的绝对路径（查表直接用这个，避免每次拼目录）
   final String filePath;
@@ -47,6 +51,7 @@ class OfflineTrack {
       cid: row['cid']?.toString() ?? '',
       title: row['title']?.toString() ?? '',
       artist: row['artist']?.toString() ?? '',
+      coverUrl: row['cover_url']?.toString() ?? '',
       filePath: row['file_path']?.toString() ?? '',
       qualityId: row['quality_id']?.toString() ?? '',
       fileSize: (row['file_size'] as num?)?.toInt() ?? 0,

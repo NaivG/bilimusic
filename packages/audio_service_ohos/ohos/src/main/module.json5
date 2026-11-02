@@ -1,0 +1,10 @@
+{
+  "module": {
+    "name": "audio_service_ohos",
+    "type": "har",
+    "deviceTypes": [
+      "default",
+      "tablet"
+    ]
+  }
+}

@@ -21,6 +21,9 @@ class LyricSection extends StatefulWidget {
   final String? selectedLyricId;
   final bool isLoadingLyrics;
   final bool showHeader;
+
+  /// 竖屏歌词页头部的封面缩略图。
+  final Widget? heroCover;
   final Function(String)? onLyricSourceChanged;
   final Function(Duration)? onLyricTap;
 
@@ -35,6 +38,7 @@ class LyricSection extends StatefulWidget {
     this.selectedLyricId,
     this.isLoadingLyrics = false,
     this.showHeader = true,
+    this.heroCover,
     this.onLyricSourceChanged,
     this.onLyricTap,
   });
@@ -195,6 +199,10 @@ class _LyricSectionState extends State<LyricSection> {
   }
 
   Widget _buildPortraitLayout(LyricStyle style) {
+    if (widget.heroCover != null) {
+      return _buildPortraitHeroLayout(style);
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Stack(
@@ -216,6 +224,71 @@ class _LyricSectionState extends State<LyricSection> {
             Positioned(right: 0, bottom: 24, child: _buildLyricSourceButton()),
         ],
       ),
+    );
+  }
+
+  /// 竖屏播放页的歌词汇总页：小封面 + 曲名 / 歌手，歌词占满剩余高度。
+  Widget _buildPortraitHeroLayout(LyricStyle style) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const SizedBox(height: 8),
+            _buildHeroHeader(),
+            const SizedBox(height: 18),
+            Expanded(child: _buildLyricContent(style)),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroHeader() {
+    return Row(
+      children: [
+        widget.heroCover!,
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                widget.title ?? '',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                  height: 1.2,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                widget.artist ?? '',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  height: 1.2,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+        if (!widget.isLoadingLyrics && widget.lyricSources.isNotEmpty) ...[
+          const SizedBox(width: 10),
+          _buildLyricSourceButton(compact: true),
+        ],
+      ],
     );
   }
 
@@ -322,9 +395,13 @@ class _LyricSectionState extends State<LyricSection> {
     );
   }
 
-  Widget _buildLyricSourceButton() {
+  Widget _buildLyricSourceButton({bool compact = false}) {
+    final buttonPadding = compact ? 9.0 : 10.0;
+    final iconSize = compact ? 20.0 : 22.0;
+    final radius = compact ? 20.0 : 24.0;
+
     return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(radius),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: PopupMenuButton<String>(
@@ -362,10 +439,10 @@ class _LyricSectionState extends State<LyricSection> {
             }).toList();
           },
           child: Container(
-            padding: const EdgeInsets.all(10),
+            padding: EdgeInsets.all(buttonPadding),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(radius),
               border: Border.all(
                 color: Colors.white.withValues(alpha: 0.15),
                 width: 1,
@@ -374,7 +451,7 @@ class _LyricSectionState extends State<LyricSection> {
             child: Icon(
               Icons.lyrics_outlined,
               color: Colors.white.withValues(alpha: 0.7),
-              size: 22,
+              size: iconSize,
             ),
           ),
         ),

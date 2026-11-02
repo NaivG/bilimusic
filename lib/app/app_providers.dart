@@ -29,6 +29,8 @@ import 'package:bilimusic/features/auth/user_manager.dart';
 import 'package:bilimusic/features/fav_sync/fav_sync_manager.dart';
 import 'package:bilimusic/features/following/following_service.dart';
 import 'package:bilimusic/features/artist/artist_service.dart';
+import 'package:bilimusic/shared/utils/platform_helper.dart';
+import 'package:mpv_audio_kit_ohos/mpv_audio_kit_ohos.dart';
 
 /// 应用级服务 / 管理器的依赖容器。
 ///
@@ -72,7 +74,12 @@ final pipServiceProvider = Provider<PipService>((ref) {
 // ==================== 双播放器服务 ====================
 
 final dualAudioServiceProvider = Provider<DualAudioService>((ref) {
-  final svc = DualAudioService();
+  // OHOS 上 libmpv 由 main() 里的 MpvAudioKitOhos 先自检；自检失败（HAP 里缺
+  // libmpv.so / 依赖解析不了）才退回占位服务：播放器不创建，但状态
+  // ValueNotifier 仍然可供 UI 读取。
+  final svc = DualAudioService(
+    placeholder: PlatformHelper.isOhos && !MpvAudioKitOhos.isReady,
+  );
   svc.initialize();
   ref.onDispose(svc.dispose);
   return svc;

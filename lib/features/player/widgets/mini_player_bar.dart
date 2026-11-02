@@ -365,12 +365,16 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
                             ),
                           ),
                           const SizedBox(width: 12),
-                          // 歌曲信息
+                          // 歌曲信息（点击标题/歌手也可进入详情页）
                           Expanded(
-                            child: _buildSongInfo(
-                              textPrimary,
-                              textSecondary,
-                              currentPlayerState,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: widget.onExpand,
+                              child: _buildSongInfo(
+                                textPrimary,
+                                textSecondary,
+                                currentPlayerState,
+                              ),
                             ),
                           ),
                           // 控制按钮

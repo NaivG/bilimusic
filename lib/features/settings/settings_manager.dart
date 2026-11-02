@@ -15,6 +15,7 @@ class SettingsManager extends ChangeNotifier {
   static const String KEY_APPEARANCE = 'appearance';
   static const String KEY_THEME = 'theme';
   static const String KEY_AUTO_PLAY_NEXT = 'auto_play_next';
+  static const String KEY_ALWAYS_SHOW_MINI_PLAYER = 'always_show_mini_player';
   static const String KEY_SHOW_LYRICS = 'show_lyrics';
   static const String KEY_FLUID_BACKGROUND = 'fluid_background';
   static const String KEY_BLUR_EFFECT = 'blur_effect'; // 新增毛玻璃取色效果设置项
@@ -57,6 +58,7 @@ class SettingsManager extends ChangeNotifier {
   static const String DEFAULT_APPEARANCE = 'system';
   static const String DEFAULT_THEME = 'lucent';
   static const bool DEFAULT_AUTO_PLAY_NEXT = true;
+  static const bool DEFAULT_ALWAYS_SHOW_MINI_PLAYER = false;
   static const bool DEFAULT_SHOW_LYRICS = true;
   static const bool DEFAULT_FLUID_BACKGROUND = true;
   static const bool DEFAULT_BLUR_EFFECT = true;
@@ -152,6 +154,9 @@ class SettingsManager extends ChangeNotifier {
 
     _cache[KEY_AUTO_PLAY_NEXT] =
         prefs.getBool(KEY_AUTO_PLAY_NEXT) ?? DEFAULT_AUTO_PLAY_NEXT;
+    _cache[KEY_ALWAYS_SHOW_MINI_PLAYER] =
+        prefs.getBool(KEY_ALWAYS_SHOW_MINI_PLAYER) ??
+        DEFAULT_ALWAYS_SHOW_MINI_PLAYER;
     _cache[KEY_SHOW_LYRICS] =
         prefs.getBool(KEY_SHOW_LYRICS) ?? DEFAULT_SHOW_LYRICS;
     _cache[KEY_FLUID_BACKGROUND] =
@@ -247,6 +252,16 @@ class SettingsManager extends ChangeNotifier {
   Future<void> setAutoPlayNext(bool value) async {
     await _saveSetting(KEY_AUTO_PLAY_NEXT, value);
     _cache[KEY_AUTO_PLAY_NEXT] = value;
+  }
+
+  /// 竖屏下是否在详情页之外的其他页面也显示迷你播放器
+  bool get alwaysShowMiniPlayer =>
+      _cache[KEY_ALWAYS_SHOW_MINI_PLAYER] ?? DEFAULT_ALWAYS_SHOW_MINI_PLAYER;
+
+  /// 设置竖屏下是否在详情页之外的其他页面也显示迷你播放器
+  Future<void> setAlwaysShowMiniPlayer(bool value) async {
+    await _saveSetting(KEY_ALWAYS_SHOW_MINI_PLAYER, value);
+    _cache[KEY_ALWAYS_SHOW_MINI_PLAYER] = value;
   }
 
   /// 获取显示歌词设置

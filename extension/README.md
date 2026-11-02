@@ -83,7 +83,7 @@ B 站 CDN 的 `upos` / `edge` 节点校验 `Referer`，缺它返回 403。扩展
 extension/
 ├── manifest.json            # MV3
 ├── rules.json               # DNR：改写 Referer
-├── icons/icon.png
+├── icons/                   # icon16/32/48/128.png（清单实际尺寸）+ icon.png（256px UI）
 ├── scripts/
 │   ├── verify.mjs               # 离线自检（纯 Node，无网络）
 │   ├── gen_daisyui_subset.mjs   # 生成 daisyUI 按需子集（联网）

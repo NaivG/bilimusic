@@ -8,6 +8,11 @@ on:
       - 'v*' # 当推送的标签以"v"开头时触发，常用于版本发布
   workflow_dispatch: # 允许手动触发工作流，便于管理和测试
 
+# gitcode 的 Git LFS 端点不接受匿名下载。
+# pub 只要源码树，指针文件就够。
+env:
+  GIT_LFS_SKIP_SMUDGE: '1'
+
 jobs:
   # 在 Ubuntu 环境中运行，避免了 macOS 的 sed 问题
   # 更新 pubspec.yaml 中的版本号

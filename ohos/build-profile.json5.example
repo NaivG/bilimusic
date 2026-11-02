@@ -1,0 +1,43 @@
+{
+  // 模板：首次构建前 `flutter build hap` 需要 ohos/build-profile.json5。
+  // 把它复制成 build-profile.json5，再在 DevEco Studio 里
+  // File > Project Structure > Signing Configs 勾选自动签名，
+  // DevEco 会把本机证书路径写进 build-profile.json5（该文件已被 .gitignore，
+  // 因为里面的签名材料与绝对路径是各自本机的，不能进仓库）。
+  "app": {
+    "signingConfigs": [],
+    "products": [
+      {
+        "name": "default",
+        "compatibleSdkVersion": "5.0.5(17)",
+        "targetSdkVersion": "5.0.5(17)",
+        "runtimeOS": "HarmonyOS",
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug"
+      },
+      {
+        "name": "profile"
+      },
+      {
+        "name": "release"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    }
+  ]
+}

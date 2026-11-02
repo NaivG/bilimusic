@@ -1,0 +1,6 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    # 这个包只做平台引导，日志是它在设备上唯一可用的观测面。
+    avoid_print: false

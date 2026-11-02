@@ -39,7 +39,7 @@ Future<void> showSyncPanel(BuildContext context) {
 // TODO(临时接线): 等同步面板有了自己的常驻入口（播放页按钮 / 侧边栏）后删除。
 SheetAction syncPanelSheetAction(BuildContext context, {int onlinePeers = 0}) {
   return SheetAction(
-    icon: Icons.sync,
+    icon: Icons.cast_rounded,
     label: onlinePeers > 0 ? '同步面板 · $onlinePeers 台在线' : '同步面板',
     onTap: () => showSyncPanel(context),
   );
@@ -418,7 +418,7 @@ class _PanelHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
       child: Row(
         children: [
-          const Icon(Icons.sync, color: Colors.white, size: 20),
+          const Icon(Icons.cast_rounded, color: Colors.white, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -890,7 +890,7 @@ class _PanelActions extends StatelessWidget {
             ),
             FilledButton.tonalIcon(
               onPressed: hasRemoteQueue ? onFollow : null,
-              icon: const Icon(Icons.download_for_offline_outlined, size: 18),
+              icon: const Icon(Icons.swap_horiz_outlined, size: 18),
               label: const Text('跟随此设备'),
             ),
           ],

@@ -1,0 +1,25 @@
+# meson 交叉编译文件模板（由 env.sh 生成到 $WORK_DIR/<arch>-crossfile.ini）
+# SDK 路径由 OHOS_NDK_HOME 替换：Windows 形式的绝对路径，meson 直接传给 clang.exe
+[host_machine]
+system = 'linux'
+cpu_family = '@CPU_FAMILY@'
+cpu = '@CPU@'
+endian = 'little'
+
+[binaries]
+c = '@SDK@/native/llvm/bin/clang.exe'
+cpp = '@SDK@/native/llvm/bin/clang++.exe'
+ar = '@SDK@/native/llvm/bin/llvm-ar.exe'
+strip = '@SDK@/native/llvm/bin/llvm-strip.exe'
+c_ld = '@SDK@/native/llvm/bin/ld.lld.exe'
+cpp_ld = '@SDK@/native/llvm/bin/ld.lld.exe'
+pkg-config = '@PKG_CONFIG@'
+
+[built-in options]
+c_args = ['--target=@TRIPLE@', '--sysroot=@SDK@/native/sysroot', '-fPIC', '-D__MUSL__=1', '-Wno-int-conversion']
+cpp_args = ['--target=@TRIPLE@', '--sysroot=@SDK@/native/sysroot', '-fPIC', '-D__MUSL__=1', '-Wno-int-conversion']
+c_link_args = ['--target=@TRIPLE@', '-fuse-ld=lld', '-lc++_shared']
+cpp_link_args = ['--target=@TRIPLE@', '-fuse-ld=lld', '-lc++_shared']
+buildtype = 'release'
+default_library = 'static'
+wrap_mode = 'nodownload'

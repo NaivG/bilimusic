@@ -11,6 +11,7 @@ import 'package:bilimusic/features/player/models/player_state.dart';
 import 'package:bilimusic/features/lyrics/lyrics_providers.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
+import 'package:bilimusic/features/roam/roam_providers.dart';
 import 'package:bilimusic/features/lyrics/lyrics_service.dart';
 import 'package:bilimusic/features/player/now_playing/color_extractor.dart';
 import 'package:bilimusic/shared/utils/play_mode_icon.dart';
@@ -190,6 +191,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     final position = ref.watch(positionProvider);
     final ps = ref.watch(playerStateProvider);
     final mode = ref.watch(playModeProvider);
+    final isRoaming = ref.watch(isRoamingProvider);
 
     final liveMusic = ref.read(playerCoordinatorProvider).currentMusic;
     final musicChanged = liveMusic != null && liveMusic.id != _music.id;
@@ -259,7 +261,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     }
 
     final isPlaying = ps is PlayerPlaying;
-    final icon = mode.icon;
+    final icon = mode.iconFor(isRoaming: isRoaming);
 
     void togglePlayMode() =>
         ref.read(playbackCommandsProvider.notifier).togglePlayMode();

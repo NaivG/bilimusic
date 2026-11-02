@@ -19,6 +19,8 @@ body:
         - macOS
         - iOS
         - TUI（终端客户端）
+        - HarmonyOS
+        - Chrome Extension
         - 其他
     validations:
       required: true

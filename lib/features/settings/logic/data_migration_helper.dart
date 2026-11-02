@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:file_picker/file_picker.dart';
+import 'package:file_picker_ohos/file_picker_ohos.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -56,6 +56,8 @@ class DataMigrationHelper {
     SettingsManager.KEY_APPEARANCE: SettingsManager.DEFAULT_APPEARANCE,
     SettingsManager.KEY_THEME: SettingsManager.DEFAULT_THEME,
     SettingsManager.KEY_AUTO_PLAY_NEXT: SettingsManager.DEFAULT_AUTO_PLAY_NEXT,
+    SettingsManager.KEY_ALWAYS_SHOW_MINI_PLAYER:
+        SettingsManager.DEFAULT_ALWAYS_SHOW_MINI_PLAYER,
     SettingsManager.KEY_SHOW_LYRICS: SettingsManager.DEFAULT_SHOW_LYRICS,
     SettingsManager.KEY_FLUID_BACKGROUND:
         SettingsManager.DEFAULT_FLUID_BACKGROUND,

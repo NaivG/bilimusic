@@ -12,6 +12,7 @@ import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/playlist/widgets/playlist_song_list.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 
 /// 歌手页（UP 页）：页头 + TA 的投稿列表。
 ///
@@ -197,13 +198,18 @@ class _ArtistPageState extends ConsumerState<ArtistPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isLandscape = LandscapeBreakpoints.isLandscapeMode(context);
+
     return Scaffold(
       backgroundColor: Colors.transparent,
+      appBar: isLandscape
+          ? null
+          : AutoAppBar.generateAppBar(context: context, title: "UP 详情"),
       body: SafeArea(
         child: Column(
           children: [
             if (_isCollecting) _buildCollectBanner(),
-            Expanded(child: _buildBody()),
+            Expanded(child: _buildBody(isLandscape)),
           ],
         ),
       ),
@@ -239,13 +245,12 @@ class _ArtistPageState extends ConsumerState<ArtistPage> {
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(bool isLandscape) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
     final colorScheme = Theme.of(context).colorScheme;
-    final isLandscape = LandscapeBreakpoints.isLandscapeMode(context);
 
     return RefreshIndicator(
       onRefresh: _refresh,

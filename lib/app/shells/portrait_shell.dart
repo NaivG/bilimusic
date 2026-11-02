@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:bilimusic/features/playlist/playlist_providers.dart';
-import 'package:bilimusic/features/player/widgets/mini_player_bar.dart';
-import 'package:bilimusic/app/shells/widgets/desktop_window_controls.dart';
+import 'package:bilimusic/app/shells/logic/mini_player_auto_hide.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/app/shells/shell_widgets.dart';
+import 'package:bilimusic/app/shells/widgets/desktop_window_controls.dart';
 import 'package:bilimusic/features/home/home_page.dart';
+import 'package:bilimusic/features/player/widgets/mini_player_bar.dart';
+import 'package:bilimusic/features/playlist/playlist_providers.dart';
+import 'package:bilimusic/features/settings/settings_provider.dart';
+import 'package:bilimusic/shared/theme/app_tokens.dart';
 
 /// 竖屏模式外壳
 /// 主内容 + 迷你播放器 + 底部导航栏
-class PortraitShell extends ConsumerWidget {
+class PortraitShell extends ConsumerStatefulWidget {
   final ShellPage currentPage;
   final ShellPageManager pageManager;
   final bool isPcPlatform;
@@ -25,17 +28,63 @@ class PortraitShell extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    ref.watch(currentIndexProvider);
-    return _buildPortraitLayout(context, ref);
+  ConsumerState<PortraitShell> createState() => _PortraitShellState();
+}
+
+class _PortraitShellState extends ConsumerState<PortraitShell> {
+  final MiniPlayerAutoHide _autoHide = MiniPlayerAutoHide();
+  final ValueNotifier<bool> _miniPlayerHidden = ValueNotifier(false);
+
+  /// 用于判断底层页面是否换了一帧（例如歌单 A → 歌单 B）。
+  Key? _basePageKey;
+
+  @override
+  void initState() {
+    super.initState();
+    _basePageKey = widget.pageManager.basePageKey;
+  }
+
+  @override
+  void didUpdateWidget(covariant PortraitShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final basePageKey = widget.pageManager.basePageKey;
+    if (oldWidget.currentPage != widget.currentPage ||
+        _basePageKey != basePageKey) {
+      _autoHide.reset();
+      _miniPlayerHidden.value = false;
+    }
+    _basePageKey = basePageKey;
+  }
+
+  @override
+  void dispose() {
+    _miniPlayerHidden.dispose();
+    super.dispose();
   }
 
   /// 是否显示底部导航栏
   bool get _showBottomBar {
-    return currentPage == ShellPage.home ||
-        currentPage == ShellPage.discover ||
-        currentPage == ShellPage.profile ||
-        currentPage == ShellPage.settings;
+    return widget.currentPage == ShellPage.home ||
+        widget.currentPage == ShellPage.discover ||
+        widget.currentPage == ShellPage.profile ||
+        widget.currentPage == ShellPage.settings;
+  }
+
+  /// 是否显示悬浮迷你播放器。
+  bool _showMiniPlayer(bool alwaysShowMiniPlayer) {
+    if (widget.currentPage == ShellPage.detail ||
+        widget.currentPage == ShellPage.roamOnboarding ||
+        widget.currentPage == ShellPage.login) {
+      return false;
+    }
+    return _showBottomBar || alwaysShowMiniPlayer;
+  }
+
+  /// 其他页面的迷你播放器随滚动方向收起/展开；顶部导航页保持常驻。
+  bool _miniPlayerCanAutoHide(bool alwaysShowMiniPlayer) {
+    return alwaysShowMiniPlayer &&
+        widget.currentPage != ShellPage.detail &&
+        !_showBottomBar;
   }
 
   Widget _buildPageContent(ShellPageEntry entry) {
@@ -46,16 +95,34 @@ class PortraitShell extends ConsumerWidget {
     );
   }
 
-  Widget _buildPortraitLayout(BuildContext context, WidgetRef ref) {
-    final selectedIndex = pageManager.selectedTabIndex;
+  @override
+  Widget build(BuildContext context) {
+    ref.watch(currentIndexProvider);
+    final alwaysShowMiniPlayer = ref.watch(
+      settingsProvider.select((settings) => settings.alwaysShowMiniPlayer),
+    );
+    return _buildPortraitLayout(context, alwaysShowMiniPlayer);
+  }
+
+  Widget _buildPortraitLayout(BuildContext context, bool alwaysShowMiniPlayer) {
+    final selectedIndex = widget.pageManager.selectedTabIndex;
+    final showMiniPlayer = _showMiniPlayer(alwaysShowMiniPlayer);
+    final miniPlayerCanAutoHide = _miniPlayerCanAutoHide(alwaysShowMiniPlayer);
+    // 从迷你播放器的定位里扣掉键盘高度，让它保持屏幕上的原位，再由收缩后的 body 底边（键盘上沿）
+    // 裁掉，呈现被键盘直接盖住的效果。
+    // 你别管路子野不野，你就说有没有解决问题吧.jpg
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    final bottomInset = _showBottomBar
+        ? 0.0
+        : MediaQuery.viewPaddingOf(context).bottom;
 
     return Scaffold(
-      appBar: isPcPlatform
+      appBar: widget.isPcPlatform
           ? PreferredSize(
               preferredSize: const Size.fromHeight(40),
               child: DesktopNavBar(
                 selectedIndex: selectedIndex,
-                onNavTap: (index) => pageManager.goToTab(index),
+                onNavTap: (index) => widget.pageManager.goToTab(index),
               ),
             )
           : null,
@@ -63,25 +130,29 @@ class PortraitShell extends ConsumerWidget {
         fit: StackFit.expand,
         children: [
           buildShellBackground(context, ref),
-          shellPageSwitcher(
-            key: pageManager.basePageKey,
-            child: _buildPageContent(pageManager.baseEntry),
+          NotificationListener<ScrollNotification>(
+            onNotification: (notification) => _onScrollNotification(
+              notification,
+              enabled: miniPlayerCanAutoHide,
+            ),
+            child: shellPageSwitcher(
+              key: widget.pageManager.basePageKey,
+              child: _buildPageContent(widget.pageManager.baseEntry),
+            ),
           ),
           // 详情页独立动画层（与底层切换完全解耦）
-          buildShellDetailLayer(currentPage: currentPage),
+          buildShellDetailLayer(currentPage: widget.currentPage),
           // 悬浮迷你播放器
-          if (_showBottomBar)
+          if (showMiniPlayer)
             Positioned(
               left: 0,
               right: 0,
-              bottom: 16,
-              child: Center(
-                child: SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.95,
-                  child: MiniPlayerBar(
-                    onExpand: () => pageManager.push(ShellPage.detail),
-                    onPlayList: onPlayList,
-                  ),
+              bottom: 16 + bottomInset - keyboardInset,
+              child: ValueListenableBuilder<bool>(
+                valueListenable: _miniPlayerHidden,
+                builder: (context, hidden, _) => _buildMiniPlayer(
+                  context,
+                  hidden: miniPlayerCanAutoHide && hidden,
                 ),
               ),
             ),
@@ -124,10 +195,63 @@ class PortraitShell extends ConsumerWidget {
                   ),
                 ],
                 currentIndex: selectedIndex,
-                onTap: (index) => pageManager.goToTab(index),
+                onTap: (index) => widget.pageManager.goToTab(index),
               ),
             )
           : null,
     );
+  }
+
+  Widget _buildMiniPlayer(BuildContext context, {required bool hidden}) {
+    return ExcludeSemantics(
+      excluding: hidden,
+      child: IgnorePointer(
+        ignoring: hidden,
+        child: AnimatedSlide(
+          offset: hidden ? const Offset(0, 2) : Offset.zero,
+          duration: AppTokens.standardDuration,
+          curve: AppTokens.standardEasing,
+          child: AnimatedOpacity(
+            opacity: hidden ? 0 : 1,
+            duration: AppTokens.standardDuration,
+            curve: AppTokens.standardEasing,
+            child: Center(
+              child: SizedBox(
+                width: MediaQuery.sizeOf(context).width * 0.95,
+                child: MiniPlayerBar(
+                  onExpand: () => widget.pageManager.push(ShellPage.detail),
+                  onPlayList: widget.onPlayList,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool _onScrollNotification(
+    ScrollNotification notification, {
+    required bool enabled,
+  }) {
+    if (!enabled || notification.metrics.axis != Axis.vertical) return false;
+
+    if (notification is ScrollEndNotification) {
+      _autoHide.reset();
+      return false;
+    }
+    if (notification is! ScrollUpdateNotification) return false;
+
+    final delta = notification.scrollDelta;
+    if (delta == null || delta == 0) return false;
+
+    final shouldHide = _autoHide.update(
+      delta,
+      atTop: notification.metrics.extentBefore <= 0,
+    );
+    if (shouldHide != null && shouldHide != _miniPlayerHidden.value) {
+      _miniPlayerHidden.value = shouldHide;
+    }
+    return false;
   }
 }

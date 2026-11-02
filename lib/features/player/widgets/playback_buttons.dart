@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
 
@@ -88,14 +87,17 @@ class _CircleIconButtonState extends State<CircleIconButton>
 }
 
 /// 播放控制次按钮（mode / prev / next / queue）。
-/// 与 LandscapeBottomControl 中央控制行的按钮同款：
-/// [ScaleOnHover] 悬停放大 + [IconButton] 水波纹反馈，
-/// hover 底色为歌曲卡片同款 ghost 风格轻浮雕。
+/// Apple Music 风格：无底色大图标，只保留 [ScaleOnHover] 悬停放大。
+/// 默认不铺任何底色；底栏等需要桌面悬停反馈的场景可传 [hoverColor]。
 class PlaybackControlButton extends StatelessWidget {
   final IconData icon;
   final double size;
   final double iconSize;
   final Color iconColor;
+  final String? semanticLabel;
+
+  /// 悬停 / 按压时的底色。为 null 时完全透明（纯 AM 无底色样式）。
+  final Color? hoverColor;
   final VoidCallback? onTap;
 
   const PlaybackControlButton({
@@ -104,12 +106,14 @@ class PlaybackControlButton extends StatelessWidget {
     required this.size,
     required this.iconSize,
     required this.iconColor,
+    this.semanticLabel,
+    this.hoverColor,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.appPalette;
+    final overlay = hoverColor ?? Colors.transparent;
     return SizedBox(
       width: size,
       height: size,
@@ -117,30 +121,34 @@ class PlaybackControlButton extends StatelessWidget {
         hoverScale: 1.12,
         child: IconButton(
           onPressed: onTap,
-          icon: Icon(icon, size: iconSize, color: iconColor),
+          icon: Icon(
+            icon,
+            size: iconSize,
+            color: iconColor,
+            semanticLabel: semanticLabel,
+          ),
           splashRadius: size * 0.5,
           padding: EdgeInsets.zero,
           constraints: BoxConstraints(minWidth: size, minHeight: size),
-          hoverColor: palette.surfaceHover.withValues(alpha: 0.35),
-          highlightColor: palette.surfacePressed.withValues(alpha: 0.45),
-          splashColor: palette.surfacePressed.withValues(alpha: 0.35),
+          hoverColor: overlay,
+          highlightColor: overlay,
+          splashColor: overlay,
         ),
       ),
     );
   }
 }
 
-/// 主播放 / 暂停按钮 —— 主题色圆形底 + [ScaleOnHover] 悬停放大
-/// + [AnimatedSwitcher] 图标切换，与 LandscapeBottomControl 中央主按钮同款，
-/// hover 底色为歌曲卡片同款 ghost 风格轻浮雕。
+/// 主播放 / 暂停按钮 —— Apple Music 风格的无底色大图标。
+/// [ScaleOnHover] 悬停轻微放大，[AnimatedSwitcher] 切换播放 / 暂停图标。
 class PlaybackPlayPauseButton extends StatelessWidget {
   final bool isPlaying;
   final double size;
   final double iconSize;
   final Color iconColor;
 
-  /// 圆形底色，默认取 [Theme] 的 primary（与横屏底栏一致的强调色）。
-  final Color? backgroundColor;
+  /// 悬停 / 按压时的底色。为 null 时完全透明（纯 AM 无底色样式）。
+  final Color? hoverColor;
   final VoidCallback? onTap;
 
   const PlaybackPlayPauseButton({
@@ -148,46 +156,34 @@ class PlaybackPlayPauseButton extends StatelessWidget {
     required this.isPlaying,
     required this.size,
     required this.iconSize,
-    this.backgroundColor,
     this.iconColor = Colors.white,
+    this.hoverColor,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.appPalette;
-    final accent = backgroundColor ?? Theme.of(context).colorScheme.primary;
-    return ScaleOnHover(
-      hoverScale: 1.05,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: accent,
-          boxShadow: [
-            BoxShadow(
-              color: accent.withValues(alpha: 0.3),
-              blurRadius: 12,
-              spreadRadius: 1,
-            ),
-          ],
-        ),
+    final overlay = hoverColor ?? Colors.transparent;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: ScaleOnHover(
+        hoverScale: 1.06,
         child: IconButton(
           onPressed: onTap,
           splashRadius: size * 0.5,
           padding: EdgeInsets.zero,
           constraints: BoxConstraints(minWidth: size, minHeight: size),
-          hoverColor: palette.surfaceHover.withValues(alpha: 0.35),
-          highlightColor: palette.surfacePressed.withValues(alpha: 0.45),
-          splashColor: palette.surfacePressed.withValues(alpha: 0.35),
+          hoverColor: overlay,
+          highlightColor: overlay,
+          splashColor: overlay,
           icon: AnimatedSwitcher(
             duration: AppTokens.standardDuration,
             switchInCurve: AppTokens.standardEasing,
             switchOutCurve: AppTokens.standardEasing,
             transitionBuilder: switcherFadeTransition,
             child: Icon(
-              isPlaying ? Icons.pause : Icons.play_arrow,
+              isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
               key: ValueKey(isPlaying),
               size: iconSize,
               color: iconColor,

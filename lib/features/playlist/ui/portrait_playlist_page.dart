@@ -5,6 +5,7 @@ import 'package:bilimusic/domain/playlist.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/playlist/widgets/playlist_hero.dart';
 import 'package:bilimusic/features/playlist/widgets/playlist_song_list.dart';
+import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 
 /// Portrait playlist page with hero Column + track list in a single scroll.
 class PortraitPlaylistPage extends ConsumerWidget {
@@ -13,6 +14,7 @@ class PortraitPlaylistPage extends ConsumerWidget {
   final Playlist? currentPlaylist;
   final Function(Music) onSongTap;
   final Function(Music)? onRemoveSong;
+  final Future<bool> Function(List<Music>)? onRemoveMany;
   final VoidCallback onPlayAll;
   final VoidCallback onShufflePlay;
   final VoidCallback onAddToPlaylist;
@@ -27,6 +29,7 @@ class PortraitPlaylistPage extends ConsumerWidget {
     this.currentPlaylist,
     required this.onSongTap,
     this.onRemoveSong,
+    this.onRemoveMany,
     required this.onPlayAll,
     required this.onShufflePlay,
     required this.onAddToPlaylist,
@@ -41,6 +44,7 @@ class PortraitPlaylistPage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
+      appBar: AutoAppBar.generateAppBar(context: context, title: "歌单详情"),
       body: CustomScrollView(
         slivers: [
           // Top spacing
@@ -84,6 +88,7 @@ class PortraitPlaylistPage extends ConsumerWidget {
             onSongTap: onSongTap,
             isEditable: playlistId != null,
             onRemove: playlistId != null ? onRemoveSong : null,
+            onRemoveMany: playlistId != null ? onRemoveMany : null,
             isLandscape: false,
           ),
         ],

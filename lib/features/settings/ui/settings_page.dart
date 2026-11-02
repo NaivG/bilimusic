@@ -229,6 +229,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               value: settings.blurEffect,
               onChanged: notifier.setBlurEffect,
             ),
+            _buildSwitchListTile(
+              icon: Icons.play_circle_outline,
+              title: '始终显示迷你播放器（竖屏）',
+              subtitle: '在其他页面也显示；向下滚动时自动隐藏',
+              value: settings.alwaysShowMiniPlayer,
+              onChanged: notifier.setAlwaysShowMiniPlayer,
+            ),
+
             // 窗口行为（仅桌面端显示）
             if (PlatformHelper.isDesktop) ...[
               _buildSectionTitle('窗口行为'),
@@ -290,6 +298,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
             // 数据管理
             _buildSectionTitle('数据'),
+            ListTile(
+              leading: Icon(
+                Icons.download_outlined,
+                color: _getPrimaryColor(context),
+              ),
+              title: Text('离线缓存'),
+              subtitle: Text('查看已下载到本地的音乐、占用空间与删除'),
+              trailing: Icon(Icons.arrow_forward_ios_rounded),
+              onTap: () {
+                ShellPageManager.instance.push(ShellPage.offline);
+              },
+            ),
             ListTile(
               leading: Icon(Icons.insights, color: _getPrimaryColor(context)),
               title: Text('音乐画像'),
@@ -475,7 +495,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     showAboutDialog(
       context: context,
       applicationName: 'BiliMusic',
-      applicationVersion: '1.10.4',
+      applicationVersion: '1.11.0',
       applicationIcon: Image.asset(
         "assets/ic_launcher.png",
         width: 84,

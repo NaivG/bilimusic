@@ -12,4 +12,8 @@ extension PlayModeIcon on PlayMode {
     PlayMode.loop => Icons.repeat_one_rounded,
     PlayMode.shuffle => Icons.shuffle_rounded,
   };
+
+  /// 播放模式按钮的展示图标。
+  IconData iconFor({required bool isRoaming}) =>
+      isRoaming ? Icons.explore_outlined : icon;
 }

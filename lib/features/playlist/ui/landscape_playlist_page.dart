@@ -13,6 +13,7 @@ class LandscapePlaylistPage extends ConsumerWidget {
   final Playlist? currentPlaylist;
   final Function(Music) onSongTap;
   final Function(Music)? onRemoveSong;
+  final Future<bool> Function(List<Music>)? onRemoveMany;
   final VoidCallback onPlayAll;
   final VoidCallback onShufflePlay;
   final VoidCallback onAddToPlaylist;
@@ -27,6 +28,7 @@ class LandscapePlaylistPage extends ConsumerWidget {
     this.currentPlaylist,
     required this.onSongTap,
     this.onRemoveSong,
+    this.onRemoveMany,
     required this.onPlayAll,
     required this.onShufflePlay,
     required this.onAddToPlaylist,
@@ -88,6 +90,7 @@ class LandscapePlaylistPage extends ConsumerWidget {
                     onSongTap: onSongTap,
                     isEditable: playlistId != null,
                     onRemove: playlistId != null ? onRemoveSong : null,
+                    onRemoveMany: playlistId != null ? onRemoveMany : null,
                     isLandscape: true,
                   ),
                 ],

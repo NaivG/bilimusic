@@ -88,6 +88,7 @@ void main() {
       expect(settings.values, isNot(contains(null)));
       expect(settings['appearance'], 'system');
       expect(settings['audio_quality'], '30280');
+      expect(settings['always_show_mini_player'], false);
     });
   });
 
@@ -101,6 +102,7 @@ void main() {
           'theme_mode': 'dark',
           'theme_color': 'nord',
           'notifications_enabled': false,
+          'always_show_mini_player': false,
           'crossfade_duration': 4000.0,
           'audio_exclusive': true,
           'unknown_key': 'ignored',
@@ -117,6 +119,7 @@ void main() {
       expect(prefs.getString('appearance'), 'dark');
       expect(prefs.getString('theme'), 'nord');
       expect(prefs.getBool('notifications_enabled'), false);
+      expect(prefs.getBool('always_show_mini_player'), false);
       expect(prefs.getInt('crossfade_duration'), 4000);
       expect(prefs.getBool('audio_exclusive'), true);
       expect(prefs.containsKey('unknown_key'), false);

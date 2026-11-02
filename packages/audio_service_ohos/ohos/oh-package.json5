@@ -1,0 +1,11 @@
+{
+  "name": "audio_service_ohos",
+  "version": "1.0.0",
+  "description": "audio_service 的 OpenHarmony 平台实现（AVSession 媒体会话 + 媒体通知）。",
+  "main": "Index.ets",
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@ohos/flutter_ohos": "file:./har/flutter.har",
+  }
+}

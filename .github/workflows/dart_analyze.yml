@@ -11,6 +11,11 @@ on:
   pull_request:
     branches: [ "dev" ]
 
+# gitcode 的 Git LFS 端点不接受匿名下载。
+# pub 只要源码树，指针文件就够，所以整条工作流都跳过 smudge。
+env:
+  GIT_LFS_SKIP_SMUDGE: '1'
+
 jobs:
   build:
     runs-on: ubuntu-latest

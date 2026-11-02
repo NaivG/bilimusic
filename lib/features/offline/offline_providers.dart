@@ -44,13 +44,6 @@ class OfflineTracksNotifier extends AsyncNotifier<List<OfflineTrack>> {
     await svc.initialize();
     final qualityId = ref.read(settingsManagerProvider).audioQuality;
 
-    // 已有且音质够用：不重复下载。
-    final existingTrack = await svc.find(music.id, svc.effectiveCid(music));
-    if (existingTrack != null &&
-        svc.isQualitySufficient(existingTrack, qualityId)) {
-      return existingTrack;
-    }
-
     // cid 缺失时先补齐：离线记录按 (bvid, cid) 建索引，且补详情能拿到
     // 真实的分 P 标题，让离线文件名有意义。
     var target = music;
@@ -59,6 +52,21 @@ class OfflineTracksNotifier extends AsyncNotifier<List<OfflineTrack>> {
           .read(apiServiceProvider)
           .getVideoDetails(target.id);
       if (detailed.cid.isNotEmpty) target = detailed;
+    }
+    // 来源偶尔不带封面（例如从播放历史恢复的条目）。离线记录里空着封面，
+    // 播放时还原出的 Music 只会显示内置占位图，所以这里补一次详情。
+    // 封面是锦上添花：补不到（网络失败/接口不支持）不能让整次下载失败。
+    if (target.coverUrl.trim().isEmpty) {
+      try {
+        final detailed = await ref
+            .read(apiServiceProvider)
+            .getVideoDetails(target.id);
+        if (detailed.coverUrl.trim().isNotEmpty) {
+          target = target.copyWith(coverUrl: detailed.coverUrl);
+        }
+      } catch (e) {
+        debugPrint('[Offline] 补封面失败 ${target.id}: $e');
+      }
     }
 
     final audio = await ref

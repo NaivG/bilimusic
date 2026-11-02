@@ -783,6 +783,18 @@ class PlaylistService {
     await _loadPlayHistory();
   }
 
+  /// 从播放历史移除一首曲目。
+  Future<void> removeFromPlayHistory(Music music) async {
+    await _dbChecked.delete(
+      'play_history',
+      where: 'music_id = ? AND cid = ?',
+      whereArgs: [music.id, music.cid],
+    );
+    final newList = List<Music>.from(_playHistory.value)
+      ..removeWhere((m) => m.key == music.key);
+    _playHistory.value = newList;
+  }
+
   Future<void> clearPlayHistory() async {
     await _dbChecked.delete('play_history');
     _playHistory.value = [];
