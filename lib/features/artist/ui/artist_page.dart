@@ -203,8 +203,8 @@ class _ArtistPageState extends ConsumerState<ArtistPage> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: isLandscape
-      ? null
-      : AutoAppBar.generateAppBar(context: context, title: "UP 详情"),
+          ? null
+          : AutoAppBar.generateAppBar(context: context, title: "UP 详情"),
       body: SafeArea(
         child: Column(
           children: [
