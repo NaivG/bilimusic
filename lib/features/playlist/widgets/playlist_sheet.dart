@@ -77,6 +77,8 @@ class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
       child: Material(
         color: Colors.transparent,
         child: DraggableScrollableSheet(
+          // 不让面板撑满整屏。
+          expand: false,
           initialChildSize: 0.5,
           minChildSize: 0.25,
           maxChildSize: 0.9,
