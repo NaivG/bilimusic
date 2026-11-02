@@ -373,10 +373,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               color: Colors.teal.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(
-              Icons.download_outlined,
-              color: Colors.teal,
-            ),
+            child: const Icon(Icons.download_outlined, color: Colors.teal),
           ),
           title: const Text('离线缓存'),
           subtitle: const Text('查看已下载到本地的音乐'),
