@@ -96,6 +96,7 @@ class PlaybackControlButton extends StatelessWidget {
   final double size;
   final double iconSize;
   final Color iconColor;
+  final String? semanticLabel;
   final VoidCallback? onTap;
 
   const PlaybackControlButton({
@@ -104,6 +105,7 @@ class PlaybackControlButton extends StatelessWidget {
     required this.size,
     required this.iconSize,
     required this.iconColor,
+    this.semanticLabel,
     this.onTap,
   });
 
@@ -117,7 +119,12 @@ class PlaybackControlButton extends StatelessWidget {
         hoverScale: 1.12,
         child: IconButton(
           onPressed: onTap,
-          icon: Icon(icon, size: iconSize, color: iconColor),
+          icon: Icon(
+            icon,
+            size: iconSize,
+            color: iconColor,
+            semanticLabel: semanticLabel,
+          ),
           splashRadius: size * 0.5,
           padding: EdgeInsets.zero,
           constraints: BoxConstraints(minWidth: size, minHeight: size),

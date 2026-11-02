@@ -13,7 +13,7 @@ import 'package:bilimusic/shared/utils/animations.dart';
 
 /// 详情页单面板
 /// 这回切成自适应应该好一点
-/// 封面 + 歌曲信息 + 收藏/分享 + 进度条 + 5 个播放按钮 + 音量（+「查看歌词」入口）。
+/// 封面 + 歌曲信息 + 收藏/分享 + 进度条 + 5 个播放按钮 + 音量。
 /// 切歌时，封面与歌曲信息行淡入 + 上滑，其余控件保持不动。
 ///
 /// 尺寸与间距完全由实际分配到的宽高决定（[LayoutBuilder]，不读屏幕断点）：
@@ -32,7 +32,12 @@ class AlbumSection extends ConsumerStatefulWidget {
   final VoidCallback? onFavoritePressed;
   final VoidCallback? onSharePressed;
   final VoidCallback? onCoverTap;
-  final VoidCallback? onShowLyrics;
+
+  /// 封面节点的 key：宿主用它测量封面位置，驱动封面缩放到歌词页 hero。
+  final GlobalKey? coverKey;
+
+  /// 封面透明度：切歌词时宿主先用独立图层接管封面，这里是它留下的空位。
+  final double coverOpacity;
 
   // 播放控制
   final bool isPlaying;
@@ -55,7 +60,8 @@ class AlbumSection extends ConsumerStatefulWidget {
     this.onFavoritePressed,
     this.onSharePressed,
     this.onCoverTap,
-    this.onShowLyrics,
+    this.coverKey,
+    this.coverOpacity = 1,
     required this.isPlaying,
     required this.playModeIcon,
     this.onPlayPause,
@@ -137,7 +143,6 @@ class _AlbumSectionState extends ConsumerState<AlbumSection>
         final metrics = _AlbumMetrics.resolve(
           maxWidth: constraints.maxWidth,
           maxHeight: constraints.maxHeight,
-          hasLyricsEntry: widget.onShowLyrics != null,
           textScale: MediaQuery.textScalerOf(context).scale(14) / 14,
         );
 
@@ -182,11 +187,17 @@ class _AlbumSectionState extends ConsumerState<AlbumSection>
       // 封面（带切歌过渡）；填充模式下上下各留一个弹性间距
       if (fillHeight) Flexible(child: SizedBox(height: m.coverSize * 0.5)),
       _animated(
-        AppleMusicCover(
-          coverUrl: widget.coverUrl,
-          dominantColor: widget.dominantColor,
-          onTap: widget.onCoverTap,
-          customSize: m.coverSize,
+        KeyedSubtree(
+          key: widget.coverKey,
+          child: Opacity(
+            opacity: widget.coverOpacity.clamp(0.0, 1.0),
+            child: AppleMusicCover(
+              coverUrl: widget.coverUrl,
+              dominantColor: widget.dominantColor,
+              onTap: widget.onCoverTap,
+              customSize: m.coverSize,
+            ),
+          ),
         ),
       ),
       if (fillHeight) Flexible(child: SizedBox(height: m.coverSize * 0.5)),
@@ -209,12 +220,7 @@ class _AlbumSectionState extends ConsumerState<AlbumSection>
       SizedBox(height: m.gapControlsVolume),
       // 音量调节（喇叭图标 + 细条）
       _buildVolumeControl(m),
-      // 「查看歌词」入口
-      if (widget.onShowLyrics != null) ...[
-        SizedBox(height: m.gapVolumeLyrics),
-        _buildLyricsEntry(),
-      ],
-      SizedBox(height: m.gapVolumeLyrics), // 这边直接复用，让底部留白更大一点，避免贴边
+      SizedBox(height: m.gapVolumeLyrics), // 让底部留白更大一点，避免贴边
     ];
   }
 
@@ -436,44 +442,6 @@ class _AlbumSectionState extends ConsumerState<AlbumSection>
       ],
     );
   }
-
-  Widget _buildLyricsEntry() {
-    return TapScaleWidget(
-      pressedScale: 0.95,
-      onTap: widget.onShowLyrics,
-      child: Container(
-        margin: const EdgeInsets.only(top: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.12),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.lyrics_outlined,
-              color: Colors.white.withValues(alpha: 0.85),
-              size: 18,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '查看歌词',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.9),
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 /// 由实际分配到的宽高解析出的布局度量。
@@ -525,7 +493,6 @@ class _AlbumMetrics {
   factory _AlbumMetrics.resolve({
     required double maxWidth,
     required double maxHeight,
-    required bool hasLyricsEntry,
     required double textScale,
   }) {
     final width = maxWidth.isFinite ? maxWidth : 360.0;
@@ -543,8 +510,8 @@ class _AlbumMetrics {
     );
 
     // 封面高度预算：内容高 ≈ 固定件 + 系数 × cover
-    //（cover + 55% 基础间距 + 24% 主按钮，有歌词入口再 +10% 间距），
-    // 目标让内容约占可用高度的 95%，剩余交给弹性间距。字号按封顶值估，偏保守。
+    //（cover + 55% 基础间距 + 24% 主按钮），目标让内容约占可用高度的 95%，
+    // 剩余交给弹性间距。字号按封顶值估，偏保守。
     final infoRowAtCap = math.max(
       2 * 22.0 * 1.25 + 4 + 15.0 * 1.4 + 2 + 13.5 * 1.4, // 字号封顶时的文本列
       actionColumnHeight,
@@ -554,10 +521,9 @@ class _AlbumMetrics {
         20.0 /*进度条*/ +
         32.0 /*音质徽标 + 与进度条间距*/ +
         32.0 /*音量行*/ +
-        (hasLyricsEntry ? 48.0 * textScale : 0.0) /*歌词入口（文字随缩放）*/ +
         24.0 /*估算余量*/ +
         infoRowAtCap * textScale;
-    final coverHeightFactor = hasLyricsEntry ? 1.9 : 1.8;
+    const coverHeightFactor = 1.8;
     final heightCover = maxHeight.isFinite
         ? ((maxHeight * 0.95 - fixedHeight) / coverHeightFactor).clamp(
             160.0,
@@ -570,10 +536,11 @@ class _AlbumMetrics {
     final titleFontSize = (coverSize * 0.11).clamp(16.0, 22.0);
     final artistFontSize = (coverSize * 0.07).clamp(12.0, 15.0);
 
-    // 控制行总宽 ≈ 4.94 × 主按钮（4 副按钮×0.62 + 主按钮 + 4 间距），保证不溢出
+    // 控制行总宽 ≈ 5.06 × 主按钮（4 副按钮×0.65 + 主按钮 + 4 间距），
+    // 多留 0.4% 余量，保证圆钮与间距不会被裁掉。
     final mainButtonSize = math.max(
       36.0,
-      math.min(coverSize * 0.28, math.min(contentWidth / 4.94, 76.0)),
+      math.min(coverSize * 0.28, math.min(contentWidth / 5.08, 76.0)),
     );
     final sideButtonSize = mainButtonSize * 0.65;
 
@@ -594,8 +561,7 @@ class _AlbumMetrics {
         20.0 +
         32.0 + // 音质徽标 + 与进度条间距
         mainButtonSize +
-        32.0 +
-        (hasLyricsEntry ? coverSize * 0.1 + 48.0 * textScale : 0.0);
+        32.0;
 
     return _AlbumMetrics(
       horizontalPadding: horizontalPadding,
