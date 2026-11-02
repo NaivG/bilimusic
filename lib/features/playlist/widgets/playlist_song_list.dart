@@ -12,14 +12,19 @@ import 'package:bilimusic/shared/widgets/music_menu_button.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 
 /// Enhanced song list for playlist page.
-/// Supports search bar, table headers (landscape), track rows with
+/// Supports search bar, list headers with multi-select, track rows with
 /// index/title/duration/heart, editable reorder, and long-press menu.
-class PlaylistSongList extends ConsumerWidget {
+class PlaylistSongList extends ConsumerStatefulWidget {
   final List<Music> songs;
   final Music? currentPlayingMusic;
   final Function(Music) onSongTap;
   final Function(int, int)? onReorder;
   final Function(Music)? onRemove;
+
+  /// 批量删除回调，返回是否实际删除。
+  ///
+  /// 非空时列表头显示「多选」入口。
+  final Future<bool> Function(List<Music>)? onRemoveMany;
   final bool isEditable;
   final bool isLandscape;
 
@@ -30,21 +35,108 @@ class PlaylistSongList extends ConsumerWidget {
     required this.onSongTap,
     this.onReorder,
     this.onRemove,
+    this.onRemoveMany,
     this.isEditable = false,
     this.isLandscape = false,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (songs.isEmpty) {
+  ConsumerState<PlaylistSongList> createState() => _PlaylistSongListState();
+}
+
+class _PlaylistSongListState extends ConsumerState<PlaylistSongList> {
+  bool _selectionMode = false;
+  bool _isDeleting = false;
+  final Set<String> _selectedKeys = <String>{};
+
+  List<Music> get _selectedSongs =>
+      widget.songs.where((music) => _selectedKeys.contains(music.key)).toList();
+
+  @override
+  void didUpdateWidget(covariant PlaylistSongList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_selectionMode) return;
+
+    final validKeys = widget.songs.map((music) => music.key).toSet();
+    _selectedKeys.removeWhere((key) => !validKeys.contains(key));
+    if (widget.songs.isEmpty) {
+      _selectionMode = false;
+      _selectedKeys.clear();
+    }
+  }
+
+  void _enterSelectionMode() {
+    setState(() {
+      _selectionMode = true;
+      _selectedKeys.clear();
+    });
+  }
+
+  void _exitSelectionMode() {
+    setState(() {
+      _selectionMode = false;
+      _selectedKeys.clear();
+    });
+  }
+
+  void _toggleSelection(Music music) {
+    setState(() {
+      if (!_selectedKeys.remove(music.key)) {
+        _selectedKeys.add(music.key);
+      }
+    });
+  }
+
+  void _toggleSelectAll() {
+    setState(() {
+      if (_selectedSongs.length == widget.songs.length) {
+        _selectedKeys.clear();
+      } else {
+        _selectedKeys.addAll(widget.songs.map((music) => music.key));
+      }
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    final songs = _selectedSongs;
+    final onRemoveMany = widget.onRemoveMany;
+    if (songs.isEmpty || onRemoveMany == null || _isDeleting) return;
+
+    setState(() => _isDeleting = true);
+    var removed = false;
+    try {
+      removed = await onRemoveMany(songs);
+    } catch (_) {
+      // 错误提示由回调方负责，这里只恢复按钮状态。
+    }
+    if (!mounted) return;
+    setState(() {
+      _isDeleting = false;
+      if (removed) {
+        _selectionMode = false;
+        _selectedKeys.clear();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.songs.isEmpty) {
       return SliverFillRemaining(child: _buildEmptyState(context));
     }
 
-    if (isEditable && onReorder != null) {
-      return _buildReorderableList(context);
+    final slivers = <Widget>[];
+    if (widget.isLandscape || widget.onRemoveMany != null) {
+      slivers.add(SliverToBoxAdapter(child: _buildListHeader(context)));
     }
 
-    return _buildSliverList(context);
+    if (widget.isEditable && widget.onReorder != null && !_selectionMode) {
+      slivers.add(_buildReorderableList(context));
+    } else {
+      slivers.add(_buildSliverList(context));
+    }
+
+    return SliverMainAxisGroup(slivers: slivers);
   }
 
   Widget _buildEmptyState(BuildContext context) {
@@ -74,148 +166,233 @@ class PlaylistSongList extends ConsumerWidget {
     );
   }
 
-  Widget _buildTableHeader(BuildContext context) {
+  Widget _buildListHeader(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: widget.isLandscape ? 4 : 6,
+      ),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: colorScheme.outline, width: 1),
         ),
       ),
-      child: Row(
+      child: _selectionMode
+          ? _buildSelectionHeader(context)
+          : _buildColumnHeader(context),
+    );
+  }
+
+  Widget _buildColumnHeader(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final labelStyle = TextStyle(
+      fontSize: 11,
+      color: colorScheme.onSurfaceVariant,
+      fontWeight: FontWeight.w500,
+    );
+
+    if (!widget.isLandscape) {
+      return Row(
         children: [
-          // #
-          SizedBox(
-            width: 32,
-            child: Text(
-              '#',
-              style: TextStyle(
-                fontSize: 11,
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          // TITLE
-          Expanded(
-            child: Text(
-              'TITLE',
-              style: TextStyle(
-                fontSize: 11,
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          // Duration
-          SizedBox(
-            width: 48,
-            child: Icon(
-              Icons.access_time,
-              size: 14,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          // 行尾「下一首播放」+「更多」按钮占位
-          const SizedBox(width: 70),
+          Text('${widget.songs.length} 首曲目', style: labelStyle),
+          const Spacer(),
+          if (widget.onRemoveMany != null) _buildMultiSelectButton(context),
         ],
+      );
+    }
+
+    return Row(
+      children: [
+        // #
+        SizedBox(width: 32, child: Text('#', style: labelStyle)),
+        // TITLE
+        Expanded(child: Text('TITLE', style: labelStyle)),
+        // Duration
+        SizedBox(
+          width: 48,
+          child: Icon(
+            Icons.access_time,
+            size: 14,
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+        // 行尾「下一首播放」+「更多」按钮占位
+        SizedBox(
+          width: 70,
+          child: widget.onRemoveMany == null
+              ? null
+              : Align(
+                  alignment: Alignment.centerRight,
+                  child: _buildMultiSelectButton(context),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMultiSelectButton(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return TextButton.icon(
+      onPressed: _enterSelectionMode,
+      icon: const Icon(Icons.checklist, size: 14),
+      label: const Text('多选'),
+      style: TextButton.styleFrom(
+        foregroundColor: colorScheme.onSurfaceVariant,
+        minimumSize: const Size(0, 30),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
       ),
+    );
+  }
+
+  Widget _buildSelectionHeader(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final count = _selectedSongs.length;
+    final allSelected = count == widget.songs.length;
+
+    return Row(
+      children: [
+        Text(
+          '已选 $count 首',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: colorScheme.primary,
+          ),
+        ),
+        const Spacer(),
+        TextButton(
+          onPressed: _isDeleting ? null : _toggleSelectAll,
+          style: TextButton.styleFrom(
+            minimumSize: const Size(0, 30),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+            textStyle: const TextStyle(fontSize: 12),
+          ),
+          child: Text(allSelected ? '取消全选' : '全选'),
+        ),
+        const SizedBox(width: 4),
+        FilledButton.icon(
+          onPressed: count == 0 || _isDeleting ? null : _deleteSelected,
+          icon: _isDeleting
+              ? SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: colorScheme.onError,
+                  ),
+                )
+              : const Icon(Icons.delete_outline, size: 16),
+          label: Text(count > 0 ? '删除 ($count)' : '删除'),
+          style: FilledButton.styleFrom(
+            backgroundColor: colorScheme.error,
+            foregroundColor: colorScheme.onError,
+            disabledBackgroundColor: colorScheme.error.withValues(alpha: 0.25),
+            disabledForegroundColor: colorScheme.onError.withValues(alpha: 0.7),
+            minimumSize: const Size(0, 30),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+            shape: const StadiumBorder(),
+            textStyle: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        IconButton(
+          onPressed: _isDeleting ? null : _exitSelectionMode,
+          icon: const Icon(Icons.close, size: 18),
+          tooltip: '退出多选',
+          padding: EdgeInsets.zero,
+          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+        ),
+      ],
     );
   }
 
   Widget _buildSliverList(BuildContext context) {
-    if (isLandscape) {
-      return SliverList(
-        delegate: SliverChildBuilderDelegate((context, index) {
-          if (index == 0) return _buildTableHeader(context);
-          final music = songs[index - 1];
-          return SizedBox(
-            height: 56,
-            child: PlaylistTrackRow(
-              music: music,
-              index: index - 1,
-              isPlaying: _isCurrentPlaying(music),
-              isLandscape: isLandscape,
-              onTap: () => onSongTap(music),
-              onRemoveFromPlaylist: isEditable && onRemove != null
-                  ? () => onRemove?.call(music)
-                  : null,
-            ),
-          );
-        }, childCount: songs.length + 1),
-      );
-    }
-
     return SliverList(
       delegate: SliverChildBuilderDelegate((context, index) {
-        final music = songs[index];
-        return PlaylistTrackRow(
-          music: music,
-          index: index,
-          isPlaying: _isCurrentPlaying(music),
-          isLandscape: isLandscape,
-          onTap: () => onSongTap(music),
-          onRemoveFromPlaylist: isEditable && onRemove != null
-              ? () => onRemove?.call(music)
-              : null,
+        final music = widget.songs[index];
+        return SizedBox(
+          height: 56,
+          child: _buildTrackRow(context, music, index),
         );
-      }, childCount: songs.length),
+      }, childCount: widget.songs.length),
     );
   }
 
   Widget _buildReorderableList(BuildContext context) {
-    final slivers = <Widget>[];
-    if (isLandscape) {
-      slivers.add(SliverToBoxAdapter(child: _buildTableHeader(context)));
-    }
-    slivers.add(
-      SliverReorderableList(
-        itemExtent: 56,
-        itemBuilder: (context, index) {
-          final music = songs[index];
-          return PlaylistTrackRow(
-            key: ValueKey(
-              '${music.id}_${music.pages.isNotEmpty ? music.pages[0].cid : "0"}',
-            ),
-            music: music,
-            index: index,
-            isPlaying: _isCurrentPlaying(music),
-            isLandscape: isLandscape,
-            onTap: () => onSongTap(music),
-            onRemoveFromPlaylist: onRemove != null
-                ? () => onRemove?.call(music)
-                : null,
-          );
-        },
-        itemCount: songs.length,
-        onReorder: (oldIndex, newIndex) {
-          if (newIndex > oldIndex) newIndex--;
-          onReorder?.call(oldIndex, newIndex);
-        },
-        proxyDecorator: (child, index, animation) {
-          return AnimatedBuilder(
-            animation: animation,
-            builder: (context, child) {
-              final scale = 1.0 + (animation.value * 0.05);
-              return Transform.scale(scale: scale, child: child);
-            },
-            child: child,
-          );
-        },
-      ),
+    return SliverReorderableList(
+      itemExtent: 56,
+      itemBuilder: (context, index) {
+        final music = widget.songs[index];
+        return _buildTrackRow(
+          context,
+          music,
+          index,
+          key: ValueKey(
+            '${music.id}_${music.pages.isNotEmpty ? music.pages[0].cid : "0"}',
+          ),
+        );
+      },
+      itemCount: widget.songs.length,
+      onReorder: (oldIndex, newIndex) {
+        if (newIndex > oldIndex) newIndex--;
+        widget.onReorder?.call(oldIndex, newIndex);
+      },
+      proxyDecorator: (child, index, animation) {
+        return AnimatedBuilder(
+          animation: animation,
+          builder: (context, child) {
+            final scale = 1.0 + (animation.value * 0.05);
+            return Transform.scale(scale: scale, child: child);
+          },
+          child: child,
+        );
+      },
     );
-    return SliverMainAxisGroup(slivers: slivers);
+  }
+
+  Widget _buildTrackRow(
+    BuildContext context,
+    Music music,
+    int index, {
+    Key? key,
+  }) {
+    return PlaylistTrackRow(
+      key: key,
+      music: music,
+      index: index,
+      isPlaying: _isCurrentPlaying(music),
+      isLandscape: widget.isLandscape,
+      selectionMode: _selectionMode,
+      selected: _selectedKeys.contains(music.key),
+      onSelectionToggle: () => _toggleSelection(music),
+      onTap: () => widget.onSongTap(music),
+      onRemoveFromPlaylist: widget.isEditable && widget.onRemove != null
+          ? () => widget.onRemove?.call(music)
+          : null,
+    );
   }
 
   bool _isCurrentPlaying(Music music) {
-    if (currentPlayingMusic == null) return false;
-    return music.id == currentPlayingMusic!.id &&
-        (music.pages.isEmpty && currentPlayingMusic!.pages.isEmpty ||
+    final current = widget.currentPlayingMusic;
+    if (current == null) return false;
+    return music.id == current.id &&
+        (music.pages.isEmpty && current.pages.isEmpty ||
             music.pages.isNotEmpty &&
-                currentPlayingMusic!.pages.isNotEmpty &&
-                music.pages[0].cid == currentPlayingMusic!.pages[0].cid);
+                current.pages.isNotEmpty &&
+                music.pages[0].cid == current.pages[0].cid);
   }
 }
 
@@ -227,7 +404,10 @@ class PlaylistTrackRow extends ConsumerStatefulWidget {
   final int index;
   final bool isPlaying;
   final bool isLandscape;
+  final bool selectionMode;
+  final bool selected;
   final VoidCallback? onTap;
+  final VoidCallback? onSelectionToggle;
   final VoidCallback? onRemoveFromPlaylist;
 
   const PlaylistTrackRow({
@@ -236,7 +416,10 @@ class PlaylistTrackRow extends ConsumerStatefulWidget {
     required this.index,
     this.isPlaying = false,
     this.isLandscape = false,
+    this.selectionMode = false,
+    this.selected = false,
     this.onTap,
+    this.onSelectionToggle,
     this.onRemoveFromPlaylist,
   });
 
@@ -282,99 +465,102 @@ class _PlaylistTrackRowState extends ConsumerState<PlaylistTrackRow> {
     final colorScheme = Theme.of(context).colorScheme;
     final palette = context.appPalette;
 
-    return ContextMenuWidget(
-      menuProvider: (_) => buildMusicContextMenu(
-        context: context,
-        music: widget.music,
-        playerCoordinator: ref.read(playerCoordinatorProvider),
-        commands: ref.read(playlistCommandsProvider.notifier),
-        onRemoveFromPlaylist: widget.onRemoveFromPlaylist,
-        ref: ref,
-      ),
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration: AppTokens.standardDuration,
-            curve: Curves.easeOutCubic,
-            height: 56,
-            decoration: BoxDecoration(
-              color: _isHovered ? palette.surfaceHover : Colors.transparent,
-              border: Border(
-                bottom: BorderSide(color: colorScheme.outline, width: 1),
-              ),
+    final row = MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.selectionMode ? widget.onSelectionToggle : widget.onTap,
+        child: AnimatedContainer(
+          duration: AppTokens.standardDuration,
+          curve: Curves.easeOutCubic,
+          height: 56,
+          decoration: BoxDecoration(
+            color: widget.selected
+                ? colorScheme.primary.withValues(alpha: 0.08)
+                : (_isHovered ? palette.surfaceHover : Colors.transparent),
+            border: Border(
+              bottom: BorderSide(color: colorScheme.outline, width: 1),
             ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  // Index
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                // Index / 多选勾选
+                SizedBox(
+                  width: 32,
+                  child: widget.selectionMode
+                      ? Checkbox(
+                          value: widget.selected,
+                          onChanged: (_) => widget.onSelectionToggle?.call(),
+                          visualDensity: VisualDensity.compact,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                        )
+                      : Text(
+                          '${widget.index + 1}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: widget.isPlaying
+                                ? colorScheme.primary
+                                : colorScheme.onSurfaceVariant,
+                            fontWeight: widget.isPlaying
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          ),
+                        ),
+                ),
+                const SizedBox(width: 4),
+                // Title + artist subtitle
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.music.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: widget.isPlaying
+                              ? colorScheme.primary
+                              : colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.music.subtitleText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // 竖屏空间有限，不显示时长，避免挤压歌曲标题/歌手信息
+                if (widget.isLandscape) ...[
+                  const SizedBox(width: 8),
+                  // Duration
                   SizedBox(
-                    width: 32,
+                    width: 48,
                     child: Text(
-                      '${widget.index + 1}',
+                      _formatDuration(widget.music),
                       style: TextStyle(
                         fontSize: 13,
-                        color: widget.isPlaying
-                            ? colorScheme.primary
-                            : colorScheme.onSurfaceVariant,
-                        fontWeight: widget.isPlaying
-                            ? FontWeight.w600
-                            : FontWeight.normal,
+                        color: colorScheme.onSurfaceVariant,
                       ),
+                      textAlign: TextAlign.right,
                     ),
                   ),
                   const SizedBox(width: 4),
-                  // Title + artist subtitle
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.music.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: widget.isPlaying
-                                ? colorScheme.primary
-                                : colorScheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          widget.music.subtitleText,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // 竖屏空间有限，不显示时长，避免挤压歌曲标题/歌手信息
-                  if (widget.isLandscape) ...[
-                    const SizedBox(width: 8),
-                    // Duration
-                    SizedBox(
-                      width: 48,
-                      child: Text(
-                        _formatDuration(widget.music),
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        textAlign: TextAlign.right,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                  ],
+                ],
+                // 多选模式下收起行内操作，避免与勾选语义打架
+                if (!widget.selectionMode) ...[
                   // 下一首播放
                   IconButton(
                     onPressed: widget.isPlaying ? null : _playNext,
@@ -399,11 +585,25 @@ class _PlaylistTrackRowState extends ConsumerState<PlaylistTrackRow> {
                     onRemoveFromPlaylist: widget.onRemoveFromPlaylist,
                   ),
                 ],
-              ),
+              ],
             ),
           ),
         ),
       ),
+    );
+
+    if (widget.selectionMode) return row;
+
+    return ContextMenuWidget(
+      menuProvider: (_) => buildMusicContextMenu(
+        context: context,
+        music: widget.music,
+        playerCoordinator: ref.read(playerCoordinatorProvider),
+        commands: ref.read(playlistCommandsProvider.notifier),
+        onRemoveFromPlaylist: widget.onRemoveFromPlaylist,
+        ref: ref,
+      ),
+      child: row,
     );
   }
 }
