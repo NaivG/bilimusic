@@ -95,6 +95,68 @@ class OfflineTracksNotifier extends AsyncNotifier<List<OfflineTrack>> {
     throw StateError('落盘失败，请检查离线目录是否可写');
   }
 
+  /// 批量下载一组曲目到离线目录（歌单「离线缓存全部」的入口）。
+  ///
+  /// - 已有且音质足够的曲目直接跳过，不重复联网；
+  /// - 单曲失败不中断整批，原因记入 [OfflineBatchResult.errors]；
+  /// - 串行下载，避免同时抢占带宽；
+  /// - [onProgress] 在每个曲目开始前调用（[current] 从 1 开始）；
+  /// - [shouldCancel] 返回 true 时，在当前曲目完成后停止。
+  Future<OfflineBatchResult> downloadMany(
+    List<Music> songs, {
+    void Function(int current, int total, Music music)? onProgress,
+    bool Function()? shouldCancel,
+  }) async {
+    final svc = ref.read(offlineCacheServiceProvider);
+    await svc.initialize();
+    final qualityId = ref.read(settingsManagerProvider).audioQuality;
+
+    var downloaded = 0;
+    var skipped = 0;
+    var failed = 0;
+    final errors = <String>[];
+    var cancelled = false;
+
+    for (var i = 0; i < songs.length; i++) {
+      if (shouldCancel?.call() ?? false) {
+        cancelled = true;
+        break;
+      }
+
+      final music = songs[i];
+      onProgress?.call(i + 1, songs.length, music);
+
+      // 已缓存且音质够用 → 跳过。这里先查一次表，避免 download() 为补
+      // cid/封面而发起不必要的详情请求。
+      final existing = await svc.find(music.id, svc.effectiveCid(music));
+      if (existing != null && svc.isQualitySufficient(existing, qualityId)) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        await download(music);
+        downloaded++;
+      } catch (e) {
+        failed++;
+        debugPrint('[Offline] 批量下载失败 ${music.title}: $e');
+        if (errors.length < 3) {
+          final message = e is StateError ? e.message : '$e';
+          errors.add('${music.title}：$message');
+        }
+      }
+    }
+
+    ref.invalidateSelf();
+    return OfflineBatchResult(
+      downloaded: downloaded,
+      skipped: skipped,
+      failed: failed,
+      cancelled: cancelled,
+      errors: errors,
+    );
+  }
+
   /// 删除单条离线记录及其文件。
   Future<void> remove(OfflineTrack track) async {
     await ref.read(offlineCacheServiceProvider).remove(track.bvid, track.cid);

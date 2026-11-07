@@ -43,10 +43,15 @@ void main() {
   late ApiService api;
   late ProviderContainer container;
 
-  Music sampleMusic({String coverUrl = ''}) => Music(
-    id: 'BV1xx411c7mD',
-    cid: '12345',
-    title: '晴天',
+  Music sampleMusic({
+    String id = 'BV1xx411c7mD',
+    String cid = '12345',
+    String title = '晴天',
+    String coverUrl = '',
+  }) => Music(
+    id: id,
+    cid: cid,
+    title: title,
     artist: const Artist(name: '周杰伦'),
     album: '',
     coverUrl: coverUrl,
@@ -242,6 +247,83 @@ void main() {
     expect(await File(low.filePath).exists(), isFalse, reason: '旧音质文件应被清掉');
     expect(await service.count(), 1);
     expect(_audioFilesIn(baseDir), hasLength(1), reason: '不能留下孤儿文件');
+  });
+
+  test('批量缓存：已缓存的跳过，只下载缺少的曲目', () async {
+    final cached = sampleMusic();
+    final fresh = sampleMusic(id: 'BV1yy411c7mE', cid: '67890', title: '稻香');
+
+    await notifier().download(cached);
+    final downloadsBefore = musicCache.downloadCount;
+
+    final progress = <String>[];
+    final result = await notifier().downloadMany(
+      [cached, fresh],
+      onProgress: (current, total, music) {
+        progress.add('$current/$total:${music.title}');
+      },
+    );
+
+    expect(result.downloaded, 1);
+    expect(result.skipped, 1);
+    expect(result.failed, 0);
+    expect(result.cancelled, isFalse);
+    expect(result.processed, 2);
+    expect(
+      musicCache.downloadCount,
+      downloadsBefore + 1,
+      reason: '已缓存的曲目不该重新联网',
+    );
+    expect(progress, ['1/2:晴天', '2/2:稻香']);
+    expect(await service.count(), 2);
+    expect(
+      await File((await service.find(fresh.id, fresh.cid))!.filePath).exists(),
+      isTrue,
+    );
+  });
+
+  test('批量缓存支持取消：当前曲目完成后停止', () async {
+    final songs = [
+      sampleMusic(),
+      sampleMusic(id: 'BV1yy411c7mE', cid: '67890', title: '稻香'),
+      sampleMusic(id: 'BV1zz411c7mF', cid: '24680', title: '青花瓷'),
+    ];
+
+    var checks = 0;
+    final result = await notifier().downloadMany(
+      songs,
+      shouldCancel: () => checks++ >= 1,
+    );
+
+    expect(result.cancelled, isTrue);
+    expect(result.downloaded, 1);
+    expect(result.skipped, 0);
+    expect(result.failed, 0);
+    expect(result.processed, 1);
+    expect(await service.count(), 1);
+    expect(
+      await File(
+        (await service.find(songs.first.id, songs.first.cid))!.filePath,
+      ).exists(),
+      isTrue,
+    );
+  });
+
+  test('批量缓存：单曲失败不中断整批', () async {
+    final broken = sampleMusic(id: '', cid: '', title: '失效曲目');
+    final ok = sampleMusic(id: 'BV1yy411c7mE', cid: '67890', title: '稻香');
+
+    final result = await notifier().downloadMany([broken, ok]);
+
+    expect(result.failed, 1);
+    expect(result.downloaded, 1);
+    expect(result.errors, hasLength(1));
+    expect(result.errors.single, contains('失效曲目'));
+    expect(await service.count(), 1);
+    expect(
+      await File((await service.find(ok.id, ok.cid))!.filePath).exists(),
+      isTrue,
+    );
   });
 }
 

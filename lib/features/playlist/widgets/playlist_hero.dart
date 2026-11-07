@@ -21,6 +21,7 @@ class PlaylistHero extends StatelessWidget {
   final VoidCallback? onAddToPlaylist;
   final VoidCallback? onExportEntries;
   final VoidCallback? onImportEntries;
+  final VoidCallback? onOfflineCacheAll;
   final bool canImportEntries;
 
   const PlaylistHero({
@@ -33,6 +34,7 @@ class PlaylistHero extends StatelessWidget {
     this.onAddToPlaylist,
     this.onExportEntries,
     this.onImportEntries,
+    this.onOfflineCacheAll,
     this.canImportEntries = true,
   });
 
@@ -381,6 +383,15 @@ class PlaylistHero extends StatelessWidget {
                   disabled: !canImportEntries || onImportEntries == null,
                 ),
                 callback: () => onImportEntries?.call(),
+              ),
+              MenuSeparator(),
+              MenuAction(
+                title: '离线缓存全部',
+                image: MenuImage.icon(Icons.download_outlined),
+                attributes: MenuActionAttributes(
+                  disabled: songs.isEmpty || onOfflineCacheAll == null,
+                ),
+                callback: () => onOfflineCacheAll?.call(),
               ),
             ],
           ),

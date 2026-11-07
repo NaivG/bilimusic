@@ -11,6 +11,7 @@ import 'package:bilimusic/features/playlist/ui/landscape_playlist_page.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_entries_io.dart';
+import 'package:bilimusic/features/offline/ui/offline_batch_download_dialog.dart';
 
 /// 播放列表页面
 /// 根据屏幕方向路由到竖屏或横屏布局
@@ -170,6 +171,50 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
   }
 
   bool get _canImportEntries => widget.playlistId != 'history';
+
+  /// 把当前歌单的全部歌曲加入离线缓存（已缓存的自动跳过）。
+  ///
+  /// 批量下载放到 [OfflineBatchDownloadDialog] 里串行执行，
+  /// 这里只负责确认与打开进度对话框。
+  Future<void> _offlineCacheAll() async {
+    if (_songs.isEmpty) {
+      _showSnack('当前歌单没有可缓存的歌曲');
+      return;
+    }
+
+    final name = _currentPlaylist?.displayName ?? widget.playlistName ?? '播放列表';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('离线缓存'),
+        content: Text(
+          '将把「$name」中的 ${_songs.length} 首歌曲下载到离线缓存，'
+          '已缓存的会自动跳过。\n\n是否继续？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('开始缓存'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => OfflineBatchDownloadDialog(
+        songs: List<Music>.unmodifiable(_songs),
+        playlistName: name,
+      ),
+    );
+  }
 
   /// 导出当前歌单的条目（只含歌曲，不含歌单元信息）。
   Future<void> _exportEntries() async {
@@ -397,6 +442,7 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
         onAddToPlaylist: _addAllToPlaylist,
         onExportEntries: _exportEntries,
         onImportEntries: _importEntries,
+        onOfflineCacheAll: _offlineCacheAll,
         canImportEntries: _canImportEntries,
       );
     }
@@ -414,6 +460,7 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
       onAddToPlaylist: _addAllToPlaylist,
       onExportEntries: _exportEntries,
       onImportEntries: _importEntries,
+      onOfflineCacheAll: _offlineCacheAll,
       canImportEntries: _canImportEntries,
     );
   }

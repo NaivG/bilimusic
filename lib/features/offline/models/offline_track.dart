@@ -28,3 +28,32 @@ class DownloadProgress {
 
   bool get isIndeterminate => total <= 0;
 }
+
+/// 批量离线缓存的结果统计。
+class OfflineBatchResult {
+  const OfflineBatchResult({
+    this.downloaded = 0,
+    this.skipped = 0,
+    this.failed = 0,
+    this.cancelled = false,
+    this.errors = const [],
+  });
+
+  /// 本次新下载（或升级音质重下）成功的曲目数。
+  final int downloaded;
+
+  /// 已有足够音质的离线文件、被跳过的曲目数。
+  final int skipped;
+
+  /// 下载失败的曲目数。
+  final int failed;
+
+  /// 用户是否中途取消了剩余曲目。
+  final bool cancelled;
+
+  /// 失败原因摘要（最多保留前几条，避免对话框无限变长）。
+  final List<String> errors;
+
+  /// 已处理的曲目数（成功 + 跳过 + 失败）。
+  int get processed => downloaded + skipped + failed;
+}

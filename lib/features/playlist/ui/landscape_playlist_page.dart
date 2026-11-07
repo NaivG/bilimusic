@@ -19,6 +19,7 @@ class LandscapePlaylistPage extends ConsumerWidget {
   final VoidCallback onAddToPlaylist;
   final VoidCallback onExportEntries;
   final VoidCallback onImportEntries;
+  final VoidCallback onOfflineCacheAll;
   final bool canImportEntries;
 
   const LandscapePlaylistPage({
@@ -34,6 +35,7 @@ class LandscapePlaylistPage extends ConsumerWidget {
     required this.onAddToPlaylist,
     required this.onExportEntries,
     required this.onImportEntries,
+    required this.onOfflineCacheAll,
     this.canImportEntries = true,
   });
 
@@ -70,6 +72,7 @@ class LandscapePlaylistPage extends ConsumerWidget {
                       onAddToPlaylist: onAddToPlaylist,
                       onExportEntries: onExportEntries,
                       onImportEntries: onImportEntries,
+                      onOfflineCacheAll: onOfflineCacheAll,
                       canImportEntries: canImportEntries,
                     ),
                   ),
