@@ -9,6 +9,7 @@ import 'package:bilimusic/domain/artist.dart';
 import 'package:bilimusic/domain/music.dart' as model;
 import 'package:bilimusic/features/player/models/player_state.dart';
 import 'package:bilimusic/features/lyrics/lyrics_providers.dart';
+import 'package:bilimusic/features/lyrics/lyric_model_padding.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/roam/roam_providers.dart';
@@ -199,7 +200,9 @@ class _DetailPageState extends ConsumerState<DetailPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _loadDominantColor(liveMusic.coverUrl);
-        _lyricController.loadLyricModel(_placeholderModel(_music.title));
+        _lyricController.loadLyricModel(
+          padLeadingBlankLines(_placeholderModel(_music.title)),
+        );
         _lyricController.setProgress(Duration.zero);
       });
     }
@@ -235,7 +238,9 @@ class _DetailPageState extends ConsumerState<DetailPage> {
       _placeholderTitle = null;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        _lyricController.loadLyricModel(payload.mainModel);
+        _lyricController.loadLyricModel(
+          padLeadingBlankLines(payload.mainModel),
+        );
         _lyricController.setProgress(_position);
       });
     } else if (!lyricsAsync.isLoading &&
@@ -247,7 +252,9 @@ class _DetailPageState extends ConsumerState<DetailPage> {
       _placeholderTitle = _music.title;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        _lyricController.loadLyricModel(_placeholderModel(_music.title));
+        _lyricController.loadLyricModel(
+          padLeadingBlankLines(_placeholderModel(_music.title)),
+        );
         _lyricController.setProgress(_position);
       });
     }

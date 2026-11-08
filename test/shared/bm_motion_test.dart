@@ -21,6 +21,8 @@ void main() {
       expect(BmMotion.backdrop, const Duration(milliseconds: 400));
       expect(BmMotion.sheetMax, const Duration(milliseconds: 500));
       expect(BmMotion.pageMax, const Duration(milliseconds: 300));
+      expect(BmMotion.lyricScrollMax, const Duration(milliseconds: 500));
+      expect(BmMotion.lyricSwitchMax, const Duration(milliseconds: 480));
       // 状态层：进场 micro、退场 small（退场不必比进场慢，但必须仍是 token）。
       expect(BmMotion.hoverIn, BmMotion.micro);
       expect(BmMotion.hoverOut, BmMotion.small);
@@ -30,7 +32,7 @@ void main() {
       expect(BmMotion.staggerMax, 6);
     });
 
-    test('超过 320ms 的只有 hero / backdrop / sheetMax', () {
+    test('超过 320ms 的只有弹簧收敛预算 / hero / backdrop', () {
       const limit = Duration(milliseconds: 320);
       final durations = <String, Duration>{
         'instant': BmMotion.instant,
@@ -43,6 +45,8 @@ void main() {
         'backdrop': BmMotion.backdrop,
         'sheetMax': BmMotion.sheetMax,
         'pageMax': BmMotion.pageMax,
+        'lyricScrollMax': BmMotion.lyricScrollMax,
+        'lyricSwitchMax': BmMotion.lyricSwitchMax,
         'hoverIn': BmMotion.hoverIn,
         'hoverOut': BmMotion.hoverOut,
         'pressIn': BmMotion.pressIn,
@@ -53,7 +57,13 @@ void main() {
           .where((entry) => entry.value > limit)
           .map((entry) => entry.key)
           .toSet();
-      expect(overLimit, <String>{'hero', 'backdrop', 'sheetMax'});
+      expect(overLimit, <String>{
+        'hero',
+        'backdrop',
+        'sheetMax',
+        'lyricScrollMax',
+        'lyricSwitchMax',
+      });
       // stagger 上限 6 项 = 120ms，不超过最长常规档。
       expect(
         BmMotion.stagger * BmMotion.staggerMax,
@@ -117,6 +127,23 @@ void main() {
         );
       }
     });
+
+    test('lyricScrollSpring：普通播放档 mass 1 / stiffness 190 / 阻尼比 1.1', () {
+      final spring = BmMotion.lyricScrollSpring;
+      expect(spring.mass, 1);
+      expect(spring.stiffness, 190);
+      expect(spring.damping, closeTo(2 * 1.1 * math.sqrt(190), 1e-9));
+    });
+
+    test(
+      'lyricScaleSpring：lineScale 档 mass 2 / stiffness 100 / 阻尼比 0.88',
+      () {
+        final spring = BmMotion.lyricScaleSpring;
+        expect(spring.mass, 2);
+        expect(spring.stiffness, 100);
+        expect(spring.damping, closeTo(2 * 0.88 * math.sqrt(200), 1e-9));
+      },
+    );
   });
 
   group('SpringCurve', () {
@@ -125,6 +152,8 @@ void main() {
       'sheet': (SpringCurve.sheet(), 0.5),
       'press': (SpringCurve.press(), 0.2),
       'switchThumb': (SpringCurve.switchThumb(), 0.25),
+      'lyricScroll': (SpringCurve.lyricScroll(), 0.5),
+      'lyricLine': (SpringCurve.lyricLine(), 0.48),
     };
 
     for (final entry in curves.entries) {

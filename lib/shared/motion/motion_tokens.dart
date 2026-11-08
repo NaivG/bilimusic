@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/animation.dart';
 
-/// Lucent 动效 token：7 档时长 + 4 条曲线 + 4 个弹簧。
+/// Lucent 动效 token：7 档时长 + 4 条曲线 + 6 个弹簧。
 ///
 /// 规则（详见 `docs/lucent-motion.md`）：
 /// - 进场 240–320ms、退场 120–240ms；退场永远比进场快。
@@ -44,6 +44,12 @@ abstract class BmMotion {
   /// `isDone`；页面过渡必须给它一个有限窗口，窗口末段的残差由
   /// `SpringCurve` 线性收尾，否则旧页会在动画看起来结束后继续挂在树上。
   static const Duration pageMax = Duration(milliseconds: 300);
+
+  /// 歌词滚动的弹簧收敛预算（与 [lyricScrollSpring] 的收敛时间一致）。
+  static const Duration lyricScrollMax = Duration(milliseconds: 500);
+
+  /// 歌词行切换缩放的弹簧收敛预算。
+  static const Duration lyricSwitchMax = Duration(milliseconds: 480);
 
   // ===== 状态层 =====
   /// hover 状态层进入。
@@ -101,6 +107,20 @@ abstract class BmMotion {
     mass: 1,
     stiffness: 700,
     damping: _damping(mass: 1, stiffness: 700, ratio: 0.85),
+  );
+
+  /// 歌词纵向滚动：普通播放档（stiffness 190、阻尼比 1.1，几乎不过冲）。
+  static final SpringDescription lyricScrollSpring = SpringDescription(
+    mass: 1,
+    stiffness: 190,
+    damping: _damping(mass: 1, stiffness: 190, ratio: 1.1),
+  );
+
+  /// 歌词行缩放：lineScale 弹簧（mass 2 / stiffness 100 / 阻尼比 0.88）。
+  static final SpringDescription lyricScaleSpring = SpringDescription(
+    mass: 2,
+    stiffness: 100,
+    damping: _damping(mass: 2, stiffness: 100, ratio: 0.88),
   );
 
   // ===== 编排 =====

@@ -1,11 +1,19 @@
 import 'dart:ui';
 
+import 'package:bilimusic/features/lyrics/lyric_source.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
+import 'package:bilimusic/shared/motion/spring_curve.dart';
+import 'package:bilimusic/shared/utils/responsive.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_lyric/core/lyric_controller.dart';
 import 'package:flutter_lyric/core/lyric_style.dart';
 import 'package:flutter_lyric/widgets/lyric_view.dart';
-import 'package:bilimusic/features/lyrics/lyric_source.dart';
-import 'package:bilimusic/shared/utils/responsive.dart';
+
+/// 歌词滚动弹簧；`flutter_lyric` 只接受 Curve，用 [SpringCurve] 近似物理弹簧。
+final Curve _lyricScrollCurve = SpringCurve.lyricScroll();
+
+/// 歌词行切换（缩放 + 颜色）弹簧。
+final Curve _lyricLineCurve = SpringCurve.lyricLine();
 
 /// 统一歌词区域组件 —— 内部使用 [LyricController]/[LyricView] 完成渲染。
 ///
@@ -99,28 +107,106 @@ class _LyricSectionState extends State<LyricSection> {
         ),
         translationActiveColor: Colors.white.withValues(alpha: 0.7),
         lineTextAlign: TextAlign.left,
-        lineGap: 26,
-        translationLineGap: 8,
+        lineGap: 32,
+        translationLineGap: 10,
         contentAlignment: CrossAxisAlignment.start,
         selectionAnchorPosition: 0.4,
         activeAnchorPosition: 0.4,
         activeAlignment: MainAxisAlignment.start,
         selectionAlignment: MainAxisAlignment.start,
         fadeRange: FadeRange(top: 80, bottom: 80),
-        scrollDuration: const Duration(milliseconds: 320),
-        scrollCurve: Curves.easeOutCubic,
+        scrollDuration: BmMotion.lyricScrollMax,
+        scrollCurve: _lyricScrollCurve,
+        scrollAnimationBuilder: (_) => LyricScrollAnimationConfig(
+          duration: BmMotion.lyricScrollMax,
+          curve: _lyricScrollCurve,
+        ),
         selectedColor: Colors.white,
         selectedTranslationColor: Colors.white.withValues(alpha: 0.85),
         selectionAutoResumeDuration: const Duration(milliseconds: 320),
         activeAutoResumeDuration: const Duration(milliseconds: 3000),
         selectionAutoResumeMode: SelectionAutoResumeMode.selecting,
         activeHighlightColor: Colors.white,
-        activeHighlightExtraFadeWidth: 30,
+        activeHighlightExtraFadeWidth: active * 0.5,
         enableSwitchAnimation: true,
-        switchEnterDuration: const Duration(milliseconds: 220),
-        switchExitDuration: const Duration(milliseconds: 220),
+        switchEnterDuration: BmMotion.lyricSwitchMax,
+        switchExitDuration: BmMotion.lyricSwitchMax,
+        switchEnterCurve: _lyricLineCurve,
+        switchExitCurve: _lyricLineCurve,
       );
     }
+    // 方屏（手表 / 折叠外屏 / PiP）或窄幅横屏空间小，维持紧凑居中版式。
+    final size = MediaQuery.sizeOf(context);
+    if (SquareBreakpoints.shouldUseSquareLayout(context) ||
+        size.height < size.width) {
+      return _buildCompactPortraitStyle();
+    }
+    return _buildAppleMusicPortraitStyle();
+  }
+
+  /// 竖屏 AM 风格歌词：大字号 + 左对齐 + 逐字填充。
+  ///
+  /// 当前行按 100:97 行缩放略放大并加粗，未唱到的字压到 52% 白，
+  /// 唱过的字由 [LyricStyle.activeHighlightColor] 逐字填成纯白；滚动与行切换
+  /// 都走弹簧曲线，与横屏保持同一套动画。
+  LyricStyle _buildAppleMusicPortraitStyle() {
+    final width = MediaQuery.sizeOf(context).width;
+    final lyricSize = width >= 600 ? 34.0 : 32.0;
+    final activeSize = lyricSize / 0.97;
+    final translationSize = lyricSize * 0.66;
+    final lineGap = lyricSize * 0.9;
+
+    return LyricStyle(
+      textStyle: TextStyle(
+        fontSize: lyricSize,
+        color: Colors.white.withValues(alpha: 0.38),
+        fontWeight: FontWeight.w500,
+        height: 1.35,
+      ),
+      activeStyle: TextStyle(
+        fontSize: activeSize,
+        color: Colors.white.withValues(alpha: 0.52),
+        fontWeight: FontWeight.w700,
+        height: 1.35,
+      ),
+      translationStyle: TextStyle(
+        fontSize: translationSize,
+        color: Colors.white.withValues(alpha: 0.45),
+        height: 1.35,
+      ),
+      translationActiveColor: Colors.white.withValues(alpha: 0.8),
+      lineTextAlign: TextAlign.left,
+      lineGap: lineGap,
+      translationLineGap: 8,
+      contentAlignment: CrossAxisAlignment.start,
+      selectionAnchorPosition: 0.4,
+      activeAnchorPosition: 0.36,
+      activeAlignment: MainAxisAlignment.start,
+      selectionAlignment: MainAxisAlignment.start,
+      fadeRange: FadeRange(top: lyricSize * 3, bottom: lyricSize * 3),
+      scrollDuration: BmMotion.lyricScrollMax,
+      scrollCurve: _lyricScrollCurve,
+      scrollAnimationBuilder: (_) => LyricScrollAnimationConfig(
+        duration: BmMotion.lyricScrollMax,
+        curve: _lyricScrollCurve,
+      ),
+      selectedColor: Colors.white,
+      selectedTranslationColor: Colors.white.withValues(alpha: 0.85),
+      selectionAutoResumeDuration: const Duration(milliseconds: 320),
+      activeAutoResumeDuration: const Duration(milliseconds: 3000),
+      selectionAutoResumeMode: SelectionAutoResumeMode.selecting,
+      activeHighlightColor: Colors.white,
+      activeHighlightExtraFadeWidth: activeSize * 0.5,
+      enableSwitchAnimation: true,
+      switchEnterDuration: BmMotion.lyricSwitchMax,
+      switchExitDuration: BmMotion.lyricSwitchMax,
+      switchEnterCurve: _lyricLineCurve,
+      switchExitCurve: _lyricLineCurve,
+    );
+  }
+
+  /// 紧凑居中版式：方屏 / 窄幅横屏使用，字号与间距都更保守。
+  LyricStyle _buildCompactPortraitStyle() {
     return LyricStyle(
       textStyle: TextStyle(
         fontSize: 17,

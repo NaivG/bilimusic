@@ -108,17 +108,17 @@ class LandscapeBreakpoints {
   /// 获取横屏歌词当前行字号（Apple Music 风格大字）
   static double getCurrentLyricFontSize(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width >= desktopMin) return 36;
-    if (width >= largeTabletMin) return 30;
-    return 24;
+    if (width >= desktopMin) return 40;
+    if (width >= largeTabletMin) return 34;
+    return 28;
   }
 
   /// 获取横屏歌词其他行字号
   static double getOtherLyricFontSize(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width >= desktopMin) return 30;
-    if (width >= largeTabletMin) return 26;
-    return 22;
+    if (width >= desktopMin) return 34;
+    if (width >= largeTabletMin) return 30;
+    return 26;
   }
 
   /// 获取横屏主播放按钮尺寸

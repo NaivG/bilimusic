@@ -47,6 +47,20 @@ class SpringCurve extends Curve {
   factory SpringCurve.switchThumb() =>
       SpringCurve(BmMotion.switchSpring, seconds: 0.25);
 
+  /// 歌词滚动：普通播放的纵向弹簧。
+  factory SpringCurve.lyricScroll() => SpringCurve(
+    BmMotion.lyricScrollSpring,
+    seconds:
+        BmMotion.lyricScrollMax.inMicroseconds / Duration.microsecondsPerSecond,
+  );
+
+  /// 歌词行切换：行缩放弹簧。
+  factory SpringCurve.lyricLine() => SpringCurve(
+    BmMotion.lyricScaleSpring,
+    seconds:
+        BmMotion.lyricSwitchMax.inMicroseconds / Duration.microsecondsPerSecond,
+  );
+
   @override
   double transformInternal(double t) =>
       _simulation.x(t * seconds) + _residual * t;
