@@ -307,6 +307,9 @@ abstract class BmAlpha {
   /// Stage 控件描边。
   static const double stageBorder = 0.20;
 
+  /// Stage 封面虚化纹理的透明度（AM 式背景的主层）。
+  static const double stageCover = 0.70;
+
   /// 浮层阴影。
   static const double shadow = 0.12;
 

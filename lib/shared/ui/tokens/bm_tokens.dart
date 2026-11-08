@@ -65,6 +65,9 @@ class BmTokens extends ThemeExtension<BmTokens> {
   /// Chrome 表面模糊 sigma。
   static const double chromeBlurSigma = 24;
 
+  /// Stage 封面虚化纹理 sigma。
+  static const double stageCoverBlurSigma = 64;
+
   /// 竖屏底栏高（不含 safe area）。
   static const double navBarHeight = 56;
 

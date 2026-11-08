@@ -60,9 +60,10 @@ void main() {
       );
     });
 
-    test('Chrome 材质：描边 / 模糊 / 底栏 / 侧栏行', () {
+    test('Chrome / Stage 材质：描边 / 模糊 / 底栏 / 侧栏行', () {
       expect(BmTokens.hairlineWidth, 0.5);
       expect(BmTokens.chromeBlurSigma, 24);
+      expect(BmTokens.stageCoverBlurSigma, 64);
       expect(BmTokens.navBarHeight, 56);
       expect(BmTokens.navRowHeight, 40);
       expect(BmTokens.navIndicatorWidth, 3);
@@ -89,6 +90,7 @@ void main() {
       expect(BmAlpha.stageTextSecondary, 0.72);
       expect(BmAlpha.stageFill, 0.12);
       expect(BmAlpha.stageBorder, 0.20);
+      expect(BmAlpha.stageCover, 0.70);
       expect(BmAlpha.shadow, 0.12);
       expect(BmAlpha.shadowStrong, 0.20);
       expect(BmAlpha.scrim, 0.32);

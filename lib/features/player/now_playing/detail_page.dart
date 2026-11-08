@@ -43,9 +43,6 @@ class _DetailPageState extends ConsumerState<DetailPage> {
   // 背景颜色
   Color? _dominantColor;
 
-  // 上一首主导色 —— 横屏 AnimatedLandscapeBackground 切换渐变用
-  Color? _previousDominantColor;
-
   @override
   void dispose() {
     _lyricController.dispose();
@@ -196,7 +193,6 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     final liveMusic = ref.read(playerCoordinatorProvider).currentMusic;
     final musicChanged = liveMusic != null && liveMusic.id != _music.id;
     if (musicChanged) {
-      _previousDominantColor = _dominantColor;
       _music = liveMusic;
       _duration = liveMusic.duration;
       _isFavorite = ref
@@ -278,7 +274,6 @@ class _DetailPageState extends ConsumerState<DetailPage> {
         lyricController: _lyricController,
         isLoadingLyrics: resolved.loading,
         dominantColor: _dominantColor,
-        previousDominantColor: _previousDominantColor,
         playModeIcon: icon,
         onToggleFavorite: _toggleFavorite,
         onShare: () => shareMusic(_music),

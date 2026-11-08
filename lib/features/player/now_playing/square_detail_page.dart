@@ -7,13 +7,15 @@ import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 import 'package:bilimusic/features/lyrics/widgets/lyric_section.dart';
 import 'package:bilimusic/features/lyrics/lyric_source.dart';
 import 'package:bilimusic/domain/music.dart' as model;
-import 'package:bilimusic/features/player/now_playing/detail_blur_background.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/player/widgets/sleep_timer_sheet.dart';
 import 'package:bilimusic/features/lan_sync/lan_sync_providers.dart';
 import 'package:bilimusic/features/lan_sync/ui/sync_panel.dart';
+import 'package:bilimusic/features/settings/settings_provider.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/shared/ui/stage/bm_stage_backdrop.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
 import 'package:bilimusic/shared/utils/dialog_helpers.dart';
 import 'package:bilimusic/shared/utils/formatters.dart';
@@ -70,15 +72,18 @@ class SquareDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (showLyrics) return _buildLyricsView(context, ref);
+    final fluid = ref.watch(
+      settingsProvider.select((settings) => settings.fluidBackground),
+    );
+    if (showLyrics) return _buildLyricsView(context, ref, fluid);
 
     return Scaffold(
-      backgroundColor: dominantColor?.withValues(alpha: 0.4) ?? Colors.black,
+      backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
       appBar: _buildAppBar(context, ref),
       body: Stack(
         children: [
-          _buildBackground(),
+          Positioned.fill(child: _buildBackground(context, fluid)),
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -143,10 +148,13 @@ class SquareDetailPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildBackground() {
-    return DetailBlurBackground(
-      dominantColor: dominantColor,
+  Widget _buildBackground(BuildContext context, bool fluid) {
+    return BmStageBackdrop(
       coverUrl: music.coverUrl,
+      dominantColor: dominantColor,
+      fallbackColor: Theme.of(context).colorScheme.primary,
+      fluid: fluid,
+      cacheManager: imageCacheManager,
     );
   }
 
@@ -309,18 +317,25 @@ class SquareDetailPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildLyricsView(BuildContext context, WidgetRef ref) {
+  Widget _buildLyricsView(BuildContext context, WidgetRef ref, bool fluid) {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: _buildAppBar(context, ref),
-      body: LyricSection(
-        lyricController: lyricController,
-        position: position,
-        lyricSources: lyricSources,
-        selectedLyricId: selectedLyricId,
-        isLoadingLyrics: isLoadingLyrics,
-        onLyricSourceChanged: onLoadLyric,
-        onLyricTap: onSeek,
+      body: Stack(
+        children: [
+          Positioned.fill(child: _buildBackground(context, fluid)),
+          Positioned.fill(
+            child: LyricSection(
+              lyricController: lyricController,
+              position: position,
+              lyricSources: lyricSources,
+              selectedLyricId: selectedLyricId,
+              isLoadingLyrics: isLoadingLyrics,
+              onLyricSourceChanged: onLoadLyric,
+              onLyricTap: onSeek,
+            ),
+          ),
+        ],
       ),
     );
   }
