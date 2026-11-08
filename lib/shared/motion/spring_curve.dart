@@ -8,9 +8,9 @@ import 'motion_tokens.dart';
 /// 用它替代“固定时长 + Curves.easeOut 假装弹簧”的写法；残差线性收尾避免
 /// 动画在末帧跳一下（弹簧在 [seconds] 处通常还没精确收敛到 1）。
 class SpringCurve extends Curve {
-  SpringCurve(this.spring, {required this.seconds})
+  SpringCurve(this.spring, {required this.seconds, this.initialVelocity = 0})
     : assert(seconds > 0, 'seconds 必须为正'),
-      _simulation = SpringSimulation(spring, 0, 1, 0) {
+      _simulation = SpringSimulation(spring, 0, 1, initialVelocity) {
     _residual = 1 - _simulation.x(seconds);
   }
 
@@ -19,11 +19,21 @@ class SpringCurve extends Curve {
   /// 弹簧段时长（秒）。
   final double seconds;
 
+  /// 弹簧段初速（整段距离/秒，1.0 = 一秒走完全程）。
+  ///
+  /// 页面 push/pop 用 [BmMotion.pageInitialVelocityFactor]（9 × 距离/秒），
+  /// 让新页进场是「快速起步 + 缓收」，而不是从静止加速。
+  final double initialVelocity;
+
   final SpringSimulation _simulation;
   late final double _residual;
 
-  /// 页面 push/pop：临界阻尼，不 overshoot。
-  factory SpringCurve.page() => SpringCurve(BmMotion.pageSpring, seconds: 0.3);
+  /// 页面 push/pop：临界阻尼、初速 9 × 距离/秒、固定 [BmMotion.pageMax] 窗口。
+  factory SpringCurve.page() => SpringCurve(
+    BmMotion.pageSpring,
+    seconds: BmMotion.pageMax.inMicroseconds / Duration.microsecondsPerSecond,
+    initialVelocity: BmMotion.pageInitialVelocityFactor,
+  );
 
   /// Sheet：UIKit presentation spring，500ms 上限。
   factory SpringCurve.sheet() =>

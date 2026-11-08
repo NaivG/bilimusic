@@ -10,6 +10,7 @@ import 'package:bilimusic/features/player/widgets/mini_player_bar.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
 import 'package:bilimusic/shared/motion/motion_tokens.dart';
+import 'package:bilimusic/shared/ui/chrome/bm_chrome.dart';
 
 /// 竖屏模式外壳
 /// 主内容 + 迷你播放器 + 底部导航栏
@@ -101,10 +102,17 @@ class _PortraitShellState extends ConsumerState<PortraitShell> {
     final alwaysShowMiniPlayer = ref.watch(
       settingsProvider.select((settings) => settings.alwaysShowMiniPlayer),
     );
-    return _buildPortraitLayout(context, alwaysShowMiniPlayer);
+    final blurEffect = ref.watch(
+      settingsProvider.select((settings) => settings.blurEffect),
+    );
+    return _buildPortraitLayout(context, alwaysShowMiniPlayer, blurEffect);
   }
 
-  Widget _buildPortraitLayout(BuildContext context, bool alwaysShowMiniPlayer) {
+  Widget _buildPortraitLayout(
+    BuildContext context,
+    bool alwaysShowMiniPlayer,
+    bool blurEffect,
+  ) {
     final selectedIndex = widget.pageManager.selectedTabIndex;
     final showMiniPlayer = _showMiniPlayer(alwaysShowMiniPlayer);
     final miniPlayerCanAutoHide = _miniPlayerCanAutoHide(alwaysShowMiniPlayer);
@@ -137,6 +145,8 @@ class _PortraitShellState extends ConsumerState<PortraitShell> {
             ),
             child: shellPageSwitcher(
               key: widget.pageManager.basePageKey,
+              kind: widget.pageManager.lastTransitionKind,
+              direction: widget.pageManager.lastTransitionDirection,
               child: _buildPageContent(widget.pageManager.baseEntry),
             ),
           ),
@@ -159,44 +169,32 @@ class _PortraitShellState extends ConsumerState<PortraitShell> {
         ],
       ),
       bottomNavigationBar: _showBottomBar
-          ? Container(
-              decoration: BoxDecoration(
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: BottomNavigationBar(
-                type: BottomNavigationBarType.fixed,
-                elevation: 0,
-                items: const [
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.home_outlined),
-                    activeIcon: Icon(Icons.home),
-                    label: '首页',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.explore_outlined),
-                    activeIcon: Icon(Icons.explore),
-                    label: '发现',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.person_outlined),
-                    activeIcon: Icon(Icons.person),
-                    label: '我的',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.settings_outlined),
-                    activeIcon: Icon(Icons.settings),
-                    label: '设置',
-                  ),
-                ],
-                currentIndex: selectedIndex,
-                onTap: (index) => widget.pageManager.goToTab(index),
-              ),
+          ? BmNavBar(
+              items: const [
+                BmNavBarItem(
+                  icon: Icons.home_outlined,
+                  activeIcon: Icons.home,
+                  label: '首页',
+                ),
+                BmNavBarItem(
+                  icon: Icons.explore_outlined,
+                  activeIcon: Icons.explore,
+                  label: '发现',
+                ),
+                BmNavBarItem(
+                  icon: Icons.person_outlined,
+                  activeIcon: Icons.person,
+                  label: '我的',
+                ),
+                BmNavBarItem(
+                  icon: Icons.settings_outlined,
+                  activeIcon: Icons.settings,
+                  label: '设置',
+                ),
+              ],
+              selectedIndex: selectedIndex,
+              onSelected: (index) => widget.pageManager.goToTab(index),
+              blur: blurEffect,
             )
           : null,
     );

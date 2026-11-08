@@ -80,6 +80,7 @@ class GalleryColorRolesSection extends StatelessWidget {
       ('surfaceRaised', colors.surfaceRaised, '卡片 / 行'),
       ('surfaceSunken', colors.surfaceSunken, '输入框 / 搜索框'),
       ('chrome', colors.chrome, '贴边栏 72%'),
+      ('chromeOpaque', colors.chromeOpaque, '无模糊贴边栏 96%'),
       ('floating', colors.floating, '浮层 96%'),
       ('textPrimary', colors.textPrimary, '主文字'),
       ('textSecondary', colors.textSecondary, '次文字'),
@@ -103,6 +104,7 @@ class GalleryColorRolesSection extends StatelessWidget {
       ('shadow', colors.shadow, '浮层阴影'),
       ('shadowStrong', colors.shadowStrong, '强阴影'),
       ('scrim', colors.scrim, '遮罩 32%'),
+      ('dim', colors.dim, '页面切换压暗 15%'),
     ];
     return GallerySection(
       title: '颜色角色',

@@ -2,9 +2,13 @@
 ///
 /// - token：几何/颜色/排版，见 `tokens/`
 /// - 主题：`BmTheme.build()` 把 6 套主题的 ColorScheme + AppPalette 组装成 ThemeData
+/// - Chrome 原语：`chrome/`（BmChromeSurface / BmNavBar / BmNavRow）
+/// - 控件原语：`controls/`（BmIconButton / BmField）
 /// - 预览页：`gallery/bm_gallery_page.dart`（设置 → 关于应用 长按进入）
 library;
 
+export 'chrome/bm_chrome.dart';
+export 'controls/bm_controls.dart';
 export 'gallery/bm_gallery_page.dart';
 export 'tokens/bm_colors.dart';
 export 'tokens/bm_tokens.dart';

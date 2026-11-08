@@ -38,6 +38,13 @@ abstract class BmMotion {
   /// Sheet 弹簧的最长收敛预算（上限，不是固定时长）。
   static const Duration sheetMax = Duration(milliseconds: 500);
 
+  /// 页面 push/pop 的弹簧收敛预算（与 [pageSpring] 的自然周期一致）。
+  ///
+  /// 临界阻尼弹簧理论上永远到不了终点，默认 tolerance 下要 ~580ms 才
+  /// `isDone`；页面过渡必须给它一个有限窗口，窗口末段的残差由
+  /// `SpringCurve` 线性收尾，否则旧页会在动画看起来结束后继续挂在树上。
+  static const Duration pageMax = Duration(milliseconds: 300);
+
   // ===== 状态层 =====
   /// hover 状态层进入。
   static const Duration hoverIn = micro;

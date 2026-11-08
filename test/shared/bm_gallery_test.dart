@@ -51,7 +51,9 @@ void main() {
       'hairline',
       'stateHover',
       'accentBorder',
+      'chromeOpaque',
       'scrim',
+      'dim',
     ]) {
       expect(find.text(role), findsOneWidget, reason: '颜色角色 $role 未渲染');
     }
@@ -63,6 +65,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('M0 动效'), findsOneWidget);
+    // P2 Chrome 与 M1 页面切换是新增的两个验收分区。
+    expect(find.text('P2 Chrome'), findsOneWidget);
+    expect(find.text('M1 页面切换'), findsOneWidget);
   });
 }
 

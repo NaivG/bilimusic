@@ -20,6 +20,7 @@ void main() {
       expect(BmMotion.hero, const Duration(milliseconds: 460));
       expect(BmMotion.backdrop, const Duration(milliseconds: 400));
       expect(BmMotion.sheetMax, const Duration(milliseconds: 500));
+      expect(BmMotion.pageMax, const Duration(milliseconds: 300));
       // 状态层：进场 micro、退场 small（退场不必比进场慢，但必须仍是 token）。
       expect(BmMotion.hoverIn, BmMotion.micro);
       expect(BmMotion.hoverOut, BmMotion.small);
@@ -41,6 +42,7 @@ void main() {
         'hero': BmMotion.hero,
         'backdrop': BmMotion.backdrop,
         'sheetMax': BmMotion.sheetMax,
+        'pageMax': BmMotion.pageMax,
         'hoverIn': BmMotion.hoverIn,
         'hoverOut': BmMotion.hoverOut,
         'pressIn': BmMotion.pressIn,
@@ -104,6 +106,7 @@ void main() {
         closeTo(2 * math.sqrt(spring.mass * spring.stiffness), 1e-9),
       );
       expect(spring.duration.inMilliseconds, closeTo(300, 1));
+      expect(BmMotion.pageMax, spring.duration);
 
       final simulation = SpringSimulation(spring, 0, 1, 0);
       for (final t in <double>[0.0, 0.05, 0.1, 0.2, 0.3, 0.5, 1.0]) {
@@ -139,6 +142,22 @@ void main() {
         }
       });
     }
+
+    test('page：初速 9 × 距离/秒，300ms 窗口内单调收束', () {
+      final curve = SpringCurve.page();
+      expect(curve.initialVelocity, BmMotion.pageInitialVelocityFactor);
+      expect(curve.seconds, closeTo(0.3, 1e-9));
+      // 初速进场：窗口前 1/10 就走完 1/4 以上，不是从静止加速。
+      expect(curve.transform(0.1), greaterThan(0.25));
+      // 全窗口单调（临界阻尼 + 残差线性收尾，不 overshoot、不回弹）。
+      var previous = 0.0;
+      for (var i = 1; i <= 30; i++) {
+        final value = curve.transform(i / 30);
+        expect(value, greaterThanOrEqualTo(previous));
+        expect(value, lessThanOrEqualTo(1.0));
+        previous = value;
+      }
+    });
 
     test('seconds 必须为正（0 / 负数触发断言）', () {
       expect(

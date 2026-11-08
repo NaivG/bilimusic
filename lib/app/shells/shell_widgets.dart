@@ -5,6 +5,7 @@ import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/up_profile.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
+import 'package:bilimusic/shared/motion/bm_page_switcher.dart';
 import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
 import 'package:bilimusic/shared/widgets/background_blur_widget.dart';
@@ -174,30 +175,22 @@ Widget buildShellDetailLayer({required ShellPage currentPage}) {
   );
 }
 
-/// 共享的页面切换容器：300ms 淡入 + 横向轻微 slide。
+/// 共享的页面切换容器：把 [ShellPageManager] 记录的动作与方向转交给
+/// [BmPageSwitcher]。
+///
 /// 详见 [ShellPageManager.basePage]：当栈顶是 detail 时，调用方应该把
-/// KeyedSubtree 的 key 设为 `ShellPageManager.basePage`，使 detail 进入/离开
+/// KeyedSubtree 的 key 设为 `ShellPageManager.basePageKey`，使 detail 进入/离开
 /// 不会触发底层的过渡动画。
-Widget shellPageSwitcher({required Key key, required Widget child}) {
-  return AnimatedSwitcher(
-    duration: BmMotion.xlarge,
-    switchInCurve: Curves.easeOutCubic,
-    switchOutCurve: Curves.easeInCubic,
-    transitionBuilder: (child, animation) {
-      return FadeTransition(
-        opacity: animation,
-        child: SlideTransition(
-          position:
-              Tween<Offset>(
-                begin: const Offset(0.03, 0),
-                end: Offset.zero,
-              ).animate(
-                CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-              ),
-          child: child,
-        ),
-      );
-    },
-    child: KeyedSubtree(key: key, child: child),
+Widget shellPageSwitcher({
+  required Key key,
+  required Widget child,
+  required BmPageTransitionKind kind,
+  required int direction,
+}) {
+  return BmPageSwitcher(
+    pageKey: key,
+    kind: kind,
+    direction: direction,
+    child: child,
   );
 }

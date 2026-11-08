@@ -25,6 +25,9 @@ class BmColors extends ThemeExtension<BmColors> {
   /// 贴边栏（标题栏 / 侧栏 / 底栏 / 迷你播放器）。
   final Color chrome;
 
+  /// 关闭模糊时的贴边栏底（`scheme.surface @ 96%`）。
+  final Color chromeOpaque;
+
   /// 浮层（菜单 / 对话框 / Sheet / Tooltip / Toast）。
   final Color floating;
 
@@ -68,12 +71,16 @@ class BmColors extends ThemeExtension<BmColors> {
   final Color shadowStrong;
   final Color scrim;
 
+  /// 页面切换时压暗被覆盖页（黑色 15%）。
+  final Color dim;
+
   const BmColors({
     required this.bg,
     required this.surface,
     required this.surfaceRaised,
     required this.surfaceSunken,
     required this.chrome,
+    required this.chromeOpaque,
     required this.floating,
     required this.textPrimary,
     required this.textSecondary,
@@ -97,6 +104,7 @@ class BmColors extends ThemeExtension<BmColors> {
     required this.shadow,
     required this.shadowStrong,
     required this.scrim,
+    required this.dim,
   });
 
   /// 从当前主题派生全部角色。
@@ -113,6 +121,7 @@ class BmColors extends ThemeExtension<BmColors> {
       surfaceRaised: palette.panelSurface,
       surfaceSunken: palette.searchField,
       chrome: scheme.surface.withValues(alpha: BmAlpha.chrome),
+      chromeOpaque: scheme.surface.withValues(alpha: BmAlpha.chromeOpaque),
       floating: scheme.surfaceContainerHigh.withValues(alpha: BmAlpha.floating),
       textPrimary: onSurface,
       textSecondary: scheme.onSurfaceVariant,
@@ -138,6 +147,7 @@ class BmColors extends ThemeExtension<BmColors> {
       shadow: black.withValues(alpha: BmAlpha.shadow),
       shadowStrong: black.withValues(alpha: BmAlpha.shadowStrong),
       scrim: black.withValues(alpha: BmAlpha.scrim),
+      dim: black.withValues(alpha: BmAlpha.dim),
     );
   }
 
@@ -156,6 +166,7 @@ class BmColors extends ThemeExtension<BmColors> {
     Color? surfaceRaised,
     Color? surfaceSunken,
     Color? chrome,
+    Color? chromeOpaque,
     Color? floating,
     Color? textPrimary,
     Color? textSecondary,
@@ -179,6 +190,7 @@ class BmColors extends ThemeExtension<BmColors> {
     Color? shadow,
     Color? shadowStrong,
     Color? scrim,
+    Color? dim,
   }) {
     return BmColors(
       bg: bg ?? this.bg,
@@ -186,6 +198,7 @@ class BmColors extends ThemeExtension<BmColors> {
       surfaceRaised: surfaceRaised ?? this.surfaceRaised,
       surfaceSunken: surfaceSunken ?? this.surfaceSunken,
       chrome: chrome ?? this.chrome,
+      chromeOpaque: chromeOpaque ?? this.chromeOpaque,
       floating: floating ?? this.floating,
       textPrimary: textPrimary ?? this.textPrimary,
       textSecondary: textSecondary ?? this.textSecondary,
@@ -209,6 +222,7 @@ class BmColors extends ThemeExtension<BmColors> {
       shadow: shadow ?? this.shadow,
       shadowStrong: shadowStrong ?? this.shadowStrong,
       scrim: scrim ?? this.scrim,
+      dim: dim ?? this.dim,
     );
   }
 
@@ -222,6 +236,7 @@ class BmColors extends ThemeExtension<BmColors> {
       surfaceRaised: mix(surfaceRaised, other.surfaceRaised),
       surfaceSunken: mix(surfaceSunken, other.surfaceSunken),
       chrome: mix(chrome, other.chrome),
+      chromeOpaque: mix(chromeOpaque, other.chromeOpaque),
       floating: mix(floating, other.floating),
       textPrimary: mix(textPrimary, other.textPrimary),
       textSecondary: mix(textSecondary, other.textSecondary),
@@ -245,6 +260,7 @@ class BmColors extends ThemeExtension<BmColors> {
       shadow: mix(shadow, other.shadow),
       shadowStrong: mix(shadowStrong, other.shadowStrong),
       scrim: mix(scrim, other.scrim),
+      dim: mix(dim, other.dim),
     );
   }
 }
@@ -269,6 +285,9 @@ abstract class BmAlpha {
 
   /// 贴边栏底色。
   static const double chrome = 0.72;
+
+  /// 关闭模糊时的贴边栏底色。
+  static const double chromeOpaque = 0.96;
 
   /// 浮层底色。
   static const double floating = 0.96;
@@ -296,4 +315,7 @@ abstract class BmAlpha {
 
   /// 遮罩。
   static const double scrim = 0.32;
+
+  /// 页面切换时压暗被覆盖页。
+  static const double dim = 0.15;
 }

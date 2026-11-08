@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/up_profile.dart';
+import 'package:bilimusic/shared/motion/bm_page_switcher.dart';
 
 enum ShellPage {
   home,
@@ -59,6 +60,15 @@ class ShellPageManager extends ChangeNotifier {
   /// 每次 [goToPlaylist] 自增，写入对应帧的 [ShellPageEntry.navGen]。
   int _playlistNavGen = 0;
 
+  BmPageTransitionKind _lastTransitionKind = BmPageTransitionKind.tab;
+  int _lastTransitionDirection = 1;
+
+  /// 最近一次栈变化的类型，供壳层的 [BmPageSwitcher] 选择过渡几何。
+  BmPageTransitionKind get lastTransitionKind => _lastTransitionKind;
+
+  /// 最近一次栈变化的方向：+1 进入更深一层，-1 返回。
+  int get lastTransitionDirection => _lastTransitionDirection;
+
   ShellPage get currentPage => _stack.last.page;
   bool get canPop => _stack.length > 1;
 
@@ -74,7 +84,7 @@ class ShellPageManager extends ChangeNotifier {
 
   ShellPage get basePage => baseEntry.page;
 
-  /// 底层页面在 AnimatedSwitcher 中使用的 key：
+  /// 底层页面在 [BmPageSwitcher] 中使用的 key：
   /// playlist 页用帧的 navGen 区分实例——重复点击同一歌单会重建并触发
   /// 入场动画，从歌单 B 返回歌单 A 也会重建回 A 的内容；
   /// 其余页面沿用页面名（tab 间来回切换不丢元素、不重载）。
@@ -116,20 +126,25 @@ class ShellPageManager extends ChangeNotifier {
 
   void push(ShellPage page, {Map<String, dynamic>? args}) {
     _stack.add(ShellPageEntry(page, args: args));
+    _record(BmPageTransitionKind.push, 1);
     notifyListeners();
   }
 
   void pop() {
     if (_stack.length > 1) {
       _stack.removeLast();
+      _record(BmPageTransitionKind.pop, -1);
       notifyListeners();
     }
   }
 
   void popUntil(ShellPage page) {
+    var popped = false;
     while (_stack.length > 1 && _stack.last.page != page) {
       _stack.removeLast();
+      popped = true;
     }
+    if (popped) _record(BmPageTransitionKind.pop, -1);
     notifyListeners();
   }
 
@@ -138,6 +153,7 @@ class ShellPageManager extends ChangeNotifier {
       _stack.removeLast();
     }
     _stack.add(ShellPageEntry(page, args: args));
+    _record(BmPageTransitionKind.replace, 0);
     notifyListeners();
   }
 
@@ -152,9 +168,13 @@ class ShellPageManager extends ChangeNotifier {
       3 => ShellPage.settings,
       _ => ShellPage.home,
     };
+    final oldIndex = selectedTabIndex;
     _stack
       ..clear()
       ..add(ShellPageEntry(page));
+    // 同一 tab 重按时 basePageKey 不变，BmPageSwitcher 不会播动画；
+    // 方向仍记录为 +1，保持「最近动作」可解释。
+    _record(BmPageTransitionKind.tab, index >= oldIndex ? 1 : -1);
     notifyListeners();
   }
 
@@ -175,6 +195,7 @@ class ShellPageManager extends ChangeNotifier {
         navGen: _playlistNavGen,
       ),
     );
+    _record(BmPageTransitionKind.push, 1);
     notifyListeners();
   }
 
@@ -190,4 +211,9 @@ class ShellPageManager extends ChangeNotifier {
   /// 栈顶帧的参数。渲染 basePage 时不要用它（栈顶可能是 detail 等无参页面），
   /// 应使用 [baseEntry].args。
   T? getArgs<T>(String key) => _stack.last.args[key] as T?;
+
+  void _record(BmPageTransitionKind kind, int direction) {
+    _lastTransitionKind = kind;
+    _lastTransitionDirection = direction;
+  }
 }

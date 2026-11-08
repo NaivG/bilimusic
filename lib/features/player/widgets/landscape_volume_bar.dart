@@ -2,23 +2,31 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 
 /// 横屏模式音量条组件
 /// 接入 PlayerCoordinator 的音量控制，状态来自 volumeProvider
 class LandscapeVolumeBar extends ConsumerWidget {
   final Color activeColor;
+
+  /// 未播放段轨道色；为空时取 [BmColors.hairline]。
+  final Color? inactiveColor;
+
   final double width;
   final double height;
 
   const LandscapeVolumeBar({
     super.key,
     required this.activeColor,
+    this.inactiveColor,
     this.width = 120,
     this.height = 20,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.bmColors;
+    final inactive = inactiveColor ?? colors.hairline;
     final volume = ref.watch(volumeProvider);
     final commands = ref.read(playbackCommandsProvider.notifier);
 
@@ -28,11 +36,14 @@ class LandscapeVolumeBar extends ConsumerWidget {
       child: SliderTheme(
         data: SliderTheme.of(context).copyWith(
           trackHeight: 2,
-          trackShape: const _FullWidthTrackShape(),
+          trackShape: _FullWidthTrackShape(
+            activeColor: activeColor,
+            inactiveColor: inactive,
+          ),
           thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 0),
           overlayColor: Colors.transparent,
           activeTrackColor: activeColor,
-          inactiveTrackColor: Colors.black12,
+          inactiveTrackColor: inactive,
         ),
         child: Listener(
           onPointerSignal: (event) {
@@ -58,7 +69,14 @@ class LandscapeVolumeBar extends ConsumerWidget {
 
 /// 全宽度轨道形状（用于音量条）
 class _FullWidthTrackShape extends SliderTrackShape {
-  const _FullWidthTrackShape();
+  const _FullWidthTrackShape({
+    required this.activeColor,
+    required this.inactiveColor,
+  });
+
+  /// SliderTheme 未给轨道色时的回退（调用点已显式传入 token 色）。
+  final Color activeColor;
+  final Color inactiveColor;
 
   @override
   Rect getPreferredRect({
@@ -95,7 +113,7 @@ class _FullWidthTrackShape extends SliderTrackShape {
     );
 
     final trackPaint = Paint()
-      ..color = sliderTheme.inactiveTrackColor ?? Colors.black12
+      ..color = sliderTheme.inactiveTrackColor ?? inactiveColor
       ..style = PaintingStyle.fill;
 
     final radius = Radius.circular(trackRect.height / 2);
@@ -112,7 +130,7 @@ class _FullWidthTrackShape extends SliderTrackShape {
     );
 
     final activeTrackPaint = Paint()
-      ..color = sliderTheme.activeTrackColor ?? Colors.black
+      ..color = sliderTheme.activeTrackColor ?? activeColor
       ..style = PaintingStyle.fill;
 
     context.canvas.drawRRect(

@@ -74,7 +74,7 @@ Vela、Chrome 扩展与 Flutter 端**不共享代码、不共享包管理**，�
 | 编排 | `lib/features/*/logic/`、`features/*/services/` | 播放编排、漫游、局域网同步、登录、收藏同步等业务流程 |
 | 领域模型 | `lib/domain/` | 纯共享数据模型（`Music`、`Playlist`、`BiliItem`、`PeerDevice`…），无 UI、无服务依赖 |
 | 基础设施 | `lib/core/network/`、`lib/core/storage/` | HTTP / Cookie / WBI、SQLite 与缓存；**必须纯 Dart** |
-| 视觉系统 | `lib/shared/theme/` | Palette、Token、六套主题（Lucent / Nocturne / Verdant / Gruvbox / Nord / Solarized）与运行时切换 |
+| 视觉系统 | `lib/shared/theme/`、`lib/shared/ui/`、`lib/shared/motion/` | 六套主题（Lucent / Nocturne / Verdant / Gruvbox / Nord / Solarized）与运行时切换；Lucent token / 原语 / 动效 |
 | 组合根 | `lib/app/app_providers.dart` | 长生命周期服务的创建与释放 |
 
 功能模块内部按关注面分目录（`ui/`、`widgets/`、`logic/`、`services/`、`models/`），不要求每个模块都建满这些目录——没有对应内容就不建。

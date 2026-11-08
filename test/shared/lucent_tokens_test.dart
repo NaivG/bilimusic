@@ -60,6 +60,14 @@ void main() {
       );
     });
 
+    test('Chrome 材质：描边 / 模糊 / 底栏 / 侧栏行', () {
+      expect(BmTokens.hairlineWidth, 0.5);
+      expect(BmTokens.chromeBlurSigma, 24);
+      expect(BmTokens.navBarHeight, 56);
+      expect(BmTokens.navRowHeight, 40);
+      expect(BmTokens.navIndicatorWidth, 3);
+    });
+
     test('扩展是单例：copyWith / lerp 返回自身', () {
       const tokens = BmTokens.standard;
       expect(tokens.copyWith(), same(tokens));
@@ -74,6 +82,7 @@ void main() {
       expect(BmAlpha.selected, 0.12);
       expect(BmAlpha.border, 0.24);
       expect(BmAlpha.chrome, 0.72);
+      expect(BmAlpha.chromeOpaque, 0.96);
       expect(BmAlpha.floating, 0.96);
       expect(BmAlpha.textTertiary, 0.60);
       expect(BmAlpha.disabled, 0.38);
@@ -83,6 +92,7 @@ void main() {
       expect(BmAlpha.shadow, 0.12);
       expect(BmAlpha.shadowStrong, 0.20);
       expect(BmAlpha.scrim, 0.32);
+      expect(BmAlpha.dim, 0.15);
     });
   });
 
@@ -100,13 +110,14 @@ void main() {
           final scheme = theme.colorScheme;
           final colors = BmColors.resolve(scheme, palette!);
 
-          // 28 个角色都拿到了有效色值（分量在 0..1，没有 NaN）。
+          // 30 个角色都拿到了有效色值（分量在 0..1，没有 NaN）。
           final roles = <String, Color>{
             'bg': colors.bg,
             'surface': colors.surface,
             'surfaceRaised': colors.surfaceRaised,
             'surfaceSunken': colors.surfaceSunken,
             'chrome': colors.chrome,
+            'chromeOpaque': colors.chromeOpaque,
             'floating': colors.floating,
             'textPrimary': colors.textPrimary,
             'textSecondary': colors.textSecondary,
@@ -130,8 +141,9 @@ void main() {
             'shadow': colors.shadow,
             'shadowStrong': colors.shadowStrong,
             'scrim': colors.scrim,
+            'dim': colors.dim,
           };
-          expect(roles.length, 28);
+          expect(roles.length, 30);
           for (final entry in roles.entries) {
             expect(
               entry.value.a,
@@ -174,6 +186,13 @@ void main() {
           // 半透明角色：底色保留、alpha 只用固定值。
           expectRgb(colors.chrome, scheme.surface, 'chrome');
           expectAlpha(colors.chrome, BmAlpha.chrome, 'chrome');
+
+          expectRgb(colors.chromeOpaque, scheme.surface, 'chromeOpaque');
+          expectAlpha(
+            colors.chromeOpaque,
+            BmAlpha.chromeOpaque,
+            'chromeOpaque',
+          );
 
           expectRgb(colors.floating, scheme.surfaceContainerHigh, 'floating');
           expectAlpha(colors.floating, BmAlpha.floating, 'floating');
@@ -237,6 +256,9 @@ void main() {
 
           expectRgb(colors.scrim, Colors.black, 'scrim');
           expectAlpha(colors.scrim, BmAlpha.scrim, 'scrim');
+
+          expectRgb(colors.dim, Colors.black, 'dim');
+          expectAlpha(colors.dim, BmAlpha.dim, 'dim');
         });
       }
     }

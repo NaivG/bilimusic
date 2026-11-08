@@ -11,6 +11,9 @@ import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/app/shells/shell_widgets.dart';
 import 'package:bilimusic/features/home/home_content.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
+import 'package:bilimusic/shared/ui/menu/bm_menu_surface.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 
 /// 横屏模式外壳 - 基于ParticleMusic风格
 /// 布局：标题栏 + 侧边栏 + 主内容区 + 底部播放器栏
@@ -123,12 +126,17 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
                       children: [
                         // 侧边栏
                         if (_showSidebar) _buildSidebar(ref),
-                        // 内容区
+                        // 页面区域：标题栏 / 侧栏 / 底栏都是 chrome，只有这一块
+                        // 随页面栈切换；过渡的裁剪由 BmPageSwitcher 自己负责，
+                        // 被推走的旧页不会画到侧栏上。
                         Expanded(
                           child: Material(
                             color: sidebarSurface.withValues(alpha: 0.2),
                             child: shellPageSwitcher(
                               key: widget.pageManager.basePageKey,
+                              kind: widget.pageManager.lastTransitionKind,
+                              direction:
+                                  widget.pageManager.lastTransitionDirection,
                               child: buildShellPageContent(
                                 page: widget.pageManager.basePage,
                                 args: widget.pageManager.baseEntry.args,
@@ -182,18 +190,16 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: _searchFocusNode.unfocus,
-          child: ColoredBox(color: Colors.black.withValues(alpha: 0.06)),
+          child: ColoredBox(color: context.bmColors.stateHover),
         ),
       ),
       Positioned(
-        top: LandscapeTitleBar.height + 8,
+        top: LandscapeTitleBar.height + BmTokens.s2,
         left: _searchPanelLeft,
         child: TextFieldTapRegion(
-          child: Material(
-            elevation: 12,
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(14),
-            clipBehavior: Clip.antiAlias,
+          child: BmMenuSurface(
+            maxWidth: panelWidth,
+            padding: EdgeInsets.zero,
             child: SizedBox(
               width: panelWidth,
               child: ConstrainedBox(

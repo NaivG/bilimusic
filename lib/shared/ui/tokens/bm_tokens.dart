@@ -58,6 +58,22 @@ class BmTokens extends ThemeExtension<BmTokens> {
   /// 菜单浮层内边距（设计文档 §4.6）。
   static const double menuInset = 6;
 
+  // ===== Chrome 材质（设计文档 §4.9 / §4.11）=====
+  /// 0.5px hairline 宽。
+  static const double hairlineWidth = 0.5;
+
+  /// Chrome 表面模糊 sigma。
+  static const double chromeBlurSigma = 24;
+
+  /// 竖屏底栏高（不含 safe area）。
+  static const double navBarHeight = 56;
+
+  /// 侧栏 / 导航行高。
+  static const double navRowHeight = 40;
+
+  /// 侧栏选中条宽。
+  static const double navIndicatorWidth = 3;
+
   // ===== 触摸区下限 =====
   static const double touchDesktop = 40;
   static const double touchScreen = 44;
