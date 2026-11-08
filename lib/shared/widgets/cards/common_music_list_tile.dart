@@ -6,7 +6,7 @@ import 'package:bilimusic/features/player/logic/player_coordinator.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_service.dart';
 import 'package:bilimusic/shared/widgets/long_press_menu.dart';
-import 'package:super_context_menu/super_context_menu.dart';
+import 'package:bilimusic/shared/ui/menu/app_context_menu.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/shared/motion/motion_tokens.dart';
@@ -67,7 +67,7 @@ class _CommonMusicListTileState extends ConsumerState<CommonMusicListTile> {
           color: _isHovered ? palette.surfaceHover : Colors.transparent,
           borderRadius: BorderRadius.circular(AppTokens.radiusSm),
         ),
-        child: ContextMenuWidget(
+        child: AppContextMenu(
           menuProvider: (_) => buildMusicContextMenu(
             context: context,
             music: widget.music,

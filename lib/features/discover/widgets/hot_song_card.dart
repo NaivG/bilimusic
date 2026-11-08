@@ -7,6 +7,7 @@ import 'package:bilimusic/domain/hot_song.dart';
 import 'package:bilimusic/domain/related_video.dart';
 import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
+import 'package:bilimusic/shared/ui/menu/app_context_menu.dart';
 import 'package:bilimusic/shared/utils/formatters.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 
@@ -77,7 +78,7 @@ class _HotSongCardState extends State<HotSongCard> {
 
     final menuBuilder = widget.contextMenuBuilder;
     if (!enabled || menuBuilder == null) return card;
-    return ContextMenuWidget(menuProvider: menuBuilder, child: card);
+    return AppContextMenu(menuProvider: menuBuilder, child: card);
   }
 
   // ------------------------------------------------------------ 歌曲行头

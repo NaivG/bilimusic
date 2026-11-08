@@ -51,6 +51,13 @@ class BmTokens extends ThemeExtension<BmTokens> {
   static const double icon = 20;
   static const double iconLarge = 24;
 
+  // ===== Chrome 浮层（菜单 / 对话框 / Sheet）=====
+  /// 菜单行高（设计文档 §4.6）。
+  static const double menuRow = 32;
+
+  /// 菜单浮层内边距（设计文档 §4.6）。
+  static const double menuInset = 6;
+
   // ===== 触摸区下限 =====
   static const double touchDesktop = 40;
   static const double touchScreen = 44;

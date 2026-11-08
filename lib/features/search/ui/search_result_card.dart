@@ -8,7 +8,7 @@ import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_service.dart';
 import 'package:bilimusic/shared/widgets/long_press_menu.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
-import 'package:super_context_menu/super_context_menu.dart';
+import 'package:bilimusic/shared/ui/menu/app_context_menu.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/core/network/network_config.dart';
 
@@ -84,7 +84,7 @@ class _SearchResultCardState extends ConsumerState<SearchResultCard>
         builder: (context, child) {
           return Transform.scale(scale: _scaleAnimation.value, child: child);
         },
-        child: ContextMenuWidget(
+        child: AppContextMenu(
           menuProvider: (_) {
             if (widget.result.type != SearchResultType.video) return null;
             final music = widget.result.toMusic();

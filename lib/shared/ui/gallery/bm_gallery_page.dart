@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:bilimusic/shared/theme/theme_registry.dart';
 import 'package:bilimusic/shared/ui/gallery/gallery_motion_section.dart';
+import 'package:bilimusic/shared/ui/gallery/gallery_overlay_section.dart';
 import 'package:bilimusic/shared/ui/gallery/gallery_sections.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
@@ -84,6 +85,8 @@ class _BmGalleryPageState extends State<BmGalleryPage> {
               const GalleryComponentsSection(),
               const SizedBox(height: BmTokens.s4),
               const GalleryMotionSection(),
+              const SizedBox(height: BmTokens.s4),
+              const GalleryOverlaySection(),
             ],
           ),
         ),

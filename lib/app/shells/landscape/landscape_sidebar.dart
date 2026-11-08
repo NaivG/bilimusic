@@ -4,6 +4,7 @@ import 'package:bilimusic/shared/widgets/long_press_menu.dart';
 import 'package:bilimusic/domain/playlist.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
+import 'package:bilimusic/shared/ui/menu/app_context_menu.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 
 /// 横屏模式新侧边栏 - 基于ParticleMusic风格
@@ -370,6 +371,6 @@ class _PlaylistItem extends StatelessWidget {
     );
 
     if (contextMenuBuilder == null) return inner;
-    return ContextMenuWidget(menuProvider: contextMenuBuilder!, child: inner);
+    return AppContextMenu(menuProvider: contextMenuBuilder!, child: inner);
   }
 }

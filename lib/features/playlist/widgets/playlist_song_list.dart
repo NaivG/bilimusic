@@ -9,7 +9,7 @@ import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/utils/formatters.dart';
 import 'package:bilimusic/shared/widgets/long_press_menu.dart';
 import 'package:bilimusic/shared/widgets/music_menu_button.dart';
-import 'package:super_context_menu/super_context_menu.dart';
+import 'package:bilimusic/shared/ui/menu/app_context_menu.dart';
 
 /// Enhanced song list for playlist page.
 /// Supports search bar, list headers with multi-select, track rows with
@@ -594,7 +594,7 @@ class _PlaylistTrackRowState extends ConsumerState<PlaylistTrackRow> {
 
     if (widget.selectionMode) return row;
 
-    return ContextMenuWidget(
+    return AppContextMenu(
       menuProvider: (_) => buildMusicContextMenu(
         context: context,
         music: widget.music,

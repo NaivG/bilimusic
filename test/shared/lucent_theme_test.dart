@@ -1,5 +1,4 @@
 import 'package:bilimusic/shared/theme/app_palette.dart';
-import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/theme/theme_registry.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
@@ -110,7 +109,8 @@ void main() {
 
           expect(theme.cardTheme.color, palette.panelSurface);
 
-          // 既有 test/shell/snack_bar_boundary_test.dart 依赖这三项。
+          // SnackBar 主题只提供定位 / 圆角 / 文字兜底：showBmToast 传的是
+          // 透明外壳，外观由 BmToast 自绘；裸 showSnackBar 也落到同一套几何上。
           expect(theme.snackBarTheme.behavior, SnackBarBehavior.floating);
           expect(
             theme.snackBarTheme.backgroundColor,
@@ -118,12 +118,13 @@ void main() {
           );
           expect(theme.snackBarTheme.contentTextStyle, isNotNull);
           expect(theme.snackBarTheme.contentTextStyle!.color, scheme.onSurface);
+          expect(theme.snackBarTheme.contentTextStyle!.fontSize, 13);
           expect(theme.snackBarTheme.elevation, 0);
           final snackShape = theme.snackBarTheme.shape;
           expect(snackShape, isA<RoundedRectangleBorder>());
           expect(
             (snackShape! as RoundedRectangleBorder).borderRadius,
-            BorderRadius.circular(AppTokens.radiusLg),
+            BmTokens.r14All,
           );
         });
       });

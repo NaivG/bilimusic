@@ -7,6 +7,7 @@ import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/ui/menu/app_context_menu.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 
 /// 发现页的曲目行：可选排名列 + 封面 + 标题/副标题 + 自定义尾部。
@@ -141,7 +142,7 @@ class _DiscoverMusicTileState extends State<DiscoverMusicTile> {
 
     final menuBuilder = widget.contextMenuBuilder;
     if (!widget.enabled || menuBuilder == null) return row;
-    return ContextMenuWidget(menuProvider: menuBuilder, child: row);
+    return AppContextMenu(menuProvider: menuBuilder, child: row);
   }
 
   Widget _buildCover(ThemeData theme) {

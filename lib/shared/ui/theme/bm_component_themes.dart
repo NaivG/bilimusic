@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'package:bilimusic/shared/motion/motion_tokens.dart';
-import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
@@ -276,18 +275,17 @@ abstract class BmComponentThemes {
     );
   }
 
-  /// Toast：浮动 + 圆角 + 四边留白，浮在迷你播放器 / 底部控制栏上方。
+  /// Toast 外壳：浮动 + 14 圆角 + 四边留白，浮在迷你播放器 / 底部控制栏上方。
   ///
-  /// 样式走主题而不是包一层 helper：调用点有上百处，主题能一次性覆盖
-  /// 现有和以后所有 `ScaffoldMessenger.showSnackBar`。
+  /// 外观由 `BmToast` 自绘（`showBmToast` 传透明底 + padding 0），主题只保留
+  /// 定位、圆角与文字兜底，保证裸 `SnackBar` 也落到同一套几何上。
   /// [SnackBarThemeData.contentTextStyle] 必须显式给：SnackBar 默认按
   /// `onInverseSurface` 取色，换底后不覆盖会在浅色主题下出现灰字压深底。
   static SnackBarThemeData snackBar(ColorScheme scheme, BmColors colors) {
     return SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
-        // P0 保持既有 16 圆角（BmToast 的 14 在 P1 统一收口）
-        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+        borderRadius: BmTokens.r14All,
         side: BorderSide(color: colors.hairline, width: 0.5),
       ),
       // 左右 16 让胶囊不顶边，底部 12 与底栏留一口气
@@ -296,11 +294,7 @@ abstract class BmComponentThemes {
         vertical: BmTokens.s3,
       ),
       backgroundColor: scheme.surfaceContainerHigh,
-      contentTextStyle: TextStyle(
-        color: scheme.onSurface,
-        fontSize: 14,
-        fontFamilyFallback: BmTypography.fontFallback,
-      ),
+      contentTextStyle: BmTypography.label(scheme.onSurface),
       actionTextColor: colors.accent,
       // 与 cardTheme / 导航栏一致走平面风格，不要高程染色
       elevation: 0,

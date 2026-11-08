@@ -12,7 +12,7 @@ import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/roam/ui/roam_section.dart';
 import 'package:bilimusic/features/lan_sync/ui/lansync_section.dart';
-import 'package:super_context_menu/super_context_menu.dart';
+import 'package:bilimusic/shared/ui/menu/app_context_menu.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
@@ -523,7 +523,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                     },
                                   );
                                   if (playlist.isDefault) return tile;
-                                  return ContextMenuWidget(
+                                  return AppContextMenu(
                                     menuProvider: (_) =>
                                         buildPlaylistContextMenu(
                                           context: context,
