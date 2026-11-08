@@ -10,6 +10,7 @@ library;
 
 export 'chrome/bm_chrome.dart';
 export 'controls/bm_controls.dart';
+export 'stage/bm_audio_quality_badge.dart';
 export 'stage/bm_stage_backdrop.dart';
 export 'gallery/bm_gallery_page.dart';
 export 'tokens/bm_colors.dart';

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:bilimusic/shared/ui/stage/bm_audio_quality_badge.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
@@ -518,6 +519,16 @@ class _StageDemo extends StatelessWidget {
               _StageControl(icon: Icons.skip_next_rounded),
               Spacer(),
               _StageControl(icon: Icons.more_horiz_rounded),
+            ],
+          ),
+          const SizedBox(height: BmTokens.s3),
+          Wrap(
+            spacing: BmTokens.s2,
+            runSpacing: BmTokens.s1,
+            children: const <Widget>[
+              BmAudioQualityBadge(qualityId: '30251'),
+              BmAudioQualityBadge(qualityId: '30250'),
+              BmAudioQualityBadge(qualityId: '30280'),
             ],
           ),
         ],

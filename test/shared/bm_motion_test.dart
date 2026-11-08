@@ -135,15 +135,12 @@ void main() {
       expect(spring.damping, closeTo(2 * 1.1 * math.sqrt(190), 1e-9));
     });
 
-    test(
-      'lyricScaleSpring：lineScale 档 mass 2 / stiffness 100 / 阻尼比 0.88',
-      () {
-        final spring = BmMotion.lyricScaleSpring;
-        expect(spring.mass, 2);
-        expect(spring.stiffness, 100);
-        expect(spring.damping, closeTo(2 * 0.88 * math.sqrt(200), 1e-9));
-      },
-    );
+    test('lyricScaleSpring：lineScale 档 mass 2 / stiffness 100 / 阻尼比 0.88', () {
+      final spring = BmMotion.lyricScaleSpring;
+      expect(spring.mass, 2);
+      expect(spring.stiffness, 100);
+      expect(spring.damping, closeTo(2 * 0.88 * math.sqrt(200), 1e-9));
+    });
   });
 
   group('SpringCurve', () {
