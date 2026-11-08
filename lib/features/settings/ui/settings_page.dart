@@ -6,6 +6,7 @@ import 'package:bilimusic/features/settings/settings_provider.dart';
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/theme/theme_registry.dart';
+import 'package:bilimusic/shared/ui/gallery/bm_gallery_page.dart';
 import 'package:bilimusic/shared/utils/platform_helper.dart';
 import 'package:bilimusic/shared/utils/title_meta_filter.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
@@ -350,6 +351,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               leading: Icon(Icons.info, color: _getPrimaryColor(context)),
               title: Text('关于应用'),
               onTap: _showAboutDialog,
+              onLongPress: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const BmGalleryPage(),
+                  ),
+                );
+              },
             ),
             ListTile(
               leading: Icon(Icons.update, color: _getPrimaryColor(context)),

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:super_context_menu/super_context_menu.dart';
@@ -60,7 +61,7 @@ class _DiscoverMusicTileState extends State<DiscoverMusicTile> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
-        duration: AppTokens.standardDuration,
+        duration: BmMotion.medium,
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
           color: _isHovered ? palette.surfaceHover : Colors.transparent,

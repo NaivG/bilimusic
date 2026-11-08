@@ -9,6 +9,7 @@ import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/player/widgets/crossfade_indicator.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
@@ -463,8 +464,8 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
         : (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: p),
-      duration: AppTokens.standardDuration,
-      curve: AppTokens.standardEasing,
+      duration: BmMotion.medium,
+      curve: BmMotion.standard,
       builder: (context, value, child) {
         return Container(
           width: constraints.maxWidth * value,

@@ -5,6 +5,7 @@ import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/up_profile.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
 import 'package:bilimusic/shared/widgets/background_blur_widget.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
@@ -115,7 +116,7 @@ Widget buildShellBackground(BuildContext context, WidgetRef ref) {
   return AnimatedSwitcher(
     switchInCurve: Curves.linearToEaseOut,
     switchOutCurve: Curves.easeInToLinear,
-    duration: const Duration(milliseconds: 400),
+    duration: BmMotion.backdrop,
     // coverUrl 在快速切歌时可能重复，防止过渡条目产生重复 key
     transitionBuilder: switcherFadeTransition,
     child: BackgroundBlurWidget(
@@ -132,7 +133,7 @@ Widget buildShellBackground(BuildContext context, WidgetRef ref) {
 Widget buildShellDetailLayer({required ShellPage currentPage}) {
   final showDetail = currentPage == ShellPage.detail;
   return AnimatedSwitcher(
-    duration: const Duration(milliseconds: 350),
+    duration: BmMotion.xlarge,
     switchInCurve: Curves.easeOutCubic,
     switchOutCurve: Curves.easeInCubic,
     transitionBuilder: (child, animation) {
@@ -179,7 +180,7 @@ Widget buildShellDetailLayer({required ShellPage currentPage}) {
 /// 不会触发底层的过渡动画。
 Widget shellPageSwitcher({required Key key, required Widget child}) {
   return AnimatedSwitcher(
-    duration: const Duration(milliseconds: 300),
+    duration: BmMotion.xlarge,
     switchInCurve: Curves.easeOutCubic,
     switchOutCurve: Curves.easeInCubic,
     transitionBuilder: (child, animation) {

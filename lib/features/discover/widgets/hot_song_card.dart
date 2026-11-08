@@ -5,8 +5,8 @@ import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/domain/hot_song.dart';
 import 'package:bilimusic/domain/related_video.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
-import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/utils/formatters.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 
@@ -40,7 +40,7 @@ class _HotSongCardState extends State<HotSongCard> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
-        duration: AppTokens.standardDuration,
+        duration: BmMotion.medium,
         curve: Curves.easeOutCubic,
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(

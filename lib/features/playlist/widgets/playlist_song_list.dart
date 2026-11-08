@@ -4,8 +4,8 @@ import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
-import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/utils/formatters.dart';
 import 'package:bilimusic/shared/widgets/long_press_menu.dart';
 import 'package:bilimusic/shared/widgets/music_menu_button.dart';
@@ -471,7 +471,7 @@ class _PlaylistTrackRowState extends ConsumerState<PlaylistTrackRow> {
       child: GestureDetector(
         onTap: widget.selectionMode ? widget.onSelectionToggle : widget.onTap,
         child: AnimatedContainer(
-          duration: AppTokens.standardDuration,
+          duration: BmMotion.medium,
           curve: Curves.easeOutCubic,
           height: 56,
           decoration: BoxDecoration(

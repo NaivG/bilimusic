@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'app_component_themes.dart';
+import '../ui/theme/bm_theme.dart';
 import 'app_palette.dart';
-import 'app_tokens.dart';
 
 /// Gruvbox 主题颜色常量 —— Pavel Pertsev 的经典 retro groove 调色板
 /// (https://github.com/gruvbox-community/gruvbox)。灵感来自 80 年代终端与
@@ -45,6 +44,8 @@ abstract class GruvboxColors {
   // ===== Semantic =====
   static const Color errorLight = Color(0xFF9D0006);
   static const Color errorDark = Color(0xFFFB4934);
+  static const Color warningLight = Color(0xFFB57614); // yellow (dim)
+  static const Color warningDark = Color(0xFFD79921); // bright yellow
   static const Color successLight = Color(0xFF79740E);
   static const Color successDark = Color(0xFFB8BB26);
 }
@@ -60,6 +61,8 @@ AppPalette _gruvboxPalette(Brightness brightness) {
       playBar: GruvboxColors.surfaceContainerLight,
       seekBarActive: GruvboxColors.onSurfaceLight,
       volumeBarActive: GruvboxColors.onSurfaceLight,
+      warning: GruvboxColors.warningLight,
+      success: GruvboxColors.successLight,
       surfaceOverlay: Color(0xCCF9F5D7),
       surfaceHover: GruvboxColors.surfaceContainerHighLight,
       surfacePressed: GruvboxColors.surfaceContainerHighLight,
@@ -74,6 +77,8 @@ AppPalette _gruvboxPalette(Brightness brightness) {
     playBar: GruvboxColors.surfaceContainerDark,
     seekBarActive: GruvboxColors.onSurfaceVariantDark,
     volumeBarActive: GruvboxColors.onSurfaceVariantDark,
+    warning: GruvboxColors.warningDark,
+    success: GruvboxColors.successDark,
     surfaceOverlay: Color(0xBF282828),
     surfaceHover: GruvboxColors.surfaceContainerHighDark,
     surfacePressed: GruvboxColors.surfaceContainerHighDark,
@@ -140,57 +145,9 @@ ColorScheme _gruvboxColorScheme(Brightness brightness) {
 }
 
 ThemeData _buildGruvbox(Brightness brightness) {
-  final scheme = _gruvboxColorScheme(brightness);
-  final palette = _gruvboxPalette(brightness);
-
-  return ThemeData(
-    colorScheme: scheme,
-    useMaterial3: true,
-    extensions: [palette],
-    snackBarTheme: AppComponentThemes.snackBar(scheme),
-    cardTheme: CardThemeData(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-      ),
-      elevation: 0,
-      color: scheme.surfaceContainer,
-    ),
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-        ),
-      ),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        borderSide: BorderSide(color: scheme.outlineVariant, width: 0.5),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        borderSide: BorderSide(color: scheme.outlineVariant, width: 0.5),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        borderSide: BorderSide(color: scheme.primary, width: 0.5),
-      ),
-      filled: true,
-      fillColor: scheme.surfaceContainer,
-    ),
-    scaffoldBackgroundColor: scheme.surface,
-    sliderTheme: SliderThemeData(
-      activeTrackColor: scheme.primary,
-      inactiveTrackColor: scheme.surfaceContainerHigh,
-      thumbColor: scheme.primary,
-      overlayColor: scheme.primary.withValues(alpha: 0.12),
-    ),
-    dividerTheme: DividerThemeData(
-      color: scheme.outline,
-      thickness: 0.5,
-      space: 0.5,
-    ),
-    dividerColor: scheme.outline,
+  return BmTheme.build(
+    scheme: _gruvboxColorScheme(brightness),
+    palette: _gruvboxPalette(brightness),
   );
 }
 

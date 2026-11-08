@@ -12,6 +12,7 @@ import 'package:bilimusic/features/settings/ui/widgets/compressor_curve.dart';
 import 'package:bilimusic/features/settings/ui/widgets/crossfeed_diagram.dart';
 import 'package:bilimusic/features/settings/ui/widgets/dsp_import_export_section.dart';
 import 'package:bilimusic/features/settings/ui/widgets/equalizer_curve.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 
@@ -1252,8 +1253,8 @@ class _FxModule extends StatelessWidget {
           if (expanded) const Divider(height: 1, indent: 12, endIndent: 12),
           ClipRect(
             child: AnimatedSize(
-              duration: AppTokens.standardDuration,
-              curve: AppTokens.standardEasing,
+              duration: BmMotion.medium,
+              curve: BmMotion.standard,
               alignment: Alignment.topCenter,
               child: expanded
                   ? Padding(

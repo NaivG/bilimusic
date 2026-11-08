@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
 
 /// 半透明白底圆形图标按钮 —— 收藏 / 分享 / 任意迷你按钮。
@@ -178,9 +178,9 @@ class PlaybackPlayPauseButton extends StatelessWidget {
           highlightColor: overlay,
           splashColor: overlay,
           icon: AnimatedSwitcher(
-            duration: AppTokens.standardDuration,
-            switchInCurve: AppTokens.standardEasing,
-            switchOutCurve: AppTokens.standardEasing,
+            duration: BmMotion.medium,
+            switchInCurve: BmMotion.standard,
+            switchOutCurve: BmMotion.standard,
             transitionBuilder: switcherFadeTransition,
             child: Icon(
               isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,

@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'app_component_themes.dart';
+import '../ui/theme/bm_theme.dart';
 import 'app_palette.dart';
-import 'app_tokens.dart';
 
 /// Lucent 主题颜色常量 —— iOS 风格,暖灰底 + 湖水青蓝 accent。
 /// 跨主题共享的颜色请通过 [AppPalette] 读取。
@@ -86,6 +85,8 @@ AppPalette _lucentPalette(Brightness brightness) {
       playBar: LucentColors.playBarLight,
       seekBarActive: LucentColors.seekBarActiveLight,
       volumeBarActive: LucentColors.volumeBarActiveLight,
+      warning: LucentColors.warningLight,
+      success: LucentColors.successLight,
       surfaceOverlay: LucentColors.surfaceOverlayLight,
       surfaceHover: LucentColors.surfaceContainerLight,
       surfacePressed: LucentColors.surfaceContainerHighLight,
@@ -100,6 +101,8 @@ AppPalette _lucentPalette(Brightness brightness) {
     playBar: LucentColors.playBarDark,
     seekBarActive: LucentColors.seekBarActiveDark,
     volumeBarActive: LucentColors.volumeBarActiveDark,
+    warning: LucentColors.warningDark,
+    success: LucentColors.successDark,
     surfaceOverlay: LucentColors.surfaceOverlayDark,
     surfaceHover: LucentColors.surfaceContainerDark,
     surfacePressed: LucentColors.surfacePressedDark,
@@ -166,56 +169,9 @@ ColorScheme _lucentColorScheme(Brightness brightness) {
 }
 
 ThemeData _buildLucent(Brightness brightness) {
-  final scheme = _lucentColorScheme(brightness);
-  final palette = _lucentPalette(brightness);
-  final accent = brightness == Brightness.light
-      ? LucentColors.primaryLight
-      : LucentColors.primaryDark;
-
-  return ThemeData(
-    colorScheme: scheme,
-    useMaterial3: true,
-    extensions: [palette],
-    snackBarTheme: AppComponentThemes.snackBar(scheme),
-    cardTheme: CardThemeData(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-      ),
-      elevation: 0,
-      color: brightness == Brightness.light
-          ? LucentColors.surfaceRaisedLight
-          : LucentColors.surfaceRaisedDark,
-    ),
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-        ),
-      ),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-      ),
-      filled: true,
-      fillColor: brightness == Brightness.light
-          ? LucentColors.surfaceLight
-          : LucentColors.surfaceDark,
-    ),
-    scaffoldBackgroundColor: brightness == Brightness.light
-        ? LucentColors.surfaceLight
-        : LucentColors.surfaceDark,
-    sliderTheme: SliderThemeData(
-      activeTrackColor: accent,
-      inactiveTrackColor: brightness == Brightness.light
-          ? LucentColors.outlineLight
-          : LucentColors.outlineDark,
-      thumbColor: accent,
-      overlayColor: accent.withValues(alpha: 0.12),
-    ),
-    dividerColor: brightness == Brightness.light
-        ? LucentColors.outlineLight
-        : LucentColors.outlineDark,
+  return BmTheme.build(
+    scheme: _lucentColorScheme(brightness),
+    palette: _lucentPalette(brightness),
   );
 }
 

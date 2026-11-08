@@ -8,6 +8,7 @@ import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/player/pip/pip_service.dart';
 import 'package:bilimusic/features/player/widgets/crossfade_indicator.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
@@ -105,7 +106,7 @@ class _PipCoverPanelState extends State<_PipCoverPanel>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: AppTokens.layoutDuration,
+    duration: BmMotion.xlarge,
   );
 
   // 入场：自右滑入 + 淡入
@@ -384,7 +385,7 @@ class _PipIconButtonState extends State<_PipIconButton> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: AppTokens.microDuration,
+          duration: BmMotion.small,
           width: 32,
           height: 32,
           decoration: BoxDecoration(
@@ -448,10 +449,10 @@ class _PipPlayButtonState extends State<_PipPlayButton> {
           onTap: widget.enabled ? widget.onTap : null,
           child: AnimatedScale(
             scale: _hover && widget.enabled ? 1.06 : 1.0,
-            duration: AppTokens.microDuration,
-            curve: AppTokens.standardEasing,
+            duration: BmMotion.small,
+            curve: BmMotion.standard,
             child: AnimatedContainer(
-              duration: AppTokens.microDuration,
+              duration: BmMotion.small,
               width: 36,
               height: 36,
               decoration: BoxDecoration(
@@ -594,8 +595,8 @@ class _PipSeekBarState extends ConsumerState<_PipSeekBar> {
                             // 轨道
                             Center(
                               child: AnimatedContainer(
-                                duration: AppTokens.microDuration,
-                                curve: AppTokens.standardEasing,
+                                duration: BmMotion.small,
+                                curve: BmMotion.standard,
                                 height: active ? _barHeightActive : _barHeight,
                                 width: double.infinity,
                                 decoration: BoxDecoration(
@@ -609,8 +610,8 @@ class _PipSeekBarState extends ConsumerState<_PipSeekBar> {
                               widthFactor: fraction,
                               child: Center(
                                 child: AnimatedContainer(
-                                  duration: AppTokens.microDuration,
-                                  curve: AppTokens.standardEasing,
+                                  duration: BmMotion.small,
+                                  curve: BmMotion.standard,
                                   height: active
                                       ? _barHeightActive
                                       : _barHeight,

@@ -9,6 +9,7 @@ import 'package:bilimusic/shared/widgets/long_press_menu.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/core/network/network_config.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 
@@ -59,7 +60,7 @@ class _CommonMusicListTileState extends ConsumerState<CommonMusicListTile> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
-        duration: AppTokens.standardDuration,
+        duration: BmMotion.medium,
         curve: Curves.easeOutCubic,
         height: 64,
         decoration: BoxDecoration(
@@ -121,7 +122,7 @@ class _CommonMusicListTileState extends ConsumerState<CommonMusicListTile> {
 
   Widget _buildCover(BuildContext context) {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
+      duration: BmMotion.medium,
       curve: Curves.easeOutCubic,
       width: 48,
       height: 48,
@@ -187,7 +188,7 @@ class _CommonMusicListTileState extends ConsumerState<CommonMusicListTile> {
     final theme = Theme.of(context);
 
     return AnimatedOpacity(
-      duration: const Duration(milliseconds: 200),
+      duration: BmMotion.medium,
       opacity: _isHovered ? 1.0 : 0.7,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

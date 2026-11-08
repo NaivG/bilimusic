@@ -10,6 +10,7 @@ import 'package:bilimusic/features/player/widgets/crossfade_indicator.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/roam/roam_providers.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
@@ -182,7 +183,7 @@ class LandscapeBottomControl extends ConsumerWidget {
                         const SizedBox(height: 2),
                         music != null
                             ? AnimatedSwitcher(
-                                duration: AppTokens.standardDuration,
+                                duration: BmMotion.medium,
                                 transitionBuilder: switcherFadeTransition,
                                 child: fading
                                     ? const CrossfadeIndicator()

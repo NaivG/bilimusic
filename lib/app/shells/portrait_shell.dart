@@ -9,7 +9,7 @@ import 'package:bilimusic/features/home/home_page.dart';
 import 'package:bilimusic/features/player/widgets/mini_player_bar.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
-import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
 
 /// 竖屏模式外壳
 /// 主内容 + 迷你播放器 + 底部导航栏
@@ -209,12 +209,12 @@ class _PortraitShellState extends ConsumerState<PortraitShell> {
         ignoring: hidden,
         child: AnimatedSlide(
           offset: hidden ? const Offset(0, 2) : Offset.zero,
-          duration: AppTokens.standardDuration,
-          curve: AppTokens.standardEasing,
+          duration: BmMotion.medium,
+          curve: BmMotion.standard,
           child: AnimatedOpacity(
             opacity: hidden ? 0 : 1,
-            duration: AppTokens.standardDuration,
-            curve: AppTokens.standardEasing,
+            duration: BmMotion.medium,
+            curve: BmMotion.standard,
             child: Center(
               child: SizedBox(
                 width: MediaQuery.sizeOf(context).width * 0.95,

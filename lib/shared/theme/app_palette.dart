@@ -18,6 +18,13 @@ class AppPalette extends ThemeExtension<AppPalette> {
   final Color seekBarActive;
   final Color volumeBarActive;
 
+  // ===== Semantic =====
+  /// 警告色。Lucent 的 `warning` 角色从这里取。
+  final Color warning;
+
+  /// 成功色。Lucent 的 `success` 角色从这里取。
+  final Color success;
+
   // ===== Glass Overlay (semi-transparent, 用于 BackdropFilter 容器) =====
   final Color surfaceOverlay;
   final Color surfaceHover;
@@ -32,6 +39,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     required this.playBar,
     required this.seekBarActive,
     required this.volumeBarActive,
+    required this.warning,
+    required this.success,
     required this.surfaceOverlay,
     required this.surfaceHover,
     required this.surfacePressed,
@@ -47,6 +56,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     Color? playBar,
     Color? seekBarActive,
     Color? volumeBarActive,
+    Color? warning,
+    Color? success,
     Color? surfaceOverlay,
     Color? surfaceHover,
     Color? surfacePressed,
@@ -60,6 +71,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
       playBar: playBar ?? this.playBar,
       seekBarActive: seekBarActive ?? this.seekBarActive,
       volumeBarActive: volumeBarActive ?? this.volumeBarActive,
+      warning: warning ?? this.warning,
+      success: success ?? this.success,
       surfaceOverlay: surfaceOverlay ?? this.surfaceOverlay,
       surfaceHover: surfaceHover ?? this.surfaceHover,
       surfacePressed: surfacePressed ?? this.surfacePressed,
@@ -78,6 +91,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
       playBar: Color.lerp(playBar, other.playBar, t)!,
       seekBarActive: Color.lerp(seekBarActive, other.seekBarActive, t)!,
       volumeBarActive: Color.lerp(volumeBarActive, other.volumeBarActive, t)!,
+      warning: Color.lerp(warning, other.warning, t)!,
+      success: Color.lerp(success, other.success, t)!,
       surfaceOverlay: Color.lerp(surfaceOverlay, other.surfaceOverlay, t)!,
       surfaceHover: Color.lerp(surfaceHover, other.surfaceHover, t)!,
       surfacePressed: Color.lerp(surfacePressed, other.surfacePressed, t)!,
@@ -103,6 +118,8 @@ class AppPaletteFallback {
     playBar: Color(0xFFFFFFFF),
     seekBarActive: Color(0xFF1A1A1A),
     volumeBarActive: Color(0xFF1A1A1A),
+    warning: Color(0xFFFF9F0A),
+    success: Color(0xFF30D158),
     surfaceOverlay: Color(0xB3FFFFFF),
     surfaceHover: Color(0xFFF5F4F2),
     surfacePressed: Color(0xFFECEAE7),

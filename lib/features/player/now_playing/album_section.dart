@@ -9,6 +9,9 @@ import 'package:bilimusic/features/player/widgets/crossfade_indicator.dart';
 import 'package:bilimusic/features/player/now_playing/apple_cover.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
+import 'package:bilimusic/shared/motion/bm_pressable.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
 
 /// 详情页单面板
@@ -275,8 +278,10 @@ class _AlbumSectionState extends ConsumerState<AlbumSection>
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        TapScaleWidget(
-          pressedScale: 0.9,
+        BmPressable(
+          pressScale: 0.9,
+          borderRadius: BmTokens.rPillAll,
+          overlayColor: Colors.white.withValues(alpha: BmAlpha.pressed),
           onTap: () => commands.toggleMute(),
           child: Padding(
             padding: const EdgeInsets.all(6),

@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 
 /// 背景模糊组件 - 从封面图片生成模糊背景效果
@@ -15,14 +16,14 @@ class BackgroundBlurWidget extends StatelessWidget {
 
     if (coverUrl == null || coverUrl!.isEmpty) {
       return TweenAnimationBuilder<Color?>(
-        duration: const Duration(milliseconds: 250),
+        duration: BmMotion.large,
         tween: ColorTween(end: backgroundColor),
         builder: (context, color, child) => Container(color: color),
       );
     }
 
     return TweenAnimationBuilder<Color?>(
-      duration: const Duration(milliseconds: 250),
+      duration: BmMotion.large,
       tween: ColorTween(end: backgroundColor),
       builder: (context, color, child) {
         return Stack(
