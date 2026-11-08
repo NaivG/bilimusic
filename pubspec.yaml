@@ -57,7 +57,6 @@ dependencies:
   pointycastle: ^3.9.1 # 密码登录 RSA_PKCS1 直接用到它的 RSAPublicKey 类型（encrypt 的底层）
   url_launcher: ^6.3.2
   gt3_flutter_plugin: ^0.1.1
-  color_thief_dart: ^0.1.0
   # audio_session 保留：换 mpv_audio_kit 后失去 just_audio 内置的打断处理，
   # 后续用它补回音频焦点（configure + interruptionEventStream）。
   #

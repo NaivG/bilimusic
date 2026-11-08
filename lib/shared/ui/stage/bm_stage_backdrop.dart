@@ -10,12 +10,13 @@ import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
 
-/// 详情页 Stage 背景：不透明纯黑底 + 封面虚化主层。
+/// 详情页 Stage 背景：不透明纯黑底 + 封面虚化主层（或主色纯色底）。
 ///
 /// 作为全屏背景层使用（放在 `Positioned.fill` 或紧约束里）。底座是不透明
 /// 纯黑：详情层在壳层里淡入 / 上滑时，半透明背景会把底层页面漏出来。
 /// 有封面时以 [BmAlpha.stageCover] 不透明度的封面虚化层负责 AM 式亮度；
-/// 没有封面时才退回主色流体层。色彩过渡只在 [dominantColor] 变化时做一次
+/// 没有封面时才退回主色流体层。关闭 [fluid] 后退回封面主色纯色底 + 黑色
+/// 渐变遮罩。色彩过渡只在 [dominantColor] 变化时做一次
 /// [BmMotion.backdrop]，不做常驻环境动画。
 class BmStageBackdrop extends StatefulWidget {
   const BmStageBackdrop({
@@ -30,13 +31,15 @@ class BmStageBackdrop extends StatefulWidget {
   /// 封面地址；为空时只显示流体色层。
   final String coverUrl;
 
-  /// 封面主导色；为空或接近无彩色时用 [fallbackColor]。
+  /// 封面主色：流体层用它的同色相加深版；关闭流体时直接铺成纯色底。
+  ///
+  /// 为空时流体层用 [fallbackColor]，纯色底保持纯黑。
   final Color? dominantColor;
 
   /// 主导色缺失 / 无彩色时的品牌色兜底。
   final Color fallbackColor;
 
-  /// 关闭后只保留纯黑底座（设置里的「流体背景效果」）。
+  /// 关闭后铺封面主色纯色底 + 黑色渐变遮罩（设置里的「流体背景效果」）。
   final bool fluid;
 
   /// 封面纹理使用的磁盘缓存；不传则用 [CachedNetworkImage] 的默认缓存。
@@ -146,6 +149,15 @@ class _BmStageBackdropState extends State<BmStageBackdrop>
                 ),
               ),
             const _StageVignette(),
+          ] else ...[
+            // 关闭流体：封面主色纯色底，切歌时做一次颜色过渡。
+            AnimatedContainer(
+              key: const ValueKey<String>('bm-stage-solid'),
+              duration: motionDuration(context, BmMotion.backdrop),
+              curve: BmMotion.standard,
+              color: _stageSolidColor(widget.dominantColor),
+            ),
+            const _StageVignette(),
           ],
         ],
       ),
@@ -200,6 +212,18 @@ class _BmStageBackdropState extends State<BmStageBackdrop>
       ),
     );
   }
+}
+
+/// 关闭流体时的纯色底：把封面主色压到暗色区间。
+///
+/// 太亮会顶掉白色文字，太暗又看不见色相；无主色时保持纯黑底座。
+Color _stageSolidColor(Color? source) {
+  if (source == null) return Colors.black;
+  final hsl = HSLColor.fromColor(source);
+  return hsl
+      .withSaturation(hsl.saturation.clamp(0.0, 0.60))
+      .withLightness(hsl.lightness.clamp(0.14, 0.40))
+      .toColor();
 }
 
 /// 无封面时的兜底流体层：几个大尺寸的径向色团叠在纯黑上，形成色雾。

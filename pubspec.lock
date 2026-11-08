@@ -216,14 +216,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.19.1"
-  color_thief_dart:
-    dependency: "direct main"
-    description:
-      name: color_thief_dart
-      sha256: b3410cf809ca877e64b59b91a4a5e5eb2316ebe3d148b19ba1680eac2a08dc76
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.1.0"
   convert:
     dependency: transitive
     description:

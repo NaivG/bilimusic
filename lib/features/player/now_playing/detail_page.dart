@@ -72,7 +72,8 @@ class _DetailPageState extends ConsumerState<DetailPage> {
         .read(playlistCommandsProvider.notifier)
         .isFavorite(_music);
 
-    _extractBackgroundColor(_music.coverUrl);
+    _dominantColor = ColorExtractor.cachedColorOf(_music.coverUrl);
+    _loadDominantColor(_music.coverUrl);
     _lyricController.loadLyricModel(_placeholderModel(_music.title));
   }
 
@@ -94,24 +95,14 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     );
   }
 
-  void _extractBackgroundColor(String imageUrl) async {
-    if (imageUrl.isEmpty) return;
-    final color = await ColorExtractor.extractColorFromUrl(imageUrl);
-    if (mounted && color != null) {
-      setState(() {
-        _dominantColor = color;
-      });
-    }
-  }
-
-  void _updateBackgroundColor(String imageUrl) async {
-    if (imageUrl.isEmpty) return;
-    final color = await ColorExtractor.extractColorFromUrl(imageUrl);
-    if (mounted && color != null) {
-      setState(() {
-        _dominantColor = color;
-      });
-    }
+  /// 取封面主色；切歌后旧的请求结果作废。
+  ///
+  /// 失败（或没有封面）时把颜色置空，避免下一首继续沿用上一首的背景色。
+  void _loadDominantColor(String coverUrl) async {
+    final color = await ColorExtractor.extractColorFromUrl(coverUrl);
+    if (!mounted || _music.coverUrl != coverUrl) return;
+    if (color == _dominantColor) return;
+    setState(() => _dominantColor = color);
   }
 
   void _toggleFavorite() async {
@@ -198,11 +189,16 @@ class _DetailPageState extends ConsumerState<DetailPage> {
       _isFavorite = ref
           .read(playlistCommandsProvider.notifier)
           .isFavorite(liveMusic);
+      // 同一张封面取过色就直接换过去；没取过则先留旧色，等新色出来再过渡。
+      final cachedColor = ColorExtractor.cachedColorOf(liveMusic.coverUrl);
+      if (cachedColor != null || liveMusic.coverUrl.isEmpty) {
+        _dominantColor = cachedColor;
+      }
       _lastAppliedModel = null;
       _placeholderTitle = _music.title;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        _updateBackgroundColor(liveMusic.coverUrl);
+        _loadDominantColor(liveMusic.coverUrl);
         _lyricController.loadLyricModel(_placeholderModel(_music.title));
         _lyricController.setProgress(Duration.zero);
       });
