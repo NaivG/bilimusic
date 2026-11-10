@@ -116,7 +116,7 @@ class BiliItem {
               ),
         artist: owner,
         album: data['title'] == null ? '未知专辑' : videoTitle,
-        coverUrl: pic.isNotEmpty ? '$pic$biliCoverThumbSuffix' : '',
+        coverUrl: pic,
         duration: Duration(
           seconds: int.tryParse(pageJson['duration']?.toString() ?? '0') ?? 0,
         ),

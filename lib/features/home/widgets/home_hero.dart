@@ -70,7 +70,11 @@ class HomeHeroCard extends ConsumerWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                BmArtImage(url: music.safeCoverUrl, cacheKey: music.id),
+                BmArtImage(
+                  url: music.safeCoverUrl,
+                  cacheKey: music.id,
+                  aspectRatio: 16 / 9,
+                ),
                 Positioned.fill(
                   child: DecoratedBox(
                     decoration: BoxDecoration(

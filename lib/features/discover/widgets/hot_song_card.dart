@@ -300,6 +300,7 @@ class HotSongCard extends StatelessWidget {
             BmArtImage(
               url: video.coverUrl,
               cacheKey: 'hot-video-${video.bvid}',
+              aspectRatio: 16 / 9,
             ),
             if (duration > 0)
               Positioned(

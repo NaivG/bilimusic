@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 import 'package:bilimusic/features/player/logic/player_coordinator.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_service.dart';
@@ -130,8 +131,9 @@ class _CommonMusicListTileState extends ConsumerState<CommonMusicListTile> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: CachedNetworkImage(
-          imageUrl: widget.music.safeCoverUrl,
+          imageUrl: biliSquareUrl(widget.music.safeCoverUrl, 96),
           httpHeaders: NetworkConfig.biliHeaders,
+          memCacheWidth: 96,
           placeholder: (context, url) => Container(
             color: Colors.grey[200],
             child: Center(

@@ -7,6 +7,7 @@ import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/core/network/passport_client.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 import 'package:bilimusic/domain/lan_sync_mode.dart';
 import 'package:bilimusic/domain/playlist.dart';
 import 'package:bilimusic/features/auth/logout_session.dart';
@@ -670,8 +671,9 @@ class _ProfileAvatar extends StatelessWidget {
       child: url.isEmpty
           ? fallback
           : CachedNetworkImage(
-              imageUrl: url,
+              imageUrl: biliFaceUrl(url, 128),
               httpHeaders: NetworkConfig.biliHeaders,
+              memCacheWidth: 128,
               cacheManager: imageCacheManager,
               fit: BoxFit.cover,
               placeholder: (_, _) => fallback,

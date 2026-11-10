@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 
 /// 从封面图里取主色。
 ///
@@ -26,7 +27,7 @@ class ColorExtractor {
 
     try {
       final file = await imageCacheManager.getSingleFile(
-        imageUrl,
+        biliSquareUrl(imageUrl, 64),
         headers: NetworkConfig.biliHeaders,
       );
       final color = await extractColorFromBytes(await file.readAsBytes());

@@ -1,4 +1,5 @@
 import 'package:audio_service/audio_service.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 import 'package:bilimusic/domain/music.dart';
 
 /// 通知管理服务
@@ -40,7 +41,7 @@ class NotificationService {
       artist: music.artist.displayName,
       album: music.album,
       duration: music.duration ?? Duration.zero,
-      artUri: Uri.parse(music.coverUrl),
+      artUri: Uri.parse(biliSquareUrl(music.coverUrl, 256)),
     );
 
     _lastMediaItem = mediaItem;

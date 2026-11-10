@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 
@@ -27,18 +28,20 @@ class MusicCover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final m = music;
+    final target = size <= 48 ? 96 : (size <= 96 ? 176 : 352);
     Widget child = m == null
         ? _placeholder(context)
         : CachedNetworkImage(
-            imageUrl: m.safeCoverUrl,
+            imageUrl: biliSquareUrl(m.safeCoverUrl, target),
             httpHeaders: NetworkConfig.biliHeaders,
             width: size,
             height: size,
             fit: BoxFit.cover,
+            memCacheWidth: target,
             placeholder: (context, url) => _placeholder(context),
             errorWidget: (context, url, error) => _placeholder(context),
             cacheManager: imageCacheManager,
-            cacheKey: m.id,
+            cacheKey: m.id.isEmpty ? null : '${m.id}_$target',
           );
     final r = radius;
     if (r != null) {

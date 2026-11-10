@@ -9,6 +9,7 @@ import 'package:bilimusic/features/lyrics/widgets/lyric_section.dart';
 import 'package:bilimusic/features/lyrics/lyric_source.dart';
 import 'package:bilimusic/features/player/now_playing/album_section.dart';
 import 'package:bilimusic/features/player/now_playing/now_playing_action_bar.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 import 'package:bilimusic/domain/music.dart' as model;
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/player/widgets/sleep_timer_sheet.dart';
@@ -570,7 +571,8 @@ class _CoverArtwork extends StatelessWidget {
     }
 
     return CachedNetworkImage(
-      imageUrl: coverUrl,
+      imageUrl: biliSquareUrl(coverUrl, 640),
+      memCacheWidth: 640,
       fit: BoxFit.cover,
       placeholder: (context, url) => _buildPlaceholder(),
       errorWidget: (context, url, error) => _buildPlaceholder(),

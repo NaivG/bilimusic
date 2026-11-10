@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/core/network/network_config.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 import 'package:bilimusic/domain/lan_sync_mode.dart';
 import 'package:bilimusic/domain/peer_device.dart';
 import 'package:bilimusic/features/lan_sync/lan_sync_providers.dart';
@@ -781,8 +783,10 @@ class _CoverArt extends StatelessWidget {
         child: url.isEmpty
             ? const _CoverFallback()
             : Image.network(
-                url,
+                biliSquareUrl(url, 128),
                 fit: BoxFit.cover,
+                cacheWidth: 128,
+                headers: NetworkConfig.biliHeaders,
                 errorBuilder: (_, _, _) => const _CoverFallback(),
               ),
       ),

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 import 'package:bilimusic/features/lyrics/widgets/lyric_section.dart';
 import 'package:bilimusic/features/lyrics/lyric_source.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 import 'package:bilimusic/domain/music.dart' as model;
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/player/widgets/sleep_timer_sheet.dart';
@@ -170,7 +171,8 @@ class SquareDetailPage extends ConsumerWidget {
             height: coverSize,
             child: music.coverUrl.isNotEmpty
                 ? CachedNetworkImage(
-                    imageUrl: music.coverUrl,
+                    imageUrl: biliSquareUrl(music.coverUrl, 640),
+                    memCacheWidth: 640,
                     fit: BoxFit.cover,
                     placeholder: (context, url) =>
                         Container(color: Colors.grey[800]),

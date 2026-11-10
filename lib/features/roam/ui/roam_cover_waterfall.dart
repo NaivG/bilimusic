@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 
 /// 瀑布流里的一张封面。
 ///
@@ -305,8 +306,9 @@ class _WaterfallTile extends StatelessWidget {
         children: [
           if (hasImage)
             CachedNetworkImage(
-              imageUrl: data.imageUrl,
-              cacheKey: data.cacheKey,
+              imageUrl: biliSquareUrl(data.imageUrl, 320),
+              cacheKey: '${data.cacheKey}_320',
+              memCacheWidth: 320,
               cacheManager: imageCacheManager,
               httpHeaders: NetworkConfig.biliHeaders,
               fit: BoxFit.cover,

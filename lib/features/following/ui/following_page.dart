@@ -7,6 +7,7 @@ import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/domain/bili_following.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 import 'package:bilimusic/domain/up_profile.dart';
 import 'package:bilimusic/features/following/following_service.dart';
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
@@ -238,7 +239,8 @@ class _FollowingPageState extends ConsumerState<FollowingPage> {
       child: ClipOval(
         child: user.face.isNotEmpty
             ? CachedNetworkImage(
-                imageUrl: user.face,
+                imageUrl: biliFaceUrl(user.face, 96),
+                memCacheWidth: 96,
                 httpHeaders: NetworkConfig.biliHeaders,
                 width: 44,
                 height: 44,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 import 'package:bilimusic/domain/up_profile.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 
@@ -93,7 +94,8 @@ class ArtistHeader extends StatelessWidget {
     if (up.face.isEmpty) return fallback;
 
     return CachedNetworkImage(
-      imageUrl: up.face,
+      imageUrl: biliFaceUrl(up.face, 192),
+      memCacheWidth: 192,
       httpHeaders: NetworkConfig.biliHeaders,
       fit: BoxFit.cover,
       cacheManager: imageCacheManager,

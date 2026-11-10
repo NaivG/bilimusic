@@ -1,6 +1,8 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:bilimusic/core/network/network_config.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 
@@ -30,8 +32,10 @@ class BackgroundBlurWidget extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             Image.network(
-              coverUrl!,
+              biliWideUrl(coverUrl!, 960),
               fit: BoxFit.cover,
+              cacheWidth: 960,
+              headers: NetworkConfig.biliHeaders,
               errorBuilder: (context, error, stackTrace) =>
                   Container(color: color),
             ),

@@ -13,9 +13,6 @@ enum MusicRenderStyle {
   list,
 }
 
-/// B 站封面 CDN 缩略后缀：列表封面统一按此规格取图，省流量。
-const biliCoverThumbSuffix = '@672w_378h';
-
 /// 封面缺失 / 非法时的 fallback 占位图（唯一来源，勿再内联 URL 字面量）。
 const fallbackCoverUrl =
     'https://i0.hdslb.com/bfs/static/jinkela/video/asserts/no_video.png';
@@ -124,7 +121,7 @@ class Music {
       title: TitleMetaFilter.maybeClean(json['title'] as String? ?? ''),
       artist: _artistFromCard(json),
       album: json['tname'] as String? ?? '未知专辑',
-      coverUrl: cover.isNotEmpty ? '$cover$biliCoverThumbSuffix' : '',
+      coverUrl: cover,
       duration: json['duration'] is int
           ? Duration(seconds: json['duration'] as int)
           : null,
@@ -151,7 +148,7 @@ class Music {
       title: TitleMetaFilter.maybeClean(json['title'] as String? ?? ''),
       artist: Artist.fromFlat(json, faceKey: 'face'),
       album: album,
-      coverUrl: cover.isNotEmpty ? '$cover$biliCoverThumbSuffix' : '',
+      coverUrl: cover,
       duration: _parseLength(json['length']?.toString()),
       audioUrl: '',
     );

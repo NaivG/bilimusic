@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/roam/models/roam_style.dart';
@@ -2541,8 +2542,9 @@ class _CoverAvatar extends StatelessWidget {
       child: ClipOval(
         child: hasImage
             ? CachedNetworkImage(
-                imageUrl: data.imageUrl,
-                cacheKey: data.cacheKey,
+                imageUrl: biliSquareUrl(data.imageUrl, 192),
+                cacheKey: '${data.cacheKey}_192',
+                memCacheWidth: 192,
                 cacheManager: imageCacheManager,
                 httpHeaders: NetworkConfig.biliHeaders,
                 fit: BoxFit.cover,

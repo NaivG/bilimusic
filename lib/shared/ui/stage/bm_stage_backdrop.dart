@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
+import 'package:bilimusic/domain/bili_image.dart';
 import 'package:bilimusic/shared/motion/motion_scope.dart';
 import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
@@ -201,7 +202,8 @@ class _BmStageBackdropState extends State<BmStageBackdrop>
       child: Transform.scale(
         scale: 1.12,
         child: CachedNetworkImage(
-          imageUrl: widget.coverUrl,
+          imageUrl: biliWideUrl(widget.coverUrl, 960),
+          memCacheWidth: 960,
           fit: BoxFit.cover,
           fadeInDuration: BmMotion.medium,
           fadeOutDuration: Duration.zero,
