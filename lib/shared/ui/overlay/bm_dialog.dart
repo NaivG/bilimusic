@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+﻿import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -82,7 +82,7 @@ class BmDialog extends StatelessWidget {
               if (title != null) ...[
                 Text(
                   title,
-                  style: type.headline.copyWith(color: colors.textPrimary),
+                  style: type.title.copyWith(color: colors.textPrimary),
                 ),
                 const SizedBox(height: BmTokens.s2),
               ],

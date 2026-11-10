@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:bilimusic/app/app_providers.dart';
@@ -47,7 +47,7 @@ class SettingsState {
   const SettingsState({
     this.notificationsEnabled = true,
     this.appearance = 'system',
-    this.theme = 'lucent',
+    this.theme = 'theater',
     this.autoPlayNext = true,
     this.alwaysShowMiniPlayer = true,
     this.showLyrics = true,

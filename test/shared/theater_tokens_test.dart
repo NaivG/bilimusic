@@ -6,20 +6,30 @@ import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Lucent token 层：几何 / 颜色角色 / 排版。
+/// Theater token 层：几何 / 颜色角色 / 排版。
 void main() {
   group('BmTokens 常量', () {
-    test('6 档圆角', () {
+    test('圆角档位', () {
       expect(BmTokens.r4, 4);
+      expect(BmTokens.r9, 9);
       expect(BmTokens.r10, 10);
+      expect(BmTokens.r12, 12);
       expect(BmTokens.r14, 14);
+      expect(BmTokens.r16, 16);
+      expect(BmTokens.r18, 18);
       expect(BmTokens.r20, 20);
+      expect(BmTokens.r26, 26);
       expect(BmTokens.r28, 28);
       expect(BmTokens.rPill, 999);
       expect(BmTokens.r4All, const BorderRadius.all(Radius.circular(4)));
+      expect(BmTokens.r9All, const BorderRadius.all(Radius.circular(9)));
       expect(BmTokens.r10All, const BorderRadius.all(Radius.circular(10)));
+      expect(BmTokens.r12All, const BorderRadius.all(Radius.circular(12)));
       expect(BmTokens.r14All, const BorderRadius.all(Radius.circular(14)));
+      expect(BmTokens.r16All, const BorderRadius.all(Radius.circular(16)));
+      expect(BmTokens.r18All, const BorderRadius.all(Radius.circular(18)));
       expect(BmTokens.r20All, const BorderRadius.all(Radius.circular(20)));
+      expect(BmTokens.r26All, const BorderRadius.all(Radius.circular(26)));
       expect(BmTokens.r28All, const BorderRadius.all(Radius.circular(28)));
       expect(BmTokens.rPillAll, const BorderRadius.all(Radius.circular(999)));
     });
@@ -38,6 +48,10 @@ void main() {
       expect(BmTokens.rowCompact, 40);
       expect(BmTokens.row, 48);
       expect(BmTokens.rowTall, 56);
+      expect(BmTokens.settingRow, 56);
+      expect(BmTokens.trackRow, 58);
+      expect(BmTokens.trackRowCompact, 56);
+      expect(BmTokens.drawerRow, 54);
       expect(BmTokens.controlSm, 28);
       expect(BmTokens.controlMd, 34);
       expect(BmTokens.controlLg, 40);
@@ -45,11 +59,13 @@ void main() {
       expect(BmTokens.iconMenu, 16);
       expect(BmTokens.icon, 20);
       expect(BmTokens.iconLarge, 24);
+      expect(BmTokens.iconTile, 32);
+      expect(BmTokens.iconTileGlyph, 18);
       expect(BmTokens.touchDesktop, 40);
       expect(BmTokens.touchScreen, 44);
       expect(
         BmTokens.pagePadding,
-        const EdgeInsets.symmetric(horizontal: BmTokens.s4),
+        const EdgeInsets.symmetric(horizontal: BmTokens.pageInset),
       );
       expect(
         BmTokens.rowPadding,
@@ -58,6 +74,73 @@ void main() {
           vertical: BmTokens.s2,
         ),
       );
+      expect(
+        BmTokens.contentPadding,
+        const EdgeInsets.fromLTRB(
+          BmTokens.contentInset,
+          BmTokens.contentInsetTop,
+          BmTokens.contentInset,
+          BmTokens.contentInsetBottom,
+        ),
+      );
+    });
+
+    test('开关：52 × 32 / thumb 28 / 行程 20', () {
+      expect(BmTokens.switchWidth, 52);
+      expect(BmTokens.switchHeight, 32);
+      expect(BmTokens.switchThumb, 28);
+      expect(BmTokens.switchTravel, 20);
+    });
+
+    test('竖屏壳：浮动 Dock + 迷你播放器', () {
+      expect(BmTokens.dockHeight, 60);
+      expect(BmTokens.dockInset, 12);
+      expect(BmTokens.dockBottom, 38);
+      expect(BmTokens.dockItemHeight, 46);
+      expect(BmTokens.dockItemHeightActive, 56);
+      expect(BmTokens.dockItemWidth, 88);
+      expect(
+        BmTokens.dockItemRadiusAll,
+        const BorderRadius.all(Radius.circular(28)),
+      );
+      expect(
+        BmTokens.dockRadius,
+        const BorderRadius.all(Radius.circular(BmTokens.dockHeight / 2)),
+      );
+      expect(BmTokens.miniPlayerHeight, 52);
+      expect(BmTokens.miniPlayerCover, 36);
+      expect(BmTokens.miniPlayerInset, 14);
+      expect(BmTokens.miniPlayerBottom, 104);
+      expect(BmTokens.miniPlayerRadius, BmTokens.r26All);
+      // 迷你条不能压到 Dock：Dock 顶 = 38 + 60 = 98 < 104。
+      expect(
+        BmTokens.dockBottom + BmTokens.dockHeight,
+        lessThan(BmTokens.miniPlayerBottom),
+      );
+      expect(
+        BmTokens.portraitBottomBudget,
+        BmTokens.miniPlayerBottom + BmTokens.miniPlayerHeight + 22,
+      );
+      expect(
+        BmTokens.miniPlayerOnlyBottomBudget,
+        BmTokens.dockBottom + BmTokens.miniPlayerHeight + BmTokens.s6,
+      );
+    });
+
+    test('首页 hero：横竖屏共用版式，只换高度', () {
+      expect(BmTokens.homeHeroPortrait, 282);
+      expect(BmTokens.homeHeroLandscape, 272);
+    });
+
+    test('横屏壳：rail / topbar / 抽屉', () {
+      expect(BmTokens.railWidth, 76);
+      expect(BmTokens.railLogo, 38);
+      expect(BmTokens.railItem, 44);
+      expect(BmTokens.railItemGap, 6);
+      expect(BmTokens.topbarHeight, 58);
+      expect(BmTokens.libraryDrawerWidth, 320);
+      expect(BmTokens.queuePanelWidth, 420);
+      expect(BmTokens.contentInset, 30);
     });
 
     test('Chrome / Stage 材质：描边 / 模糊 / 底栏 / 侧栏行', () {
@@ -65,7 +148,7 @@ void main() {
       expect(BmTokens.chromeBlurSigma, 24);
       expect(BmTokens.stageCoverBlurSigma, 64);
       expect(BmTokens.navBarHeight, 56);
-      expect(BmTokens.navRowHeight, 40);
+      expect(BmTokens.navRowHeight, 44);
       expect(BmTokens.navIndicatorWidth, 3);
     });
 
@@ -80,11 +163,13 @@ void main() {
     test('状态层 / 浮层 / Stage / 阴影', () {
       expect(BmAlpha.hover, 0.06);
       expect(BmAlpha.pressed, 0.10);
-      expect(BmAlpha.selected, 0.12);
+      expect(BmAlpha.selected, 0.11);
+      expect(BmAlpha.selectedStrong, 0.18);
       expect(BmAlpha.border, 0.24);
-      expect(BmAlpha.chrome, 0.72);
+      expect(BmAlpha.chrome, 0.82);
       expect(BmAlpha.chromeOpaque, 0.96);
       expect(BmAlpha.floating, 0.96);
+      expect(BmAlpha.miniFill, 0.16);
       expect(BmAlpha.textTertiary, 0.60);
       expect(BmAlpha.disabled, 0.38);
       expect(BmAlpha.stageTextSecondary, 0.72);
@@ -112,23 +197,30 @@ void main() {
           final scheme = theme.colorScheme;
           final colors = BmColors.resolve(scheme, palette!);
 
-          // 30 个角色都拿到了有效色值（分量在 0..1，没有 NaN）。
+          // 36 个角色都拿到了有效色值（分量在 0..1，没有 NaN）。
           final roles = <String, Color>{
             'bg': colors.bg,
             'surface': colors.surface,
             'surfaceRaised': colors.surfaceRaised,
             'surfaceSunken': colors.surfaceSunken,
+            'bgDeep': colors.bgDeep,
             'chrome': colors.chrome,
             'chromeOpaque': colors.chromeOpaque,
+            'chromeRaised': colors.chromeRaised,
+            'chromeRaisedOpaque': colors.chromeRaisedOpaque,
             'floating': colors.floating,
             'textPrimary': colors.textPrimary,
             'textSecondary': colors.textSecondary,
             'textTertiary': colors.textTertiary,
             'accent': colors.accent,
             'onAccent': colors.onAccent,
+            'accentDeep': colors.accentDeep,
             'accentSoft': colors.accentSoft,
+            'accentSoftStrong': colors.accentSoftStrong,
             'accentBorder': colors.accentBorder,
+            'highlight': colors.highlight,
             'hairline': colors.hairline,
+            'lineStrong': colors.lineStrong,
             'stateHover': colors.stateHover,
             'statePressed': colors.statePressed,
             'stateSelected': colors.stateSelected,
@@ -145,7 +237,7 @@ void main() {
             'scrim': colors.scrim,
             'dim': colors.dim,
           };
-          expect(roles.length, 30);
+          expect(roles.length, 37);
           for (final entry in roles.entries) {
             expect(
               entry.value.a,
@@ -174,10 +266,14 @@ void main() {
           expect(colors.surface, scheme.surface);
           expect(colors.surfaceRaised, palette.panelSurface);
           expect(colors.surfaceSunken, palette.searchField);
+          expect(colors.bgDeep, scheme.surfaceContainer);
           expect(colors.textPrimary, scheme.onSurface);
           expect(colors.textSecondary, scheme.onSurfaceVariant);
           expect(colors.accent, scheme.primary);
+          expect(colors.accentDeep, scheme.secondary);
+          expect(colors.highlight, scheme.tertiary);
           expect(colors.hairline, scheme.outlineVariant);
+          expect(colors.lineStrong, scheme.outline);
           expect(colors.onAccent, scheme.onPrimary);
           expect(colors.danger, scheme.error);
           expect(colors.onDanger, scheme.onError);
@@ -196,6 +292,20 @@ void main() {
             'chromeOpaque',
           );
 
+          expectRgb(colors.chromeRaised, palette.panelSurface, 'chromeRaised');
+          expectAlpha(colors.chromeRaised, BmAlpha.chrome, 'chromeRaised');
+
+          expectRgb(
+            colors.chromeRaisedOpaque,
+            palette.panelSurface,
+            'chromeRaisedOpaque',
+          );
+          expectAlpha(
+            colors.chromeRaisedOpaque,
+            BmAlpha.chromeOpaque,
+            'chromeRaisedOpaque',
+          );
+
           expectRgb(colors.floating, scheme.surfaceContainerHigh, 'floating');
           expectAlpha(colors.floating, BmAlpha.floating, 'floating');
 
@@ -212,6 +322,17 @@ void main() {
 
           expectRgb(colors.accentSoft, scheme.primary, 'accentSoft');
           expectAlpha(colors.accentSoft, BmAlpha.selected, 'accentSoft');
+
+          expectRgb(
+            colors.accentSoftStrong,
+            scheme.primary,
+            'accentSoftStrong',
+          );
+          expectAlpha(
+            colors.accentSoftStrong,
+            BmAlpha.selectedStrong,
+            'accentSoftStrong',
+          );
 
           expectRgb(colors.accentBorder, scheme.primary, 'accentBorder');
           expectAlpha(colors.accentBorder, BmAlpha.border, 'accentBorder');
@@ -288,20 +409,21 @@ void main() {
     // 回退路径按当前 ColorScheme + AppPaletteFallback.light 现算。
     expect(colors.accent, scheme.primary);
     expect(colors.hairline, scheme.outlineVariant);
+    expect(colors.lineStrong, scheme.outline);
     expect(colors.warning, isA<Color>());
     expect(colors.success, isA<Color>());
   });
 
   group('BmTypography 8 档', () {
     final cases = <(String, TextStyle, double, double, FontWeight)>[
-      ('display', BmTypography.display(null), 28, 34, FontWeight.w700),
-      ('title', BmTypography.title(null), 22, 28, FontWeight.w700),
-      ('headline', BmTypography.headline(null), 17, 24, FontWeight.w600),
-      ('body', BmTypography.body(null), 15, 22, FontWeight.w400),
-      ('bodyStrong', BmTypography.bodyStrong(null), 15, 22, FontWeight.w600),
-      ('label', BmTypography.label(null), 13, 18, FontWeight.w500),
-      ('caption', BmTypography.caption(null), 12, 16, FontWeight.w400),
-      ('micro', BmTypography.micro(null), 11, 14, FontWeight.w500),
+      ('display', BmTypography.display(null), 36, 42, FontWeight.w800),
+      ('title', BmTypography.title(null), 24, 30, FontWeight.w700),
+      ('section', BmTypography.section(null), 21, 27, FontWeight.w700),
+      ('body', BmTypography.body(null), 15, 21, FontWeight.w400),
+      ('bodyStrong', BmTypography.bodyStrong(null), 15, 21, FontWeight.w600),
+      ('label', BmTypography.label(null), 13, 19, FontWeight.w500),
+      ('caption', BmTypography.caption(null), 12, 17, FontWeight.w400),
+      ('micro', BmTypography.micro(null), 10.5, 15, FontWeight.w500),
     ];
 
     for (final (name, style, size, lineHeight, weight) in cases) {
@@ -345,13 +467,13 @@ void main() {
       final scheme = ThemeRegistry.defaultTheme.light().colorScheme;
       final textTheme = BmTypography.theme(scheme);
       const expectedSizes = <String, double>{
-        'displayLarge': 28,
-        'displayMedium': 28,
-        'displaySmall': 28,
-        'headlineLarge': 22,
-        'headlineMedium': 22,
-        'headlineSmall': 17,
-        'titleLarge': 17,
+        'displayLarge': 36,
+        'displayMedium': 36,
+        'displaySmall': 36,
+        'headlineLarge': 24,
+        'headlineMedium': 24,
+        'headlineSmall': 21,
+        'titleLarge': 21,
         'titleMedium': 15,
         'titleSmall': 13,
         'bodyLarge': 15,
@@ -359,7 +481,7 @@ void main() {
         'bodySmall': 12,
         'labelLarge': 13,
         'labelMedium': 12,
-        'labelSmall': 11,
+        'labelSmall': 10.5,
       };
       final actual = <String, TextStyle?>{
         'displayLarge': textTheme.displayLarge,
@@ -384,7 +506,7 @@ void main() {
         expect(style, isNotNull, reason: entry.key);
         expect(style!.fontSize, entry.value, reason: entry.key);
         expect(
-          <double>{28, 22, 17, 15, 13, 12, 11},
+          <double>{36, 24, 21, 15, 13, 12, 10.5},
           contains(style.fontSize),
           reason: '${entry.key} 的字号必须来自 8 档',
         );

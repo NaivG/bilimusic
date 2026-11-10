@@ -1,4 +1,4 @@
-import 'package:bilimusic/shared/motion/bm_overlay_routes.dart';
+﻿import 'package:bilimusic/shared/motion/bm_overlay_routes.dart';
 import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/theme/theme_registry.dart';
 import 'package:bilimusic/shared/ui/overlay/bm_overlays.dart';
@@ -280,7 +280,7 @@ void main() {
       // 文案走 type.label 13/18。
       final message = tester.widget<Text>(find.text('已保存'));
       expect(message.style!.fontSize, 13);
-      expect(message.style!.height, closeTo(18 / 13, 1e-9));
+      expect(message.style!.height, closeTo(19 / 13, 1e-9));
 
       // SnackBar 只是透明外壳：不留 padding、不带描边。
       final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));

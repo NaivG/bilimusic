@@ -35,6 +35,18 @@ abstract class BmMotion {
   /// 封面背景 crossfade 的既有例外：大面积颜色变化不按常规档位。
   static const Duration backdrop = Duration(milliseconds: 400);
 
+  /// 弹层入场（设计稿 380ms）。
+  static const Duration sheet = Duration(milliseconds: 380);
+
+  /// 进度填充（设计稿 200ms 线性，仅 seek 时补间）。
+  static const Duration progress = Duration(milliseconds: 200);
+
+  /// 横屏抽屉 / 队列面板滑入（设计稿 320ms）。
+  static const Duration drawer = xlarge;
+
+  /// 遮罩淡入（设计稿 180ms）。
+  static const Duration scrim = medium;
+
   /// Sheet 弹簧的最长收敛预算（上限，不是固定时长）。
   static const Duration sheetMax = Duration(milliseconds: 500);
 
@@ -76,6 +88,15 @@ abstract class BmMotion {
 
   /// 进度、颜色 crossfade。
   static const Curve linear = Curves.linear;
+
+  /// 整页切换（设计稿 `cubic(.2,.8,.2,1)`）。
+  static const Curve pageCurve = Cubic(0.2, 0.8, 0.2, 1);
+
+  /// 详情上推（设计稿 `cubic(.2,.85,.2,1)`）。
+  static const Curve detailCurve = Cubic(0.2, 0.85, 0.2, 1);
+
+  /// 手势回弹（设计稿 `cubic(.22,1,.36,1)`）。
+  static const Curve snapCurve = Cubic(0.22, 1, 0.36, 1);
 
   // ===== 弹簧 =====
   /// 页面 push/pop：临界阻尼，不 overshoot。
@@ -122,6 +143,20 @@ abstract class BmMotion {
     stiffness: 100,
     damping: _damping(mass: 2, stiffness: 100, ratio: 0.88),
   );
+
+  /// 竖屏 Dock 选中胶囊在项间横移：iOS tab bar 的滑动，允许轻微回弹。
+  static final SpringDescription dockTravelSpring =
+      SpringDescription.withDurationAndBounce(duration: xlarge, bounce: 0.14);
+
+  /// 竖屏 Dock 胶囊跟随指针：比 [dockTravelSpring] 更跟手，几乎不过冲。
+  static final SpringDescription dockFollowSpring = SpringDescription(
+    mass: 1,
+    stiffness: 520,
+    damping: _damping(mass: 1, stiffness: 520, ratio: 0.9),
+  );
+
+  /// 悬停时胶囊向光标方向前倾的比例；以「项」为单位，0.2 即一项的 20%。
+  static const double dockHoverLean = 0.2;
 
   // ===== 编排 =====
   /// 列表 stagger：每项 20ms。

@@ -34,14 +34,14 @@ void main() {
     expect(find.text('排版 8 档'), findsOneWidget);
     expect(find.text('M0 动效'), findsOneWidget);
     const typeSpecs = <String>[
-      '28/34 · w700',
-      '22/28 · w700',
-      '17/24 · w600',
-      '15/22 · w400',
-      '15/22 · w600',
-      '13/18 · w500',
-      '12/16 · w400',
-      '11/14 · w500',
+      '36/42 · w800',
+      '24/30 · w700',
+      '21/27 · w700',
+      '15/21 · w400',
+      '15/21 · w600',
+      '13/19 · w500',
+      '12/17 · w400',
+      '11/15 · w500',
     ];
     for (final spec in typeSpecs) {
       expect(find.text(spec), findsOneWidget, reason: '排版规格 $spec 未渲染');

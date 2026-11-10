@@ -60,6 +60,16 @@ void main() {
     expect(_overlayColor(tester), colors.stateSelected);
   });
 
+  testWidgets('选中项悬停仍保持 selected 色', (tester) async {
+    final colors = await _pumpPressable(tester, selected: true, onTap: () {});
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(find.byType(BmPressable)));
+    await tester.pumpAndSettle();
+    expect(_overlayColor(tester), colors.stateSelected);
+  });
+
   testWidgets('disabled 不触发 onTap，也不画状态层', (tester) async {
     var taps = 0;
     await _pumpPressable(tester, enabled: false, onTap: () => taps++);

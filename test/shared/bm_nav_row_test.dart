@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// BmNavRow：行高 / 选中条 / 选中底 / 图标文字颜色 / 回调。
 void main() {
-  testWidgets('默认 40 高，内容左右 12、图标与文字间距 12，body 15/22 单行省略', (tester) async {
+  testWidgets('默认 44 高，内容左右 12、图标与文字间距 12，body 15/21 单行省略', (tester) async {
     final colors = await _pumpRow(tester);
 
     final size = tester.getSize(find.byType(BmNavRow));
@@ -27,7 +27,7 @@ void main() {
 
     final textStyle = _textStyle(tester);
     expect(textStyle.fontSize, 15);
-    expect(textStyle.height, closeTo(22 / 15, 1e-9));
+    expect(textStyle.height, closeTo(21 / 15, 1e-9));
     expect(textStyle.color, colors.textSecondary);
 
     final text = tester.widget<Text>(title);
@@ -35,31 +35,27 @@ void main() {
     expect(text.overflow, TextOverflow.ellipsis);
   });
 
-  testWidgets('选中：指示条 3×20、选中底 12%、文字 textPrimary、图标 accent', (tester) async {
+  testWidgets('选中：accentSoft 胶囊底、文字 textPrimary、图标 accentDeep', (tester) async {
     final colors = await _pumpRow(tester, selected: true);
 
-    final indicator = tester.widget<AnimatedContainer>(_indicator(20));
-    expect(tester.getSize(_indicator(20)), const Size(3, 20));
-    final indicatorDecoration = indicator.decoration! as BoxDecoration;
-    expect(indicatorDecoration.color, colors.accent);
-    expect(indicatorDecoration.borderRadius, BmTokens.rPillAll);
-
-    // BmPressable 的选中状态层 = accent 12%。
+    // BmPressable 的选中状态层 = accentSoftStrong（18%）。
     final overlay = tester.widget<AnimatedContainer>(_pressableOverlay(colors));
     final overlayColor = (overlay.decoration! as BoxDecoration).color;
-    expect(overlayColor, colors.stateSelected);
-    expect(overlayColor!.a, closeTo(BmAlpha.selected, 1e-9));
+    expect(overlayColor, colors.accentSoftStrong);
+    expect(overlayColor!.a, closeTo(BmAlpha.selectedStrong, 1e-9));
 
     expect(find.byIcon(Icons.home), findsOneWidget);
     expect(find.byIcon(Icons.home_outlined), findsNothing);
-    expect(tester.widget<Icon>(find.byIcon(Icons.home)).color, colors.accent);
+    expect(
+      tester.widget<Icon>(find.byIcon(Icons.home)).color,
+      colors.accentDeep,
+    );
     expect(_textStyle(tester).color, colors.textPrimary);
   });
 
-  testWidgets('未选中：指示条收到 0 高，无选中底，图标/文字 textSecondary', (tester) async {
+  testWidgets('未选中：无选中底，图标/文字 textSecondary', (tester) async {
     final colors = await _pumpRow(tester);
 
-    expect(tester.getSize(_indicator(0)).height, 0);
     expect(_pressableOverlay(colors), findsNothing);
     expect(
       tester.widget<Icon>(find.byIcon(Icons.home_outlined)).color,
@@ -110,19 +106,11 @@ void main() {
     );
   });
 
-  testWidgets('选中条 240ms、文字颜色 120ms，reduce motion 时归零', (tester) async {
+  testWidgets('文字颜色 120ms，reduce motion 时归零', (tester) async {
     await _pumpRow(tester, selected: true);
-    expect(
-      tester.widget<AnimatedContainer>(_indicator(20)).duration,
-      BmMotion.large,
-    );
     expect(_animatedTextStyle(tester).duration, BmMotion.small);
 
     await _pumpRow(tester, selected: true, reduceMotion: true);
-    expect(
-      tester.widget<AnimatedContainer>(_indicator(20)).duration,
-      Duration.zero,
-    );
     expect(_animatedTextStyle(tester).duration, Duration.zero);
   });
 
@@ -198,21 +186,6 @@ Future<BmColors> _pumpRow(
   return colors;
 }
 
-Finder _indicator(double height) {
-  return find.descendant(
-    of: find.byType(BmNavRow),
-    matching: find.byWidgetPredicate(
-      (widget) =>
-          widget is AnimatedContainer &&
-          widget.constraints ==
-              BoxConstraints.tightFor(
-                width: BmTokens.navIndicatorWidth,
-                height: height,
-              ),
-    ),
-  );
-}
-
 Finder _pressableOverlay(BmColors colors) {
   return find.descendant(
     of: find.byType(BmPressable),
@@ -220,7 +193,8 @@ Finder _pressableOverlay(BmColors colors) {
       (widget) =>
           widget is AnimatedContainer &&
           widget.decoration is BoxDecoration &&
-          (widget.decoration! as BoxDecoration).color == colors.stateSelected,
+          (widget.decoration! as BoxDecoration).color ==
+              colors.accentSoftStrong,
     ),
   );
 }

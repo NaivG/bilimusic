@@ -206,6 +206,8 @@ class _ArtistPageState extends ConsumerState<ArtistPage> {
           ? null
           : AutoAppBar.generateAppBar(context: context, title: "UP 详情"),
       body: SafeArea(
+        // 底部交给滚动内容自己留白，页面才能滚到浮动 chrome 下面。
+        bottom: false,
         child: Column(
           children: [
             if (_isCollecting) _buildCollectBanner(),
@@ -286,6 +288,10 @@ class _ArtistPageState extends ConsumerState<ArtistPage> {
               isLandscape: isLandscape,
             ),
             if (_hasMore) SliverToBoxAdapter(child: _buildFooter()),
+            // 给竖屏浮动的迷你播放器 / Dock 让位；横屏该值即底部安全区。
+            SliverToBoxAdapter(
+              child: SizedBox(height: MediaQuery.paddingOf(context).bottom),
+            ),
           ],
         ],
       ),

@@ -28,6 +28,7 @@ class BmPressable extends StatefulWidget {
     this.borderRadius,
     this.pressScale,
     this.selected = false,
+    this.selectedColor,
     this.enabled = true,
     this.overlayColor,
     this.focusNode,
@@ -47,6 +48,9 @@ class BmPressable extends StatefulWidget {
 
   /// 选中态：accent 12% 底。
   final bool selected;
+
+  /// 覆盖选中底色；为 null 时取 [BmColors.stateSelected]。
+  final Color? selectedColor;
 
   final bool enabled;
 
@@ -92,8 +96,11 @@ class _BmPressableState extends State<BmPressable> {
           : null;
     }
     if (_pressed && _interactive) return colors.statePressed;
+    // 选中态优先于 hover：悬停已选中项时不能把选中底色换成灰。
+    if (widget.selected) {
+      return widget.selectedColor ?? colors.stateSelected;
+    }
     if (_hovered && _interactive) return colors.stateHover;
-    if (widget.selected) return colors.stateSelected;
     return null;
   }
 

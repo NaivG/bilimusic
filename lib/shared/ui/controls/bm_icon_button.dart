@@ -6,8 +6,8 @@ import 'package:bilimusic/shared/motion/bm_pressable.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 
-/// 图标按钮的可视尺寸档位：28 / 34 / 40。
-enum BmIconButtonSize { sm, md, lg }
+/// 图标按钮的可视尺寸档位：28 / 34 / 40 / 44。
+enum BmIconButtonSize { sm, md, lg, xl }
 
 /// Lucent 图标按钮。
 ///
@@ -38,6 +38,7 @@ class BmIconButton extends StatelessWidget {
     this.hitSize,
     this.focusNode,
     this.autofocus = false,
+    this.soft = false,
   });
 
   final IconData icon;
@@ -68,6 +69,9 @@ class BmIconButton extends StatelessWidget {
   /// 命中区边长；默认 `max(可视尺寸, BmTokens.touchDesktop)`。
   final double? hitSize;
 
+  /// 软底：`accentSoft` 圆底 + `accentDeep` 图标（设计稿的圆形小窗按钮）。
+  final bool soft;
+
   final FocusNode? focusNode;
   final bool autofocus;
 
@@ -78,10 +82,15 @@ class BmIconButton extends StatelessWidget {
       BmIconButtonSize.sm => BmTokens.controlSm,
       BmIconButtonSize.md => BmTokens.controlMd,
       BmIconButtonSize.lg => BmTokens.controlLg,
+      BmIconButtonSize.xl => BmTokens.touchScreen,
     };
     final effectiveIconSize =
         iconSize ??
-        (size == BmIconButtonSize.sm ? BmTokens.iconMenu : BmTokens.icon);
+        switch (size) {
+          BmIconButtonSize.sm => BmTokens.iconMenu,
+          BmIconButtonSize.xl => BmTokens.iconLarge,
+          _ => BmTokens.icon,
+        };
     final hit = hitSize ?? math.max(visual, BmTokens.touchDesktop);
 
     final Color iconColor;
@@ -89,6 +98,8 @@ class BmIconButton extends StatelessWidget {
       iconColor = colors.danger;
     } else if (active) {
       iconColor = colors.accent;
+    } else if (soft) {
+      iconColor = colors.accentDeep;
     } else {
       iconColor = color ?? colors.textSecondary;
     }
@@ -97,7 +108,8 @@ class BmIconButton extends StatelessWidget {
       onTap: onPressed,
       enabled: onPressed != null,
       selected: active,
-      borderRadius: BmTokens.r10All,
+      selectedColor: soft ? colors.accentSoft : null,
+      borderRadius: soft ? BmTokens.rPillAll : BmTokens.r10All,
       overlayColor: danger
           ? colors.danger.withValues(alpha: BmAlpha.pressed)
           : null,
@@ -111,7 +123,15 @@ class BmIconButton extends StatelessWidget {
           child: SizedBox(
             width: visual,
             height: visual,
-            child: Icon(icon, size: effectiveIconSize, color: iconColor),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: soft ? colors.accentSoft : null,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Icon(icon, size: effectiveIconSize, color: iconColor),
+              ),
+            ),
           ),
         ),
       ),

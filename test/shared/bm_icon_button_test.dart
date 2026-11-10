@@ -7,7 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// BmIconButton：三档尺寸 / 命中区 / 颜色语义 / 点击与禁用 / tooltip。
 void main() {
-  testWidgets('sm/md/lg 可视尺寸 28/34/40，命中区 40，图标 16/20', (tester) async {
+  testWidgets('sm/md/lg/xl 可视尺寸 28/34/40/44，命中区不小于 44，图标 16/20/24', (
+    tester,
+  ) async {
     for (final size in BmIconButtonSize.values) {
       await _pumpIconButton(
         tester,
@@ -18,12 +20,18 @@ void main() {
         BmIconButtonSize.sm => 28.0,
         BmIconButtonSize.md => 34.0,
         BmIconButtonSize.lg => 40.0,
+        BmIconButtonSize.xl => 44.0,
       };
-      final expectedIcon = size == BmIconButtonSize.sm ? 16.0 : 20.0;
+      final expectedIcon = switch (size) {
+        BmIconButtonSize.sm => 16.0,
+        BmIconButtonSize.xl => 24.0,
+        _ => 20.0,
+      };
+      final expectedHit = visual < 40 ? 40.0 : visual;
 
       expect(
         tester.getSize(find.byType(BmIconButton)),
-        const Size(40, 40),
+        Size(expectedHit, expectedHit),
         reason: '${size.name} 的命中区不小于 40',
       );
       final boxes = tester

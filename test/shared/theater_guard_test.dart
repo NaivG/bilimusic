@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// P0/M0 防回归：直接扫源码文本，拦下写死的视觉 / 动效字面量。
+/// Theater 防回归：直接扫源码文本，拦下写死的视觉 / 动效字面量。
 void main() {
   final root = _projectRoot();
 

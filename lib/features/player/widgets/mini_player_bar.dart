@@ -243,7 +243,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
         : 0.0;
 
     return Padding(
-      padding: const EdgeInsets.only(left: BmTokens.s3, right: BmTokens.s3),
+      padding: EdgeInsets.zero,
       child: GestureDetector(
         onHorizontalDragStart: _onDragStart,
         onHorizontalDragUpdate: _onDragUpdate,
@@ -261,12 +261,14 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                // Chrome 浮块：底色 + 24 模糊 + 14 圆角 + hairline + shadow
+                // Chrome 浮块：白底 + 模糊 + 26 胶囊；整条高度画进度填充。
                 BmChromeSurface(
                   floating: true,
+                  tone: BmChromeTone.raised,
+                  radius: BmTokens.miniPlayerRadius,
                   blur: blurEffect,
                   child: SizedBox(
-                    height: 68,
+                    height: BmTokens.miniPlayerHeight,
                     child: Stack(
                       children: [
                         // 背景进度条层（订阅 position）
@@ -325,8 +327,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
                         // 内容层
                         Padding(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: BmTokens.s2,
-                            vertical: BmTokens.s1,
+                            horizontal: BmTokens.s1 + 2,
                           ),
                           child: Row(
                             children: [
@@ -337,8 +338,8 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
                                   music: ref
                                       .read(playerCoordinatorProvider)
                                       .currentMusic,
-                                  size: BmTokens.controlLg,
-                                  radius: BmTokens.r10,
+                                  size: BmTokens.miniPlayerCover,
+                                  radius: BmTokens.rPill,
                                 ),
                               ),
                               const SizedBox(width: BmTokens.s3),
@@ -404,7 +405,10 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
           music?.title ?? 'Not Playing',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: type.bodyStrong.copyWith(color: colors.textPrimary),
+          style: type.label.copyWith(
+            color: colors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         if (music != null) ...[
           const SizedBox(height: 2),
@@ -434,13 +438,15 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
         : (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: p),
-      duration: BmMotion.medium,
-      curve: BmMotion.standard,
+      duration: BmMotion.progress,
+      curve: BmMotion.linear,
       builder: (context, value, child) {
         return FractionallySizedBox(
           widthFactor: value,
           heightFactor: 1,
-          child: ColoredBox(color: colors.accentBorder),
+          child: ColoredBox(
+            color: colors.accent.withValues(alpha: BmAlpha.miniFill),
+          ),
         );
       },
     );

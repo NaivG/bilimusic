@@ -160,7 +160,13 @@ class _AudioOutputPageState extends ConsumerState<AudioOutputPage> {
       appBar: AutoAppBar.generateAppBar(context: context, title: '音频输出'),
       backgroundColor: Colors.transparent,
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+        // 尾部 120 是设计留白；叠加给竖屏浮动 chrome 让位的高度。
+        padding: EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          120 + MediaQuery.paddingOf(context).bottom,
+        ),
         children: [
           // ── 音频延迟 ──
           _card(

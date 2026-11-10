@@ -1,4 +1,4 @@
-// ignore_for_file: constant_identifier_names
+﻿// ignore_for_file: constant_identifier_names
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
@@ -57,7 +57,7 @@ class SettingsManager extends ChangeNotifier {
   // 默认值
   static const bool DEFAULT_NOTIFICATIONS_ENABLED = true;
   static const String DEFAULT_APPEARANCE = 'system';
-  static const String DEFAULT_THEME = 'lucent';
+  static const String DEFAULT_THEME = 'theater';
   static const bool DEFAULT_AUTO_PLAY_NEXT = true;
   static const bool DEFAULT_ALWAYS_SHOW_MINI_PLAYER = false;
   static const bool DEFAULT_SHOW_LYRICS = true;
@@ -237,7 +237,7 @@ class SettingsManager extends ChangeNotifier {
     _cache[KEY_APPEARANCE] = value;
   }
 
-  /// 获取主题设置 (lucent / nocturne / verdant)
+  /// 获取主题设置 (theater / nocturne / verdant)
   String get theme => _cache[KEY_THEME] ?? DEFAULT_THEME;
 
   /// 设置主题

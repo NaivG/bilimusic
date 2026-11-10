@@ -1,10 +1,21 @@
 import 'package:flutter/material.dart';
 
-/// Lucent 排版 token：8 档字号 / 字重 / 行高。
+/// Theater 排版 token：8 档字号 / 字重 / 行高。
 ///
 /// 字体栈用系统默认 + 一组 CJK 友好的 fallback，不自带 CJK 字体。
 /// 组件通过 `context.bmType` 读取；[theme] 把 8 档铺满 Material 的 15 个
 /// [TextTheme] 槽位，让还没迁移的页面也落到同一套字号上。
+///
+/// | token | 字号 / 行高 / 字重 | 场景 |
+/// |---|---|---|
+/// | display | 36 / 42 / 800 | 页面大标题、问候、设置页标题 |
+/// | title | 24 / 30 / 700 | 详情标题、弹层标题、抽屉标题 |
+/// | section | 21 / 27 / 700 | 分区标题 |
+/// | body | 15 / 21 / 400 | 正文、列表主标题、设置行 |
+/// | bodyStrong | 15 / 21 / 600 | 强调、当前播放 |
+/// | label | 13 / 19 / 500 | 曲目行、按钮、Tab |
+/// | caption | 12 / 17 / 400 | 副标题、说明 |
+/// | micro | 10.5 / 15 / 500 | 时间、badge、脚注 |
 abstract class BmTypography {
   /// 字体 fallback 栈：与 [ThemeData.fontFamilyFallback] 一致。
   static const List<String> fontFallback = <String>[
@@ -16,36 +27,37 @@ abstract class BmTypography {
     'Microsoft YaHei UI',
   ];
 
-  /// 舞台大标题（详情页曲名，大屏）28/34 w700。
+  /// 页面大标题 / 问候 36/42 w800。
   static TextStyle display(Color? color) =>
-      _style(color, 28, 34, FontWeight.w700);
+      _style(color, 36, 42, FontWeight.w800, -1.6);
 
-  /// 详情页曲名、空态标题 22/28 w700。
+  /// 详情标题、弹层标题、抽屉标题 24/30 w700。
   static TextStyle title(Color? color) =>
-      _style(color, 22, 28, FontWeight.w700);
+      _style(color, 24, 30, FontWeight.w700, -0.7);
 
-  /// 页面标题、对话框标题、分组标题 17/24 w600。
-  static TextStyle headline(Color? color) =>
-      _style(color, 17, 24, FontWeight.w600);
+  /// 分区标题 21/27 w700。
+  static TextStyle section(Color? color) =>
+      _style(color, 21, 27, FontWeight.w700, -0.5);
 
-  /// 正文、列表主标题 15/22 w400。
-  static TextStyle body(Color? color) => _style(color, 15, 22, FontWeight.w400);
+  /// 正文、列表主标题、设置行 15/21 w400。
+  static TextStyle body(Color? color) =>
+      _style(color, 15, 21, FontWeight.w400, -0.1);
 
-  /// 列表主标题强调、当前播放 15/22 w600。
+  /// 强调、当前播放 15/21 w600。
   static TextStyle bodyStrong(Color? color) =>
-      _style(color, 15, 22, FontWeight.w600);
+      _style(color, 15, 21, FontWeight.w600, -0.1);
 
-  /// 按钮、Tab、次要操作 13/18 w500。
+  /// 曲目行、按钮、Tab 13/19 w500。
   static TextStyle label(Color? color) =>
-      _style(color, 13, 18, FontWeight.w500);
+      _style(color, 13, 19, FontWeight.w500, 0);
 
-  /// 次要信息、歌手名、时间 12/16 w400。
+  /// 副标题、说明 12/17 w400。
   static TextStyle caption(Color? color) =>
-      _style(color, 12, 16, FontWeight.w400);
+      _style(color, 12, 17, FontWeight.w400, 0);
 
-  /// 徽标、HQ、迷你播放器辅助 11/14 w500。
+  /// 时间、badge、脚注 10.5/15 w500。
   static TextStyle micro(Color? color) =>
-      _style(color, 11, 14, FontWeight.w500);
+      _style(color, 10.5, 15, FontWeight.w500, 0.1);
 
   /// 把 8 档铺进 Material 的 15 个槽位。
   static TextTheme theme(ColorScheme scheme) {
@@ -53,7 +65,7 @@ abstract class BmTypography {
     final secondary = scheme.onSurfaceVariant;
     final displayStyle = display(primary);
     final titleStyle = title(primary);
-    final headlineStyle = headline(primary);
+    final sectionStyle = section(primary);
     final bodyStyle = body(primary);
     final bodyStrongStyle = bodyStrong(primary);
     final labelStyle = label(primary);
@@ -65,8 +77,8 @@ abstract class BmTypography {
       displaySmall: displayStyle,
       headlineLarge: titleStyle,
       headlineMedium: titleStyle,
-      headlineSmall: headlineStyle,
-      titleLarge: headlineStyle,
+      headlineSmall: sectionStyle,
+      titleLarge: sectionStyle,
       titleMedium: bodyStrongStyle,
       titleSmall: labelStyle,
       bodyLarge: bodyStyle,
@@ -93,11 +105,13 @@ abstract class BmTypography {
     double fontSize,
     double lineHeight,
     FontWeight weight,
+    double letterSpacing,
   ) {
     return TextStyle(
       fontSize: fontSize,
       height: lineHeight / fontSize,
       fontWeight: weight,
+      letterSpacing: letterSpacing,
       color: color,
       fontFamilyFallback: fontFallback,
     );
@@ -109,7 +123,7 @@ abstract class BmTypography {
 class BmTypographySet {
   final TextStyle display;
   final TextStyle title;
-  final TextStyle headline;
+  final TextStyle section;
   final TextStyle body;
   final TextStyle bodyStrong;
   final TextStyle label;
@@ -119,7 +133,7 @@ class BmTypographySet {
   const BmTypographySet({
     required this.display,
     required this.title,
-    required this.headline,
+    required this.section,
     required this.body,
     required this.bodyStrong,
     required this.label,
@@ -133,7 +147,7 @@ class BmTypographySet {
     return BmTypographySet(
       display: BmTypography.display(primary),
       title: BmTypography.title(primary),
-      headline: BmTypography.headline(primary),
+      section: BmTypography.section(primary),
       body: BmTypography.body(primary),
       bodyStrong: BmTypography.bodyStrong(primary),
       label: BmTypography.label(primary),

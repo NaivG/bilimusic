@@ -1,22 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/playlist.dart';
-import 'package:bilimusic/features/playlist/playlist_providers.dart';
-import 'package:bilimusic/features/playlist/widgets/playlist_hero.dart';
-import 'package:bilimusic/features/playlist/widgets/playlist_song_list.dart';
+import 'package:bilimusic/features/playlist/ui/playlist_content.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 
-/// Portrait playlist page with hero Column + track list in a single scroll.
-class PortraitPlaylistPage extends ConsumerWidget {
+/// 竖屏歌单页：顶栏 + 共享歌单骨架。
+class PortraitPlaylistPage extends StatelessWidget {
   final String? playlistId;
   final List<Music> songs;
   final Playlist? currentPlaylist;
+  final bool isLiked;
   final Function(Music) onSongTap;
   final Function(Music)? onRemoveSong;
   final Future<bool> Function(List<Music>)? onRemoveMany;
   final VoidCallback onPlayAll;
   final VoidCallback onShufflePlay;
+  final VoidCallback onToggleLike;
   final VoidCallback onAddToPlaylist;
   final VoidCallback onExportEntries;
   final VoidCallback onImportEntries;
@@ -28,11 +29,13 @@ class PortraitPlaylistPage extends ConsumerWidget {
     this.playlistId,
     required this.songs,
     this.currentPlaylist,
+    this.isLiked = false,
     required this.onSongTap,
     this.onRemoveSong,
     this.onRemoveMany,
     required this.onPlayAll,
     required this.onShufflePlay,
+    required this.onToggleLike,
     required this.onAddToPlaylist,
     required this.onExportEntries,
     required this.onImportEntries,
@@ -41,60 +44,28 @@ class PortraitPlaylistPage extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-
+  Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AutoAppBar.generateAppBar(context: context, title: "歌单详情"),
-      body: CustomScrollView(
-        slivers: [
-          // Top spacing
-          SliverToBoxAdapter(child: SizedBox(height: 8)),
-          // Hero section
-          SliverToBoxAdapter(
-            child: PlaylistHero(
-              playlist:
-                  currentPlaylist ??
-                  Playlist(
-                    id: 'temp',
-                    name: '播放列表',
-                    createdAt: DateTime.now(),
-                    updatedAt: DateTime.now(),
-                  ),
-              songs: songs,
-              isLandscape: false,
-              onPlayAll: onPlayAll,
-              onShufflePlay: onShufflePlay,
-              onAddToPlaylist: onAddToPlaylist,
-              onExportEntries: onExportEntries,
-              onImportEntries: onImportEntries,
-              onOfflineCacheAll: onOfflineCacheAll,
-              canImportEntries: canImportEntries,
-            ),
-          ),
-          // Divider between hero and track list
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Divider(
-                height: 1,
-                thickness: 1,
-                color: colorScheme.outline,
-              ),
-            ),
-          ),
-          // Track list
-          PlaylistSongList(
-            songs: songs,
-            currentPlayingMusic: ref.watch(currentMusicProvider),
-            onSongTap: onSongTap,
-            isEditable: playlistId != null,
-            onRemove: playlistId != null ? onRemoveSong : null,
-            onRemoveMany: playlistId != null ? onRemoveMany : null,
-            isLandscape: false,
-          ),
-        ],
+      // 透出壳层背景。
+      backgroundColor: context.bmColors.bg.withValues(alpha: 0),
+      appBar: AutoAppBar.generateAppBar(context: context, title: '歌单详情'),
+      body: PlaylistContent(
+        isLandscape: false,
+        playlistId: playlistId,
+        songs: songs,
+        currentPlaylist: currentPlaylist,
+        isLiked: isLiked,
+        onSongTap: onSongTap,
+        onRemoveSong: onRemoveSong,
+        onRemoveMany: onRemoveMany,
+        onPlayAll: onPlayAll,
+        onShufflePlay: onShufflePlay,
+        onToggleLike: onToggleLike,
+        onAddToPlaylist: onAddToPlaylist,
+        onExportEntries: onExportEntries,
+        onImportEntries: onImportEntries,
+        onOfflineCacheAll: onOfflineCacheAll,
+        canImportEntries: canImportEntries,
       ),
     );
   }

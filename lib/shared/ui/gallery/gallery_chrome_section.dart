@@ -231,24 +231,24 @@ class _GalleryChromeSectionState extends State<GalleryChromeSection> {
   Widget _buildNavBar(BuildContext context) {
     return SizedBox(
       width: BmTokens.s8 * 12,
-      child: BmNavBar(
-        items: const <BmNavBarItem>[
-          BmNavBarItem(
+      child: BmDock(
+        items: const <BmDockItem>[
+          BmDockItem(
             icon: Icons.home_outlined,
             activeIcon: Icons.home_rounded,
             label: '首页',
           ),
-          BmNavBarItem(
+          BmDockItem(
             icon: Icons.explore_outlined,
             activeIcon: Icons.explore_rounded,
             label: '发现',
           ),
-          BmNavBarItem(
+          BmDockItem(
             icon: Icons.library_music_outlined,
             activeIcon: Icons.library_music_rounded,
             label: '歌单',
           ),
-          BmNavBarItem(
+          BmDockItem(
             icon: Icons.settings_outlined,
             activeIcon: Icons.settings_rounded,
             label: '设置',

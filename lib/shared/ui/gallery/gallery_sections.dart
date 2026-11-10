@@ -44,7 +44,7 @@ class GallerySection extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: type.headline.copyWith(color: colors.textPrimary),
+                  style: type.section.copyWith(color: colors.textPrimary),
                 ),
               ),
               if (trailing != null) ...[
@@ -570,7 +570,7 @@ class GalleryTypographySection extends StatelessWidget {
     final roles = <(String, TextStyle, String)>[
       ('display', type.display, '舞台大标题'),
       ('title', type.title, '详情页曲名 / 空态标题'),
-      ('headline', type.headline, '页面标题 / 对话框标题'),
+      ('section', type.section, '分区标题'),
       ('body', type.body, '正文 / 列表主标题'),
       ('bodyStrong', type.bodyStrong, '强调 / 当前播放'),
       ('label', type.label, '按钮 / Tab / 次要操作'),
@@ -1118,9 +1118,7 @@ class GalleryComponentsSection extends StatelessWidget {
                       const SizedBox(height: BmTokens.s4),
                       Text(
                         'BmSheet',
-                        style: type.headline.copyWith(
-                          color: colors.textPrimary,
-                        ),
+                        style: type.section.copyWith(color: colors.textPrimary),
                       ),
                       const SizedBox(height: BmTokens.s1),
                       Text(

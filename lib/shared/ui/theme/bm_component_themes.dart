@@ -10,7 +10,7 @@ import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 /// 所有几何/颜色/字号都从 [BmTokens] / [BmColors] / [BmTypographySet] 取，
 /// 6 套主题只需提供 [ColorScheme] + `AppPalette`，不再逐主题手写样式。
 abstract class BmComponentThemes {
-  /// AppBar：去掉 M3 的 surfaceTint，标题落到 `headline`。
+  /// AppBar：去掉 M3 的 surfaceTint，标题落到 `section`。
   static AppBarThemeData appBar(BmColors colors, BmTypographySet type) {
     return AppBarThemeData(
       backgroundColor: Colors.transparent,
@@ -18,7 +18,7 @@ abstract class BmComponentThemes {
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
-      titleTextStyle: type.headline,
+      titleTextStyle: type.section,
       iconTheme: IconThemeData(color: colors.textPrimary, size: BmTokens.icon),
       actionsIconTheme: IconThemeData(
         color: colors.textSecondary,
@@ -27,7 +27,7 @@ abstract class BmComponentThemes {
     );
   }
 
-  /// 对话框：20 圆角、`floating` 底、标题 headline / 正文 body。
+  /// 对话框：20 圆角、`floating` 底、标题 title / 正文 body。
   static DialogThemeData dialog(BmColors colors, BmTypographySet type) {
     return DialogThemeData(
       backgroundColor: colors.floating,
@@ -35,7 +35,7 @@ abstract class BmComponentThemes {
       elevation: 0,
       shadowColor: colors.shadowStrong,
       shape: const RoundedRectangleBorder(borderRadius: BmTokens.r20All),
-      titleTextStyle: type.headline,
+      titleTextStyle: type.title,
       contentTextStyle: type.body,
       insetPadding: const EdgeInsets.symmetric(
         horizontal: BmTokens.s6,

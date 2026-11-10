@@ -1,17 +1,16 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
-import 'package:bilimusic/core/network/network_config.dart';
-import 'package:bilimusic/core/storage/cache_manager.dart';
-import 'package:bilimusic/domain/music.dart';
-import 'package:bilimusic/shared/motion/motion_tokens.dart';
-import 'package:bilimusic/shared/theme/app_palette.dart';
-import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/motion/bm_pressable.dart';
+import 'package:bilimusic/shared/ui/cards/bm_media_card.dart';
 import 'package:bilimusic/shared/ui/menu/app_context_menu.dart';
+import 'package:bilimusic/shared/ui/surfaces/bm_card.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 
 /// 发现页的曲目行：可选排名列 + 封面 + 标题/副标题 + 自定义尾部。
-class DiscoverMusicTile extends StatefulWidget {
+class DiscoverMusicTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final String coverUrl;
@@ -46,134 +45,205 @@ class DiscoverMusicTile extends StatefulWidget {
   });
 
   @override
-  State<DiscoverMusicTile> createState() => _DiscoverMusicTileState();
-}
-
-class _DiscoverMusicTileState extends State<DiscoverMusicTile> {
-  bool _isHovered = false;
-
-  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final palette = context.appPalette;
-    final accent = theme.colorScheme.primary;
+    final colors = context.bmColors;
+    final type = context.bmType;
 
-    final row = MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: BmMotion.medium,
-        curve: Curves.easeOutCubic,
-        decoration: BoxDecoration(
-          color: _isHovered ? palette.surfaceHover : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-            onTap: widget.enabled ? widget.onTap : null,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-              child: Row(
-                children: [
-                  if (widget.rank != null)
-                    SizedBox(
-                      width: 34,
-                      child: Text(
-                        '${widget.rank}',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: (widget.rank ?? 99) <= 3
-                              ? accent
-                              : theme.colorScheme.onSurfaceVariant.withValues(
-                                  alpha: 0.6,
-                                ),
-                        ),
-                      ),
-                    ),
-                  _buildCover(theme),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: widget.enabled
-                                ? (_isHovered ? accent : null)
-                                : theme.colorScheme.onSurface.withValues(
-                                    alpha: 0.45,
-                                  ),
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          widget.subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: theme.colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ],
+    final row = BmPressable(
+      onTap: enabled ? onTap : null,
+      enabled: enabled,
+      borderRadius: BmTokens.r10All,
+      semanticLabel: subtitle.isEmpty ? title : '$title，$subtitle',
+      child: SizedBox(
+        height: BmTokens.trackRow,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: BmTokens.s2),
+          child: Row(
+            children: [
+              if (rank != null)
+                SizedBox(
+                  width: BmTokens.s8,
+                  child: Text(
+                    '$rank',
+                    textAlign: TextAlign.center,
+                    style: type.bodyStrong.copyWith(
+                      color: rank! <= 3 ? colors.accent : colors.textTertiary,
                     ),
                   ),
-                  if (widget.trailing != null) ...[
-                    const SizedBox(width: 12),
-                    widget.trailing!,
-                  ],
-                ],
+                ),
+              ClipRRect(
+                borderRadius: BmTokens.albumArtRadius,
+                child: SizedBox(
+                  width: BmTokens.row,
+                  height: BmTokens.row,
+                  child: BmArtImage(url: coverUrl, cacheKey: cacheKey),
+                ),
               ),
-            ),
+              const SizedBox(width: BmTokens.s3),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: type.body.copyWith(
+                        color: colors.textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: BmTokens.s1 / 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: type.caption.copyWith(color: colors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              if (trailing != null) ...[
+                const SizedBox(width: BmTokens.s3),
+                trailing!,
+              ],
+            ],
           ),
         ),
       ),
     );
 
-    final menuBuilder = widget.contextMenuBuilder;
-    if (!widget.enabled || menuBuilder == null) return row;
+    final menuBuilder = contextMenuBuilder;
+    if (!enabled || menuBuilder == null) return row;
     return AppContextMenu(menuProvider: menuBuilder, child: row);
   }
+}
 
-  Widget _buildCover(ThemeData theme) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
-      child: CachedNetworkImage(
-        imageUrl: widget.coverUrl.isEmpty ? fallbackCoverUrl : widget.coverUrl,
-        httpHeaders: NetworkConfig.biliHeaders,
-        width: 44,
-        height: 44,
-        fit: BoxFit.cover,
-        cacheManager: imageCacheManager,
-        cacheKey: widget.cacheKey,
-        placeholder: (context, url) => Container(
-          width: 44,
-          height: 44,
-          color: theme.colorScheme.surfaceContainerHighest.withValues(
-            alpha: 0.5,
-          ),
+/// 发现页宽屏网格卡：方形封面 + 排名角标 + 标题/副标题/尾部。
+class DiscoverMusicCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String coverUrl;
+  final String cacheKey;
+  final int? rank;
+  final Widget? trailing;
+  final bool enabled;
+  final VoidCallback? onTap;
+  final MenuProvider? contextMenuBuilder;
+
+  const DiscoverMusicCard({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.coverUrl,
+    required this.cacheKey,
+    this.rank,
+    this.trailing,
+    this.enabled = true,
+    this.onTap,
+    this.contextMenuBuilder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.bmColors;
+    final type = context.bmType;
+
+    final card = BmCard(
+      child: BmPressable(
+        onTap: enabled ? onTap : null,
+        enabled: enabled,
+        borderRadius: BmTokens.r14All,
+        semanticLabel: subtitle.isEmpty ? title : '$title，$subtitle',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AspectRatio(
+              aspectRatio: 1,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  BmArtImage(url: coverUrl, cacheKey: cacheKey),
+                  if (rank != null)
+                    Positioned(
+                      left: BmTokens.s2,
+                      top: BmTokens.s2,
+                      child: _RankBadge(rank: rank!),
+                    ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                BmTokens.s3,
+                BmTokens.s2,
+                BmTokens.s3,
+                BmTokens.s2,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: type.label.copyWith(
+                      color: colors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: BmTokens.s1 / 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: type.caption.copyWith(color: colors.textSecondary),
+                  ),
+                  if (trailing != null) ...[
+                    const SizedBox(height: BmTokens.s1),
+                    trailing!,
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
-        errorWidget: (context, url, error) => Container(
-          width: 44,
-          height: 44,
-          color: theme.colorScheme.surfaceContainerHighest.withValues(
-            alpha: 0.5,
-          ),
-          child: Icon(
-            Icons.music_note,
-            size: 20,
-            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-          ),
+      ),
+    );
+
+    final menuBuilder = contextMenuBuilder;
+    if (!enabled || menuBuilder == null) return card;
+    return AppContextMenu(menuProvider: menuBuilder, child: card);
+  }
+}
+
+/// 网格卡左上角的排名角标。
+class _RankBadge extends StatelessWidget {
+  const _RankBadge({required this.rank});
+
+  final int rank;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.bmColors;
+    final type = context.bmType;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: BmTokens.s1,
+        vertical: BmTokens.s1 / 2,
+      ),
+      decoration: BoxDecoration(
+        color: colors.scrim,
+        borderRadius: BmTokens.r4All,
+      ),
+      child: Text(
+        '$rank',
+        style: type.micro.copyWith(
+          color: colors.stageText,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

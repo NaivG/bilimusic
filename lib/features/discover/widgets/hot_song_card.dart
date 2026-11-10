@@ -1,18 +1,19 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
-import 'package:bilimusic/core/network/network_config.dart';
-import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/domain/hot_song.dart';
 import 'package:bilimusic/domain/related_video.dart';
-import 'package:bilimusic/shared/motion/motion_tokens.dart';
-import 'package:bilimusic/shared/theme/app_palette.dart';
+import 'package:bilimusic/shared/motion/bm_pressable.dart';
+import 'package:bilimusic/shared/ui/cards/bm_media_card.dart';
 import 'package:bilimusic/shared/ui/menu/app_context_menu.dart';
+import 'package:bilimusic/shared/ui/surfaces/bm_card.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 import 'package:bilimusic/shared/utils/formatters.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 
 /// 热歌榜条目卡片：上半是榜单歌曲行头，下半是实际播放的相关视频。
-class HotSongCard extends StatefulWidget {
+class HotSongCard extends StatelessWidget {
   final HotSong song;
   final VoidCallback? onTap;
   final MenuProvider? contextMenuBuilder;
@@ -25,133 +26,120 @@ class HotSongCard extends StatefulWidget {
   });
 
   @override
-  State<HotSongCard> createState() => _HotSongCardState();
-}
-
-class _HotSongCardState extends State<HotSongCard> {
-  bool _isHovered = false;
-
-  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final palette = context.appPalette;
-    final enabled = widget.song.isPlayable;
+    final enabled = song.isPlayable;
 
-    final card = MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: BmMotion.medium,
-        curve: Curves.easeOutCubic,
-        margin: const EdgeInsets.only(bottom: 8),
-        decoration: BoxDecoration(
-          color: _isHovered
-              ? palette.surfaceHover
-              : palette.panelSurface.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.22),
-          ),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(10),
-            onTap: enabled ? widget.onTap : null,
+    final card = LayoutBuilder(
+      builder: (context, constraints) {
+        // 四列网格里单卡更窄，收紧封面与尾部信息，避免标题被挤没。
+        final compact = constraints.maxWidth < 300;
+        return BmCard(
+          child: BmPressable(
+            onTap: enabled ? onTap : null,
+            enabled: enabled,
+            borderRadius: BmTokens.r14All,
+            semanticLabel: '${song.title}，${song.subtitleText}',
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(8, 10, 12, 10),
+              padding: const EdgeInsets.fromLTRB(
+                BmTokens.s2,
+                BmTokens.s2,
+                BmTokens.s3,
+                BmTokens.s2,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildSongRow(context, enabled),
-                  if (_hasVideoIdentity(widget.song.relatedVideo)) ...[
-                    const SizedBox(height: 8),
-                    _buildVideoRow(context, widget.song.relatedVideo!),
+                  _buildSongRow(context, compact),
+                  if (_hasVideoIdentity(song.relatedVideo)) ...[
+                    const SizedBox(height: BmTokens.s2),
+                    _buildVideoRow(context, song.relatedVideo!, compact),
                   ],
                 ],
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
 
-    final menuBuilder = widget.contextMenuBuilder;
+    final menuBuilder = contextMenuBuilder;
     if (!enabled || menuBuilder == null) return card;
     return AppContextMenu(menuProvider: menuBuilder, child: card);
   }
 
   // ------------------------------------------------------------ 歌曲行头
 
-  Widget _buildSongRow(BuildContext context, bool enabled) {
-    final theme = Theme.of(context);
-    final song = widget.song;
+  Widget _buildSongRow(BuildContext context, bool compact) {
+    final colors = context.bmColors;
+    final type = context.bmType;
+    final song = this.song;
     final isNew = song.rankDelta == null;
+    final coverSize = compact ? BmTokens.controlLg : BmTokens.row;
 
     return Row(
       children: [
-        SizedBox(width: 34, child: _buildRank(context)),
-        _buildCover(
-          context,
-          song.coverUrl,
-          cacheKey:
-              'hot-song-${song.musicId.isEmpty ? song.bvid : song.musicId}',
-          width: 44,
-          height: 44,
+        SizedBox(
+          width: compact ? BmTokens.s6 : BmTokens.s8,
+          child: _buildRank(context),
         ),
-        const SizedBox(width: 12),
+        ClipRRect(
+          borderRadius: BmTokens.albumArtRadius,
+          child: SizedBox(
+            width: coverSize,
+            height: coverSize,
+            child: BmArtImage(
+              url: song.coverUrl,
+              cacheKey:
+                  'hot-song-${song.musicId.isEmpty ? song.bvid : song.musicId}',
+            ),
+          ),
+        ),
+        const SizedBox(width: BmTokens.s3),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 children: [
                   if (isNew) ...[
-                    _NewBadge(color: theme.colorScheme.primary),
-                    const SizedBox(width: 5),
+                    const _NewBadge(),
+                    const SizedBox(width: BmTokens.s1),
                   ],
                   Flexible(
                     child: Text(
                       song.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 14,
+                      style: type.body.copyWith(
+                        color: colors.textPrimary,
                         fontWeight: FontWeight.w500,
-                        color: enabled
-                            ? (_isHovered ? theme.colorScheme.primary : null)
-                            : theme.colorScheme.onSurface.withValues(
-                                alpha: 0.45,
-                              ),
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 3),
+              const SizedBox(height: BmTokens.s1 / 2),
               Text(
                 song.subtitleText,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: theme.colorScheme.onSurfaceVariant.withValues(
-                    alpha: 0.7,
-                  ),
-                ),
+                style: type.caption.copyWith(color: colors.textSecondary),
               ),
             ],
           ),
         ),
-        const SizedBox(width: 10),
-        _buildSongTrailing(context),
+        const SizedBox(width: BmTokens.s2),
+        _buildSongTrailing(context, compact: compact),
       ],
     );
   }
 
   Widget _buildRank(BuildContext context) {
-    final theme = Theme.of(context);
-    final song = widget.song;
+    final colors = context.bmColors;
+    final type = context.bmType;
+    final song = this.song;
     final delta = song.rankDelta;
 
     return Column(
@@ -160,16 +148,12 @@ class _HotSongCardState extends State<HotSongCard> {
         Text(
           '${song.rank}',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: song.rank <= 3
-                ? theme.colorScheme.primary
-                : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+          style: type.bodyStrong.copyWith(
+            color: song.rank <= 3 ? colors.accent : colors.textTertiary,
           ),
         ),
         if (delta != null) ...[
-          const SizedBox(height: 1),
+          const SizedBox(height: BmTokens.s1 / 2),
           _buildRankDelta(context, delta),
         ],
       ],
@@ -177,158 +161,162 @@ class _HotSongCardState extends State<HotSongCard> {
   }
 
   Widget _buildRankDelta(BuildContext context, int delta) {
-    final theme = Theme.of(context);
+    final colors = context.bmColors;
+    final type = context.bmType;
     if (delta == 0) {
-      return Text(
-        '—',
-        style: TextStyle(
-          fontSize: 9,
-          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-        ),
-      );
+      return Text('—', style: type.micro.copyWith(color: colors.textTertiary));
     }
 
-    final color = delta > 0 ? Colors.green : Colors.redAccent;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          delta > 0 ? Icons.arrow_drop_up : Icons.arrow_drop_down,
-          size: 12,
-          color: color,
-        ),
-        Text('${delta.abs()}', style: TextStyle(fontSize: 9, color: color)),
-      ],
+    final color = delta > 0 ? colors.success : colors.danger;
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            delta > 0 ? Icons.arrow_drop_up : Icons.arrow_drop_down,
+            size: BmTokens.iconInline,
+            color: color,
+          ),
+          Text('${delta.abs()}', style: type.micro.copyWith(color: color)),
+        ],
+      ),
     );
   }
 
-  Widget _buildSongTrailing(BuildContext context) {
-    final theme = Theme.of(context);
-    final song = widget.song;
+  Widget _buildSongTrailing(BuildContext context, {required bool compact}) {
+    final colors = context.bmColors;
+    final type = context.bmType;
+    final song = this.song;
     final achievement = song.achievements
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .join(' · ');
+    final showAchievement = achievement.isNotEmpty && !compact;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      mainAxisAlignment: MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (achievement.isNotEmpty)
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 120),
-            child: Text(
+    if (!showAchievement && song.heat <= 0) return const SizedBox.shrink();
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: compact ? 72 : 120),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (showAchievement)
+            Text(
               achievement,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 10,
-                color: theme.colorScheme.primary.withValues(alpha: 0.8),
-              ),
+              style: type.micro.copyWith(color: colors.accentDeep),
             ),
-          ),
-        if (achievement.isNotEmpty) const SizedBox(height: 2),
-        if (song.heat > 0)
-          Text(
-            _formatHeat(song.heat),
-            style: TextStyle(
-              fontSize: 11,
-              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.65),
+          if (showAchievement && song.heat > 0)
+            const SizedBox(height: BmTokens.s1 / 2),
+          if (song.heat > 0)
+            Text(
+              _formatHeat(song.heat),
+              style: type.micro.copyWith(color: colors.textTertiary),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
   // ------------------------------------------------------------ 相关视频
 
-  Widget _buildVideoRow(BuildContext context, RelatedVideo video) {
-    final theme = Theme.of(context);
+  Widget _buildVideoRow(
+    BuildContext context,
+    RelatedVideo video,
+    bool compact,
+  ) {
+    final colors = context.bmColors;
+    final type = context.bmType;
+    final width = compact ? 64.0 : 80.0;
+    final height = compact ? 36.0 : 45.0;
 
     return Container(
-      padding: const EdgeInsets.all(6),
+      padding: const EdgeInsets.all(BmTokens.s1),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(8),
+        color: colors.bgDeep,
+        borderRadius: BmTokens.r9All,
       ),
       child: Row(
         children: [
-          _buildVideoCover(context, video),
-          const SizedBox(width: 10),
+          _buildVideoCover(context, video, width, height),
+          const SizedBox(width: BmTokens.s2),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   video.title.trim().isEmpty ? '相关视频' : video.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
+                  style: type.label.copyWith(
+                    color: colors.textPrimary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: BmTokens.s1 / 2),
                 Text(
                   _videoSubtitle(video),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: theme.colorScheme.onSurfaceVariant.withValues(
-                      alpha: 0.65,
-                    ),
-                  ),
+                  style: type.caption.copyWith(color: colors.textSecondary),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: BmTokens.s2),
           Icon(
             Icons.play_circle_outline_rounded,
-            size: 20,
-            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
+            size: BmTokens.icon,
+            color: colors.textTertiary,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildVideoCover(BuildContext context, RelatedVideo video) {
-    final duration = widget.song.durationSeconds;
+  Widget _buildVideoCover(
+    BuildContext context,
+    RelatedVideo video,
+    double width,
+    double height,
+  ) {
+    final colors = context.bmColors;
+    final type = context.bmType;
+    final duration = song.durationSeconds;
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BmTokens.r4All,
       child: SizedBox(
-        width: 80,
-        height: 45,
+        width: width,
+        height: height,
         child: Stack(
           fit: StackFit.expand,
           children: [
-            _buildCover(
-              context,
-              video.coverUrl,
+            BmArtImage(
+              url: video.coverUrl,
               cacheKey: 'hot-video-${video.bvid}',
-              width: 80,
-              height: 45,
             ),
             if (duration > 0)
               Positioned(
-                right: 3,
-                bottom: 3,
+                right: BmTokens.s1 / 2,
+                bottom: BmTokens.s1 / 2,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 3,
+                    horizontal: BmTokens.s1 / 2,
                     vertical: 1,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(3),
+                    color: colors.scrim,
+                    borderRadius: BmTokens.r4All,
                   ),
                   child: Text(
                     formatDuration(Duration(seconds: duration)),
-                    style: const TextStyle(fontSize: 9, color: Colors.white),
+                    style: type.micro.copyWith(color: colors.stageText),
                   ),
                 ),
               ),
@@ -357,41 +345,6 @@ class _HotSongCardState extends State<HotSongCard> {
     return parts.isEmpty ? '相关视频' : parts.join(' · ');
   }
 
-  Widget _buildCover(
-    BuildContext context,
-    String url, {
-    required String cacheKey,
-    required double width,
-    required double height,
-  }) {
-    final theme = Theme.of(context);
-    final placeholder = Container(
-      width: width,
-      height: height,
-      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-      child: Icon(
-        Icons.music_note,
-        size: 18,
-        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-      ),
-    );
-
-    final trimmed = url.trim();
-    if (trimmed.isEmpty) return placeholder;
-
-    return CachedNetworkImage(
-      imageUrl: trimmed,
-      httpHeaders: NetworkConfig.biliHeaders,
-      width: width,
-      height: height,
-      fit: BoxFit.cover,
-      cacheManager: imageCacheManager,
-      cacheKey: cacheKey,
-      placeholder: (context, url) => placeholder,
-      errorWidget: (context, url, error) => placeholder,
-    );
-  }
-
   static String _formatHeat(int heat) {
     if (heat >= 10000) return '${formatCount(heat)}热度';
     return '$heat 热度';
@@ -400,25 +353,26 @@ class _HotSongCardState extends State<HotSongCard> {
 
 /// 新上榜角标。
 class _NewBadge extends StatelessWidget {
-  final Color color;
-
-  const _NewBadge({required this.color});
+  const _NewBadge();
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.bmColors;
+    final type = context.bmType;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      padding: const EdgeInsets.symmetric(
+        horizontal: BmTokens.s1,
+        vertical: BmTokens.s1 / 2,
+      ),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(3),
+        color: colors.accentSoft,
+        borderRadius: BmTokens.r4All,
       ),
       child: Text(
         '新',
-        style: TextStyle(
-          fontSize: 9,
-          height: 1.2,
-          fontWeight: FontWeight.w600,
-          color: color,
+        style: type.micro.copyWith(
+          color: colors.accentDeep,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

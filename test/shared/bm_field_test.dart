@@ -1,4 +1,4 @@
-import 'package:bilimusic/shared/theme/theme_registry.dart';
+﻿import 'package:bilimusic/shared/theme/theme_registry.dart';
 import 'package:bilimusic/shared/ui/controls/bm_field.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
@@ -76,7 +76,7 @@ void main() {
 
     final error = tester.widget<Text>(find.text('关键词不能为空'));
     expect(error.style?.fontSize, 12);
-    expect(error.style?.height, closeTo(16 / 12, 1e-9));
+    expect(error.style?.height, closeTo(17 / 12, 1e-9));
     expect(error.style?.color, colors.danger);
     expect(
       tester.getSize(find.byType(TextField)).height,
@@ -85,12 +85,12 @@ void main() {
     );
   });
 
-  testWidgets('label 在输入框上方，13/18', (tester) async {
+  testWidgets('label 在输入框上方，13/19', (tester) async {
     await _pumpField(tester, const BmField(label: '关键词', hintText: '搜索'));
 
     final label = tester.widget<Text>(find.text('关键词'));
     expect(label.style?.fontSize, 13);
-    expect(label.style?.height, closeTo(18 / 13, 1e-9));
+    expect(label.style?.height, closeTo(19 / 13, 1e-9));
     expect(
       tester.getBottomLeft(find.text('关键词')).dy,
       lessThan(tester.getTopLeft(find.byType(TextField)).dy),

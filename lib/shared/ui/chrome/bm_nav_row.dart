@@ -59,13 +59,14 @@ class BmNavRow extends StatelessWidget {
     final colors = context.bmColors;
     final type = context.bmType;
     final iconData = selected ? (activeIcon ?? icon) : icon;
-    final iconColor = selected ? colors.accent : colors.textSecondary;
+    final iconColor = selected ? colors.accentDeep : colors.textSecondary;
     final textColor = selected ? colors.textPrimary : colors.textSecondary;
 
     return ClipRRect(
       borderRadius: BmTokens.r10All,
       child: BmPressable(
         selected: selected,
+        selectedColor: colors.accentSoftStrong,
         borderRadius: BmTokens.r10All,
         onTap: onTap,
         onLongPress: onLongPress,
@@ -74,50 +75,27 @@ class BmNavRow extends StatelessWidget {
         semanticLabel: semanticLabel,
         child: SizedBox(
           height: height,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // 左侧选中条：在整行高度内垂直居中，未选中时高度收到 0。
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                child: Center(
-                  child: AnimatedContainer(
-                    width: BmTokens.navIndicatorWidth,
-                    height: selected ? BmTokens.s5 : 0,
-                    duration: motionDuration(context, BmMotion.large),
+          child: Padding(
+            padding: padding,
+            child: Row(
+              children: [
+                Icon(iconData, size: BmTokens.icon, color: iconColor),
+                const SizedBox(width: BmTokens.s3),
+                Expanded(
+                  child: AnimatedDefaultTextStyle(
+                    duration: motionDuration(context, BmMotion.small),
                     curve: BmMotion.standard,
-                    decoration: BoxDecoration(
-                      color: colors.accent,
-                      borderRadius: BmTokens.rPillAll,
+                    style: type.body.copyWith(color: textColor),
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ),
-              ),
-              Padding(
-                padding: padding,
-                child: Row(
-                  children: [
-                    Icon(iconData, size: BmTokens.icon, color: iconColor),
-                    const SizedBox(width: BmTokens.s3),
-                    Expanded(
-                      child: AnimatedDefaultTextStyle(
-                        duration: motionDuration(context, BmMotion.small),
-                        curve: BmMotion.standard,
-                        style: type.body.copyWith(color: textColor),
-                        child: Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                    ?trailing,
-                  ],
-                ),
-              ),
-            ],
+                ?trailing,
+              ],
+            ),
           ),
         ),
       ),

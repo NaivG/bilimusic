@@ -107,6 +107,21 @@ Widget buildShellPageContent({
   }
 }
 
+/// 横屏壳的页面内容。
+///
+/// 与 [buildShellPageContent] 走同一张页面映射；横屏壳已经有自己的标题栏，
+/// 设置页不再叠一层它自己的 AppBar。竖屏仍用 [buildShellPageContent]。
+Widget buildLandscapeShellPageContent({
+  required ShellPage page,
+  required Map<String, dynamic> args,
+  required Widget homePage,
+}) {
+  if (page == ShellPage.settings) {
+    return const SettingsPage();
+  }
+  return buildShellPageContent(page: page, args: args, homePage: homePage);
+}
+
 /// 共享的背景层：fluidBackground 关闭时退化为当前 surface 色块；
 /// 开启时显示跟随当前播放曲目封面的模糊层。
 Widget buildShellBackground(BuildContext context, WidgetRef ref) {

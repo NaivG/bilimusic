@@ -10,7 +10,14 @@ void main() {
   test('注册表：6 个主题、id 唯一', () {
     expect(ThemeRegistry.all.length, 6);
     expect(ThemeRegistry.all.map((t) => t.id).toSet().length, 6);
-    expect(ThemeRegistry.defaultTheme.id, 'lucent');
+    expect(ThemeRegistry.defaultTheme.id, 'theater');
+  });
+
+  test('旧 id 兼容：lucent 回落到 theater', () {
+    expect(ThemeRegistry.resolve('lucent').id, 'theater');
+    expect(ThemeRegistry.resolve('nocturne').id, 'nocturne');
+    expect(ThemeRegistry.resolve(null).id, 'theater');
+    expect(ThemeRegistry.resolve('不存在的主题').id, 'theater');
   });
 
   for (final descriptor in ThemeRegistry.all) {
@@ -35,7 +42,10 @@ void main() {
           // 扩展里的 BmColors 必须和 ColorScheme + AppPalette 一致。
           final resolved = BmColors.resolve(scheme, palette!);
           expect(colors!.accent, resolved.accent);
+          expect(colors.accentDeep, resolved.accentDeep);
+          expect(colors.highlight, resolved.highlight);
           expect(colors.hairline, resolved.hairline);
+          expect(colors.lineStrong, resolved.lineStrong);
           expect(colors.stateHover, resolved.stateHover);
         });
 
@@ -53,13 +63,13 @@ void main() {
           expect(theme.visualDensity, VisualDensity.standard);
         });
 
-        test('textTheme 三档字号（15 / 13 / 17）', () {
+        test('textTheme 三档字号（15 / 13 / 21）', () {
           expect(theme.textTheme.bodyLarge, isNotNull);
           expect(theme.textTheme.bodyLarge!.fontSize, 15);
           expect(theme.textTheme.labelLarge, isNotNull);
           expect(theme.textTheme.labelLarge!.fontSize, 13);
           expect(theme.textTheme.headlineSmall, isNotNull);
-          expect(theme.textTheme.headlineSmall!.fontSize, 17);
+          expect(theme.textTheme.headlineSmall!.fontSize, 21);
         });
 
         test('对话框 / Sheet / 按钮圆角', () {
