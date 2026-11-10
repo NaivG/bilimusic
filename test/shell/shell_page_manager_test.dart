@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/shared/motion/bm_page_switcher.dart';
 
-/// M1：`ShellPageManager` 记录的动作与方向必须和栈变化一致。
+/// `ShellPageManager` 记录的动作与方向必须和栈变化一致。
 void main() {
   final manager = ShellPageManager.instance;
 

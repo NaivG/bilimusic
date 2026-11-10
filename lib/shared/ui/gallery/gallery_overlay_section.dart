@@ -8,7 +8,7 @@ import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 
-/// 分区 8：P1 菜单 + M3 浮层预览。
+/// 分区 8：菜单 + 浮层预览。
 ///
 /// 菜单浮层里静态铺开普通 / selected / destructive / disabled / 子菜单
 /// 五种行形态；浮层按钮分别打开对话框、底部单与 success / error 两个
@@ -29,7 +29,7 @@ class _GalleryOverlaySectionState extends State<GalleryOverlaySection> {
     final colors = context.bmColors;
     final type = context.bmType;
     return GallerySection(
-      title: 'P1 浮层',
+      title: '浮层',
       description:
           '菜单行高 32 / 浮层内边距 6；120ms scale 入场；'
           'hover 与键盘 focus 合流进同一套状态层。',

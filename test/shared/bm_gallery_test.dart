@@ -32,7 +32,7 @@ void main() {
     expect(find.text('主题 × 亮度'), findsOneWidget);
     expect(find.text('颜色角色'), findsOneWidget);
     expect(find.text('排版 8 档'), findsOneWidget);
-    expect(find.text('M0 动效'), findsOneWidget);
+    expect(find.text('动效'), findsOneWidget);
     const typeSpecs = <String>[
       '36/42 · w800',
       '24/30 · w700',
@@ -64,10 +64,10 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(find.text('M0 动效'), findsOneWidget);
-    // P2 Chrome 与 M1 页面切换是新增的两个验收分区。
-    expect(find.text('P2 Chrome'), findsOneWidget);
-    expect(find.text('M1 页面切换'), findsOneWidget);
+    expect(find.text('动效'), findsOneWidget);
+    // Chrome 与页面切换是新增的两个验收分区。
+    expect(find.text('Chrome'), findsOneWidget);
+    expect(find.text('页面切换'), findsOneWidget);
   });
 }
 

@@ -7,7 +7,7 @@ import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Lucent M3 浮层原语：对话框 / 底部单 / Toast。
+/// Lucent 浮层：对话框 / 底部单 / Toast。
 void main() {
   group('showBmDialog', () {
     testWidgets('遮罩用 scrim，面板 0.94→1 有中间帧，settle 后到 1', (tester) async {

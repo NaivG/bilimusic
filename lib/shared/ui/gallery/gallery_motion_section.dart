@@ -7,7 +7,7 @@ import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 
-/// 分区 7：M0 动效预览。
+/// 分区 7：动效预览。
 ///
 /// 交互四态用 [BmPressable] 直接演示；时长表可直接选中一档，方块按该档
 /// 跑一次位移。页面外层用 `MediaQuery.disableAnimations` 广播 reduce motion，
@@ -79,7 +79,7 @@ class _GalleryMotionSectionState extends State<GalleryMotionSection>
     final colors = context.bmColors;
     final type = context.bmType;
     return GallerySection(
-      title: 'M0 动效',
+      title: '动效',
       description:
           'BmPressable 四态、BmMotion 时长表与一次方块位移；'
           'reduce motion 时只关闭位移，不裁剪状态信息。',

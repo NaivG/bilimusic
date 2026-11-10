@@ -6,7 +6,7 @@ import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Lucent P1 菜单原语：行四态 / 浮层面 / 入场动画。
+/// Lucent 菜单原语：行四态 / 浮层面 / 入场动画。
 void main() {
   group('BmMenuRow', () {
     testWidgets('普通态：行高取 BmTokens.menuRow，标题用 textPrimary', (tester) async {

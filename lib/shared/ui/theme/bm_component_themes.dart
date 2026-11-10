@@ -10,7 +10,7 @@ import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 /// 所有几何/颜色/字号都从 [BmTokens] / [BmColors] / [BmTypographySet] 取，
 /// 6 套主题只需提供 [ColorScheme] + `AppPalette`，不再逐主题手写样式。
 abstract class BmComponentThemes {
-  /// AppBar：去掉 M3 的 surfaceTint，标题落到 `section`。
+  /// AppBar：去掉 surfaceTint，标题落到 `section`。
   static AppBarThemeData appBar(BmColors colors, BmTypographySet type) {
     return AppBarThemeData(
       backgroundColor: Colors.transparent,
@@ -114,8 +114,8 @@ abstract class BmComponentThemes {
     );
   }
 
-  /// 过渡期兼容：页面里还有 44 处 `ElevatedButton`，风格先统一，
-  /// 由 P2/P4 逐个换成 `BmButton`。
+  /// 过渡期兼容：页面里还有 44 处 `ElevatedButton`，风格先统一。
+  /// TODO: 逐个换成 `BmButton`。
   static ElevatedButtonThemeData elevatedButton(
     BmColors colors,
     BmTypographySet type,

@@ -192,7 +192,7 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
                   : null,
               minHeight: 4,
               borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-              // 弹窗背景是 surfaceContainerHighest，与 M3 进度条默认轨道色
+              // 弹窗背景是 surfaceContainerHighest，与进度条默认轨道色
               // 相同，不加显式颜色时进度条会整个融进背景里
               color: colorScheme.primary,
               backgroundColor: colorScheme.onSurfaceVariant.withValues(

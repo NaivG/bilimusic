@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// 主题扩展调色板 —— 承载 M3 [ColorScheme] 之外但组件在用的颜色。
+/// 主题扩展调色板 —— 承载 [ColorScheme] 之外但组件在用的颜色。
 ///
 /// 通过 [ThemeData.extensions] 注入,组件通过
 /// `Theme.of(context).extension<AppPalette>()` 读取,实现主题切换真正生效。

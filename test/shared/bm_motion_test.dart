@@ -7,7 +7,7 @@ import 'package:flutter/physics.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Lucent M0 动效：时长 / 曲线 / 弹簧 / reduce motion。
+/// Lucent 动效：时长 / 曲线 / 弹簧 / reduce motion。
 void main() {
   group('BmMotion 时长', () {
     test('7 档时长 + 既有例外', () {

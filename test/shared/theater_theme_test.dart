@@ -49,7 +49,7 @@ void main() {
           expect(colors.stateHover, resolved.stateHover);
         });
 
-        test('基础色 / 亮度 / M3 开关', () {
+        test('基础色 / 亮度 / 开关', () {
           expect(theme.useMaterial3, isTrue);
           expect(theme.brightness, brightness);
           expect(scheme.brightness, brightness);

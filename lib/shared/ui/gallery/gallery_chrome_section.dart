@@ -8,9 +8,9 @@ import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 
-/// 分区 9：P2 Chrome + M1 页面切换预览。
+/// 分区 9：Chrome + 页面切换预览。
 ///
-/// P2 铺开贴边栏、浮块、底栏与导航行四类 Chrome 原语；M1 在固定高度的
+/// 铺开贴边栏、浮块、底栏与导航行四类 Chrome 原语；在固定高度的
 /// 容器里跑 [BmPageSwitcher] 的 tab / push / pop / replace 四档过渡，方向由
 /// 按钮决定。reduce motion 由页面外层 `MediaQuery.disableAnimations` 广播，
 /// 本分区不另设开关。
@@ -40,7 +40,7 @@ class _GalleryChromeSectionState extends State<GalleryChromeSection> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         GallerySection(
-          title: 'P2 Chrome',
+          title: 'Chrome',
           description:
               '贴边栏直角 + 单边 hairline，浮块 14 圆角 + 四边 hairline + shadow；'
               '模糊开启时 chrome + 24 高斯，关闭时 chromeOpaque。',
@@ -92,7 +92,7 @@ class _GalleryChromeSectionState extends State<GalleryChromeSection> {
         ),
         const SizedBox(height: BmTokens.s4),
         GallerySection(
-          title: 'M1 页面切换',
+          title: '页面切换',
           description:
               '固定高度容器内演示 tab / push / pop / replace：方向由 direction 决定；'
               'reduce motion 读取外层 MediaQuery，位移与 dim 自动关闭。',
@@ -338,7 +338,7 @@ class _GalleryChromeSectionState extends State<GalleryChromeSection> {
   }
 }
 
-/// M1 演示页：显示页码与本次切换的 kind / direction。
+/// 演示页：显示页码与本次切换的 kind / direction。
 class _SwitcherPage extends StatelessWidget {
   const _SwitcherPage({
     required this.pageNumber,

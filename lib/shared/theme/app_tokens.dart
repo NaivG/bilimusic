@@ -1,7 +1,7 @@
 /// 跨主题共享的结构性 design tokens。
 ///
-/// 这里是**迁移期的存量几何常量**（radius / blur sigma），等 P2–P4 把页面
-/// 逐个换成 Lucent 原语后收口到 `BmTokens`。新代码请用：
+/// 这里是**迁移期的存量几何常量**（radius / blur sigma）
+/// 新代码请用：
 /// - 几何/尺寸：`BmTokens`（`lib/shared/ui/tokens/bm_tokens.dart`）
 /// - 动效：`BmMotion`（`lib/shared/motion/motion_tokens.dart`）
 /// - 颜色：`BmColors`（`lib/shared/ui/tokens/bm_colors.dart`）

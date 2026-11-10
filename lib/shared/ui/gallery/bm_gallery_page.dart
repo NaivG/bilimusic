@@ -9,7 +9,7 @@ import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 
-/// Lucent P0 验收入口：12 套「主题 × 亮度」组合的组件预览。
+/// 12 套「主题 × 亮度」组合的组件预览。
 ///
 /// 组合只在本地 State 里切换，内部用 [Theme] 重新注入 [BmTokens] /
 /// [BmColors] / `BmTypography`，不读写全局设置，也不依赖 Riverpod。
