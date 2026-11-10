@@ -11,12 +11,13 @@ import 'package:bilimusic/features/playlist/playlist_service.dart';
 import 'package:bilimusic/features/taste/logic/profile_ranker.dart';
 
 class RecommendationManager {
-  static final RecommendationManager _instance =
-      RecommendationManager._internal();
-  factory RecommendationManager() => _instance;
-  RecommendationManager._internal();
+  RecommendationManager({TasteScorer? tasteScorer})
+    : _tasteScorer = tasteScorer;
 
   final BiliClient _client = BiliClient();
+
+  /// 口味分执行器：生产环境指向画像 worker isolate（主 isolate 不加载模型）。
+  final TasteScorer? _tasteScorer;
 
   List<Music> _recommendedList = [];
   List<Music> _guessYouLikeList = [];
@@ -110,9 +111,18 @@ class RecommendationManager {
       }
     }
 
-    // 画像重排：口味分降序（填充时的 20 上限已定，这里只换顺序再落盘）
+    // 画像重排：口味分降序（填充时的 20 上限已定，这里只换顺序再落盘）。
+    // 口味分由 worker isolate 计算；worker 不可用时保持接口顺序，不阻塞首页。
     if (tasteProfile != null && !tasteProfile.isEmpty && guessList.length > 1) {
-      guessList = await rankByTaste(guessList, profile: tasteProfile);
+      try {
+        guessList = await rankByTaste(
+          guessList,
+          profile: tasteProfile,
+          scorer: _tasteScorer,
+        );
+      } catch (e) {
+        debugPrint('猜你喜欢口味重排失败，保持接口顺序: $e');
+      }
     }
 
     _guessYouLikeList = guessList;

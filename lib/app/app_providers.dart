@@ -18,6 +18,7 @@ import 'package:bilimusic/features/playlist/playlist_service.dart';
 import 'package:bilimusic/features/player/pip/pip_service.dart';
 import 'package:bilimusic/features/roam/roaming_service.dart';
 import 'package:bilimusic/features/taste/services/taste_profile_service.dart';
+import 'package:bilimusic/features/taste/services/taste_worker.dart';
 import 'package:bilimusic/features/lan_sync/services/device_identity.dart';
 import 'package:bilimusic/features/lan_sync/services/lan_sync_service.dart';
 import 'package:bilimusic/features/lan_sync/services/pairing_service.dart';
@@ -164,14 +165,26 @@ final artistServiceProvider = Provider<ArtistService>((ref) {
 // ==================== 推荐 ====================
 
 final recommendationManagerProvider = Provider<RecommendationManager>((ref) {
-  return RecommendationManager();
+  return RecommendationManager(
+    tasteScorer: ref.watch(tasteWorkerProvider).scoreTracks,
+  );
 });
 
 // ==================== 音乐画像 ====================
 
+/// snownlp 常驻 worker isolate：画像重建、猜你喜欢重排、漫游打分共用。
+///
+/// 放进独立 isolate 后空闲一段时间自动退出，模型内存随隔离堆一起回收。
+final tasteWorkerProvider = Provider<TasteWorker>((ref) {
+  final worker = TasteWorker();
+  ref.onDispose(worker.dispose);
+  return worker;
+});
+
 final tasteProfileServiceProvider = Provider<TasteProfileService>((ref) {
   return TasteProfileService(
     playlistService: ref.watch(playlistServiceProvider),
+    worker: ref.watch(tasteWorkerProvider),
   );
 });
 
@@ -182,6 +195,7 @@ final roamingServiceProvider = Provider<RoamingService>((ref) {
     client: BiliClient(),
     playlistService: ref.watch(playlistServiceProvider),
     tasteService: ref.watch(tasteProfileServiceProvider),
+    tasteScorer: ref.watch(tasteWorkerProvider).scoreTracks,
   );
 });
 

@@ -61,6 +61,38 @@ void main() {
       );
       expect(ranked.map((m) => m.id).toList(), ['a', 'b']);
     });
+
+    test('注入 scorer 时不走本地分词，按注入分数排序', () async {
+      final profile = profileOf([('jazz', 1.0)]);
+      var called = false;
+      final ranked = await rankByTaste(
+        [music('a', 'heavy metal'), music('b', 'jazz piano')],
+        profile: profile,
+        scorer: (items, injected) async {
+          called = true;
+          expect(injected, same(profile));
+          return {items.first.key: 0.1, items.last.key: 0.9};
+        },
+      );
+
+      expect(called, true);
+      expect(ranked.map((m) => m.id).toList(), ['b', 'a']);
+    });
+
+    test('空画像不调用 scorer', () async {
+      var called = false;
+      final ranked = await rankByTaste(
+        [music('a', 'one'), music('b', 'two')],
+        profile: TasteProfile(updatedAt: DateTime.now()),
+        scorer: (items, profile) async {
+          called = true;
+          return const {};
+        },
+      );
+
+      expect(called, false);
+      expect(ranked.map((m) => m.id).toList(), ['a', 'b']);
+    });
   });
 
   group('blendRoamScore（设计旋钮：方向约束，不锁具体权重）', () {

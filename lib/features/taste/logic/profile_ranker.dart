@@ -4,7 +4,8 @@
 /// - 猜你喜欢：[rankByTaste] 纯按口味分重排（没有种子概念）
 /// - 漫游：[blendRoamScore] 把「像种子」和「合口味」两路信号按风格融合
 ///
-/// 纯 Dart（分词器可注入），无服务依赖。
+/// 分词器可注入；生产环境把 [TasteScorer] 指向常驻 worker isolate
+/// （`TasteWorker.scoreTracks`），主 isolate 不加载 snownlp 模型。
 library;
 
 import 'dart:math';
@@ -14,6 +15,15 @@ import 'package:bilimusic/domain/taste_profile.dart';
 import 'package:bilimusic/features/roam/models/roam_style.dart';
 import 'package:bilimusic/features/taste/logic/profile_builder.dart';
 import 'package:bilimusic/features/taste/logic/text_normalizer.dart';
+
+/// 批量口味分执行器：[tasteScoresFor] 的可替换入口。
+///
+/// 生产实现是 `TasteWorker.scoreTracks`（常驻 worker isolate）；测试注入
+/// 纯函数即可完全绕开 snownlp 模型。返回 [Music.key] → 口味分。
+typedef TasteScorer = Future<Map<String, double>> Function(
+  List<Music> items,
+  TasteProfile profile,
+);
 
 /// 批量算口味分：Music.key → (0, 1+]。
 ///
@@ -51,22 +61,27 @@ Future<Map<String, double>> tasteScoresFor(
 /// 按口味分降序重排（稳定：同分保持原相对顺序）。
 ///
 /// 用于「猜你喜欢」——现状只有 API 返回顺序，这里补上个性化排序。
+/// [scorer] 非空时口味分由它计算（生产环境是 worker isolate），否则就地
+/// 用 [tasteScoresFor] 走本地分词。
 Future<List<Music>> rankByTaste(
   List<Music> candidates, {
   required TasteProfile profile,
   TasteSegmenter? segmenter,
   StopwordFilter? stopFilter,
+  TasteScorer? scorer,
   int? limit,
 }) async {
   if (candidates.length <= 1 || profile.isEmpty) {
     return limit == null ? candidates : candidates.take(limit).toList();
   }
-  final scores = await tasteScoresFor(
-    candidates,
-    profile,
-    segmenter: segmenter,
-    stopFilter: stopFilter,
-  );
+  final scores = scorer != null
+      ? await scorer(candidates, profile)
+      : await tasteScoresFor(
+          candidates,
+          profile,
+          segmenter: segmenter,
+          stopFilter: stopFilter,
+        );
   final ranked = List<Music>.from(candidates);
   ranked.sort((a, b) => (scores[b.key] ?? 0).compareTo(scores[a.key] ?? 0));
   return limit == null ? ranked : ranked.take(limit).toList();

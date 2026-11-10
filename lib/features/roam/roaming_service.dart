@@ -22,20 +22,25 @@ import 'package:bilimusic/features/taste/services/taste_profile_service.dart';
 /// 画像融合：[tasteService] 可用时，排序按 `blendRoamScore` 融合
 /// 「像种子」（simhash 汉明距离）与「合口味」（画像权重）两路信号；
 /// 画像为空（冷启动）时退化为原 simhash 行为。
+/// 口味分由 [tasteScorer] 计算（生产环境是常驻 worker isolate），
+/// 主 isolate 只做 simhash 与融合权重这两步纯算术。
 class RoamingService {
   RoamingService({
     required BiliClient client,
     required PlaylistService playlistService,
     TasteProfileService? tasteService,
+    TasteScorer? tasteScorer,
     Random? random,
   }) : _client = client,
        _playlistService = playlistService,
        _tasteService = tasteService,
+       _tasteScorer = tasteScorer,
        _random = random ?? Random();
 
   final BiliClient _client;
   final PlaylistService _playlistService;
   final TasteProfileService? _tasteService;
+  final TasteScorer? _tasteScorer;
   final Random _random;
 
   /// 拉一批候选候选。
@@ -96,16 +101,21 @@ class RoamingService {
         .toList();
     if (fresh.isEmpty) return const [];
 
-    // 画像融合排序：画像建得起来才走，否则退化为纯 simhash
+    // 画像融合排序：画像建得起来才走，否则退化为纯 simhash；
+    // worker 临时不可用（崩溃 / 超时）也退回 simhash，不丢整批候选。
     final taste = await _currentTaste();
     if (taste != null) {
-      return _pickByTaste(
-        fresh,
-        seed: seed,
-        style: style,
-        size: size,
-        taste: taste,
-      );
+      try {
+        return await _pickByTaste(
+          fresh,
+          seed: seed,
+          style: style,
+          size: size,
+          taste: taste,
+        );
+      } catch (e) {
+        debugPrint('[RoamingService] 画像打分失败，退化为 simhash 排序: $e');
+      }
     }
 
     // simhash 排序
@@ -153,7 +163,10 @@ class RoamingService {
     required int size,
     required TasteProfile taste,
   }) async {
-    final scores = await tasteScoresFor(fresh, taste);
+    final scorer = _tasteScorer;
+    final scores = scorer != null
+        ? await scorer(fresh, taste)
+        : await tasteScoresFor(fresh, taste);
     final seedHash = TextSimHash.simhash(TextSimHash.musicToText(seed));
     // balanced 档的随机扰动：每首一份，排序比较期间保持一致
     final noise = {for (final m in fresh) m.key: _random.nextDouble()};
