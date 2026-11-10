@@ -61,7 +61,7 @@ class SettingsManager extends ChangeNotifier {
   static const bool DEFAULT_AUTO_PLAY_NEXT = true;
   static const bool DEFAULT_ALWAYS_SHOW_MINI_PLAYER = false;
   static const bool DEFAULT_SHOW_LYRICS = true;
-  static const bool DEFAULT_FLUID_BACKGROUND = true;
+  static const bool DEFAULT_FLUID_BACKGROUND = false;
   static const bool DEFAULT_BLUR_EFFECT = true;
   static const String DEFAULT_AUDIO_QUALITY = '30280'; // 默认 192K 高品
   static const int DEFAULT_VERSION_CODE = 80;
