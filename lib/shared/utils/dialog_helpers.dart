@@ -1,6 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'package:bilimusic/shared/ui/menu/bm_menu_row.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_overlays.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 import 'package:bilimusic/shared/utils/formatters.dart';
 
 /// 底部操作单条目 —— icon/label/iconColor 由调用方解析好再传入。
@@ -29,65 +34,62 @@ class SheetAction {
        );
 }
 
-/// 详情页「更多」底部操作单骨架 —— 拖动条 + ListTile 列表（先关单再回调）。
-/// [dense] 用于方屏紧凑样式（内边距 16、图标 22、字号 14），默认竖/横屏样式。
+/// 详情页「更多」底部操作单 —— [BmMenuRow] 列表（先关单再回调）。
+///
+/// [dense] 用于方屏紧凑样式：行高 [BmTokens.rowCompact]、内边距更小；
+/// 默认行高 [BmTokens.touchScreen]。
 void showOptionsSheet(
   BuildContext context, {
   required List<SheetAction> actions,
   bool dense = false,
 }) {
-  showModalBottomSheet(
+  showBmSheet<void>(
     context: context,
-    backgroundColor: Colors.grey[900],
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (sheetContext) => Container(
-      padding: EdgeInsets.symmetric(vertical: dense ? 16 : 20),
+    builder: (sheetContext) => BmSheet(
+      padding: EdgeInsets.symmetric(
+        horizontal: BmTokens.s2,
+        vertical: dense ? BmTokens.s2 : BmTokens.s4,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          SizedBox(height: dense ? 16 : 20),
-          ...actions.map(
-            (action) => ListTile(
-              dense: dense,
-              leading: Icon(
-                action.icon,
-                color: action.iconColor ?? Colors.white,
-                size: dense ? 22 : null,
-              ),
-              title: _actionTitle(action, dense),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                action.onTap();
-              },
-            ),
-          ),
+          for (final action in actions)
+            _actionRow(sheetContext, action, dense: dense),
         ],
       ),
     ),
   );
 }
 
-/// 条目标题：带实时标签时用 [ValueListenableBuilder] 跟随刷新，
-/// 否则渲染静态 [SheetAction.label]。
-Widget _actionTitle(SheetAction action, bool dense) {
-  final style = TextStyle(color: Colors.white, fontSize: dense ? 14 : null);
-  final listenable = action.labelListenable;
-  if (listenable == null) {
-    return Text(action.label!, style: style);
+/// 一条操作：带 [SheetAction.labelListenable] 时跟随其刷新文案。
+Widget _actionRow(
+  BuildContext sheetContext,
+  SheetAction action, {
+  required bool dense,
+}) {
+  final leading = Icon(
+    action.icon,
+    size: BmTokens.icon,
+    color: action.iconColor,
+  );
+
+  Widget row(String title) {
+    return BmMenuRow(
+      title: title,
+      leading: leading,
+      height: dense ? BmTokens.rowCompact : BmTokens.touchScreen,
+      onTap: () {
+        Navigator.of(sheetContext).pop();
+        action.onTap();
+      },
+    );
   }
+
+  final listenable = action.labelListenable;
+  if (listenable == null) return row(action.label!);
   return ValueListenableBuilder<String>(
     valueListenable: listenable,
-    builder: (context, value, _) => Text(value, style: style),
+    builder: (_, value, _) => row(value),
   );
 }
 
@@ -99,11 +101,10 @@ void showSongInfoDialog(
   required String album,
   required Duration duration,
 }) {
-  showDialog(
+  showBmDialog<void>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      backgroundColor: Colors.grey[900],
-      title: const Text('歌曲信息', style: TextStyle(color: Colors.white)),
+    builder: (dialogContext) => BmDialog(
+      title: '歌曲信息',
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -117,7 +118,7 @@ void showSongInfoDialog(
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(dialogContext),
+          onPressed: () => Navigator.of(dialogContext).pop(),
           child: const Text('关闭'),
         ),
       ],
@@ -125,25 +126,41 @@ void showSongInfoDialog(
   );
 }
 
+/// 「标签 + 值」信息行；未指定样式时标签用次要色、值用主文字色。
 Widget infoRow(
   String label,
   String value, {
   TextStyle? labelStyle,
   TextStyle? valueStyle,
 }) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(width: 60, child: Text(label, style: labelStyle)),
-        Expanded(
-          child: Text(
-            value,
-            style: valueStyle ?? const TextStyle(color: Colors.white),
-          ),
+  return Builder(
+    builder: (context) {
+      final colors = context.bmColors;
+      final type = context.bmType;
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: BmTokens.s1),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 60,
+              child: Text(
+                label,
+                style:
+                    labelStyle ??
+                    type.body.copyWith(color: colors.textSecondary),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                value,
+                style:
+                    valueStyle ?? type.body.copyWith(color: colors.textPrimary),
+              ),
+            ),
+          ],
         ),
-      ],
-    ),
+      );
+    },
   );
 }

@@ -172,6 +172,46 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
 
   bool get _canImportEntries => widget.playlistId != 'history';
 
+  /// 整张歌单是否已收藏：全部曲目都在「我喜欢的音乐」里。
+  bool _isLiked(Set<String> favoriteKeys) =>
+      _songs.isNotEmpty &&
+      _songs.every((music) => favoriteKeys.contains(music.key));
+
+  /// 收藏 / 取消收藏整张歌单（逐首切换收藏态）。
+  Future<void> _toggleLike() async {
+    if (_songs.isEmpty) return;
+
+    final commands = ref.read(playlistCommandsProvider.notifier);
+    final favoriteKeys = ref
+        .read(favoritesProvider)
+        .map((music) => music.key)
+        .toSet();
+    final liked = _isLiked(favoriteKeys);
+    final count = _songs.length;
+
+    try {
+      for (final music in _songs) {
+        if (liked) {
+          if (favoriteKeys.contains(music.key)) {
+            await commands.removeFromFavorites(music);
+          }
+        } else if (!favoriteKeys.contains(music.key)) {
+          await commands.addToFavorites(music);
+        }
+      }
+    } catch (e) {
+      _showSnack('收藏操作失败：$e');
+      return;
+    }
+
+    if (!mounted) return;
+    // 「我喜欢的音乐」本身就是收藏列表，收藏态变了要同步回页面数据。
+    if (widget.playlistId == 'favorites') {
+      _syncSongs(List<Music>.from(ref.read(favoritesProvider)));
+    }
+    _showSnack(liked ? '已取消收藏 $count 首' : '已收藏 $count 首');
+  }
+
   /// 把当前歌单的全部歌曲加入离线缓存（已缓存的自动跳过）。
   ///
   /// 批量下载放到 [OfflineBatchDownloadDialog] 里串行执行，
@@ -427,6 +467,11 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
 
     // 检测是否为横屏模式
     final isLandscape = LandscapeBreakpoints.isLandscapeMode(context);
+    final favoriteKeys = ref
+        .watch(favoritesProvider)
+        .map((music) => music.key)
+        .toSet();
+    final liked = _isLiked(favoriteKeys);
 
     // 横屏模式：使用横屏布局
     if (isLandscape) {
@@ -434,11 +479,13 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
         playlistId: widget.playlistId,
         songs: _songs,
         currentPlaylist: _currentPlaylist,
+        isLiked: liked,
         onSongTap: _playSong,
         onRemoveSong: _removeSong,
         onRemoveMany: _removeSongs,
         onPlayAll: _playAll,
         onShufflePlay: _shufflePlay,
+        onToggleLike: _toggleLike,
         onAddToPlaylist: _addAllToPlaylist,
         onExportEntries: _exportEntries,
         onImportEntries: _importEntries,
@@ -452,11 +499,13 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
       playlistId: widget.playlistId,
       songs: _songs,
       currentPlaylist: _currentPlaylist,
+      isLiked: liked,
       onSongTap: _playSong,
       onRemoveSong: _removeSong,
       onRemoveMany: _removeSongs,
       onPlayAll: _playAll,
       onShufflePlay: _shufflePlay,
+      onToggleLike: _toggleLike,
       onAddToPlaylist: _addAllToPlaylist,
       onExportEntries: _exportEntries,
       onImportEntries: _importEntries,

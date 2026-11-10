@@ -2,13 +2,17 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/features/player/widgets/landscape_seek_bar.dart';
 import 'package:bilimusic/features/player/widgets/playback_buttons.dart';
 import 'package:bilimusic/features/player/widgets/crossfade_indicator.dart';
 import 'package:bilimusic/features/player/now_playing/apple_cover.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
+import 'package:bilimusic/shared/motion/bm_pressable.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
+import 'package:bilimusic/shared/ui/stage/bm_audio_quality_badge.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
 
 /// 详情页单面板
@@ -233,36 +237,16 @@ class _AlbumSectionState extends ConsumerState<AlbumSection>
     final qualityId = actualQualityId.isEmpty
         ? ref.watch(settingsProvider).audioQuality
         : actualQualityId;
-    final qualityText = ref
-        .read(settingsManagerProvider)
-        .getAudioQualityText(qualityId);
 
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 250),
+      duration: BmMotion.medium,
       transitionBuilder: switcherFadeTransition,
-      child: Container(
-        key: ValueKey('quality-badge-${fading ? 'transition' : 'quality'}'),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.12),
-            width: 1,
-          ),
-        ),
-        child: fading
-            ? const CrossfadeIndicator()
-            : Text(
-                qualityText,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0.2,
-                ),
-              ),
-      ),
+      child: fading
+          ? const CrossfadeIndicator()
+          : BmAudioQualityBadge(
+              key: const ValueKey<String>('quality-badge'),
+              qualityId: qualityId,
+            ),
     );
   }
 
@@ -275,8 +259,10 @@ class _AlbumSectionState extends ConsumerState<AlbumSection>
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        TapScaleWidget(
-          pressedScale: 0.9,
+        BmPressable(
+          pressScale: 0.9,
+          borderRadius: BmTokens.rPillAll,
+          overlayColor: Colors.white.withValues(alpha: BmAlpha.pressed),
           onTap: () => commands.toggleMute(),
           child: Padding(
             padding: const EdgeInsets.all(6),
@@ -518,7 +504,7 @@ class _AlbumMetrics {
     final fixedHeight =
         24.0 /*纵向 padding*/ +
         20.0 /*进度条*/ +
-        32.0 /*音质徽标 + 与进度条间距*/ +
+        28.0 /*音质徽标 + 与进度条间距*/ +
         32.0 /*音量行*/ +
         24.0 /*估算余量*/ +
         infoRowAtCap * textScale;
@@ -558,7 +544,7 @@ class _AlbumMetrics {
         coverSize * 0.55 + // 封面→信息 / 信息→进度 / 进度→控制 / 控制→音量
         infoRowHeight +
         20.0 +
-        32.0 + // 音质徽标 + 与进度条间距
+        28.0 + // 音质徽标 + 与进度条间距
         mainButtonSize +
         32.0;
 

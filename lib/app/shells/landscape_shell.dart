@@ -1,29 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:bilimusic/features/playlist/playlist_providers.dart';
-import 'package:bilimusic/features/search/search_providers.dart';
-import 'package:bilimusic/features/search/ui/search_suggest_panel.dart';
-import 'package:bilimusic/app/shells/landscape/landscape_sidebar.dart';
 import 'package:bilimusic/app/shells/landscape/landscape_bottom_control.dart';
+import 'package:bilimusic/app/shells/landscape/landscape_content_stage.dart';
+import 'package:bilimusic/app/shells/landscape/landscape_library_drawer.dart';
+import 'package:bilimusic/app/shells/landscape/landscape_queue_panel.dart';
+import 'package:bilimusic/app/shells/landscape/landscape_rail.dart';
 import 'package:bilimusic/app/shells/landscape/landscape_title_bar.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/app/shells/shell_widgets.dart';
 import 'package:bilimusic/features/home/home_content.dart';
-import 'package:bilimusic/shared/theme/app_palette.dart';
+import 'package:bilimusic/features/search/search_providers.dart';
+import 'package:bilimusic/features/search/ui/search_suggest_panel.dart';
+import 'package:bilimusic/shared/ui/menu/bm_menu_surface.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/utils/responsive.dart';
 
-/// 横屏模式外壳 - 基于ParticleMusic风格
-/// 布局：标题栏 + 侧边栏 + 主内容区 + 底部播放器栏
+/// 横屏外壳：76 图标轨 + 58 标题栏 + 内容区 Stack + 90 播放底栏。
+///
+/// 三块 chrome（轨 / 标题栏 / 底栏）各自是安全区；资料库抽屉只从内容区
+/// 左缘滑出，队列面板只从内容区右缘滑出，都不压 chrome。
 class LandscapeShell extends ConsumerStatefulWidget {
   final ShellPage currentPage;
   final ShellPageManager pageManager;
-  final VoidCallback onPlayList;
 
   const LandscapeShell({
     super.key,
     required this.currentPage,
     required this.pageManager,
-    required this.onPlayList,
   });
 
   @override
@@ -35,18 +41,25 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
   final FocusNode _searchFocusNode = FocusNode();
   bool _searchFocused = false;
 
-  /// 联想面板贴住内容区左缘（与标题栏搜索容器左对齐）。
-  static const double _searchPanelLeft = 220;
+  /// 资料库抽屉 / 播放队列面板的本地开关，两者互斥。
+  bool _libraryOpen = false;
+  bool _queueOpen = false;
+
   static const double _searchPanelMaxWidth = 360;
+
+  /// 同一份回调用于注册 / 反注册 [HardwareKeyboard]。
+  late final bool Function(KeyEvent) _keyHandler = _handleKeyEvent;
 
   @override
   void initState() {
     super.initState();
     _searchFocusNode.addListener(_onSearchFocusChanged);
+    HardwareKeyboard.instance.addHandler(_keyHandler);
   }
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_keyHandler);
     _searchFocusNode.removeListener(_onSearchFocusChanged);
     _searchFocusNode.dispose();
     _searchController.dispose();
@@ -60,7 +73,19 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
     if (widget.currentPage == ShellPage.detail &&
         oldWidget.currentPage != ShellPage.detail) {
       _searchFocusNode.unfocus();
+      _libraryOpen = false;
+      _queueOpen = false;
     }
+  }
+
+  bool _handleKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.escape) {
+      return false;
+    }
+    if (!_libraryOpen && !_queueOpen) return false;
+    _closeDrawers();
+    return true;
   }
 
   void _onSearchFocusChanged() {
@@ -89,54 +114,66 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
     widget.pageManager.push(ShellPage.searchResults, args: {'query': query});
   }
 
-  /// 是否显示侧边栏（除详情页外所有页面都显示侧边栏）
-  bool get _showSidebar {
-    return widget.currentPage != ShellPage.detail;
-  }
-
-  /// 是否显示 Shell 的导航 chrome（标题栏 + 底部播放器）
-  /// 详情页全屏显示，不需要这些
+  /// 是否显示 Shell 的导航 chrome（轨 / 标题栏 / 底栏）；详情页全窗显示。
   bool get _showShellChrome {
     return widget.currentPage != ShellPage.detail;
   }
 
+  /// 底栏实际高度；`LandscapeBottomControl` 自己按窗口宽度取 90 / 96 / 88。
+  /// 搜索遮罩据此停在底栏上沿。
+  double _playbarHeight(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width >= LandscapeBreakpoints.desktopMin) return 90;
+    if (width >= LandscapeBreakpoints.largeTabletMin) return 96;
+    return 88;
+  }
+
   @override
   Widget build(BuildContext context) {
-    ref.watch(currentIndexProvider);
-    final sidebarSurface = context.appPalette.sidebarSurface;
     return Scaffold(
       body: LayoutBuilder(
         builder: (context, constraints) {
+          final railWidth = LandscapeBreakpoints.railWidth(context);
+          final topbarHeight = LandscapeBreakpoints.topbarHeight(context);
+          final playbarHeight = _playbarHeight(context);
+
           return Stack(
             fit: StackFit.expand,
             children: [
               // 背景模糊层（依赖当前播放曲目）
               buildShellBackground(context, ref),
-              // 主内容
-              Column(
+              // 轨 + workspace（标题栏 / 内容 / 底栏）
+              Row(
                 children: [
-                  // 标题栏
-                  if (_showShellChrome) _buildTitleBar(),
-                  // 主内容区域
+                  if (_showShellChrome)
+                    LandscapeRail(
+                      selected: _railSelection,
+                      settingsSelected:
+                          widget.pageManager.currentPage ==
+                              ShellPage.settings &&
+                          !_libraryOpen,
+                      onSelected: _onRailSelected,
+                      onSettings: () {
+                        _searchFocusNode.unfocus();
+                        widget.pageManager.goToTab(3);
+                      },
+                      onProfile: () {
+                        _searchFocusNode.unfocus();
+                        widget.pageManager.goToTab(2);
+                      },
+                      onSync: _openLanSync,
+                    ),
                   Expanded(
-                    child: Row(
+                    child: Column(
                       children: [
-                        // 侧边栏
-                        if (_showSidebar) _buildSidebar(ref),
-                        // 内容区
-                        Expanded(
-                          child: Material(
-                            color: sidebarSurface.withValues(alpha: 0.2),
-                            child: shellPageSwitcher(
-                              key: widget.pageManager.basePageKey,
-                              child: buildShellPageContent(
-                                page: widget.pageManager.basePage,
-                                args: widget.pageManager.baseEntry.args,
-                                homePage: const HomeContent(showAppBar: false),
-                              ),
-                            ),
+                        if (_showShellChrome) _buildTitleBar(),
+                        Expanded(child: _buildContentStage()),
+                        if (_showShellChrome)
+                          LandscapeBottomControl(
+                            onExpand: () =>
+                                widget.pageManager.push(ShellPage.detail),
+                            onPlayList: _toggleQueue,
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -144,56 +181,87 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
               ),
               // 标题栏搜索框驱动的联想面板
               if (_showShellChrome && _searchFocused)
-                ..._buildSearchSuggestLayer(constraints.maxHeight),
-              // 详情页独立动画层（与底层切换完全解耦）
+                ..._buildSearchSuggestLayer(
+                  constraints.maxHeight,
+                  railWidth,
+                  topbarHeight,
+                  playbarHeight,
+                ),
+              // 详情页独立动画层（全窗，与底层切换完全解耦）
               buildShellDetailLayer(currentPage: widget.currentPage),
             ],
           );
         },
       ),
-      // 底部播放条必须放在 Scaffold 的底槽（bottomNavigationBar）里，不能塞进
-      // 上面 body 的 Column。
-      // 放进底槽后 Scaffold 同样会为它预留 body 高度。
-      bottomNavigationBar: _showShellChrome
-          ? LandscapeBottomControl(
-              onExpand: () => widget.pageManager.push(ShellPage.detail),
-              onPlayList: widget.onPlayList,
-            )
-          : null,
     );
   }
 
-  /// 标题栏底下的搜索联想层：一层可点击的遮罩 + 面板。
+  /// 内容区舞台：页面切换在最底，遮罩 / 资料库抽屉 / 播放队列由
+  /// [LandscapeContentStage] 叠放，并裁在内容区之内。
+  Widget _buildContentStage() {
+    return LandscapeContentStage(
+      libraryOpen: _libraryOpen,
+      queueOpen: _queueOpen,
+      onCloseDrawers: _closeDrawers,
+      page: shellPageSwitcher(
+        key: widget.pageManager.basePageKey,
+        kind: widget.pageManager.lastTransitionKind,
+        direction: widget.pageManager.lastTransitionDirection,
+        child: buildLandscapeShellPageContent(
+          page: widget.pageManager.basePage,
+          args: widget.pageManager.baseEntry.args,
+          homePage: const HomeContent(showAppBar: false, wide: true),
+        ),
+      ),
+      libraryDrawer: LandscapeLibraryDrawer(
+        selectedPlaylistId: widget.pageManager.activePlaylistId,
+        onClose: _closeDrawers,
+        onOpenPlaylist: _openPlaylist,
+        onManageSync: _openLanSync,
+      ),
+      queuePanel: LandscapeQueuePanel(onClose: _closeDrawers),
+    );
+  }
+
+  /// 标题栏搜索的联想层：内容区一层可点击遮罩 + 面板。
   ///
   /// 面板用 [TextFieldTapRegion] 标记为「输入框的一部分」，否则点联想词会被
   /// TextField 的 TapRegion 当成外部点击先失焦，列表在抬手前就消失了。
-  List<Widget> _buildSearchSuggestLayer(double bodyHeight) {
+  List<Widget> _buildSearchSuggestLayer(
+    double bodyHeight,
+    double railWidth,
+    double topbarHeight,
+    double playbarHeight,
+  ) {
     final size = MediaQuery.sizeOf(context);
-    final panelWidth = (size.width - _searchPanelLeft - 20)
+    final panelLeft = railWidth + BmTokens.searchFieldLeft;
+    final panelWidth = (size.width - panelLeft - BmTokens.s5)
         .clamp(240.0, _searchPanelMaxWidth)
         .toDouble();
-    final panelHeight = (bodyHeight - LandscapeTitleBar.height - 20)
-        .clamp(140.0, 420.0)
-        .toDouble();
+    final panelHeight =
+        (bodyHeight - topbarHeight - playbarHeight - BmTokens.s5)
+            .clamp(140.0, 420.0)
+            .toDouble();
 
     return [
-      Positioned.fill(
-        top: LandscapeTitleBar.height,
+      Positioned(
+        left: railWidth,
+        top: topbarHeight,
+        right: 0,
+        bottom: playbarHeight,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: _searchFocusNode.unfocus,
-          child: ColoredBox(color: Colors.black.withValues(alpha: 0.06)),
+          child: ColoredBox(color: context.bmColors.stateHover),
         ),
       ),
       Positioned(
-        top: LandscapeTitleBar.height + 8,
-        left: _searchPanelLeft,
+        top: topbarHeight + BmTokens.s2,
+        left: panelLeft,
         child: TextFieldTapRegion(
-          child: Material(
-            elevation: 12,
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(14),
-            clipBehavior: Clip.antiAlias,
+          child: BmMenuSurface(
+            maxWidth: panelWidth,
+            padding: EdgeInsets.zero,
             child: SizedBox(
               width: panelWidth,
               child: ConstrainedBox(
@@ -207,83 +275,154 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
     ];
   }
 
-  /// 标题栏
   Widget _buildTitleBar() {
     return LandscapeTitleBar(
+      pageTitle: _pageTitle,
       searchController: _searchController,
       searchFocusNode: _searchFocusNode,
       onSearchChanged: (value) {
         ref.read(searchSuggestProvider.notifier).update(value);
       },
       onSearchSubmit: _submitSearch,
-      onBack: () => widget.pageManager.pop(),
-      onSettingsTap: () {
-        widget.pageManager.goToTab(3);
-      },
-      onProfileTap: () {
-        widget.pageManager.goToTab(2);
-      },
+      onBack: widget.pageManager.pop,
     );
   }
 
-  /// 侧边栏
-  Widget _buildSidebar(WidgetRef ref) {
-    return LandscapeSidebar(
-      selectedLabel: _getSelectedLabel(),
-      playlists: ref.watch(userPlaylistsProvider),
-      // 歌单页时按 playlistId 高亮对应侧边栏项（我喜欢的音乐/最近播放/创建的歌单）；
-      // 每日推荐、远程歌单等 id 不在侧边栏中，自然不高亮。
-      selectedPlaylistId: widget.pageManager.activePlaylistId,
-      onNavTap: _onSidebarNavTap,
-      onPlaylistTap: (playlistId) {
-        widget.pageManager.goToPlaylist(playlistId: playlistId);
-      },
-      onCreatePlaylist: null,
-    );
-  }
-
-  /// 当前应高亮的顶层导航项（首页/发现/我的/设置）。
-  /// 在歌单页时返回 null——此时侧边栏的视觉焦点由
-  /// [ShellPageManager.activePlaylistId] 交给对应歌单项，避免
-  /// 「歌单项和发现同时高亮」或「在歌单页却仍高亮发现」的视觉残留。
-  String? _getSelectedLabel() {
-    if (widget.pageManager.currentPage == ShellPage.playlist) {
-      return null;
-    }
-    if (widget.pageManager.currentPage == ShellPage.offline) {
-      return 'offline';
-    }
-    final index = widget.pageManager.selectedTabIndex;
-    switch (index) {
-      case 0:
-        return 'home';
-      case 1:
-        return 'discover';
-      case 2:
-        return 'profile';
-      case 3:
-        return 'settings';
+  /// 图标轨的高亮项。
+  LandscapeRailDestination? get _railSelection {
+    if (!_showShellChrome) return null;
+    if (_libraryOpen) return LandscapeRailDestination.library;
+    switch (widget.pageManager.currentPage) {
+      case ShellPage.home:
+        return LandscapeRailDestination.home;
+      case ShellPage.discover:
+        return LandscapeRailDestination.discover;
+      case ShellPage.offline:
+        return LandscapeRailDestination.offline;
+      case ShellPage.playlist:
+        return switch (widget.pageManager.activePlaylistId) {
+          'favorites' => LandscapeRailDestination.favorites,
+          'history' => LandscapeRailDestination.recent,
+          _ => null,
+        };
       default:
-        return 'home';
+        return null;
     }
   }
 
-  void _onSidebarNavTap(String label) {
-    switch (label) {
-      case 'home':
+  void _onRailSelected(LandscapeRailDestination destination) {
+    if (destination == LandscapeRailDestination.library) {
+      _toggleLibrary();
+      return;
+    }
+    _searchFocusNode.unfocus();
+    _closeDrawers();
+    switch (destination) {
+      case LandscapeRailDestination.home:
         widget.pageManager.goToTab(0);
         break;
-      case 'discover':
+      case LandscapeRailDestination.discover:
         widget.pageManager.goToTab(1);
         break;
-      case 'settings':
-        widget.pageManager.goToTab(3);
+      case LandscapeRailDestination.recent:
+        widget.pageManager.goToPlaylist(
+          playlistId: 'history',
+          playlistName: '最近播放',
+        );
         break;
-      case 'offline':
+      case LandscapeRailDestination.offline:
         if (widget.pageManager.currentPage != ShellPage.offline) {
           widget.pageManager.push(ShellPage.offline);
         }
         break;
+      case LandscapeRailDestination.favorites:
+        widget.pageManager.goToPlaylist(
+          playlistId: 'favorites',
+          playlistName: '我喜欢的音乐',
+        );
+        break;
+      case LandscapeRailDestination.library:
+        break;
     }
+  }
+
+  void _openPlaylist(String playlistId, String playlistName) {
+    _searchFocusNode.unfocus();
+    _closeDrawers();
+    widget.pageManager.goToPlaylist(
+      playlistId: playlistId,
+      playlistName: playlistName,
+    );
+  }
+
+  void _openLanSync() {
+    _searchFocusNode.unfocus();
+    _closeDrawers();
+    widget.pageManager.push(ShellPage.lanSync);
+  }
+
+  void _toggleLibrary() {
+    _searchFocusNode.unfocus();
+    setState(() {
+      _libraryOpen = !_libraryOpen;
+      if (_libraryOpen) _queueOpen = false;
+    });
+  }
+
+  void _toggleQueue() {
+    _searchFocusNode.unfocus();
+    setState(() {
+      _queueOpen = !_queueOpen;
+      if (_queueOpen) _libraryOpen = false;
+    });
+  }
+
+  void _closeDrawers() {
+    if (!_libraryOpen && !_queueOpen) return;
+    setState(() {
+      _libraryOpen = false;
+      _queueOpen = false;
+    });
+  }
+
+  /// 面包屑末段：当前页面名。
+  String get _pageTitle {
+    final entry = widget.pageManager.baseEntry;
+    return switch (entry.page) {
+      ShellPage.home => '首页',
+      ShellPage.discover => '发现',
+      ShellPage.searchEntry => '搜索',
+      ShellPage.searchResults => '搜索结果',
+      ShellPage.profile => '我的',
+      ShellPage.settings => '设置',
+      ShellPage.offline => '离线缓存',
+      ShellPage.detail => '播放详情',
+      ShellPage.playlist => _playlistTitle(entry),
+      ShellPage.changelog => '更新日志',
+      ShellPage.cookie => 'Cookie 管理',
+      ShellPage.dataManagement => '数据管理',
+      ShellPage.dataMigration => '数据迁移',
+      ShellPage.audioBackend => '音频后端',
+      ShellPage.audioDsp => '音频 DSP',
+      ShellPage.audioOutput => '音频输出',
+      ShellPage.login => '登录',
+      ShellPage.favImport => '收藏导入',
+      ShellPage.following => '关注',
+      ShellPage.artist => 'UP 主',
+      ShellPage.roamOnboarding => '漫游',
+      ShellPage.lanSync => '局域网同步',
+      ShellPage.tasteProfile => '品味画像',
+    };
+  }
+
+  String _playlistTitle(ShellPageEntry entry) {
+    final name = (entry.args['playlistName'] as String?)?.trim();
+    if (name != null && name.isNotEmpty) return name;
+    return switch (entry.args['playlistId']) {
+      'favorites' => '我喜欢的音乐',
+      'history' => '最近播放',
+      'recommended' => '每日推荐',
+      _ => '歌单',
+    };
   }
 }

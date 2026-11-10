@@ -51,6 +51,10 @@ class OfflinePage extends ConsumerWidget {
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 96)),
+              // 给竖屏浮动的迷你播放器 / Dock 让位；横屏该值即底部安全区。
+              SliverToBoxAdapter(
+                child: SizedBox(height: MediaQuery.paddingOf(context).bottom),
+              ),
             ],
           );
         },
@@ -65,7 +69,13 @@ class OfflinePage extends ConsumerWidget {
 
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
+        // 给竖屏浮动的迷你播放器 / Dock 让位；横屏该值即底部安全区。
+        padding: EdgeInsets.fromLTRB(
+          32,
+          32,
+          32,
+          32 + MediaQuery.paddingOf(context).bottom,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

@@ -3,12 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/features/player/widgets/playback_buttons.dart';
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 import 'package:bilimusic/shared/utils/formatters.dart';
 
 /// 横屏模式进度条组件
 /// 基于ParticleMusic的SeekBar适配bilimusic的PlayerManager
 class LandscapeSeekBar extends ConsumerStatefulWidget {
   final Color? color;
+
+  /// 未播放段轨道色；为空时取 [BmColors.hairline]。
+  final Color? inactiveColor;
+
+  /// 时长文字颜色；为空时跟随 [color]，再回退 [BmColors.textSecondary]。
+  final Color? labelColor;
+
   final double widgetHeight;
   final double seekBarHeight;
   final bool showDurationLabels;
@@ -16,6 +25,8 @@ class LandscapeSeekBar extends ConsumerStatefulWidget {
   const LandscapeSeekBar({
     super.key,
     this.color,
+    this.inactiveColor,
+    this.labelColor,
     this.widgetHeight = 20,
     this.seekBarHeight = 10,
     this.showDurationLabels = true,
@@ -32,6 +43,12 @@ class _LandscapeSeekBarState extends ConsumerState<LandscapeSeekBar> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.bmColors;
+    final type = context.bmType;
+    final activeColor = widget.color ?? colors.accent;
+    final inactiveColor = widget.inactiveColor ?? colors.hairline;
+    final labelColor =
+        widget.labelColor ?? widget.color ?? colors.textSecondary;
     final position = ref.watch(positionProvider);
     final music = ref.read(playerCoordinatorProvider).currentMusic;
     final duration = music?.duration ?? Duration.zero;
@@ -58,19 +75,15 @@ class _LandscapeSeekBarState extends ConsumerState<LandscapeSeekBar> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          formatDuration(
-                            Duration(milliseconds: sliderValue.toInt()),
-                          ),
-                          style: TextStyle(
-                            color: widget.color ?? Colors.grey,
-                            fontSize: 12.5,
+                          formatDuration(_durationOf(sliderValue)),
+                          style: BmTypography.numeric(
+                            type.caption.copyWith(color: labelColor),
                           ),
                         ),
                         Text(
                           formatDuration(duration),
-                          style: TextStyle(
-                            color: widget.color ?? Colors.grey,
-                            fontSize: 12.5,
+                          style: BmTypography.numeric(
+                            type.caption.copyWith(color: labelColor),
                           ),
                         ),
                       ],
@@ -82,15 +95,15 @@ class _LandscapeSeekBarState extends ConsumerState<LandscapeSeekBar> {
             height: widget.seekBarHeight,
             child: SliderTheme(
               data: SliderTheme.of(context).copyWith(
-                thumbColor: widget.color ?? Colors.grey,
+                thumbColor: activeColor,
                 trackHeight: isDragging
                     ? widget.seekBarHeight + 4
                     : widget.seekBarHeight,
                 trackShape: const FullWidthTrackShape(),
                 thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 0),
                 overlayShape: SliderComponentShape.noOverlay,
-                activeTrackColor: widget.color ?? Colors.grey,
-                inactiveTrackColor: Colors.black12,
+                activeTrackColor: activeColor,
+                inactiveTrackColor: inactiveColor,
               ),
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -135,7 +148,7 @@ class _LandscapeSeekBarState extends ConsumerState<LandscapeSeekBar> {
                 if (dragValue != null) {
                   await ref
                       .read(playbackCommandsProvider.notifier)
-                      .seek(Duration(milliseconds: dragValue!.toInt()));
+                      .seek(_durationOf(dragValue!));
                 }
                 setState(() {
                   dragValue = null;
@@ -149,7 +162,7 @@ class _LandscapeSeekBarState extends ConsumerState<LandscapeSeekBar> {
                 _seekByTouch(details.localPosition.dx, context, durationMs);
                 await ref
                     .read(playbackCommandsProvider.notifier)
-                    .seek(Duration(milliseconds: dragValue!.toInt()));
+                    .seek(_durationOf(dragValue!));
                 setState(() {
                   dragValue = null;
                   isDragging = false;
@@ -161,6 +174,10 @@ class _LandscapeSeekBarState extends ConsumerState<LandscapeSeekBar> {
       ),
     );
   }
+
+  /// 毫秒值 → [Duration]（不直接写字面量，统一走微秒构造）。
+  static Duration _durationOf(double milliseconds) =>
+      Duration(microseconds: (milliseconds * 1000).round());
 
   void _seekByTouch(double dx, BuildContext context, double durationMs) {
     final box = context.findRenderObject() as RenderBox;

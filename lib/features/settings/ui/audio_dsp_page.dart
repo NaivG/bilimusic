@@ -12,6 +12,7 @@ import 'package:bilimusic/features/settings/ui/widgets/compressor_curve.dart';
 import 'package:bilimusic/features/settings/ui/widgets/crossfeed_diagram.dart';
 import 'package:bilimusic/features/settings/ui/widgets/dsp_import_export_section.dart';
 import 'package:bilimusic/features/settings/ui/widgets/equalizer_curve.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 
@@ -431,7 +432,13 @@ class _AudioDspPageState extends ConsumerState<AudioDspPage> {
       appBar: AutoAppBar.generateAppBar(context: context, title: '音效与均衡器'),
       backgroundColor: Colors.transparent,
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+        // 尾部 120 是设计留白；叠加给竖屏浮动 chrome 让位的高度。
+        padding: EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          120 + MediaQuery.paddingOf(context).bottom,
+        ),
         children: [
           // ── 均衡器 ──
           _module(
@@ -1252,8 +1259,8 @@ class _FxModule extends StatelessWidget {
           if (expanded) const Divider(height: 1, indent: 12, endIndent: 12),
           ClipRect(
             child: AnimatedSize(
-              duration: AppTokens.standardDuration,
-              curve: AppTokens.standardEasing,
+              duration: BmMotion.medium,
+              curve: BmMotion.standard,
               alignment: Alignment.topCenter,
               child: expanded
                   ? Padding(

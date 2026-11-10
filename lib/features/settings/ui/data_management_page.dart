@@ -239,6 +239,10 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
+              // 给竖屏浮动的迷你播放器 / Dock 让位；横屏该值即底部安全区。
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.paddingOf(context).bottom,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

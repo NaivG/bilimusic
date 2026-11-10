@@ -194,4 +194,77 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('热歌榜'), findsOneWidget);
   });
+
+  testWidgets('宽屏 ≥1200 通栏四列网格，横屏无横向滚动', (tester) async {
+    _stubPathProvider();
+    await _seedCache();
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: DiscoverPage())),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    final grids = tester
+        .widgetList<SliverGrid>(find.byType(SliverGrid))
+        .toList();
+    expect(grids, isNotEmpty);
+    for (final grid in grids) {
+      final delegate = grid.gridDelegate;
+      expect(delegate, isA<SliverGridDelegateWithFixedCrossAxisCount>());
+      expect(
+        (delegate as SliverGridDelegateWithFixedCrossAxisCount).crossAxisCount,
+        4,
+      );
+    }
+    _expectNoHorizontalScroll(tester);
+  });
+
+  testWidgets('900–1199 宽屏三列网格', (tester) async {
+    _stubPathProvider();
+    await _seedCache();
+    tester.view.physicalSize = const Size(1100, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: DiscoverPage())),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    final grids = tester
+        .widgetList<SliverGrid>(find.byType(SliverGrid))
+        .toList();
+    expect(grids, isNotEmpty);
+    for (final grid in grids) {
+      final delegate = grid.gridDelegate;
+      expect(
+        (delegate as SliverGridDelegateWithFixedCrossAxisCount).crossAxisCount,
+        3,
+      );
+    }
+    _expectNoHorizontalScroll(tester);
+  });
+}
+
+/// 横屏不允许任何横向滚动。
+void _expectNoHorizontalScroll(WidgetTester tester) {
+  final horizontal = tester
+      .widgetList<Scrollable>(find.byType(Scrollable))
+      .where(
+        (scrollable) =>
+            scrollable.axisDirection == AxisDirection.left ||
+            scrollable.axisDirection == AxisDirection.right,
+      );
+  expect(horizontal, isEmpty);
 }

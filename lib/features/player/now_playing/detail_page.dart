@@ -9,6 +9,7 @@ import 'package:bilimusic/domain/artist.dart';
 import 'package:bilimusic/domain/music.dart' as model;
 import 'package:bilimusic/features/player/models/player_state.dart';
 import 'package:bilimusic/features/lyrics/lyrics_providers.dart';
+import 'package:bilimusic/features/lyrics/lyric_model_padding.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/roam/roam_providers.dart';
@@ -43,9 +44,6 @@ class _DetailPageState extends ConsumerState<DetailPage> {
   // 背景颜色
   Color? _dominantColor;
 
-  // 上一首主导色 —— 横屏 AnimatedLandscapeBackground 切换渐变用
-  Color? _previousDominantColor;
-
   @override
   void dispose() {
     _lyricController.dispose();
@@ -75,7 +73,8 @@ class _DetailPageState extends ConsumerState<DetailPage> {
         .read(playlistCommandsProvider.notifier)
         .isFavorite(_music);
 
-    _extractBackgroundColor(_music.coverUrl);
+    _dominantColor = ColorExtractor.cachedColorOf(_music.coverUrl);
+    _loadDominantColor(_music.coverUrl);
     _lyricController.loadLyricModel(_placeholderModel(_music.title));
   }
 
@@ -97,24 +96,14 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     );
   }
 
-  void _extractBackgroundColor(String imageUrl) async {
-    if (imageUrl.isEmpty) return;
-    final color = await ColorExtractor.extractColorFromUrl(imageUrl);
-    if (mounted && color != null) {
-      setState(() {
-        _dominantColor = color;
-      });
-    }
-  }
-
-  void _updateBackgroundColor(String imageUrl) async {
-    if (imageUrl.isEmpty) return;
-    final color = await ColorExtractor.extractColorFromUrl(imageUrl);
-    if (mounted && color != null) {
-      setState(() {
-        _dominantColor = color;
-      });
-    }
+  /// 取封面主色；切歌后旧的请求结果作废。
+  ///
+  /// 失败（或没有封面）时把颜色置空，避免下一首继续沿用上一首的背景色。
+  void _loadDominantColor(String coverUrl) async {
+    final color = await ColorExtractor.extractColorFromUrl(coverUrl);
+    if (!mounted || _music.coverUrl != coverUrl) return;
+    if (color == _dominantColor) return;
+    setState(() => _dominantColor = color);
   }
 
   void _toggleFavorite() async {
@@ -196,18 +185,24 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     final liveMusic = ref.read(playerCoordinatorProvider).currentMusic;
     final musicChanged = liveMusic != null && liveMusic.id != _music.id;
     if (musicChanged) {
-      _previousDominantColor = _dominantColor;
       _music = liveMusic;
       _duration = liveMusic.duration;
       _isFavorite = ref
           .read(playlistCommandsProvider.notifier)
           .isFavorite(liveMusic);
+      // 同一张封面取过色就直接换过去；没取过则先留旧色，等新色出来再过渡。
+      final cachedColor = ColorExtractor.cachedColorOf(liveMusic.coverUrl);
+      if (cachedColor != null || liveMusic.coverUrl.isEmpty) {
+        _dominantColor = cachedColor;
+      }
       _lastAppliedModel = null;
       _placeholderTitle = _music.title;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        _updateBackgroundColor(liveMusic.coverUrl);
-        _lyricController.loadLyricModel(_placeholderModel(_music.title));
+        _loadDominantColor(liveMusic.coverUrl);
+        _lyricController.loadLyricModel(
+          padLeadingBlankLines(_placeholderModel(_music.title)),
+        );
         _lyricController.setProgress(Duration.zero);
       });
     }
@@ -243,7 +238,9 @@ class _DetailPageState extends ConsumerState<DetailPage> {
       _placeholderTitle = null;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        _lyricController.loadLyricModel(payload.mainModel);
+        _lyricController.loadLyricModel(
+          padLeadingBlankLines(payload.mainModel),
+        );
         _lyricController.setProgress(_position);
       });
     } else if (!lyricsAsync.isLoading &&
@@ -255,7 +252,9 @@ class _DetailPageState extends ConsumerState<DetailPage> {
       _placeholderTitle = _music.title;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        _lyricController.loadLyricModel(_placeholderModel(_music.title));
+        _lyricController.loadLyricModel(
+          padLeadingBlankLines(_placeholderModel(_music.title)),
+        );
         _lyricController.setProgress(_position);
       });
     }
@@ -278,7 +277,6 @@ class _DetailPageState extends ConsumerState<DetailPage> {
         lyricController: _lyricController,
         isLoadingLyrics: resolved.loading,
         dominantColor: _dominantColor,
-        previousDominantColor: _previousDominantColor,
         playModeIcon: icon,
         onToggleFavorite: _toggleFavorite,
         onShare: () => shareMusic(_music),

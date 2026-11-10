@@ -1,92 +1,73 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
+
+import 'package:bilimusic/features/player/pip/pip_service.dart';
+import 'package:bilimusic/features/settings/settings_provider.dart';
+import 'package:bilimusic/shared/motion/bm_pressable.dart';
+import 'package:bilimusic/shared/ui/chrome/bm_chrome.dart';
+import 'package:bilimusic/shared/ui/controls/bm_controls.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 import 'package:bilimusic/shared/utils/platform_helper.dart';
 
-class _WindowButtons extends StatelessWidget {
-  final bool isDark;
-
-  const _WindowButtons({required this.isDark});
+/// 桌面窗口控制按钮组：画中画 / 最小化 / 最大化 / 关闭。
+///
+/// 四个按钮统一走 [BmIconButton]（sm，图标 16），关闭走 `danger`，
+/// tooltip 为中文。标题栏与 [DesktopNavBar] 共用。
+class BmWindowControls extends StatelessWidget {
+  const BmWindowControls({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        _WindowButton(
-          icon: Icons.minimize,
-          isDark: isDark,
-          onTap: () => windowManager.minimize(),
-          hoverColor: isDark ? Colors.grey[800]! : Colors.grey[200]!,
+        BmIconButton(
+          icon: Icons.picture_in_picture_alt,
+          tooltip: '画中画',
+          size: BmIconButtonSize.sm,
+          onPressed: () => PipService().toggle(),
         ),
-        _WindowButton(
-          icon: Icons.crop_square,
-          isDark: isDark,
-          onTap: () => windowManager.maximize(),
-          hoverColor: isDark ? Colors.grey[800]! : Colors.grey[200]!,
+        BmIconButton(
+          icon: Icons.minimize_rounded,
+          tooltip: '最小化',
+          size: BmIconButtonSize.sm,
+          onPressed: () => windowManager.minimize(),
         ),
-        _WindowButton(
-          icon: Icons.close,
-          isDark: isDark,
-          // 实际关闭行为（弹窗确认/收进托盘/直接退出）由
-          // BilimusicWindowListener.onWindowClose 依据设置分发
-          onTap: windowManager.close,
-          hoverColor: Colors.red,
-          iconHoverColor: Colors.white,
+        BmIconButton(
+          icon: Icons.crop_square_rounded,
+          tooltip: '最大化/还原',
+          size: BmIconButtonSize.sm,
+          onPressed: _toggleMaximize,
+        ),
+        BmIconButton(
+          icon: Icons.close_rounded,
+          tooltip: '关闭',
+          size: BmIconButtonSize.sm,
+          danger: true,
+          onPressed: () => windowManager.close(),
         ),
       ],
     );
   }
-}
 
-class _WindowButton extends StatefulWidget {
-  final IconData icon;
-  final bool isDark;
-  final VoidCallback onTap;
-  final Color hoverColor;
-  final Color? iconHoverColor;
-
-  const _WindowButton({
-    required this.icon,
-    required this.isDark,
-    required this.onTap,
-    required this.hoverColor,
-    this.iconHoverColor,
-  });
-
-  @override
-  State<_WindowButton> createState() => _WindowButtonState();
-}
-
-class _WindowButtonState extends State<_WindowButton> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          width: 46,
-          height: double.infinity,
-          color: _isHovered ? widget.hoverColor : Colors.transparent,
-          child: Center(
-            child: Icon(
-              widget.icon,
-              size: 14,
-              color: _isHovered && widget.iconHoverColor != null
-                  ? widget.iconHoverColor!
-                  : (widget.isDark ? Colors.grey[400]! : Colors.grey[700]!),
-            ),
-          ),
-        ),
-      ),
-    );
+  Future<void> _toggleMaximize() async {
+    final isMaximized = await windowManager.isMaximized();
+    if (isMaximized) {
+      await windowManager.unmaximize();
+    } else {
+      await windowManager.maximize();
+    }
   }
 }
 
-/// 桌面端窗口导航栏（含 Logo + 导航项）
-class DesktopNavBar extends StatelessWidget {
+/// 桌面端窗口导航栏（含 Logo + 导航项 + 窗口控件）。
+///
+/// 表面走 [BmChromeSurface]（底边 hairline + 可选模糊），导航项用
+/// [BmPressable] 承载 hover / pressed / selected 状态，选中走 accent。
+class DesktopNavBar extends ConsumerWidget {
   final int selectedIndex;
   final Function(int) onNavTap;
 
@@ -96,77 +77,73 @@ class DesktopNavBar extends StatelessWidget {
     required this.onNavTap,
   });
 
+  static const List<_NavItem> _items = <_NavItem>[
+    _NavItem(Icons.home_outlined, Icons.home, '首页', 0),
+    _NavItem(Icons.explore_outlined, Icons.explore, '发现', 1),
+    _NavItem(Icons.person_outlined, Icons.person, '我的', 2),
+    _NavItem(Icons.settings_outlined, Icons.settings, '设置', 3),
+  ];
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     // 非桌面平台返回空导航栏
     if (!PlatformHelper.isDesktop) {
       return const SizedBox.shrink();
     }
 
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final colors = context.bmColors;
+    final type = context.bmType;
+    final blur = ref.watch(
+      settingsProvider.select((settings) => settings.blurEffect),
+    );
 
-    final navItems = [
-      _NavItem(Icons.home_outlined, Icons.home, '首页', 0),
-      _NavItem(Icons.explore_outlined, Icons.explore, '发现', 1),
-      _NavItem(Icons.person_outlined, Icons.person, '我的', 2),
-      _NavItem(Icons.settings_outlined, Icons.settings, '设置', 3),
-    ];
-
-    return Container(
-      height: 40,
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1a1a1a) : Colors.white,
-        border: Border(
-          bottom: BorderSide(
-            color: isDark ? Colors.grey[800]! : Colors.grey[300]!,
-            width: 0.5,
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          GestureDetector(
-            onPanStart: (_) => windowManager.startDragging(),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.music_note_rounded,
-                    color: theme.colorScheme.primary,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'BiliMusic',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : Colors.grey[800]!,
+    return BmChromeSurface(
+      edges: const <BmChromeEdge>{BmChromeEdge.bottom},
+      blur: blur,
+      child: SizedBox(
+        height: BmTokens.controlLg,
+        child: Row(
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onPanStart: (_) => windowManager.startDragging(),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: BmTokens.s3),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.music_note_rounded,
+                      color: colors.accent,
+                      size: BmTokens.icon,
                     ),
-                  ),
+                    const SizedBox(width: BmTokens.s2),
+                    Text(
+                      'BiliMusic',
+                      style: type.label.copyWith(color: colors.textPrimary),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (final item in _items)
+                    _NavTile(
+                      icon: selectedIndex == item.index
+                          ? item.activeIcon
+                          : item.icon,
+                      label: item.label,
+                      isActive: selectedIndex == item.index,
+                      onTap: () => onNavTap(item.index),
+                    ),
                 ],
               ),
             ),
-          ),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: navItems.map((item) {
-                final isActive = selectedIndex == item.index;
-                return _NavTile(
-                  icon: isActive ? item.activeIcon : item.icon,
-                  label: item.label,
-                  isActive: isActive,
-                  isDark: isDark,
-                  onTap: () => onNavTap(item.index),
-                );
-              }).toList(),
-            ),
-          ),
-          _WindowButtons(isDark: isDark),
-        ],
+            const BmWindowControls(),
+          ],
+        ),
       ),
     );
   }
@@ -178,60 +155,47 @@ class _NavItem {
   final String label;
   final int index;
 
-  _NavItem(this.icon, this.activeIcon, this.label, this.index);
+  const _NavItem(this.icon, this.activeIcon, this.label, this.index);
 }
 
+/// 导航项：图标 16 + caption 文案，选中 accent。
 class _NavTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool isActive;
-  final bool isDark;
   final VoidCallback onTap;
 
   const _NavTile({
     required this.icon,
     required this.label,
     required this.isActive,
-    required this.isDark,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final colors = context.bmColors;
+    final type = context.bmType;
+    final tint = isActive ? colors.accent : colors.textSecondary;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(4),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(4),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  size: 16,
-                  color: isActive
-                      ? theme.colorScheme.primary
-                      : (isDark ? Colors.grey[400]! : Colors.grey[700]!),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                    color: isActive
-                        ? theme.colorScheme.primary
-                        : (isDark ? Colors.grey[400]! : Colors.grey[700]!),
-                  ),
-                ),
-              ],
-            ),
+      child: BmPressable(
+        onTap: onTap,
+        selected: isActive,
+        borderRadius: BmTokens.r10All,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: BmTokens.s2,
+            vertical: BmTokens.s1,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: BmTokens.iconMenu, color: tint),
+              const SizedBox(width: BmTokens.s1),
+              Text(label, style: type.caption.copyWith(color: tint)),
+            ],
           ),
         ),
       ),

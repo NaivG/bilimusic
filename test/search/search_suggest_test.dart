@@ -14,6 +14,7 @@ import 'package:bilimusic/core/network/bili_client.dart';
 import 'package:bilimusic/domain/search_suggest.dart';
 import 'package:bilimusic/features/search/search_providers.dart';
 import 'package:bilimusic/features/search/ui/search_suggest_panel.dart';
+import 'package:bilimusic/shared/motion/bm_pressable.dart';
 
 /// 顶掉 [ApiService] 默认的 `musicCacheManager`：它一构造就去问 path_provider。
 class _StubMusicCache implements CacheManager {
@@ -227,8 +228,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pump();
 
-      expect(find.byType(ListTile), findsOneWidget);
-      await tester.tap(find.byType(ListTile));
+      expect(find.byType(BmPressable), findsOneWidget);
+      await tester.tap(find.byType(BmPressable));
       expect(selected, '周');
     });
   });

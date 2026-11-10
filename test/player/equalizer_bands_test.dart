@@ -566,8 +566,9 @@ void main() {
       expect(tester.takeException(), isNull);
 
       // ── 9 个模块头一字不差地都在 ────────────────────────────
+      // 导入 / 导出分区也会按模块列出同名标签，所以这里只验存在性。
       for (final title in moduleTitles) {
-        expect(find.text(title), findsOneWidget, reason: '缺少模块「$title」');
+        expect(find.text(title), findsWidgets, reason: '缺少模块「$title」');
       }
 
       // 头部的开关与正文无关：收起时 9 个开关照常可见（这就是
@@ -592,7 +593,8 @@ void main() {
       );
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.text('均衡器'));
+      // 导入 / 导出分区也有同名模块标签，取第一个（模块头）作为点击目标。
+      await tester.tap(find.text('均衡器').first);
       await tester.pumpAndSettle();
 
       expect(find.byType(EqualizerCurve), findsOneWidget);
@@ -602,7 +604,7 @@ void main() {
       expect(find.byType(Switch), findsNWidgets(9));
 
       // 再点一次收起：正文卸载、重置入口消失，头部原样留着。
-      await tester.tap(find.text('均衡器'));
+      await tester.tap(find.text('均衡器').first);
       await tester.pumpAndSettle();
 
       expect(find.byType(EqualizerCurve), findsNothing);

@@ -1,9 +1,10 @@
-// ignore_for_file: constant_identifier_names
+﻿// ignore_for_file: constant_identifier_names
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:bilimusic/domain/audio_quality.dart';
 import 'package:bilimusic/features/roam/models/roam_style.dart';
 import 'package:bilimusic/features/settings/logic/audio_output_options.dart';
 import 'package:bilimusic/shared/utils/title_meta_filter.dart';
@@ -56,7 +57,7 @@ class SettingsManager extends ChangeNotifier {
   // 默认值
   static const bool DEFAULT_NOTIFICATIONS_ENABLED = true;
   static const String DEFAULT_APPEARANCE = 'system';
-  static const String DEFAULT_THEME = 'lucent';
+  static const String DEFAULT_THEME = 'theater';
   static const bool DEFAULT_AUTO_PLAY_NEXT = true;
   static const bool DEFAULT_ALWAYS_SHOW_MINI_PLAYER = false;
   static const bool DEFAULT_SHOW_LYRICS = true;
@@ -236,7 +237,7 @@ class SettingsManager extends ChangeNotifier {
     _cache[KEY_APPEARANCE] = value;
   }
 
-  /// 获取主题设置 (lucent / nocturne / verdant)
+  /// 获取主题设置 (theater / nocturne / verdant)
   String get theme => _cache[KEY_THEME] ?? DEFAULT_THEME;
 
   /// 设置主题
@@ -531,20 +532,6 @@ class SettingsManager extends ChangeNotifier {
   }
 
   /// 获取播放音质的文本描述
-  String getAudioQualityText(String qualityId) {
-    switch (qualityId) {
-      case '30251':
-        return 'Hi-Res 无损';
-      case '30250':
-        return '杜比全景声';
-      case '30280':
-        return '192K HQ';
-      case '30232':
-        return '132K SQ';
-      case '30216':
-        return '64K AAC-HE';
-      default:
-        return '192K HQ';
-    }
-  }
+  String getAudioQualityText(String qualityId) =>
+      AudioQualityInfo.of(qualityId).label;
 }

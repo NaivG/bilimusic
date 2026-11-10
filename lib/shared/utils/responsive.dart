@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+
 /// 屏幕尺寸分类
 enum ScreenSize {
   /// 手机端：宽度 < 600dp
@@ -90,6 +92,27 @@ class LandscapeBreakpoints {
     return size.height >= size.width || size.width < tabletLandscapeMin;
   }
 
+  /// 横屏图标轨宽度：≥1200 76，900–1199 68。
+  static double railWidth(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    return width >= desktopMin ? BmTokens.railWidth : 68;
+  }
+
+  /// 横屏标题栏高度：≥1200 58，900–1199 52。
+  static double topbarHeight(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    return width >= desktopMin ? BmTokens.topbarHeight : 52;
+  }
+
+  /// 横屏播放底栏高度：≥1200 90，900–1199 80。
+  ///
+  /// `LandscapeBottomControl` 自己按窗口宽度取高度（90 / 96 / 88），
+  /// 这个函数给壳层的布局占位用，不要拿去裁剪底栏。
+  static double shellBarHeight(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    return width >= desktopMin ? 90 : 80;
+  }
+
   /// 获取横屏封面尺寸（Apple Music 风格小封面）
   static double getCoverSize(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
@@ -108,17 +131,17 @@ class LandscapeBreakpoints {
   /// 获取横屏歌词当前行字号（Apple Music 风格大字）
   static double getCurrentLyricFontSize(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width >= desktopMin) return 36;
-    if (width >= largeTabletMin) return 30;
-    return 24;
+    if (width >= desktopMin) return 40;
+    if (width >= largeTabletMin) return 34;
+    return 28;
   }
 
   /// 获取横屏歌词其他行字号
   static double getOtherLyricFontSize(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width >= desktopMin) return 30;
-    if (width >= largeTabletMin) return 26;
-    return 22;
+    if (width >= desktopMin) return 34;
+    if (width >= largeTabletMin) return 30;
+    return 26;
   }
 
   /// 获取横屏主播放按钮尺寸

@@ -1,5 +1,7 @@
-import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/theme/theme_registry.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_overlays.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -7,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   // 真实主题：SnackBar 的 behavior / shape / insetPadding 都来自它
   final theme = ThemeRegistry.defaultTheme.dark();
+  final colors = theme.extension<BmColors>()!;
 
   // 与实现保持一致的尺寸：横屏控制栏 88 / 90 / 96，迷你播放器胶囊 68、
   // 手机端离底 16、底部导航栏 56。
@@ -19,19 +22,16 @@ void main() {
   const double horizontalInset = 16;
   const double verticalInset = 12;
 
-  /// 按外壳的结构搭一个 Scaffold（body + 底槽），返回它的 ScaffoldMessenger。
-  Future<ScaffoldMessengerState> pumpShell(
-    WidgetTester tester,
-    Widget bottomSlot,
-  ) async {
-    late ScaffoldMessengerState messenger;
+  /// 按外壳的结构搭一个 Scaffold（body + 底槽），返回可弹 toast 的上下文。
+  Future<BuildContext> pumpShell(WidgetTester tester, Widget bottomSlot) async {
+    late BuildContext shellContext;
     await tester.pumpWidget(
       MaterialApp(
         theme: theme,
         home: Scaffold(
           body: Builder(
             builder: (context) {
-              messenger = ScaffoldMessenger.of(context);
+              shellContext = context;
               return const SizedBox.expand();
             },
           ),
@@ -39,39 +39,33 @@ void main() {
         ),
       ),
     );
-    return messenger;
+    return shellContext;
   }
 
-  /// toast 真正可见的那块（外层 Material）。
+  /// toast 真正可见的那块：BmToast 自绘的 surface（Material）。
   /// 不能用 SnackBar 自身的矩形：浮动样式把 insetPadding 也算在里面，
-  /// 量出来是通栏的，看不出留白。
+  /// 量出来是通栏的，看不出留白；SnackBar 外壳现在还是透明无描边的。
   Rect visibleToastRect(WidgetTester tester) {
     return tester.getRect(
       find
-          .descendant(
-            of: find.byType(SnackBar),
-            matching: find.byType(Material),
-          )
+          .descendant(of: find.byType(BmToast), matching: find.byType(Material))
           .first,
     );
   }
 
-  Future<void> showToast(
-    WidgetTester tester,
-    ScaffoldMessengerState messenger,
-  ) async {
-    messenger.showSnackBar(const SnackBar(content: Text('已添加到收藏')));
+  Future<void> showToast(WidgetTester tester, BuildContext context) async {
+    showBmToast(context, '已添加到收藏');
     await tester.pumpAndSettle();
   }
 
   testWidgets('横屏：toast 浮在底部控制栏上方', (tester) async {
     final chromeKey = GlobalKey();
-    final messenger = await pumpShell(
+    final context = await pumpShell(
       tester,
       SizedBox(key: chromeKey, height: landscapeControlHeight),
     );
 
-    await showToast(tester, messenger);
+    await showToast(tester, context);
 
     final toastRect = visibleToastRect(tester);
     final chromeRect = tester.getRect(find.byKey(chromeKey));
@@ -83,7 +77,7 @@ void main() {
 
   testWidgets('竖屏：toast 浮在迷你播放器上方', (tester) async {
     final miniPlayerKey = GlobalKey();
-    final messenger = await pumpShell(
+    final context = await pumpShell(
       tester,
       Column(
         mainAxisSize: MainAxisSize.min,
@@ -97,7 +91,7 @@ void main() {
       ),
     );
 
-    await showToast(tester, messenger);
+    await showToast(tester, context);
 
     final toastRect = visibleToastRect(tester);
     final miniPlayerRect = tester.getRect(find.byKey(miniPlayerKey));
@@ -105,24 +99,31 @@ void main() {
     expect(miniPlayerRect.top - toastRect.bottom, verticalInset);
   });
 
-  testWidgets('toast 是主题里的圆角浮动样式', (tester) async {
-    final messenger = await pumpShell(
+  testWidgets('toast 是 BmToast 自绘的圆角浮动样式', (tester) async {
+    final context = await pumpShell(
       tester,
       const SizedBox(height: landscapeControlHeight),
     );
 
-    await showToast(tester, messenger);
+    await showToast(tester, context);
 
+    // SnackBar 外壳只保留定位几何：透明、无内边距、无描边。
+    final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
+    expect(snackBar.backgroundColor, Colors.transparent);
+    expect(snackBar.padding, EdgeInsets.zero);
+    expect(snackBar.behavior, SnackBarBehavior.floating);
+    expect((snackBar.shape! as RoundedRectangleBorder).side, BorderSide.none);
+
+    // 可见面是 BmToast 自己的 Material：floating 底 + 14 圆角 + 0.5 hairline。
     final material = tester.widget<Material>(
       find
-          .descendant(
-            of: find.byType(SnackBar),
-            matching: find.byType(Material),
-          )
+          .descendant(of: find.byType(BmToast), matching: find.byType(Material))
           .first,
     );
     final shape = material.shape! as RoundedRectangleBorder;
-    expect(shape.borderRadius, BorderRadius.circular(AppTokens.radiusLg));
-    expect(material.color, theme.colorScheme.surfaceContainerHigh);
+    expect(shape.borderRadius, BmTokens.r14All);
+    expect(material.color, colors.floating);
+    expect(shape.side.color, colors.hairline);
+    expect(shape.side.width, 0.5);
   });
 }

@@ -409,6 +409,7 @@ flutter run           # 调试运行
 - GitHub Actions：[FlutterHub](https://github.com/xmaihh/FlutterHub)
 - README 规范：[standard-readme](https://github.com/RichardLitt/standard-readme)
 - SnowNLP 文本处理：[SnowNLP](https://github.com/isnowfy/snownlp)
+- Apple Music样式参考：[AMLL](https://github.com/Steve-xmh/applemusic-like-lyrics)
 
 ---
 

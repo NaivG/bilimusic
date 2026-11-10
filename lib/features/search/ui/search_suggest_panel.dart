@@ -4,6 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/domain/search_suggest.dart';
 import 'package:bilimusic/features/search/search_providers.dart';
 import 'package:bilimusic/features/search/ui/search_empty_state.dart';
+import 'package:bilimusic/shared/motion/bm_pressable.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 
 /// 搜索中间态的联想面板：只有列表，没有输入框。
 ///
@@ -25,7 +29,7 @@ class SearchSuggestPanel extends ConsumerWidget {
     if (suggest.term.isEmpty) {
       return ListView(
         shrinkWrap: true,
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: BmTokens.s4),
         children: [
           HotSearchSuggestions(
             suggestions: hotSearches,
@@ -38,7 +42,7 @@ class SearchSuggestPanel extends ConsumerWidget {
     if (suggest.isLoading) {
       return ListView(
         shrinkWrap: true,
-        padding: const EdgeInsets.symmetric(vertical: 28),
+        padding: const EdgeInsets.symmetric(vertical: BmTokens.s5),
         children: const [_PanelHint(loading: true)],
       );
     }
@@ -46,36 +50,38 @@ class SearchSuggestPanel extends ConsumerWidget {
     if (suggest.items.isEmpty) {
       return ListView(
         shrinkWrap: true,
-        padding: const EdgeInsets.symmetric(vertical: 32),
+        padding: const EdgeInsets.symmetric(vertical: BmTokens.s6),
         children: const [_PanelHint(text: '没有相关搜索')],
       );
     }
 
-    return ListView.separated(
+    return ListView.builder(
       shrinkWrap: true,
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: BmTokens.s1),
       itemCount: suggest.items.length,
-      separatorBuilder: (context, index) => Divider(
-        height: 1,
-        thickness: 0.5,
-        indent: 48,
-        endIndent: 16,
-        color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.12),
-      ),
       itemBuilder: (context, index) {
         final item = suggest.items[index];
-        return ListTile(
-          dense: true,
-          visualDensity: VisualDensity.compact,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-          leading: Icon(
-            Icons.search,
-            size: 20,
-            color: Theme.of(context).colorScheme.onSurfaceVariant
-                .withValues(alpha: 0.7),
-          ),
-          title: _buildTitle(context, item, suggest.term),
+        return BmPressable(
           onTap: () => onSelected(item.value),
+          borderRadius: BmTokens.r10All,
+          semanticLabel: item.name,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: BmTokens.pageInset,
+              vertical: BmTokens.s2,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.search_rounded,
+                  size: BmTokens.iconMenu,
+                  color: context.bmColors.textTertiary,
+                ),
+                const SizedBox(width: BmTokens.s3),
+                Expanded(child: _buildTitle(context, item, suggest.term)),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -83,22 +89,36 @@ class SearchSuggestPanel extends ConsumerWidget {
 
   /// 在剥掉标签的展示文本里重新标出用户输入的部分。
   Widget _buildTitle(BuildContext context, SearchSuggest item, String term) {
+    final colors = context.bmColors;
+    final type = context.bmType;
+    final baseStyle = type.body.copyWith(color: colors.textPrimary);
     final start = item.name.toLowerCase().indexOf(term.toLowerCase());
     if (start < 0 || term.isEmpty) {
-      return Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis);
+      return Text(
+        item.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: baseStyle,
+      );
     }
 
     final end = start + term.length;
     // 大小写转换在个别字符上会改变长度，越界时退回纯文本。
     if (end > item.name.length) {
-      return Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis);
+      return Text(
+        item.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: baseStyle,
+      );
     }
-    final highlight = TextStyle(
-      color: Theme.of(context).colorScheme.primary,
+    final highlight = baseStyle.copyWith(
+      color: colors.accent,
       fontWeight: FontWeight.w600,
     );
     return Text.rich(
       TextSpan(
+        style: baseStyle,
         children: [
           TextSpan(text: item.name.substring(0, start)),
           TextSpan(text: item.name.substring(start, end), style: highlight),
@@ -120,23 +140,33 @@ class _PanelHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.onSurfaceVariant;
+    final colors = context.bmColors;
+    final type = context.bmType;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: BmTokens.s5),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           if (loading) ...[
             SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2, color: color),
+              width: BmTokens.s4,
+              height: BmTokens.s4,
+              child: CircularProgressIndicator(
+                strokeWidth: BmTokens.s1 / 2,
+                color: colors.textTertiary,
+              ),
             ),
-            const SizedBox(width: 10),
-            Text('正在搜索…', style: TextStyle(fontSize: 13, color: color)),
+            const SizedBox(width: BmTokens.s2),
+            Text(
+              '正在搜索…',
+              style: type.label.copyWith(color: colors.textSecondary),
+            ),
           ] else
-            Text(text ?? '', style: TextStyle(fontSize: 14, color: color)),
+            Text(
+              text ?? '',
+              style: type.body.copyWith(color: colors.textSecondary),
+            ),
         ],
       ),
     );

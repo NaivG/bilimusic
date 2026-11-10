@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'app_component_themes.dart';
+import '../ui/theme/bm_theme.dart';
 import 'app_palette.dart';
-import 'app_tokens.dart';
 
 /// Nord 主题颜色常量 —— Arctic Ice Studio 的 Nord 调色板
 /// (https://www.nordtheme.com/)。灵感来自极地冰雪与极光,色调冷静、低饱和,
@@ -42,6 +41,8 @@ abstract class NordColors {
   // ===== Semantic =====
   static const Color errorLight = Color(0xFFBF616A); // nord11
   static const Color errorDark = Color(0xFFBF616A);
+  static const Color warningLight = Color(0xFFEBCB8B); // nord13
+  static const Color warningDark = Color(0xFFEBCB8B);
   static const Color successLight = Color(0xFFA3BE8C); // nord14
   static const Color successDark = Color(0xFFA3BE8C);
 }
@@ -57,6 +58,8 @@ AppPalette _nordPalette(Brightness brightness) {
       playBar: NordColors.surfaceContainerLight,
       seekBarActive: NordColors.onSurfaceLight,
       volumeBarActive: NordColors.onSurfaceLight,
+      warning: NordColors.warningLight,
+      success: NordColors.successLight,
       surfaceOverlay: Color(0xCCECEFF4),
       surfaceHover: NordColors.surfaceContainerHighLight,
       surfacePressed: NordColors.surfaceContainerHighLight,
@@ -71,6 +74,8 @@ AppPalette _nordPalette(Brightness brightness) {
     playBar: NordColors.surfaceContainerDark,
     seekBarActive: NordColors.onSurfaceVariantDark,
     volumeBarActive: NordColors.onSurfaceVariantDark,
+    warning: NordColors.warningDark,
+    success: NordColors.successDark,
     surfaceOverlay: Color(0xBF2E3440),
     surfaceHover: NordColors.surfaceContainerHighDark,
     surfacePressed: NordColors.surfaceContainerHighDark,
@@ -137,57 +142,9 @@ ColorScheme _nordColorScheme(Brightness brightness) {
 }
 
 ThemeData _buildNord(Brightness brightness) {
-  final scheme = _nordColorScheme(brightness);
-  final palette = _nordPalette(brightness);
-
-  return ThemeData(
-    colorScheme: scheme,
-    useMaterial3: true,
-    extensions: [palette],
-    snackBarTheme: AppComponentThemes.snackBar(scheme),
-    cardTheme: CardThemeData(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-      ),
-      elevation: 0,
-      color: scheme.surfaceContainer,
-    ),
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-        ),
-      ),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        borderSide: BorderSide(color: scheme.outlineVariant, width: 0.5),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        borderSide: BorderSide(color: scheme.outlineVariant, width: 0.5),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        borderSide: BorderSide(color: scheme.primary, width: 0.5),
-      ),
-      filled: true,
-      fillColor: scheme.surfaceContainer,
-    ),
-    scaffoldBackgroundColor: scheme.surface,
-    sliderTheme: SliderThemeData(
-      activeTrackColor: scheme.primary,
-      inactiveTrackColor: scheme.surfaceContainerHigh,
-      thumbColor: scheme.primary,
-      overlayColor: scheme.primary.withValues(alpha: 0.12),
-    ),
-    dividerTheme: DividerThemeData(
-      color: scheme.outline,
-      thickness: 0.5,
-      space: 0.5,
-    ),
-    dividerColor: scheme.outline,
+  return BmTheme.build(
+    scheme: _nordColorScheme(brightness),
+    palette: _nordPalette(brightness),
   );
 }
 

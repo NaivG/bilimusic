@@ -1,304 +1,196 @@
 import 'package:flutter/material.dart';
-import 'package:bilimusic/features/player/pip/pip_service.dart';
-import 'package:bilimusic/shared/theme/app_palette.dart';
-import 'package:bilimusic/shared/utils/platform_helper.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
-/// 横屏模式标题栏 - 基于ParticleMusic风格
-class LandscapeTitleBar extends StatelessWidget {
-  /// 标题栏高度；联想面板贴在它下面。
-  static const double height = 75;
+import 'package:bilimusic/app/shells/widgets/desktop_window_controls.dart';
+import 'package:bilimusic/features/settings/settings_provider.dart';
+import 'package:bilimusic/shared/ui/chrome/bm_chrome_surface.dart';
+import 'package:bilimusic/shared/ui/controls/bm_field.dart';
+import 'package:bilimusic/shared/ui/controls/bm_icon_button.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
+import 'package:bilimusic/shared/utils/platform_helper.dart';
+import 'package:bilimusic/shared/utils/responsive.dart';
+
+/// 横屏标题栏（设计稿 `.topbar`）。
+///
+/// 高 58（900–1199 为 52）；只放返回、面包屑、搜索与窗口控制。
+/// 品牌 / 头像 / 设置只在图标轨出现。
+class LandscapeTitleBar extends ConsumerWidget {
+  /// 面包屑末段：当前页面名。
+  final String pageTitle;
 
   final VoidCallback? onBack;
   final TextEditingController searchController;
   final FocusNode searchFocusNode;
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<String> onSearchSubmit;
-  final VoidCallback? onSettingsTap;
-  final VoidCallback? onProfileTap;
 
   const LandscapeTitleBar({
     super.key,
+    required this.pageTitle,
     required this.searchController,
     required this.searchFocusNode,
     required this.onSearchChanged,
     required this.onSearchSubmit,
     this.onBack,
-    this.onSettingsTap,
-    this.onProfileTap,
   });
 
+  /// 面包屑宽度：搜索框左缘之前扣掉左右留白、返回键与间距。
+  static const double _crumbWidth =
+      BmTokens.searchFieldLeft -
+      BmTokens.s5 -
+      BmTokens.touchScreen -
+      BmTokens.s2;
+
   @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final palette = context.appPalette;
-    final iconColor = colorScheme.onSurfaceVariant;
-    final searchFieldColor = palette.searchField;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.bmColors;
+    final type = context.bmType;
+    final blur = ref.watch(
+      settingsProvider.select((settings) => settings.blurEffect),
+    );
 
     return SizedBox(
-      height: height,
-      child: Stack(
-        children: [
-          // 可拖拽区域 + 双击最大化
-          GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onPanStart: (details) {
-              if (!PlatformHelper.isDesktop) return;
-              windowManager.startDragging();
-            },
-            onDoubleTap: () async {
-              if (!PlatformHelper.isDesktop) return;
-              final isMaximized = await windowManager.isMaximized();
-              if (isMaximized) {
-                windowManager.unmaximize();
-              } else {
-                windowManager.maximize();
-              }
-            },
-            child: Container(),
-          ),
-          // 主内容
-          Stack(
-            children: [
-              // 左侧品牌元素
-              Positioned(
-                left: 20,
-                top: 0,
-                bottom: 0,
-                child: _buildLogo(colorScheme),
-              ),
-              // 搜索框 - 位于侧栏右侧，始终带返回按钮
-              Positioned(
-                left: 220,
-                top: 0,
-                bottom: 0,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  decoration: BoxDecoration(
-                    border: BoxBorder.fromLTRB(
-                      left: BorderSide(
-                        color: colorScheme.outline.withValues(alpha: 0.1),
+      height: LandscapeBreakpoints.topbarHeight(context),
+      child: BmChromeSurface(
+        edges: const <BmChromeEdge>{BmChromeEdge.bottom},
+        blur: blur,
+        child: Stack(
+          children: [
+            // 可拖拽区域 + 双击最大化
+            GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onPanStart: (details) {
+                if (!PlatformHelper.isDesktop) return;
+                windowManager.startDragging();
+              },
+              onDoubleTap: () async {
+                if (!PlatformHelper.isDesktop) return;
+                final isMaximized = await windowManager.isMaximized();
+                if (isMaximized) {
+                  windowManager.unmaximize();
+                } else {
+                  windowManager.maximize();
+                }
+              },
+              child: const SizedBox.expand(),
+            ),
+            // 返回 + 面包屑
+            Positioned(
+              left: BmTokens.s5,
+              top: 0,
+              bottom: 0,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  BmIconButton(
+                    icon: Icons.arrow_back_ios_new_rounded,
+                    tooltip: '返回',
+                    size: BmIconButtonSize.sm,
+                    hitSize: BmTokens.touchScreen,
+                    onPressed: onBack,
+                  ),
+                  const SizedBox(width: BmTokens.s2),
+                  SizedBox(
+                    width: _crumbWidth,
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: 'BiliMusic / ',
+                            style: type.caption.copyWith(
+                              color: colors.textSecondary,
+                            ),
+                          ),
+                          TextSpan(
+                            text: pageTitle,
+                            style: type.caption.copyWith(
+                              color: colors.textPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        color: iconColor,
-                        onPressed: onBack,
-                        icon: const Icon(
-                          Icons.arrow_back_ios_rounded,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _TitleSearchField(
-                        controller: searchController,
-                        focusNode: searchFocusNode,
-                        hintText: '搜索音乐、视频、用户...',
-                        iconColor: iconColor,
-                        searchFieldColor: searchFieldColor,
-                        textColor: colorScheme.onSurface,
-                        onChanged: onSearchChanged,
-                        onSubmitted: onSearchSubmit,
-                      ),
-                    ],
-                  ),
+                ],
+              ),
+            ),
+            // 搜索框：workspace 坐标左缘 188、宽 340、高 40
+            Positioned(
+              left: BmTokens.searchFieldLeft,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: _TitleSearchField(
+                  controller: searchController,
+                  focusNode: searchFocusNode,
+                  onChanged: onSearchChanged,
+                  onSubmitted: onSearchSubmit,
                 ),
               ),
-              // 右侧设置和窗口控制
+            ),
+            // 窗口控制
+            if (PlatformHelper.isDesktop)
               Positioned(
-                right: 30,
+                right: BmTokens.s5,
                 top: 0,
                 bottom: 0,
-                child: Row(
-                  children: [
-                    // 用户按钮
-                    if (onProfileTap != null)
-                      IconButton(
-                        color: iconColor,
-                        onPressed: onProfileTap,
-                        icon: const Icon(Icons.person_outline, size: 22),
-                      ),
-                    const SizedBox(width: 4),
-                    // 设置按钮
-                    if (onSettingsTap != null)
-                      IconButton(
-                        color: iconColor,
-                        onPressed: onSettingsTap,
-                        icon: const Icon(Icons.settings_outlined, size: 22),
-                      ),
-                    // 窗口控制按钮
-                    if (PlatformHelper.isDesktop) const _WindowControls(),
-                  ],
-                ),
+                child: const Center(child: BmWindowControls()),
               ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
-    );
-  }
-
-  Widget _buildLogo(ColorScheme colorScheme) {
-    return Row(
-      children: [
-        // 品牌图标
-        Image.asset("assets/ic_launcher.png", width: 36, height: 36),
-        const SizedBox(width: 8),
-        // 标题文字
-        Text(
-          'BiliMusic',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 24,
-            color: colorScheme.onSurface,
-            fontFamily: 'CabinSketch',
-          ),
-        ),
-        const SizedBox(width: 8),
-        // Beta标识
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          decoration: BoxDecoration(
-            color: Colors.cyan.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            'Beta',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[800],
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
 
-/// 标题栏搜索框
+/// 标题栏搜索框：清空按钮随输入内容出现。
 class _TitleSearchField extends StatelessWidget {
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final String hintText;
-  final ValueChanged<String> onChanged;
-  final ValueChanged<String> onSubmitted;
-  final Color iconColor;
-  final Color searchFieldColor;
-  final Color textColor;
-
   const _TitleSearchField({
     required this.controller,
     required this.focusNode,
-    required this.hintText,
     required this.onChanged,
     required this.onSubmitted,
-    required this.iconColor,
-    required this.searchFieldColor,
-    required this.textColor,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 260,
-      height: 40,
-      child: ValueListenableBuilder<TextEditingValue>(
-        valueListenable: controller,
-        builder: (context, value, child) {
-          return TextField(
-            controller: controller,
-            focusNode: focusNode,
-            style: TextStyle(fontSize: 14, color: textColor),
-            decoration: InputDecoration(
-              hintText: hintText,
-              hintStyle: TextStyle(
-                fontSize: 14,
-                color: textColor.withValues(alpha: 0.5),
-              ),
-              contentPadding: EdgeInsets.zero,
-              prefixIcon: Icon(
-                Icons.search,
-                color: iconColor.withValues(alpha: 0.65),
-                size: 18,
-              ),
-              suffixIcon: value.text.isNotEmpty
-                  ? IconButton(
-                      onPressed: () {
-                        controller.clear();
-                        onChanged('');
-                      },
-                      icon: Icon(
-                        Icons.close,
-                        size: 18,
-                        color: iconColor.withValues(alpha: 0.65),
-                      ),
-                    )
-                  : null,
-              filled: true,
-              fillColor: searchFieldColor,
-              hoverColor: Colors.transparent,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide.none,
-              ),
-            ),
-            onSubmitted: (query) {
-              final trimmed = query.trim();
-              if (trimmed.isNotEmpty) onSubmitted(trimmed);
-            },
-            onChanged: onChanged,
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// 窗口控制按钮
-class _WindowControls extends StatelessWidget {
-  const _WindowControls();
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSubmitted;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final iconColor = colorScheme.onSurfaceVariant;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          icon: const Icon(Icons.picture_in_picture_alt, size: 20),
-          color: iconColor,
-          onPressed: () => PipService().toggle(),
-        ),
-        IconButton(
-          icon: const Icon(Icons.minimize_rounded, size: 20),
-          color: iconColor,
-          onPressed: () => windowManager.minimize(),
-        ),
-        IconButton(
-          icon: const Icon(Icons.crop_square_rounded, size: 20),
-          color: iconColor,
-          onPressed: () async {
-            final isMaximized = await windowManager.isMaximized();
-            if (isMaximized) {
-              windowManager.unmaximize();
-            } else {
-              windowManager.maximize();
-            }
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: controller,
+      builder: (context, value, child) {
+        return BmField(
+          controller: controller,
+          focusNode: focusNode,
+          width: BmTokens.searchFieldWidth,
+          hintText: '搜索音乐、视频、用户...',
+          leading: const Icon(Icons.search_rounded),
+          trailing: value.text.isEmpty
+              ? null
+              : BmIconButton(
+                  icon: Icons.close_rounded,
+                  tooltip: '清空',
+                  onPressed: () {
+                    controller.clear();
+                    onChanged('');
+                  },
+                ),
+          onChanged: onChanged,
+          onSubmitted: (query) {
+            final trimmed = query.trim();
+            if (trimmed.isNotEmpty) onSubmitted(trimmed);
           },
-        ),
-        IconButton(
-          icon: const Icon(Icons.close_rounded, size: 20),
-          color: iconColor,
-          onPressed: () => windowManager.close(),
-          hoverColor: Colors.red.withValues(alpha: 0.1),
-        ),
-      ],
+        );
+      },
     );
   }
 }

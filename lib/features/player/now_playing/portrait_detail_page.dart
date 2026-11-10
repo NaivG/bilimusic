@@ -10,14 +10,16 @@ import 'package:bilimusic/features/lyrics/lyric_source.dart';
 import 'package:bilimusic/features/player/now_playing/album_section.dart';
 import 'package:bilimusic/features/player/now_playing/now_playing_action_bar.dart';
 import 'package:bilimusic/domain/music.dart' as model;
-import 'package:bilimusic/features/player/now_playing/detail_blur_background.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/player/widgets/sleep_timer_sheet.dart';
 import 'package:bilimusic/features/lan_sync/lan_sync_providers.dart';
 import 'package:bilimusic/features/lan_sync/ui/sync_panel.dart';
+import 'package:bilimusic/features/settings/settings_provider.dart';
 import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/ui/stage/bm_stage_backdrop.dart';
 import 'package:bilimusic/shared/utils/dialog_helpers.dart';
 import 'package:bilimusic/shared/utils/share_helpers.dart';
 
@@ -146,14 +148,17 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage>
 
   @override
   Widget build(BuildContext context) {
+    final fluid = ref.watch(
+      settingsProvider.select((settings) => settings.fluidBackground),
+    );
+
     return Scaffold(
-      backgroundColor:
-          widget.dominantColor?.withValues(alpha: 0.4) ?? Colors.black,
+      backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
       appBar: _buildAppBar(context),
       body: Stack(
         children: [
-          _buildBackground(),
+          Positioned.fill(child: _buildBackground(context, fluid)),
           Column(
             children: [
               Expanded(child: _buildContentStack()),
@@ -201,10 +206,13 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage>
     );
   }
 
-  Widget _buildBackground() {
-    return DetailBlurBackground(
-      dominantColor: widget.dominantColor,
+  Widget _buildBackground(BuildContext context, bool fluid) {
+    return BmStageBackdrop(
       coverUrl: widget.music.coverUrl,
+      dominantColor: widget.dominantColor,
+      fallbackColor: Theme.of(context).colorScheme.primary,
+      fluid: fluid,
+      cacheManager: imageCacheManager,
     );
   }
 

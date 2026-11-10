@@ -35,6 +35,8 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
       appBar: AutoAppBar.generateAppBar(context: context, title: '数据迁移'),
       backgroundColor: Colors.transparent,
       body: SingleChildScrollView(
+        // 给竖屏浮动的迷你播放器 / Dock 让位；横屏该值即底部安全区。
+        padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
