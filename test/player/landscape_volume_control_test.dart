@@ -36,7 +36,7 @@ class _StubDualAudioService extends DualAudioService {
   Future<void> dispose() async {}
 }
 
-/// 横屏底栏音量控件：悬停弹出竖向音量条，点击喇叭仍是静音切换。
+/// 横屏底栏音量控件：悬停或触屏点按弹出竖向音量条，鼠标点击喇叭仍是静音切换。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -114,11 +114,11 @@ void main() {
     expect(find.byType(Slider), findsNothing);
   });
 
-  testWidgets('点击喇叭仍是静音切换，浮层音量跟着变', (tester) async {
+  testWidgets('鼠标点击喇叭仍是静音切换，浮层音量跟着变', (tester) async {
     await pumpControl(tester);
     await hoverTrigger(tester);
 
-    await tester.tap(find.byType(BmIconButton));
+    await tester.tap(find.byType(BmIconButton), kind: PointerDeviceKind.mouse);
     await tester.pump();
 
     expect(audio.volume.value, 0);
@@ -148,5 +148,52 @@ void main() {
     await tester.pump(BmMotion.large);
     await tester.pumpAndSettle();
     expect(find.byType(Slider), findsNothing);
+  });
+
+  testWidgets('触屏点按喇叭只展开音量条不静音，点浮层外收起', (tester) async {
+    await pumpControl(tester);
+    expect(find.byType(Slider), findsNothing);
+
+    // tester.tap 默认就是 touch：没有 hover 也必须能展开浮层。
+    await tester.tap(find.byType(BmIconButton));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Slider), findsOneWidget);
+    expect(find.text('50%'), findsOneWidget);
+    expect(audio.volume.value, 0.5, reason: '触屏点按只负责展开，不切静音');
+
+    await tester.tapAt(const Offset(40, 40));
+    await tester.pumpAndSettle();
+    expect(find.byType(Slider), findsNothing);
+    expect(audio.volume.value, 0.5);
+  });
+
+  testWidgets('触屏点按展开后再点喇叭，遮罩先收起浮层', (tester) async {
+    await pumpControl(tester);
+    await tester.tap(find.byType(BmIconButton));
+    await tester.pumpAndSettle();
+    expect(find.byType(Slider), findsOneWidget);
+
+    // 浮层展开时全屏遮罩盖在图标上：再点喇叭只收起，不再改音量。
+    await tester.tapAt(tester.getCenter(find.byType(BmIconButton)));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Slider), findsNothing);
+    expect(audio.volume.value, 0.5, reason: '两次触屏点按都不静音');
+  });
+
+  testWidgets('触屏点按展开后可直接拖动音量条', (tester) async {
+    await pumpControl(tester);
+    await tester.tap(find.byType(BmIconButton));
+    await tester.pumpAndSettle();
+
+    final drag = await tester.startGesture(
+      tester.getCenter(find.byType(Slider)),
+    );
+    await drag.moveBy(const Offset(0, -40));
+    await drag.up();
+    await tester.pump();
+
+    expect(audio.volume.value, greaterThan(0.5), reason: '遮罩不能挡住滑杆拖动');
   });
 }

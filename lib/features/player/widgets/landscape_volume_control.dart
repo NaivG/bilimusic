@@ -14,6 +14,9 @@ import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 
 /// 横屏底栏音量控件。
+///
+/// 桌面悬停展开竖向音量条、点击喇叭切换静音；触屏 / 触控笔没有 hover，
+/// 点按喇叭只展开浮层，点浮层外收起。
 class LandscapeVolumeControl extends ConsumerStatefulWidget {
   const LandscapeVolumeControl({super.key});
 
@@ -31,10 +34,17 @@ class _LandscapeVolumeControlState
   static const double _barHitWidth = BmTokens.touchDesktop;
 
   /// 浮层内容宽度。
-  static const double _panelWidth = 56;
+  static const double _panelWidth = 32;
 
   /// 滚轮单格调整量。
   static const double _wheelStep = 0.02;
+
+  /// 没有 hover 的指针类型（一般是触屏）：点按只展开浮层，不切静音。
+  static const Set<PointerDeviceKind> _tapPointerKinds = {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.stylus,
+    PointerDeviceKind.invertedStylus,
+  };
 
   /// 浮层锚点。
   final LayerLink _link = LayerLink();
@@ -48,6 +58,12 @@ class _LandscapeVolumeControlState
 
   /// 正在拖动音量条：此时不因指针移出浮层而收起。
   bool _dragging = false;
+
+  /// 浮层由点按展开：额外挂一层全屏遮罩，点浮层外即收起。
+  bool _tapOpen = false;
+
+  /// 最近一次按下图标的指针类型，用来把触屏点按与鼠标点击分流。
+  PointerDeviceKind? _lastPointerKind;
 
   @override
   void dispose() {
@@ -68,6 +84,27 @@ class _LandscapeVolumeControlState
     _scheduleHide();
   }
 
+  /// 记录按下图标的指针类型；触屏 / 触控笔没有 hover，按下直接展开浮层。
+  void _handleTriggerPointerDown(PointerDownEvent event) {
+    _lastPointerKind = event.kind;
+    if (!_tapPointerKinds.contains(event.kind)) return;
+    _showTimer?.cancel();
+    _hideTimer?.cancel();
+    if (!_tapOpen) setState(() => _tapOpen = true);
+    _show();
+  }
+
+  /// 触屏点按只展开浮层；鼠标点击与键盘激活保留静音切换。
+  void _handleTriggerPressed() {
+    final kind = _lastPointerKind;
+    _lastPointerKind = null;
+    if (kind != null && _tapPointerKinds.contains(kind)) {
+      _show();
+      return;
+    }
+    ref.read(playbackCommandsProvider.notifier).toggleMute();
+  }
+
   void _handlePanelEnter() => _hideTimer?.cancel();
 
   void _handlePanelExit() => _scheduleHide();
@@ -78,7 +115,9 @@ class _LandscapeVolumeControlState
   }
 
   void _hide() {
-    if (!mounted || !_portal.isShowing) return;
+    if (!mounted) return;
+    if (_tapOpen) setState(() => _tapOpen = false);
+    if (!_portal.isShowing) return;
     _portal.hide();
   }
 
@@ -115,15 +154,15 @@ class _LandscapeVolumeControlState
   @override
   Widget build(BuildContext context) {
     final volume = ref.watch(volumeProvider);
-    final commands = ref.read(playbackCommandsProvider.notifier);
     final isMuted = volume == 0;
 
     return CompositedTransformTarget(
       link: _link,
       child: OverlayPortal(
         controller: _portal,
-        overlayChildBuilder: _buildPanel,
+        overlayChildBuilder: _buildOverlay,
         child: Listener(
+          onPointerDown: _handleTriggerPointerDown,
           onPointerSignal: _handlePointerSignal,
           child: MouseRegion(
             onEnter: (_) => _handleTriggerEnter(),
@@ -132,12 +171,24 @@ class _LandscapeVolumeControlState
               icon: isMuted
                   ? Icons.volume_off_rounded
                   : Icons.volume_up_rounded,
-              semanticLabel: isMuted ? '取消静音' : '静音',
-              onPressed: commands.toggleMute,
+              semanticLabel: '音量',
+              onPressed: _handleTriggerPressed,
             ),
           ),
         ),
       ),
+    );
+  }
+
+  /// 点按展开时的全屏收起遮罩 + 锚在图标上沿的音量浮层。
+  Widget _buildOverlay(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (_tapOpen)
+          GestureDetector(behavior: HitTestBehavior.opaque, onTap: _hide),
+        _buildPanel(context),
+      ],
     );
   }
 
