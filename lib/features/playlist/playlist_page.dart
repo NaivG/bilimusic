@@ -12,6 +12,7 @@ import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_entries_io.dart';
 import 'package:bilimusic/features/offline/ui/offline_batch_download_dialog.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
 
 /// 播放列表页面
 /// 根据屏幕方向路由到竖屏或横屏布局
@@ -223,22 +224,21 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
     }
 
     final name = _currentPlaylist?.displayName ?? widget.playlistName ?? '播放列表';
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showBmDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('离线缓存'),
-        content: Text(
-          '将把「$name」中的 ${_songs.length} 首歌曲下载到离线缓存，'
-          '已缓存的会自动跳过。\n\n是否继续？',
-        ),
+      builder: (dialogContext) => BmDialog(
+        title: '离线缓存',
+        message:
+            '将把「$name」中的 ${_songs.length} 首歌曲下载到离线缓存，'
+            '已缓存的会自动跳过。\n\n是否继续？',
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+          BmDialogAction(
+            label: '取消',
+            onPressed: () => Navigator.of(dialogContext).pop(false),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('开始缓存'),
+          BmDialogAction(
+            label: '开始缓存',
+            onPressed: () => Navigator.of(dialogContext).pop(true),
           ),
         ],
       ),
@@ -382,23 +382,22 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
     final playlistId = widget.playlistId;
     if (playlistId == null || songs.isEmpty) return false;
 
-    final confirm = await showDialog<bool>(
+    final confirm = await showBmDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('确认删除'),
-        content: Text(
-          songs.length == 1
-              ? '确定要从歌单中移除"${songs.single.title}"吗？'
-              : '确定要从歌单中删除选中的 ${songs.length} 首歌曲吗？',
-        ),
+      builder: (dialogContext) => BmDialog(
+        title: '确认删除',
+        message: songs.length == 1
+            ? '确定要从歌单中移除"${songs.single.title}"吗？'
+            : '确定要从歌单中删除选中的 ${songs.length} 首歌曲吗？',
+        destructive: true,
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+          BmDialogAction(
+            label: '取消',
+            onPressed: () => Navigator.of(dialogContext).pop(false),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('删除'),
+          BmDialogAction(
+            label: '删除',
+            onPressed: () => Navigator.of(dialogContext).pop(true),
           ),
         ],
       ),

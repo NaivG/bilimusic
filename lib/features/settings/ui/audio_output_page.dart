@@ -7,6 +7,8 @@ import 'package:bilimusic/features/player/audio_output_providers.dart';
 import 'package:bilimusic/features/settings/logic/audio_output_options.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/utils/platform_helper.dart';
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 
@@ -59,31 +61,30 @@ class _AudioOutputPageState extends ConsumerState<AudioOutputPage> {
     if (!mounted) return;
     if (ref.read(settingsProvider).audioOutputDisclaimerAccepted) return;
 
-    final agreed = await showDialog<bool>(
+    final agreed = await showBmDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.warning_amber_rounded, size: 36),
-        title: const Text('高级音频输出 · 免责说明'),
+      builder: (dialogContext) => BmDialog(
+        title: '高级音频输出 · 免责说明',
         content: const Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('1. 硬件直通（独占模式）会锁死输出设备，期间其他应用将没有声音。'),
-            SizedBox(height: 10),
+            SizedBox(height: BmTokens.s2),
             Text('2. 强制采样率、切换设备可能与硬件不兼容，出现无声、爆音，或需要重启应用。'),
-            SizedBox(height: 10),
+            SizedBox(height: BmTokens.s2),
             Text('3. 以上均为高级音频选项，因配置导致的问题请自行承担。'),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('不同意'),
+          BmDialogAction(
+            label: '不同意',
+            onPressed: () => Navigator.of(dialogContext).pop(false),
           ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('同意并继续'),
+          BmDialogAction(
+            label: '同意并继续',
+            onPressed: () => Navigator.of(dialogContext).pop(true),
           ),
         ],
       ),

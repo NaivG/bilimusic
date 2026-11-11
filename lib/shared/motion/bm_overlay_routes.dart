@@ -52,24 +52,39 @@ class BmDialogRoute<T> extends PopupRoute<T> {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
   ) {
-    final panel = Theme(
-      data: theme,
-      child: Builder(builder: builder),
-    );
-    final Widget content;
-    if (reduceMotion) {
-      content = FadeTransition(opacity: animation, child: panel);
-    } else {
-      final curved = animation.drive(CurveTween(curve: BmMotion.emphasized));
-      content = FadeTransition(
-        opacity: curved,
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.94, end: 1).animate(curved),
-          child: panel,
+    return SafeArea(
+      child: AnimatedPadding(
+        padding: MediaQuery.viewInsetsOf(context),
+        duration: reduceMotion ? Duration.zero : BmMotion.medium,
+        curve: BmMotion.standard,
+        child: Center(
+          child: Theme(
+            data: theme,
+            child: Builder(builder: builder),
+          ),
         ),
-      );
+      ),
+    );
+  }
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    if (reduceMotion) {
+      return FadeTransition(opacity: animation, child: child);
     }
-    return SafeArea(child: Center(child: content));
+    final curved = animation.drive(CurveTween(curve: BmMotion.emphasized));
+    return FadeTransition(
+      opacity: curved,
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.94, end: 1).animate(curved),
+        child: child,
+      ),
+    );
   }
 }
 

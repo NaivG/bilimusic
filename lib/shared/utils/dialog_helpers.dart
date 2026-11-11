@@ -117,9 +117,9 @@ void showSongInfoDialog(
         ],
       ),
       actions: [
-        TextButton(
+        BmDialogAction(
+          label: '关闭',
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('关闭'),
         ),
       ],
     ),

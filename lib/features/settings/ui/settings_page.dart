@@ -567,9 +567,9 @@ class SettingsPage extends ConsumerWidget {
           ],
         ),
         actions: [
-          TextButton(
+          BmDialogAction(
+            label: '知道了',
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('知道了'),
           ),
         ],
       ),
@@ -618,9 +618,9 @@ class SettingsPage extends ConsumerWidget {
           ],
         ),
         actions: [
-          TextButton(
+          BmDialogAction(
+            label: '关闭',
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('关闭'),
           ),
         ],
       ),
@@ -643,9 +643,9 @@ class SettingsPage extends ConsumerWidget {
           '如果您有任何疑问，请通过 Github Issues 联系我们。',
         ),
         actions: [
-          TextButton(
+          BmDialogAction(
+            label: '确定',
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('确定'),
           ),
         ],
       ),

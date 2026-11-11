@@ -15,6 +15,7 @@ import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/features/lan_sync/ui/device_tile.dart';
 import 'package:bilimusic/features/lan_sync/ui/pair_qr_dialog.dart';
 import 'package:bilimusic/features/lan_sync/ui/pair_request_dialog.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
 import 'package:bilimusic/shared/utils/clipboard_helpers.dart';
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 
@@ -170,19 +171,19 @@ class _LanSyncPageState extends ConsumerState<LanSyncPage> {
   }
 
   Future<void> _rotatePin(PairingService pairing) async {
-    final confirm = await showDialog<bool>(
+    final confirm = await showBmDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('重置 PIN？'),
-        content: const Text('重置后其他设备需要重新输入新 PIN 才能连接。'),
+      builder: (dialogContext) => BmDialog(
+        title: '重置 PIN？',
+        message: '重置后其他设备需要重新输入新 PIN 才能连接。',
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+          BmDialogAction(
+            label: '取消',
+            onPressed: () => Navigator.of(dialogContext).pop(false),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('重置'),
+          BmDialogAction(
+            label: '重置',
+            onPressed: () => Navigator.of(dialogContext).pop(true),
           ),
         ],
       ),
@@ -604,19 +605,19 @@ class _PeerSection extends StatelessWidget {
     PeerDevice peer,
     void Function(String) onDisconnect,
   ) async {
-    final ok = await showDialog<bool>(
+    final ok = await showBmDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('断开连接？'),
-        content: Text('确定断开与 "${peer.name}" 的连接？\n配对信息会保留,可在列表中再次连接。'),
+      builder: (dialogContext) => BmDialog(
+        title: '断开连接？',
+        message: '确定断开与 "${peer.name}" 的连接？\n配对信息会保留,可在列表中再次连接。',
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('返回'),
+          BmDialogAction(
+            label: '返回',
+            onPressed: () => Navigator.of(dialogContext).pop(false),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('断开'),
+          BmDialogAction(
+            label: '断开',
+            onPressed: () => Navigator.of(dialogContext).pop(true),
           ),
         ],
       ),
@@ -629,19 +630,19 @@ class _PeerSection extends StatelessWidget {
     PeerDevice peer,
     void Function(String) onUnpair,
   ) async {
-    final ok = await showDialog<bool>(
+    final ok = await showBmDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('取消配对？'),
-        content: Text('确定取消与 "${peer.name}" 的配对？\n需要重新输入 PIN 才能再次连接。'),
+      builder: (dialogContext) => BmDialog(
+        title: '取消配对？',
+        message: '确定取消与 "${peer.name}" 的配对？\n需要重新输入 PIN 才能再次连接。',
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('返回'),
+          BmDialogAction(
+            label: '返回',
+            onPressed: () => Navigator.of(dialogContext).pop(false),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('取消配对'),
+          BmDialogAction(
+            label: '取消配对',
+            onPressed: () => Navigator.of(dialogContext).pop(true),
           ),
         ],
       ),

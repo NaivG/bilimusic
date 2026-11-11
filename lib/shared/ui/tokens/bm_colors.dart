@@ -71,6 +71,9 @@ class BmColors extends ThemeExtension<BmColors> {
   /// 强分割线 / 卡片边界（`onSurface @ 14%`）。
   final Color lineStrong;
 
+  /// 中性填充：对话框次要按钮、槽位等（`onSurface @ 10%`）。
+  final Color fillMuted;
+
   final Color stateHover;
   final Color statePressed;
   final Color stateSelected;
@@ -118,6 +121,7 @@ class BmColors extends ThemeExtension<BmColors> {
     required this.highlight,
     required this.hairline,
     required this.lineStrong,
+    required this.fillMuted,
     required this.stateHover,
     required this.statePressed,
     required this.stateSelected,
@@ -172,6 +176,7 @@ class BmColors extends ThemeExtension<BmColors> {
       highlight: scheme.tertiary,
       hairline: scheme.outlineVariant,
       lineStrong: scheme.outline,
+      fillMuted: onSurface.withValues(alpha: BmAlpha.fillMuted),
       stateHover: onSurface.withValues(alpha: BmAlpha.hover),
       statePressed: onSurface.withValues(alpha: BmAlpha.pressed),
       stateSelected: scheme.primary.withValues(alpha: BmAlpha.selected),
@@ -222,6 +227,7 @@ class BmColors extends ThemeExtension<BmColors> {
     Color? highlight,
     Color? hairline,
     Color? lineStrong,
+    Color? fillMuted,
     Color? stateHover,
     Color? statePressed,
     Color? stateSelected,
@@ -261,6 +267,7 @@ class BmColors extends ThemeExtension<BmColors> {
       highlight: highlight ?? this.highlight,
       hairline: hairline ?? this.hairline,
       lineStrong: lineStrong ?? this.lineStrong,
+      fillMuted: fillMuted ?? this.fillMuted,
       stateHover: stateHover ?? this.stateHover,
       statePressed: statePressed ?? this.statePressed,
       stateSelected: stateSelected ?? this.stateSelected,
@@ -306,6 +313,7 @@ class BmColors extends ThemeExtension<BmColors> {
       highlight: mix(highlight, other.highlight),
       hairline: mix(hairline, other.hairline),
       lineStrong: mix(lineStrong, other.lineStrong),
+      fillMuted: mix(fillMuted, other.fillMuted),
       stateHover: mix(stateHover, other.stateHover),
       statePressed: mix(statePressed, other.statePressed),
       stateSelected: mix(stateSelected, other.stateSelected),
@@ -342,6 +350,9 @@ abstract class BmAlpha {
 
   /// 强选中底（设计稿 `--accent-soft-2`）。
   static const double selectedStrong = 0.18;
+
+  /// 中性填充（对话框次要按钮）。
+  static const double fillMuted = 0.10;
 
   /// accent 描边 / 指示条。
   static const double border = 0.24;

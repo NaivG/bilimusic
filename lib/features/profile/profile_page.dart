@@ -536,19 +536,18 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final confirmed = await showBmDialog<bool>(
       context: context,
       builder: (dialogContext) {
-        final danger = dialogContext.bmColors.danger;
         return BmDialog(
           title: '退出登录',
-          content: const Text('确定要退出登录吗？'),
+          message: '确定要退出登录吗？',
+          destructive: true,
           actions: [
-            TextButton(
+            BmDialogAction(
+              label: '取消',
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('取消'),
             ),
-            TextButton(
+            BmDialogAction(
+              label: '退出登录',
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: TextButton.styleFrom(foregroundColor: danger),
-              child: const Text('退出登录'),
             ),
           ],
         );
@@ -603,6 +602,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       context: context,
       builder: (dialogContext) => BmDialog(
         title: '创建歌单',
+        hasFields: true,
         content: BmField(
           controller: controller,
           hintText: '请输入歌单名称',
@@ -616,18 +616,18 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           },
         ),
         actions: [
-          TextButton(
+          BmDialogAction(
+            label: '取消',
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('取消'),
           ),
-          TextButton(
+          BmDialogAction(
+            label: '创建',
             onPressed: () {
               final trimmed = controller.text.trim();
               if (trimmed.isNotEmpty) {
                 Navigator.of(dialogContext).pop(trimmed);
               }
             },
-            child: const Text('创建'),
           ),
         ],
       ),

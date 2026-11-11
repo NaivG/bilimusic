@@ -544,6 +544,7 @@ class _CreatePlaylistDialogState extends State<_CreatePlaylistDialog> {
   Widget build(BuildContext context) {
     return BmDialog(
       title: '新建歌单',
+      hasFields: true,
       content: BmField(
         controller: _controller,
         hintText: '歌单名称',
@@ -551,11 +552,11 @@ class _CreatePlaylistDialogState extends State<_CreatePlaylistDialog> {
         onSubmitted: (_) => _submit(),
       ),
       actions: [
-        TextButton(
+        BmDialogAction(
+          label: '取消',
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
         ),
-        TextButton(onPressed: _submit, child: const Text('创建')),
+        BmDialogAction(label: '创建', onPressed: _submit),
       ],
     );
   }

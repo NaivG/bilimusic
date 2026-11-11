@@ -73,6 +73,10 @@ class _GalleryOverlaySectionState extends State<GalleryOverlaySection> {
                 child: const Text('打开对话框'),
               ),
               OutlinedButton(
+                onPressed: () => _showDialog(context, destructive: true),
+                child: const Text('危险对话框'),
+              ),
+              OutlinedButton(
                 onPressed: () => _showSheet(context),
                 child: const Text('打开底部单'),
               ),
@@ -153,19 +157,23 @@ class _GalleryOverlaySectionState extends State<GalleryOverlaySection> {
     );
   }
 
-  void _showDialog(BuildContext context) {
+  void _showDialog(BuildContext context, {bool destructive = false}) {
     showBmDialog<void>(
       context: context,
       builder: (dialogContext) => BmDialog(
-        title: 'Lucent 对话框',
-        content: const Text(
-          '面板 fade + scale 0.94→1：进场 180ms、退场 120ms；'
-          '遮罩取当前预览主题的 scrim。',
-        ),
+        title: destructive ? '清空播放队列' : '保存到歌单',
+        message: destructive
+            ? '清空后当前歌曲会继续播放，队列将变为空。'
+            : '面板 fade + scale 0.94→1：进场 180ms、退场 120ms；动作是 48 高的胶囊按钮。',
+        destructive: destructive,
         actions: [
-          TextButton(
+          BmDialogAction(
+            label: '取消',
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('关闭'),
+          ),
+          BmDialogAction(
+            label: destructive ? '清空' : '保存',
+            onPressed: () => Navigator.of(dialogContext).pop(),
           ),
         ],
       ),

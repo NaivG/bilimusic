@@ -12,6 +12,8 @@ import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/features/lan_sync/lan_sync_providers.dart';
 import 'package:bilimusic/features/offline/offline_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
+import 'package:bilimusic/shared/ui/controls/bm_field.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
 import 'package:bilimusic/shared/utils/share_helpers.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 
@@ -402,54 +404,10 @@ Future<void> confirmAndRenamePlaylist({
   required Playlist playlist,
   required PlaylistCommands commands,
 }) async {
-  final controller = TextEditingController(text: playlist.name);
-  controller.selection = TextSelection(
-    baseOffset: 0,
-    extentOffset: controller.text.length,
-  );
-  final formKey = GlobalKey<FormState>();
-
-  final newName = await showDialog<String>(
+  final newName = await showBmDialog<String>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('重命名歌单'),
-      content: Form(
-        key: formKey,
-        child: TextFormField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: '歌单名称',
-            hintText: '请输入歌单名称',
-          ),
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return '请输入歌单名称';
-            }
-            return null;
-          },
-          onFieldSubmitted: (_) {
-            if (formKey.currentState!.validate()) {
-              Navigator.pop(ctx, controller.text.trim());
-            }
-          },
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text('取消'),
-        ),
-        TextButton(
-          onPressed: () {
-            if (formKey.currentState!.validate()) {
-              Navigator.pop(ctx, controller.text.trim());
-            }
-          },
-          child: const Text('确定'),
-        ),
-      ],
-    ),
+    builder: (dialogContext) =>
+        _RenamePlaylistDialog(initialName: playlist.name),
   );
 
   if (newName == null || newName == playlist.name) return;
@@ -464,6 +422,69 @@ Future<void> confirmAndRenamePlaylist({
   }
 }
 
+/// 重命名输入面板：空名称时给出错误提示，不关闭对话框。
+class _RenamePlaylistDialog extends StatefulWidget {
+  const _RenamePlaylistDialog({required this.initialName});
+
+  final String initialName;
+
+  @override
+  State<_RenamePlaylistDialog> createState() => _RenamePlaylistDialogState();
+}
+
+class _RenamePlaylistDialogState extends State<_RenamePlaylistDialog> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.initialName)
+        ..selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: widget.initialName.length,
+        );
+
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final name = _controller.text.trim();
+    if (name.isEmpty) {
+      setState(() => _errorText = '请输入歌单名称');
+      return;
+    }
+    Navigator.of(context).pop(name);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BmDialog(
+      title: '重命名歌单',
+      hasFields: true,
+      content: BmField(
+        controller: _controller,
+        label: '歌单名称',
+        hintText: '请输入歌单名称',
+        errorText: _errorText,
+        autofocus: true,
+        textInputAction: TextInputAction.done,
+        onChanged: (_) {
+          if (_errorText != null) setState(() => _errorText = null);
+        },
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        BmDialogAction(
+          label: '取消',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        BmDialogAction(label: '确定', onPressed: _submit),
+      ],
+    );
+  }
+}
+
 /// 弹出确认对话框,确认后调用 [commands] 删除歌单并提示 SnackBar。
 /// 三个调用点复用,避免重复实现 AlertDialog 样板。
 Future<void> confirmAndDeletePlaylist({
@@ -471,19 +492,20 @@ Future<void> confirmAndDeletePlaylist({
   required Playlist playlist,
   required PlaylistCommands commands,
 }) async {
-  final confirmed = await showDialog<bool>(
+  final confirmed = await showBmDialog<bool>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('确认删除'),
-      content: Text('确定要删除歌单"${playlist.name}"吗?此操作不可撤销'),
+    builder: (dialogContext) => BmDialog(
+      title: '确认删除',
+      message: '确定要删除歌单"${playlist.name}"吗?此操作不可撤销',
+      destructive: true,
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('取消'),
+        BmDialogAction(
+          label: '取消',
+          onPressed: () => Navigator.of(dialogContext).pop(false),
         ),
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('删除'),
+        BmDialogAction(
+          label: '删除',
+          onPressed: () => Navigator.of(dialogContext).pop(true),
         ),
       ],
     ),

@@ -82,9 +82,9 @@ Future<void> showThemePicker({
         ],
       ),
       actions: [
-        TextButton(
+        BmDialogAction(
+          label: '取消',
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('取消'),
         ),
       ],
     ),

@@ -7,6 +7,7 @@ import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/playlist/widgets/playlist_item.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
 
 /// 播放列表弹出组件
 /// 支持可调整高度的底部弹窗、拖拽排序和流畅动画
@@ -168,27 +169,25 @@ class _PlaylistSheetState extends ConsumerState<PlaylistSheet>
           if (playlistLength > 0)
             TextButton.icon(
               onPressed: () {
-                showDialog(
+                showBmDialog<bool>(
                   context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('清空播放列表'),
-                    content: const Text('确定要清空当前播放列表吗？'),
+                  builder: (dialogContext) => BmDialog(
+                    title: '清空播放列表',
+                    message: '确定要清空当前播放列表吗？',
+                    destructive: true,
                     actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('取消'),
+                      BmDialogAction(
+                        label: '取消',
+                        onPressed: () => Navigator.of(dialogContext).pop(false),
                       ),
-                      TextButton(
+                      BmDialogAction(
+                        label: '清空',
                         onPressed: () {
-                          Navigator.pop(context);
+                          Navigator.of(dialogContext).pop(true);
                           ref
                               .read(playbackCommandsProvider.notifier)
                               .clearPlaylist();
                         },
-                        child: const Text(
-                          '清空',
-                          style: TextStyle(color: Colors.red),
-                        ),
                       ),
                     ],
                   ),

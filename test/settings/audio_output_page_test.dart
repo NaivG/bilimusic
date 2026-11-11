@@ -8,6 +8,7 @@ import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/features/player/logic/dual_audio_service.dart';
 import 'package:bilimusic/features/settings/settings_manager.dart';
 import 'package:bilimusic/features/settings/ui/audio_output_page.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
 
 /// 不建真实播放器的双播放器服务。
 ///
@@ -56,7 +57,7 @@ void main() {
       await tester.pumpWidget(wrap(const AudioOutputPage()));
       await tester.pumpAndSettle();
 
-      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.byType(BmDialog), findsOneWidget);
       expect(find.text('1. 硬件直通（独占模式）会锁死输出设备，期间其他应用将没有声音。'), findsOneWidget);
       expect(
         find.text('2. 强制采样率、切换设备可能与硬件不兼容，出现无声、爆音，或需要重启应用。'),
@@ -79,7 +80,7 @@ void main() {
       await tester.tap(find.text('同意并继续'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(BmDialog), findsNothing);
       expect(mgr.audioOutputDisclaimerAccepted, isTrue);
       expect(find.text('音频延迟'), findsOneWidget);
       // 协议是「看过风险」的标记，同意一次就不再打扰。
@@ -107,7 +108,7 @@ void main() {
       await tester.pumpWidget(wrap(const AudioOutputPage()));
       await tester.pumpAndSettle();
 
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(BmDialog), findsNothing);
       expect(find.text('音频延迟'), findsOneWidget);
     });
 
@@ -128,7 +129,7 @@ void main() {
       await tester.pumpWidget(wrap(const SizedBox()));
       await tester.pumpWidget(wrap(const AudioOutputPage()));
       await tester.pumpAndSettle();
-      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.byType(BmDialog), findsOneWidget);
     });
   });
 

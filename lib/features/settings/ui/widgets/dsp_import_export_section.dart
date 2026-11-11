@@ -11,6 +11,7 @@ import 'package:mpv_audio_kit/mpv_audio_kit.dart' as mpv;
 import 'package:bilimusic/features/player/effects_providers.dart';
 import 'package:bilimusic/features/settings/logic/dsp_import_export.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
 import 'package:bilimusic/shared/utils/platform_helper.dart';
 
 /// audio_dsp_page 末尾的「导入 / 导出」区。
@@ -460,24 +461,20 @@ class _DspImportExportSectionState
     required String body,
     required String confirmLabel,
   }) async {
-    final ok = await showDialog<bool>(
+    final ok = await showBmDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.warning_amber_rounded),
-        title: Text(title),
-        content: Text(body),
+      builder: (dialogContext) => BmDialog(
+        title: title,
+        message: body,
+        destructive: true,
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+          BmDialogAction(
+            label: '取消',
+            onPressed: () => Navigator.of(dialogContext).pop(false),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
-              foregroundColor: Theme.of(ctx).colorScheme.onError,
-            ),
-            child: Text(confirmLabel),
+          BmDialogAction(
+            label: confirmLabel,
+            onPressed: () => Navigator.of(dialogContext).pop(true),
           ),
         ],
       ),

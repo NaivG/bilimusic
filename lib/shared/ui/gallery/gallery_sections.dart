@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:bilimusic/shared/ui/overlay/bm_overlays.dart';
 import 'package:bilimusic/shared/ui/stage/bm_audio_quality_badge.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
@@ -1061,24 +1062,18 @@ class GalleryComponentsSection extends StatelessWidget {
   }
 
   void _showDialog(BuildContext context) {
-    final theme = Theme.of(context);
-    showDialog<void>(
+    showBmDialog<void>(
       context: context,
-      builder: (dialogContext) {
-        return Theme(
-          data: theme,
-          child: AlertDialog(
-            title: const Text('BmDialog'),
-            content: const Text('20 圆角 / floating 底 / scrim 遮罩；按钮行右对齐。'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('关闭'),
-              ),
-            ],
+      builder: (dialogContext) => BmDialog(
+        title: '对话框',
+        message: '34 圆角 / 玻璃底 / 48 高胶囊按钮；两个短动作并排。',
+        actions: [
+          BmDialogAction(
+            label: '关闭',
+            onPressed: () => Navigator.of(dialogContext).pop(),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 

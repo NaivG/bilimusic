@@ -214,18 +214,16 @@ class LandscapeQueuePanel extends ConsumerWidget {
       context: context,
       builder: (dialogContext) => BmDialog(
         title: '清空播放队列',
-        content: const Text('清空后当前歌曲会继续播放，队列将变为空。'),
+        message: '清空后当前歌曲会继续播放，队列将变为空。',
+        destructive: true,
         actions: [
-          TextButton(
+          BmDialogAction(
+            label: '取消',
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
           ),
-          TextButton(
+          BmDialogAction(
+            label: '清空',
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(
-              '清空',
-              style: TextStyle(color: BmColors.of(dialogContext).danger),
-            ),
           ),
         ],
       ),

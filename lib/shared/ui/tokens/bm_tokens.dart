@@ -22,6 +22,7 @@ class BmTokens extends ThemeExtension<BmTokens> {
   static const double r20 = 20;
   static const double r26 = 26;
   static const double r28 = 28;
+  static const double r34 = 34;
   static const double rPill = 999;
 
   static const BorderRadius r4All = BorderRadius.all(Radius.circular(r4));
@@ -34,6 +35,7 @@ class BmTokens extends ThemeExtension<BmTokens> {
   static const BorderRadius r20All = BorderRadius.all(Radius.circular(r20));
   static const BorderRadius r26All = BorderRadius.all(Radius.circular(r26));
   static const BorderRadius r28All = BorderRadius.all(Radius.circular(r28));
+  static const BorderRadius r34All = BorderRadius.all(Radius.circular(r34));
   static const BorderRadius rPillAll = BorderRadius.all(Radius.circular(rPill));
 
   // ===== Spacing（7 档）=====
@@ -187,6 +189,19 @@ class BmTokens extends ThemeExtension<BmTokens> {
 
   /// 分类 / 标签胶囊高。
   static const double chipHeight = 21;
+
+  // ===== 对话框（iOS 风味 Alert）=====
+  /// 面板最大宽：iOS 27 alert 的 348。
+  static const double dialogMaxWidth = 348;
+
+  /// 面板最小宽：屏幕上再窄也守住一条可读行宽。
+  static const double dialogMinWidth = 280;
+
+  /// 面板与屏幕边的水平留白。
+  static const double dialogScreenInset = 40;
+
+  /// 标题 / 正文左右内边距。
+  static const double dialogTextInset = 30;
 
   // ===== Chrome 浮层（菜单 / 对话框 / Sheet）=====
   /// 菜单行高（设计文档 §4.6）。

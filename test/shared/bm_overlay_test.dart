@@ -1,6 +1,7 @@
-﻿import 'package:bilimusic/shared/motion/bm_overlay_routes.dart';
+import 'package:bilimusic/shared/motion/bm_overlay_routes.dart';
 import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/theme/theme_registry.dart';
+import 'package:bilimusic/shared/ui/controls/bm_field.dart';
 import 'package:bilimusic/shared/ui/overlay/bm_overlays.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
@@ -16,7 +17,7 @@ void main() {
         onPressed: (context) {
           showBmDialog<void>(
             context: context,
-            builder: (_) => const BmDialog(content: Text('确定要删除吗？')),
+            builder: (_) => const BmDialog(message: '确定要删除吗？'),
           );
         },
       );
@@ -27,6 +28,8 @@ void main() {
       expect(find.byType(BmDialog), findsOneWidget);
       // 遮罩颜色由路由的 barrierColor 驱动；刚打开时还在淡入。
       expect(_barrier(tester).color!.a, lessThan(host.colors.scrim.a));
+      // 刚打开时面板还在 0.94。
+      expect(_dialogScale(tester), closeTo(0.94, 0.02));
 
       // 90ms 约等于 180ms 的一半：缩放既不是 0.94 也不是 1。
       await tester.pump(const Duration(milliseconds: 90));
@@ -44,6 +47,253 @@ void main() {
       expect(dialogRoute, isA<PopupRoute<void>>());
       expect(dialogRoute.transitionDuration, BmMotion.medium);
       expect(dialogRoute.reverseTransitionDuration, BmMotion.small);
+    });
+
+    testWidgets('两个短动作并排，最后一个走实底 accent', (tester) async {
+      final host = await _pumpHost(
+        tester,
+        onPressed: (context) {
+          showBmDialog<void>(
+            context: context,
+            builder: (_) => BmDialog(
+              title: '保存到歌单',
+              message: '把这首歌加入「稍后听」？',
+              actions: [
+                BmDialogAction(label: '取消', onPressed: () {}),
+                BmDialogAction(label: '保存', onPressed: () {}),
+              ],
+            ),
+          );
+        },
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      final cancel = tester.getTopLeft(find.text('取消'));
+      final save = tester.getTopLeft(find.text('保存'));
+      expect(save.dy, closeTo(cancel.dy, 0.01));
+
+      final defaultText = tester.widget<Text>(find.text('保存'));
+      expect(defaultText.style!.color, host.colors.onAccent);
+      expect(_actionFill(tester, '保存'), host.colors.accent);
+      expect(_actionFill(tester, '取消'), host.colors.fillMuted);
+      expect(
+        tester
+            .getSize(
+              find
+                  .ancestor(
+                    of: find.text('保存'),
+                    matching: find.byType(Container),
+                  )
+                  .first,
+            )
+            .height,
+        BmTokens.row,
+      );
+    });
+
+    testWidgets('文案放不进半宽时竖排：默认动作在上、取消在最下', (tester) async {
+      await _pumpHost(
+        tester,
+        onPressed: (context) {
+          showBmDialog<void>(
+            context: context,
+            builder: (_) => const BmDialog(
+              title: '清除缓存',
+              message: '会删除全部离线歌曲，且无法恢复。',
+              destructive: true,
+              actions: [
+                BmDialogAction(label: '取消', onPressed: _noop),
+                BmDialogAction(label: '清除全部离线歌曲与封面缓存', onPressed: _noop),
+              ],
+            ),
+          );
+        },
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getTopLeft(find.text('清除全部离线歌曲与封面缓存')).dy,
+        lessThan(tester.getTopLeft(find.text('取消')).dy),
+      );
+    });
+
+    testWidgets('destructive：最后一个动作走 danger 文字、中性底', (tester) async {
+      final host = await _pumpHost(
+        tester,
+        onPressed: (context) {
+          showBmDialog<void>(
+            context: context,
+            builder: (_) => const BmDialog(
+              title: '要退出吗',
+              message: '确定要退出登录吗？',
+              destructive: true,
+              actions: [
+                BmDialogAction(label: '取消', onPressed: _noop),
+                BmDialogAction(label: '退出登录', onPressed: _noop),
+              ],
+            ),
+          );
+        },
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<Text>(find.text('退出登录')).style!.color,
+        host.colors.danger,
+      );
+      expect(_actionFill(tester, '退出登录'), host.colors.fillMuted);
+    });
+
+    testWidgets('单个动作保持中性，不抢主色', (tester) async {
+      final host = await _pumpHost(
+        tester,
+        onPressed: (context) {
+          showBmDialog<void>(
+            context: context,
+            builder: (_) => const BmDialog(
+              title: '关于应用',
+              message: '版本 1.0.0',
+              actions: [BmDialogAction(label: '关闭', onPressed: _noop)],
+            ),
+          );
+        },
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(_actionFill(tester, '关闭'), host.colors.fillMuted);
+      expect(
+        tester.widget<Text>(find.text('关闭')).style!.color,
+        host.colors.textPrimary,
+      );
+    });
+
+    testWidgets('hasFields：输入框吃满内容宽，面板不溢出', (tester) async {
+      final controller = TextEditingController();
+      addTearDown(controller.dispose);
+      await _pumpHost(
+        tester,
+        onPressed: (context) {
+          showBmDialog<void>(
+            context: context,
+            builder: (_) => BmDialog(
+              title: '新建歌单',
+              hasFields: true,
+              content: BmField(controller: controller, hintText: '歌单名称'),
+              actions: [
+                BmDialogAction(label: '取消', onPressed: _noop),
+                BmDialogAction(label: '创建', onPressed: _noop),
+              ],
+            ),
+          );
+        },
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getSize(find.byType(BmField)).width,
+        tester.getSize(find.byType(BmDialog)).width - BmTokens.s4 * 2,
+      );
+    });
+
+    testWidgets('message 居中走次级色；content 起始对齐', (tester) async {
+      final host = await _pumpHost(
+        tester,
+        onPressed: (context) {
+          showBmDialog<void>(
+            context: context,
+            builder: (_) => const BmDialog(
+              title: '标题',
+              message: '正文',
+              actions: [BmDialogAction(label: '好', onPressed: _noop)],
+            ),
+          );
+        },
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      final messageStyle = tester.widget<DefaultTextStyle>(
+        find
+            .ancestor(
+              of: find.text('正文'),
+              matching: find.byType(DefaultTextStyle),
+            )
+            .first,
+      );
+      expect(messageStyle.style.color, host.colors.textSecondary);
+      expect(messageStyle.textAlign, TextAlign.center);
+    });
+
+    testWidgets('content 起始对齐', (tester) async {
+      await _pumpHost(
+        tester,
+        onPressed: (context) {
+          showBmDialog<void>(
+            context: context,
+            builder: (_) => const BmDialog(
+              content: Text('自定义内容'),
+              actions: [BmDialogAction(label: '关闭', onPressed: _noop)],
+            ),
+          );
+        },
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      final contentDefaultStyle = tester.widget<DefaultTextStyle>(
+        find
+            .ancestor(
+              of: find.text('自定义内容'),
+              matching: find.byType(DefaultTextStyle),
+            )
+            .first,
+      );
+      expect(contentDefaultStyle.textAlign, TextAlign.start);
+    });
+
+    testWidgets('动作点击后带返回值 pop', (tester) async {
+      bool? result;
+      await _pumpHost(
+        tester,
+        onPressed: (context) async {
+          result = await showBmDialog<bool>(
+            context: context,
+            builder: (dialogContext) => BmDialog(
+              title: '确认',
+              message: '继续吗？',
+              actions: [
+                BmDialogAction(
+                  label: '取消',
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                ),
+                BmDialogAction(
+                  label: '继续',
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('继续'));
+      await tester.pumpAndSettle();
+
+      expect(result, isTrue);
+      expect(find.byType(BmDialog), findsNothing);
     });
 
     testWidgets('点遮罩关闭', (tester) async {
@@ -426,6 +676,21 @@ Finder _dialogScaleTransition() {
 double _dialogScale(WidgetTester tester) {
   return tester.widget<ScaleTransition>(_dialogScaleTransition()).scale.value;
 }
+
+/// 动作按钮的底色：最近的、带颜色的 [Container]。
+Color? _actionFill(WidgetTester tester, String label) {
+  final containers = tester.widgetList<Container>(
+    find.ancestor(of: find.text(label), matching: find.byType(Container)),
+  );
+  final decorated = containers.firstWhere(
+    (container) =>
+        container.decoration is BoxDecoration &&
+        (container.decoration! as BoxDecoration).color != null,
+  );
+  return (decorated.decoration! as BoxDecoration).color;
+}
+
+void _noop() {}
 
 Material _toastMaterial(WidgetTester tester) {
   return tester.widget<Material>(
