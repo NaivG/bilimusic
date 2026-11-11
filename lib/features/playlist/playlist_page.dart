@@ -246,7 +246,7 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
 
     if (confirmed != true || !mounted) return;
 
-    await showDialog<void>(
+    await showBmDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (_) => OfflineBatchDownloadDialog(

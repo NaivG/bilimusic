@@ -15,7 +15,12 @@ import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/features/lan_sync/ui/device_tile.dart';
 import 'package:bilimusic/features/lan_sync/ui/pair_qr_dialog.dart';
 import 'package:bilimusic/features/lan_sync/ui/pair_request_dialog.dart';
+import 'package:bilimusic/shared/ui/controls/bm_field.dart';
+import 'package:bilimusic/shared/ui/controls/bm_icon_button.dart';
 import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 import 'package:bilimusic/shared/utils/clipboard_helpers.dart';
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 
@@ -55,9 +60,9 @@ class _LanSyncPageState extends ConsumerState<LanSyncPage> {
 
   void _onPinRequest(PinRequest req) {
     if (!mounted) return;
-    showDialog(
+    showBmDialog<void>(
       context: context,
-      builder: (ctx) =>
+      builder: (_) =>
           PairRequestDialog(peerId: req.peerId, peerName: req.peerName),
     );
   }
@@ -119,37 +124,10 @@ class _LanSyncPageState extends ConsumerState<LanSyncPage> {
   }
 
   Future<void> _editDeviceName(String current) async {
-    final controller = TextEditingController(text: current);
-    final newName = await showDialog<String>(
+    final newName = await showBmDialog<String>(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('修改设备名'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            maxLength: 24,
-            decoration: const InputDecoration(
-              hintText: '对方看到的名称',
-              border: OutlineInputBorder(),
-              counterText: '',
-            ),
-            onSubmitted: (v) => Navigator.pop(ctx, v),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, controller.text),
-              child: const Text('保存'),
-            ),
-          ],
-        );
-      },
+      builder: (_) => _EditDeviceNameDialog(initialName: current),
     );
-    // controller.dispose();
     if (newName == null || newName.trim().isEmpty) return;
     await ref.read(deviceIdentityProvider).setName(newName.trim());
     // 同步到 SettingsManager（让持久化覆盖 LAN 自身）
@@ -160,9 +138,9 @@ class _LanSyncPageState extends ConsumerState<LanSyncPage> {
   }
 
   Future<void> _showQr(DeviceIdentity identity, PairingService pairing) async {
-    await showDialog<void>(
+    await showBmDialog<void>(
       context: context,
-      builder: (ctx) => PairQrDialog(
+      builder: (_) => PairQrDialog(
         deviceId: identity.id,
         deviceName: identity.name,
         pin: pairing.currentPin,
@@ -199,10 +177,10 @@ class _LanSyncPageState extends ConsumerState<LanSyncPage> {
     final svc = ref.read(lanSyncServiceProvider);
     unawaited(svc.pairWith(peer, pin));
     if (!mounted) return;
-    final result = await showDialog<PairingResult>(
+    final result = await showBmDialog<PairingResult>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => _WaitingForPeerDialog(peer: peer),
+      builder: (_) => _WaitingForPeerDialog(peer: peer),
     );
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
@@ -215,6 +193,52 @@ class _LanSyncPageState extends ConsumerState<LanSyncPage> {
         ),
       );
     }
+  }
+}
+
+/// 修改设备名面板：输入控制器随对话框路由释放。
+class _EditDeviceNameDialog extends StatefulWidget {
+  const _EditDeviceNameDialog({required this.initialName});
+
+  final String initialName;
+
+  @override
+  State<_EditDeviceNameDialog> createState() => _EditDeviceNameDialogState();
+}
+
+class _EditDeviceNameDialogState extends State<_EditDeviceNameDialog> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialName,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() => Navigator.of(context).pop(_controller.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return BmDialog(
+      title: '修改设备名',
+      hasFields: true,
+      content: BmField(
+        controller: _controller,
+        hintText: '对方看到的名称',
+        autofocus: true,
+        maxLength: 24,
+        onSubmitted: (value) => Navigator.of(context).pop(value),
+      ),
+      actions: [
+        BmDialogAction(
+          label: '取消',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        BmDialogAction(label: '保存', onPressed: _submit),
+      ],
+    );
   }
 }
 
@@ -323,14 +347,16 @@ class _SelfCard extends StatelessWidget {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.refresh, size: 18),
+                  BmIconButton(
+                    icon: Icons.refresh,
                     tooltip: '重置 PIN',
+                    size: BmIconButtonSize.sm,
                     onPressed: onRotatePin,
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.qr_code_2, size: 18),
+                  BmIconButton(
+                    icon: Icons.qr_code_2,
                     tooltip: '显示二维码',
+                    size: BmIconButtonSize.sm,
                     onPressed: onShowQr,
                   ),
                 ],
@@ -394,15 +420,15 @@ class _Field extends StatelessWidget {
           ),
         ),
         if (onEdit != null)
-          IconButton(
-            icon: const Icon(Icons.edit, size: 18),
-            visualDensity: VisualDensity.compact,
+          BmIconButton(
+            icon: Icons.edit,
+            size: BmIconButtonSize.sm,
             onPressed: onEdit,
           ),
         if (copyValue != null && copyValue!.isNotEmpty)
-          IconButton(
-            icon: const Icon(Icons.copy, size: 18),
-            visualDensity: VisualDensity.compact,
+          BmIconButton(
+            icon: Icons.copy,
+            size: BmIconButtonSize.sm,
             onPressed: () => copyToClipboard(context, copyValue!),
           ),
         ?trailing,
@@ -452,31 +478,29 @@ class _WaitingForPeerDialogState extends ConsumerState<_WaitingForPeerDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('等待对方响应'),
+    final colors = context.bmColors;
+    final type = context.bmType;
+    return BmDialog(
+      title: '等待对方响应',
       content: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const SizedBox(height: 8),
-          const CircularProgressIndicator(),
-          const SizedBox(height: 16),
+          CircularProgressIndicator(color: colors.accent),
+          const SizedBox(height: BmTokens.s3),
           Text(
             '正在等待 ${widget.peer.name} 在其设备上确认配对…',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium,
+            style: type.body.copyWith(color: colors.textPrimary),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: BmTokens.s2),
           Text(
             '对方需要在弹窗中输入你的 6 位 PIN 后双方才配对成功。',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+            style: type.caption.copyWith(color: colors.textTertiary),
           ),
         ],
       ),
-      actions: [TextButton(onPressed: _onCancel, child: const Text('取消配对'))],
+      actions: [BmDialogAction(label: '取消配对', onPressed: _onCancel)],
     );
   }
 }
@@ -655,50 +679,81 @@ class _PeerSection extends StatelessWidget {
     PeerDevice peer,
     void Function(PeerDevice, String) onPair,
   ) async {
-    final controller = TextEditingController();
-    final pin = await showDialog<String>(
+    final pin = await showBmDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('与 ${peer.name} 配对'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '请输入对方设备上的 6 位 PIN：',
-              style: TextStyle(
-                color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              decoration: const InputDecoration(
-                hintText: '6 位数字',
-                counterText: '',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+      builder: (_) => _EnterPinDialog(peerName: peer.name),
+    );
+    if (pin == null || pin.length != 6) return;
+    onPair(peer, pin);
+  }
+}
+
+/// 主动配对时输入对方设备 PIN 的面板。
+class _EnterPinDialog extends StatefulWidget {
+  const _EnterPinDialog({required this.peerName});
+
+  final String peerName;
+
+  @override
+  State<_EnterPinDialog> createState() => _EnterPinDialogState();
+}
+
+class _EnterPinDialogState extends State<_EnterPinDialog> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  String get _pin => _controller.text.trim();
+
+  void _submit() {
+    final pin = _pin;
+    if (pin.length != 6) return;
+    Navigator.of(context).pop(pin);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.bmColors;
+    final type = context.bmType;
+    return BmDialog(
+      title: '与 ${widget.peerName} 配对',
+      hasFields: true,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '请输入对方设备上的 6 位 PIN：',
+            style: type.body.copyWith(color: colors.textSecondary),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('配对'),
+          const SizedBox(height: BmTokens.s3),
+          BmField(
+            controller: _controller,
+            hintText: '6 位数字',
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            onChanged: (_) => setState(() {}),
+            onSubmitted: (_) => _submit(),
           ),
         ],
       ),
+      actions: [
+        BmDialogAction(
+          label: '取消',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        BmDialogAction(
+          label: '配对',
+          enabled: _pin.length == 6,
+          onPressed: _submit,
+        ),
+      ],
     );
-    // controller.dispose();
-    if (pin == null || pin.length != 6) return;
-    onPair(peer, pin);
   }
 }
 

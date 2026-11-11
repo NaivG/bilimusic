@@ -3,13 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:bilimusic/app/app_lifecycle.dart';
 import 'package:bilimusic/app/desktop_tray.dart';
 import 'package:bilimusic/features/settings/settings_manager.dart';
+import 'package:bilimusic/shared/motion/bm_pressable.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 
 /// 关闭行为确认弹窗：询问本次关闭是「最小化至托盘」还是「直接退出」。
 ///
 /// 勾选「不再提示」后，本次选择会覆写设置里的关闭行为，之后不再弹窗
 /// （可在「设置 - 窗口行为 - 关闭行为」改回「弹出提示」）。
 Future<void> showCloseConfirmDialog(BuildContext context) {
-  return showDialog<void>(
+  return showBmDialog<void>(
     context: context,
     // 点弹窗外或按 ESC 取消：窗口保持原状，不执行任何关闭行为
     barrierDismissible: true,
@@ -48,37 +53,84 @@ class _CloseConfirmDialogState extends State<_CloseConfirmDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AlertDialog(
-      title: const Text('关闭 BiliMusic'),
+    final colors = context.bmColors;
+    final type = context.bmType;
+    return BmDialog(
+      title: '关闭 BiliMusic',
+      // 最后一个动作是「直接退出」：销毁式操作走 danger 文字
+      destructive: true,
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('关闭窗口时希望执行什么操作？'),
-          CheckboxListTile(
-            value: _remember,
-            onChanged: (value) => setState(() => _remember = value ?? false),
-            controlAffinity: ListTileControlAffinity.leading,
-            contentPadding: EdgeInsets.zero,
-            dense: true,
-            title: const Text('不再提示'),
-            subtitle: const Text('可在「设置 - 窗口行为 - 关闭行为」中修改'),
+          Text(
+            '关闭窗口时希望执行什么操作？',
+            style: type.body.copyWith(color: colors.textPrimary),
+          ),
+          const SizedBox(height: BmTokens.s3),
+          BmPressable(
+            onTap: () => setState(() => _remember = !_remember),
+            borderRadius: BmTokens.r10All,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: BmTokens.s1),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: BmTokens.s1 / 2),
+                    child: Container(
+                      width: BmTokens.icon,
+                      height: BmTokens.icon,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: _remember ? colors.accent : null,
+                        borderRadius: BmTokens.r4All,
+                        border: Border.all(
+                          color: _remember ? colors.accent : colors.hairline,
+                          width: BmTokens.hairlineWidth,
+                        ),
+                      ),
+                      child: _remember
+                          ? Icon(
+                              Icons.check,
+                              size: BmTokens.iconInline,
+                              color: colors.onAccent,
+                            )
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: BmTokens.s2),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '不再提示',
+                          style: type.body.copyWith(color: colors.textPrimary),
+                        ),
+                        Text(
+                          '可在「设置 - 窗口行为 - 关闭行为」中修改',
+                          style: type.caption.copyWith(
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
       actions: [
-        TextButton(
+        BmDialogAction(
+          label: '最小化至托盘',
           onPressed: () => _confirm(minimize: true),
-          child: const Text('最小化至托盘'),
         ),
-        FilledButton(
+        BmDialogAction(
+          label: '直接退出',
           onPressed: () => _confirm(minimize: false),
-          style: FilledButton.styleFrom(
-            backgroundColor: colorScheme.error,
-            foregroundColor: colorScheme.onError,
-          ),
-          child: const Text('直接退出'),
         ),
       ],
     );

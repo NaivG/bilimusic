@@ -11,6 +11,9 @@ import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 /// 输入框下方给 `caption` 提示。label 在输入框上方，[leading] / [trailing]
 /// 传未定尺寸的 [Icon] 时按 [BmTokens.icon] 渲染。
 ///
+/// 默认单行；[maxLines] 大于 1 时放开固定高度，按行数自适应（粘贴配置串等）。
+/// [maxLength] 非空时硬截断字符数，计数行不占版面。
+///
 /// ```dart
 /// BmField(
 ///   hintText: '搜索',
@@ -35,6 +38,9 @@ class BmField extends StatelessWidget {
     this.width,
     this.textInputAction,
     this.keyboardType,
+    this.minLines,
+    this.maxLines = 1,
+    this.maxLength,
   });
 
   final TextEditingController? controller;
@@ -63,6 +69,15 @@ class BmField extends StatelessWidget {
 
   final TextInputAction? textInputAction;
   final TextInputType? keyboardType;
+
+  /// 多行输入的最小行数；[maxLines] 为 1 时忽略。
+  final int? minLines;
+
+  /// 最多显示行数；大于 1 时输入框不再固定 [BmTokens.controlLg] 高。
+  final int maxLines;
+
+  /// 最大字符数；非空时硬截断，且不显示 Material 的计数行。
+  final int? maxLength;
 
   /// 40 高的输入框里，图标区域不能吃 Material 默认的 48 最小触摸尺寸。
   static const BoxConstraints _iconConstraints = BoxConstraints(
@@ -93,43 +108,48 @@ class BmField extends StatelessWidget {
       borderSide: BorderSide(color: colors.danger, width: 2),
     );
 
-    final field = SizedBox(
-      height: BmTokens.controlLg,
-      child: TextField(
-        controller: controller,
-        focusNode: focusNode,
-        enabled: enabled,
-        autofocus: autofocus,
-        keyboardType: keyboardType,
-        textInputAction: textInputAction,
-        style: type.body.copyWith(color: colors.textPrimary),
-        onChanged: onChanged,
-        onSubmitted: onSubmitted,
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: colors.surfaceSunken,
-          isDense: true,
-          hintText: hintText,
-          hintStyle: type.body.copyWith(color: colors.textTertiary),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: BmTokens.s3,
-            vertical: BmTokens.s2,
-          ),
-          // 错误提示由 BmField 自己画在输入框下方，40 高不被撑开；
-          // 错误态边框按 errorText 直接选，保证不依赖 InputDecorator 的错误行。
-          border: hasError ? errorBorder : idleBorder,
-          enabledBorder: hasError ? errorBorder : idleBorder,
-          disabledBorder: idleBorder,
-          focusedBorder: hasError ? focusedErrorBorder : focusedBorder,
-          errorBorder: errorBorder,
-          focusedErrorBorder: focusedErrorBorder,
-          prefixIcon: _icon(leading, colors),
-          suffixIcon: _icon(trailing, colors),
-          prefixIconConstraints: _iconConstraints,
-          suffixIconConstraints: _iconConstraints,
+    final multiline = maxLines > 1;
+    final textField = TextField(
+      controller: controller,
+      focusNode: focusNode,
+      enabled: enabled,
+      autofocus: autofocus,
+      keyboardType: keyboardType,
+      textInputAction: textInputAction,
+      minLines: multiline ? minLines : null,
+      maxLines: multiline ? maxLines : 1,
+      maxLength: maxLength,
+      style: type.body.copyWith(color: colors.textPrimary),
+      onChanged: onChanged,
+      onSubmitted: onSubmitted,
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: colors.surfaceSunken,
+        isDense: true,
+        hintText: hintText,
+        hintStyle: type.body.copyWith(color: colors.textTertiary),
+        counterText: '',
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: BmTokens.s3,
+          vertical: BmTokens.s2,
         ),
+        // 错误提示由 BmField 自己画在输入框下方，40 高不被撑开；
+        // 错误态边框按 errorText 直接选，保证不依赖 InputDecorator 的错误行。
+        border: hasError ? errorBorder : idleBorder,
+        enabledBorder: hasError ? errorBorder : idleBorder,
+        disabledBorder: idleBorder,
+        focusedBorder: hasError ? focusedErrorBorder : focusedBorder,
+        errorBorder: errorBorder,
+        focusedErrorBorder: focusedErrorBorder,
+        prefixIcon: _icon(leading, colors),
+        suffixIcon: _icon(trailing, colors),
+        prefixIconConstraints: _iconConstraints,
+        suffixIconConstraints: _iconConstraints,
       ),
     );
+    final field = multiline
+        ? textField
+        : SizedBox(height: BmTokens.controlLg, child: textField);
 
     return SizedBox(
       width: width,

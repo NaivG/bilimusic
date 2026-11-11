@@ -175,6 +175,40 @@ void main() {
       );
     });
 
+    testWidgets('enabled: false：底色退回 fillMuted、文字 textTertiary、点击不关闭', (
+      tester,
+    ) async {
+      final host = await _pumpHost(
+        tester,
+        onPressed: (context) {
+          showBmDialog<void>(
+            context: context,
+            builder: (_) => BmDialog(
+              title: '新建歌单',
+              content: const Text('名称待填'),
+              actions: [
+                BmDialogAction(label: '取消', onPressed: _noop),
+                BmDialogAction(label: '创建', onPressed: _noop, enabled: false),
+              ],
+            ),
+          );
+        },
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(_actionFill(tester, '创建'), host.colors.fillMuted);
+      expect(
+        tester.widget<Text>(find.text('创建')).style!.color,
+        host.colors.textTertiary,
+      );
+
+      await tester.tap(find.text('创建'), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(find.byType(BmDialog), findsOneWidget);
+    });
+
     testWidgets('hasFields：输入框吃满内容宽，面板不溢出', (tester) async {
       final controller = TextEditingController();
       addTearDown(controller.dispose);

@@ -1,4 +1,4 @@
-﻿import 'package:bilimusic/shared/theme/theme_registry.dart';
+import 'package:bilimusic/shared/theme/theme_registry.dart';
 import 'package:bilimusic/shared/ui/controls/bm_field.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
@@ -94,6 +94,35 @@ void main() {
     expect(
       tester.getBottomLeft(find.text('关键词')).dy,
       lessThan(tester.getTopLeft(find.byType(TextField)).dy),
+    );
+  });
+
+  testWidgets('maxLines > 1：放开固定高度，minLines 生效', (tester) async {
+    await _pumpField(
+      tester,
+      const BmField(hintText: '配置', minLines: 3, maxLines: 6),
+    );
+
+    final textField = tester.widget<TextField>(find.byType(TextField));
+    expect(textField.maxLines, 6);
+    expect(textField.minLines, 3);
+    expect(
+      tester.getSize(find.byType(TextField)).height,
+      greaterThan(BmTokens.controlLg),
+      reason: '多行输入不再锁 40 高',
+    );
+  });
+
+  testWidgets('maxLength：计入硬截断且隐藏计数行', (tester) async {
+    await _pumpField(tester, const BmField(hintText: 'PIN', maxLength: 6));
+
+    final textField = tester.widget<TextField>(find.byType(TextField));
+    expect(textField.maxLength, 6);
+    expect(textField.decoration!.counterText, '');
+    expect(
+      tester.getSize(find.byType(TextField)).height,
+      BmTokens.controlLg,
+      reason: '计数行隐藏后仍是 40 高',
     );
   });
 

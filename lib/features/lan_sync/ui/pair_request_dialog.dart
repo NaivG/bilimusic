@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/shared/ui/controls/bm_field.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 
 /// 被动方收到对方 hello 时弹的"输入对端 PIN + 接受或拒绝"弹窗。
 ///
@@ -36,52 +41,42 @@ class _PairRequestDialogState extends ConsumerState<PairRequestDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return AlertDialog(
-      title: Row(
-        children: [
-          const Icon(Icons.devices),
-          const SizedBox(width: 8),
-          Expanded(child: Text('配对请求', style: theme.textTheme.titleMedium)),
-        ],
-      ),
+    final colors = context.bmColors;
+    final type = context.bmType;
+    return BmDialog(
+      title: '配对请求',
+      hasFields: true,
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('${widget.peerName} 想要与你配对。', style: theme.textTheme.bodyMedium),
-          const SizedBox(height: 12),
+          Text(
+            '${widget.peerName} 想要与你配对。',
+            style: type.body.copyWith(color: colors.textPrimary),
+          ),
+          const SizedBox(height: BmTokens.s3),
           Text(
             '请在 ${widget.peerName} 的"局域网同步"页查看 6 位 PIN 并输入：',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: type.caption.copyWith(color: colors.textSecondary),
           ),
-          const SizedBox(height: 8),
-          TextField(
+          const SizedBox(height: BmTokens.s2),
+          BmField(
             controller: _controller,
             autofocus: true,
             keyboardType: TextInputType.number,
             maxLength: 6,
-            decoration: InputDecoration(
-              hintText: '6 位数字',
-              counterText: '',
-              border: const OutlineInputBorder(),
-              errorText: _error,
-            ),
+            hintText: '6 位数字',
+            errorText: _error,
+            onChanged: (_) {
+              if (_error != null) setState(() => _error = null);
+            },
             onSubmitted: (_) => _onConfirm(),
           ),
         ],
       ),
       actions: [
-        TextButton(
-          onPressed: _busy ? null : _onReject,
-          child: const Text('拒绝'),
-        ),
-        FilledButton(
-          onPressed: _busy ? null : _onConfirm,
-          child: const Text('确认'),
-        ),
+        BmDialogAction(label: '拒绝', enabled: !_busy, onPressed: _onReject),
+        BmDialogAction(label: '确认', enabled: !_busy, onPressed: _onConfirm),
       ],
     );
   }

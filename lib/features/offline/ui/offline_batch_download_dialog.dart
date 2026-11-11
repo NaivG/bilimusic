@@ -4,6 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/offline/models/offline_track.dart';
 import 'package:bilimusic/features/offline/offline_providers.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 
 /// 批量离线缓存进度对话框。
 ///
@@ -80,7 +84,8 @@ class _OfflineBatchDownloadDialogState
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final colors = context.bmColors;
+    final type = context.bmType;
     final title = _running
         ? '正在离线缓存'
         : _fatalError != null
@@ -91,124 +96,107 @@ class _OfflineBatchDownloadDialogState
 
     return PopScope(
       canPop: !_running,
-      child: AlertDialog(
-        title: Row(
+      child: BmDialog(
+        title: title,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              _running
-                  ? Icons.downloading
-                  : _fatalError != null
-                  ? Icons.error_outline
-                  : Icons.download_done,
-              color: _running
-                  ? colorScheme.primary
-                  : _fatalError != null
-                  ? colorScheme.error
-                  : colorScheme.tertiary,
-            ),
-            const SizedBox(width: 10),
-            Expanded(child: Text(title)),
-          ],
-        ),
-        content: SizedBox(
-          width: 380,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (widget.playlistName != null &&
-                  widget.playlistName!.isNotEmpty) ...[
-                Text(
-                  widget.playlistName!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-              if (_running) _buildRunning(colorScheme),
-              if (!_running) _buildResult(colorScheme),
+            if (widget.playlistName != null &&
+                widget.playlistName!.isNotEmpty) ...[
+              Text(
+                widget.playlistName!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: type.label.copyWith(color: colors.textSecondary),
+              ),
+              const SizedBox(height: BmTokens.s4),
             ],
-          ),
+            if (_running) _buildRunning() else _buildResult(),
+          ],
         ),
         actions: [
           if (_running)
-            TextButton(
-              onPressed: _cancelRequested ? null : _requestCancel,
-              child: Text(_cancelRequested ? '正在取消…' : '取消'),
+            BmDialogAction(
+              label: _cancelRequested ? '正在取消…' : '取消',
+              enabled: !_cancelRequested,
+              onPressed: _requestCancel,
             )
           else
-            FilledButton(
+            BmDialogAction(
+              label: '完成',
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('完成'),
             ),
         ],
       ),
     );
   }
 
-  Widget _buildRunning(ColorScheme colorScheme) {
+  Widget _buildRunning() {
+    final colors = context.bmColors;
+    final type = context.bmType;
     final base = (_current - 1).clamp(0, _total);
     final value = _total > 0 ? (base / _total).clamp(0.0, 1.0) : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(value: value, minHeight: 6),
+        LinearProgressIndicator(
+          value: value,
+          minHeight: BmTokens.s1,
+          borderRadius: BmTokens.r4All,
+          color: colors.accent,
+          backgroundColor: colors.fillMuted,
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: BmTokens.s4),
         Row(
           children: [
             SizedBox(
-              width: 14,
-              height: 14,
+              width: BmTokens.iconInline,
+              height: BmTokens.iconInline,
               child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: colorScheme.primary,
+                strokeWidth: BmTokens.s1 / 2,
+                color: colors.accent,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: BmTokens.s2),
             Expanded(
               child: Text(
                 '正在缓存 $_current / $_total',
-                style: TextStyle(
-                  fontSize: 13,
+                style: BmTypography.numeric(type.label).copyWith(
                   fontWeight: FontWeight.w600,
-                  color: colorScheme.onSurface,
+                  color: colors.textPrimary,
                 ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: BmTokens.s1),
         Text(
           _currentMusic?.title ?? '准备中…',
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+          style: type.label.copyWith(color: colors.textSecondary),
         ),
         if (_cancelRequested) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: BmTokens.s3),
           Text(
             '将在当前曲目下载完成后停止',
-            style: TextStyle(fontSize: 12, color: colorScheme.tertiary),
+            style: type.caption.copyWith(color: colors.warning),
           ),
         ],
       ],
     );
   }
 
-  Widget _buildResult(ColorScheme colorScheme) {
+  Widget _buildResult() {
+    final colors = context.bmColors;
+    final type = context.bmType;
     final result = _result;
     if (_fatalError != null) {
       return Text(
         '批量缓存失败：$_fatalError',
-        style: TextStyle(fontSize: 13, color: colorScheme.error),
+        style: type.label.copyWith(color: colors.danger),
       );
     }
     if (result == null) return const SizedBox.shrink();
@@ -222,36 +210,36 @@ class _OfflineBatchDownloadDialogState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(value: 1, minHeight: 6),
+        LinearProgressIndicator(
+          value: 1,
+          minHeight: BmTokens.s1,
+          borderRadius: BmTokens.r4All,
+          color: colors.accent,
+          backgroundColor: colors.fillMuted,
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: BmTokens.s4),
         Text(
           parts.join(' · '),
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: colorScheme.onSurface,
-          ),
+          style: BmTypography.numeric(type.label)
+              .copyWith(fontWeight: FontWeight.w600, color: colors.textPrimary),
         ),
         if (result.cancelled) ...[
-          const SizedBox(height: 6),
+          const SizedBox(height: BmTokens.s1),
           Text(
             '已取消，剩余 ${widget.songs.length - result.processed} 首未处理',
-            style: TextStyle(fontSize: 12, color: colorScheme.tertiary),
+            style: type.caption.copyWith(color: colors.warning),
           ),
         ],
         if (result.errors.isNotEmpty) ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: BmTokens.s3),
           for (final error in result.errors)
             Padding(
-              padding: const EdgeInsets.only(bottom: 4),
+              padding: const EdgeInsets.only(bottom: BmTokens.s1),
               child: Text(
                 error,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, color: colorScheme.error),
+                style: type.caption.copyWith(color: colors.danger),
               ),
             ),
         ],

@@ -9,6 +9,7 @@ import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/offline/models/offline_track.dart';
 import 'package:bilimusic/features/offline/offline_providers.dart';
 import 'package:bilimusic/features/offline/ui/offline_batch_download_dialog.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
 
 void main() {
   Music sample(String id, String title) => Music(
@@ -37,7 +38,7 @@ void main() {
           home: Scaffold(
             body: Builder(
               builder: (context) => TextButton(
-                onPressed: () => showDialog<void>(
+                onPressed: () => showBmDialog<void>(
                   context: context,
                   barrierDismissible: false,
                   builder: (_) => OfflineBatchDownloadDialog(

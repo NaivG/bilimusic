@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+
 import 'package:bilimusic/features/fav_sync/fav_sync_manager.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 
 /// 导入进度对话框
 /// 展示导入 Bilibili 收藏夹时的实时进度
@@ -79,96 +84,97 @@ class _ImportProgressDialogState extends State<ImportProgressDialog> {
     });
   }
 
+  /// 状态图标：失败 / 完成 / 进行中。
+  Widget _buildStatus(BmColors colors) {
+    if (_errorMessage != null) {
+      return Icon(
+        Icons.error_outline,
+        size: BmTokens.iconTile,
+        color: colors.danger,
+      );
+    }
+    if (_isComplete) {
+      return Icon(
+        Icons.check_circle,
+        size: BmTokens.iconTile,
+        color: colors.success,
+      );
+    }
+    return SizedBox(
+      width: BmTokens.iconTile,
+      height: BmTokens.iconTile,
+      child: CircularProgressIndicator(
+        strokeWidth: BmTokens.s1 / 2,
+        color: colors.accent,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 标题
-            Text(
-              _isComplete ? '导入完成' : '正在导入',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+    final colors = context.bmColors;
+    final type = context.bmType;
+    final canDismiss = _isComplete || _errorMessage != null;
+
+    return BmDialog(
+      title: _isComplete ? '导入完成' : '正在导入',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            _errorMessage != null ? '出错了' : widget.folderName,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: type.label.copyWith(color: colors.textSecondary),
+          ),
+          const SizedBox(height: BmTokens.s5),
+          Center(child: _buildStatus(colors)),
+          if (_total > 0 && _errorMessage == null) ...[
+            const SizedBox(height: BmTokens.s4),
+            LinearProgressIndicator(
+              value: _processed / _total,
+              minHeight: BmTokens.s1,
+              borderRadius: BmTokens.r4All,
+              color: colors.accent,
+              backgroundColor: colors.fillMuted,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: BmTokens.s2),
             Text(
-              _errorMessage != null ? '出错了' : widget.folderName,
-              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+              '$_processed / $_total',
               textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 24),
-
-            // 图标
-            if (_errorMessage != null)
-              const Icon(Icons.error_outline, size: 48, color: Colors.red)
-            else if (_isComplete)
-              const Icon(Icons.check_circle, size: 48, color: Colors.green)
-            else
-              const SizedBox(
-                width: 48,
-                height: 48,
-                child: CircularProgressIndicator(strokeWidth: 3),
-              ),
-
-            const SizedBox(height: 16),
-
-            // 进度条
-            if (_total > 0 && _errorMessage == null) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: _total > 0 ? _processed / _total : null,
-                  minHeight: 6,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '$_processed / $_total',
-                style: TextStyle(color: Colors.grey[600], fontSize: 13),
-              ),
-            ],
-
-            // 跳过计数
-            if (_failed > 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  '已跳过 $_failed 个失效内容',
-                  style: const TextStyle(color: Colors.orange, fontSize: 12),
-                ),
-              ),
-
-            // 错误信息
-            if (_errorMessage != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  _errorMessage!,
-                  style: const TextStyle(color: Colors.red, fontSize: 13),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-
-            const SizedBox(height: 24),
-
-            // 按钮
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isComplete || _errorMessage != null
-                    ? _dismiss
-                    : null,
-                child: Text(_errorMessage != null ? '关闭' : '完成'),
-              ),
+              style: BmTypography.numeric(type.label)
+                  .copyWith(color: colors.textSecondary),
             ),
           ],
-        ),
+          if (_failed > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: BmTokens.s1),
+              child: Text(
+                '已跳过 $_failed 个失效内容',
+                textAlign: TextAlign.center,
+                style: type.caption.copyWith(color: colors.warning),
+              ),
+            ),
+          if (_errorMessage != null)
+            Padding(
+              padding: const EdgeInsets.only(top: BmTokens.s2),
+              child: Text(
+                _errorMessage!,
+                textAlign: TextAlign.center,
+                style: type.label.copyWith(color: colors.danger),
+              ),
+            ),
+        ],
       ),
+      actions: [
+        BmDialogAction(
+          label: _errorMessage != null ? '关闭' : '完成',
+          enabled: canDismiss,
+          onPressed: _dismiss,
+        ),
+      ],
     );
   }
 }

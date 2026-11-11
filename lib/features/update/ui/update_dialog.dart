@@ -4,7 +4,10 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:bilimusic/features/update/models/changelog_entry.dart';
 import 'package:bilimusic/features/update/update_installer.dart';
 import 'package:bilimusic/features/update/ui/notification_permission.dart';
-import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 
 /// 更新弹窗：展示更新日志，并在"立即更新"时执行应用内更新
 /// （Android 走系统下载 + 安装页，桌面端下载 zip 换血重启）。
@@ -24,7 +27,7 @@ class UpdateAvailableDialog extends StatefulWidget {
     required String newVersion,
     required List<ChangelogEntry> changelog,
   }) {
-    return showDialog(
+    return showBmDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (context) =>
@@ -133,52 +136,42 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return PopScope(
       canPop: !_installing,
-      child: AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-        ),
-        backgroundColor: colorScheme.surfaceContainerHighest,
-        icon: Icon(Icons.system_update, size: 48, color: colorScheme.primary),
-        title: Text('发现新版本 v${widget.newVersion}'),
-        content: SizedBox(
-          width: 400,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '以下是本次更新内容：',
-                style: TextStyle(color: colorScheme.onSurfaceVariant),
+      child: BmDialog(
+        title: '发现新版本 v${widget.newVersion}',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '以下是本次更新内容：',
+              style: context.bmType.body.copyWith(
+                color: context.bmColors.textSecondary,
               ),
-              const SizedBox(height: 12),
-              // 更新日志条目可能很多，包一层可滚动容器避免撑爆弹窗高度；
-              // Flexible 限定日志区域最多占弹窗剩余高度，内容少时仍自适应
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: widget.changelog
-                        .map((entry) => _buildChangelogItem(entry, colorScheme))
-                        .toList(),
-                  ),
+            ),
+            const SizedBox(height: BmTokens.s3),
+            for (final entry in widget.changelog) _buildChangelogItem(entry),
+            if (_stage != _InstallStage.idle) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: BmTokens.s3),
+                child: Container(
+                  height: BmTokens.hairlineWidth,
+                  color: context.bmColors.hairline,
                 ),
               ),
-              if (_stage != _InstallStage.idle) ...[
-                const Divider(height: 24),
-                _buildStatusSection(colorScheme),
-              ],
+              _buildStatusSection(),
             ],
-          ),
+          ],
         ),
-        actions: _buildActions(colorScheme),
+        actions: _buildActions(),
       ),
     );
   }
 
-  Widget _buildStatusSection(ColorScheme colorScheme) {
+  Widget _buildStatusSection() {
+    final colors = context.bmColors;
+    final type = context.bmType;
     switch (_stage) {
       case _InstallStage.installing:
         final phase = _phase;
@@ -190,35 +183,25 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
               value: phase == UpdatePhase.downloading && determinate
                   ? (_receivedBytes / _totalBytes!).clamp(0.0, 1.0).toDouble()
                   : null,
-              minHeight: 4,
-              borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-              // 弹窗背景是 surfaceContainerHighest，与进度条默认轨道色
-              // 相同，不加显式颜色时进度条会整个融进背景里
-              color: colorScheme.primary,
-              backgroundColor: colorScheme.onSurfaceVariant.withValues(
-                alpha: 0.15,
-              ),
+              minHeight: BmTokens.s1,
+              borderRadius: BmTokens.r4All,
+              color: colors.accent,
+              backgroundColor: colors.fillMuted,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: BmTokens.s2),
             Row(
               children: [
                 Expanded(
                   child: Text(
                     phase == null ? '' : _phaseLabel(phase),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                    style: type.caption.copyWith(color: colors.textSecondary),
                   ),
                 ),
                 if (phase == UpdatePhase.downloading)
                   Text(
                     '${_bytesLabel(_receivedBytes)}'
                     '${_totalBytes != null ? ' / ${_bytesLabel(_totalBytes)}' : ''}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                    style: type.caption.copyWith(color: colors.textSecondary),
                   ),
               ],
             ),
@@ -228,17 +211,18 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.check_circle, size: 16, color: colorScheme.primary),
-            const SizedBox(width: 8),
+            Icon(
+              Icons.check_circle,
+              size: BmTokens.iconMenu,
+              color: colors.success,
+            ),
+            const SizedBox(width: BmTokens.s2),
             Expanded(
               child: Text(
                 _notificationPermissionGranted
                     ? '已开始后台下载更新，完成后将自动弹出安装界面，可在通知栏查看进度。'
                     : '已开始后台下载更新，完成后将自动弹出安装界面。',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: colorScheme.onSurfaceVariant,
-                ),
+                style: type.caption.copyWith(color: colors.textSecondary),
               ),
             ),
           ],
@@ -247,12 +231,16 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.error_outline, size: 16, color: colorScheme.error),
-            const SizedBox(width: 8),
+            Icon(
+              Icons.error_outline,
+              size: BmTokens.iconMenu,
+              color: colors.danger,
+            ),
+            const SizedBox(width: BmTokens.s2),
             Expanded(
               child: Text(
                 '更新失败：${_errorText ?? '未知错误'}',
-                style: TextStyle(fontSize: 12, color: colorScheme.error),
+                style: type.caption.copyWith(color: colors.danger),
               ),
             ),
           ],
@@ -262,45 +250,37 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
     }
   }
 
-  List<Widget> _buildActions(ColorScheme colorScheme) {
+  List<BmDialogAction> _buildActions() {
     switch (_stage) {
       case _InstallStage.installing:
-        return [];
+        return const <BmDialogAction>[];
       case _InstallStage.androidStarted:
         return [
-          TextButton(
+          BmDialogAction(
+            label: '关闭',
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('关闭'),
           ),
         ];
       case _InstallStage.idle:
       case _InstallStage.error:
         return [
-          TextButton(
+          BmDialogAction(
+            label: '暂不更新',
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              '暂不更新',
-              style: TextStyle(color: colorScheme.onSurfaceVariant),
-            ),
           ),
-          ElevatedButton(
+          BmDialogAction(
+            label: _stage == _InstallStage.error ? '重试' : '立即更新',
             onPressed: _startInstall,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: colorScheme.primary,
-              foregroundColor: colorScheme.onPrimary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-              ),
-            ),
-            child: Text(_stage == _InstallStage.error ? '重试' : '立即更新'),
           ),
         ];
     }
   }
 
-  Widget _buildChangelogItem(ChangelogEntry entry, ColorScheme colorScheme) {
+  Widget _buildChangelogItem(ChangelogEntry entry) {
+    final colors = context.bmColors;
+    final type = context.bmType;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: BmTokens.s3),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -308,40 +288,33 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
             children: [
               Text(
                 'v${entry.version}',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: colorScheme.onSurface,
-                ),
+                style: type.bodyStrong.copyWith(color: colors.textPrimary),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: BmTokens.s2),
               Text(
                 entry.date,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: colorScheme.onSurfaceVariant,
-                ),
+                style: type.caption.copyWith(color: colors.textSecondary),
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: BmTokens.s1),
           ...entry.changes.map(
             (change) => Padding(
-              padding: const EdgeInsets.only(left: 8, top: 2),
+              padding: const EdgeInsets.only(
+                left: BmTokens.s2,
+                top: BmTokens.s1 / 2,
+              ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     '• ',
-                    style: TextStyle(fontSize: 12, color: colorScheme.primary),
+                    style: type.caption.copyWith(color: colors.accent),
                   ),
                   Expanded(
                     child: Text(
                       change,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
+                      style: type.caption.copyWith(color: colors.textSecondary),
                     ),
                   ),
                 ],

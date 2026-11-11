@@ -314,60 +314,89 @@ IconData _platformIcon(String platform) {
   }
 }
 
-void _createNewPlaylist(BuildContext context, PlaylistService playlistService) {
-  final controller = TextEditingController();
-  final formKey = GlobalKey<FormState>();
-
-  showDialog(
+Future<void> _createNewPlaylist(
+  BuildContext context,
+  PlaylistService playlistService,
+) {
+  return showBmDialog<void>(
     context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: const Text('创建新歌单'),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: controller,
-            decoration: const InputDecoration(
-              labelText: '歌单名称',
-              hintText: '请输入歌单名称',
-            ),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return '请输入歌单名称';
-              }
-              return null;
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('取消'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (formKey.currentState!.validate()) {
-                final playlistName = controller.text.trim();
-                // 跨 async gap 前先拿到 navigator 与 messenger
-                final navigator = Navigator.of(context);
-                final messenger = ScaffoldMessenger.of(context);
-                try {
-                  await playlistService.createPlaylist(name: playlistName);
-                  navigator.pop();
-                  messenger.showSnackBar(
-                    SnackBar(content: Text('已创建歌单"$playlistName"')),
-                  );
-                } catch (e) {
-                  messenger.showSnackBar(SnackBar(content: Text('创建歌单失败: $e')));
-                }
-              }
-            },
-            child: const Text('创建'),
-          ),
-        ],
-      );
-    },
-  ).then((_) => controller.dispose());
+    builder: (_) => _CreatePlaylistDialog(service: playlistService),
+  );
+}
+
+/// 新建歌单输入面板：名称为空时就地提示；创建失败保留面板，可直接重试。
+class _CreatePlaylistDialog extends StatefulWidget {
+  const _CreatePlaylistDialog({required this.service});
+
+  final PlaylistService service;
+
+  @override
+  State<_CreatePlaylistDialog> createState() => _CreatePlaylistDialogState();
+}
+
+class _CreatePlaylistDialogState extends State<_CreatePlaylistDialog> {
+  final TextEditingController _controller = TextEditingController();
+
+  String? _errorText;
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final name = _controller.text.trim();
+    if (name.isEmpty) {
+      setState(() => _errorText = '请输入歌单名称');
+      return;
+    }
+    if (_busy) return;
+    // 跨 async gap 前先拿到 navigator 与 messenger。
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() {
+      _busy = true;
+      _errorText = null;
+    });
+    try {
+      await widget.service.createPlaylist(name: name);
+      if (!mounted) return;
+      navigator.pop();
+      messenger.showSnackBar(SnackBar(content: Text('已创建歌单"$name"')));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      messenger.showSnackBar(SnackBar(content: Text('创建歌单失败: $e')));
+    }
+  }
+
+  void _cancel() => Navigator.of(context).pop();
+
+  @override
+  Widget build(BuildContext context) {
+    return BmDialog(
+      title: '创建新歌单',
+      hasFields: true,
+      content: BmField(
+        controller: _controller,
+        label: '歌单名称',
+        hintText: '请输入歌单名称',
+        errorText: _errorText,
+        autofocus: true,
+        textInputAction: TextInputAction.done,
+        onChanged: (_) {
+          if (_errorText != null) setState(() => _errorText = null);
+        },
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        BmDialogAction(label: '取消', enabled: !_busy, onPressed: _cancel),
+        BmDialogAction(label: '创建', enabled: !_busy, onPressed: _submit),
+      ],
+    );
+  }
 }
 
 /// 长按歌单列表项时弹出的上下文菜单。
@@ -486,7 +515,7 @@ class _RenamePlaylistDialogState extends State<_RenamePlaylistDialog> {
 }
 
 /// 弹出确认对话框,确认后调用 [commands] 删除歌单并提示 SnackBar。
-/// 三个调用点复用,避免重复实现 AlertDialog 样板。
+/// 三个调用点复用,避免重复实现 BmDialog 样板。
 Future<void> confirmAndDeletePlaylist({
   required BuildContext context,
   required Playlist playlist,

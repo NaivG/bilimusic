@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:bilimusic/domain/playlist_tag.dart';
 import 'package:bilimusic/domain/playlist.dart';
+import 'package:bilimusic/shared/ui/controls/bm_chip.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 
 /// 左侧分类导航抽屉组件
 class PlaylistSidebar extends StatelessWidget {
@@ -373,83 +378,75 @@ class _TagSelectorDialogState extends State<TagSelectorDialog> {
       }
     }
 
-    return AlertDialog(
-      title: const Text('选择标签'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            // 音乐风格
-            _buildCategorySection(
-              '音乐风格',
-              tagsByCategory[TagCategory.genre] ?? [],
-            ),
-            // 使用场景
-            _buildCategorySection(
-              '使用场景',
-              tagsByCategory[TagCategory.scenario] ?? [],
-            ),
-            // 心情情绪
-            _buildCategorySection(
-              '心情情绪',
-              tagsByCategory[TagCategory.mood] ?? [],
-            ),
-          ],
-        ),
+    return BmDialog(
+      title: '选择标签',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 音乐风格
+          _buildCategorySection(
+            '音乐风格',
+            tagsByCategory[TagCategory.genre] ?? [],
+          ),
+          // 使用场景
+          _buildCategorySection(
+            '使用场景',
+            tagsByCategory[TagCategory.scenario] ?? [],
+          ),
+          // 心情情绪
+          _buildCategorySection('心情情绪', tagsByCategory[TagCategory.mood] ?? []),
+        ],
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+        BmDialogAction(
+          label: '取消',
+          onPressed: () => Navigator.of(context).pop(),
         ),
-        ElevatedButton(
-          onPressed: () => Navigator.pop(context, _selectedIds.toList()),
-          child: const Text('确定'),
+        BmDialogAction(
+          label: '确定',
+          onPressed: () => Navigator.of(context).pop(_selectedIds.toList()),
         ),
       ],
     );
   }
 
   Widget _buildCategorySection(String title, List<PlaylistTag> tags) {
+    final colors = context.bmColors;
+    final type = context.bmType;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: BmTokens.s2),
           child: Text(
             title,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[600],
-            ),
+            style: type.label.copyWith(color: colors.textSecondary),
           ),
         ),
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: BmTokens.s2,
+          runSpacing: BmTokens.s2,
           children: tags.map((tag) {
             final isSelected = _selectedIds.contains(tag.id);
-            return FilterChip(
-              label: Text(tag.nameCn),
+            return BmChip(
+              label: tag.nameCn,
+              icon: tag.icon,
               selected: isSelected,
-              onSelected: (selected) {
+              onTap: () {
                 setState(() {
-                  if (selected) {
-                    _selectedIds.add(tag.id);
-                  } else {
+                  if (isSelected) {
                     _selectedIds.remove(tag.id);
+                  } else {
+                    _selectedIds.add(tag.id);
                   }
                 });
               },
-              avatar: Icon(tag.icon, size: 16, color: tag.color),
-              selectedColor: tag.color.withValues(alpha: 0.2),
-              checkmarkColor: tag.color,
             );
           }).toList(),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: BmTokens.s4),
       ],
     );
   }

@@ -36,12 +36,20 @@ Future<T?> showBmDialog<T>({
 /// `danger` 文字。
 /// 两个动作的文案都放得下时并排，否则按 iOS 的顺序竖排：默认动作在上，
 /// 第一个动作（约定为取消）在最下。
+///
+/// [enabled] 为 false 时按钮降到 `textTertiary`、底色退回 `fillMuted`
+/// 并整体 38% 透明度，用于表单未填完、任务进行中等不可提交的瞬间。
 @immutable
 class BmDialogAction {
-  const BmDialogAction({required this.label, required this.onPressed});
+  const BmDialogAction({
+    required this.label,
+    required this.onPressed,
+    this.enabled = true,
+  });
 
   final String label;
   final VoidCallback onPressed;
+  final bool enabled;
 }
 
 /// iOS 风味对话框面板。
@@ -264,8 +272,11 @@ class _BmDialogActions extends StatelessWidget {
     final colors = context.bmColors;
     final type = context.bmType;
     final action = actions[index];
+    final enabled = action.enabled;
     final isDestructive = destructive && index == actions.length - 1;
-    final foreground = isDefault
+    final foreground = !enabled
+        ? colors.textTertiary
+        : isDefault
         ? colors.onAccent
         : isDestructive
         ? colors.danger
@@ -277,11 +288,12 @@ class _BmDialogActions extends StatelessWidget {
     return Container(
       constraints: const BoxConstraints(minHeight: BmTokens.row),
       decoration: BoxDecoration(
-        color: isDefault ? colors.accent : colors.fillMuted,
+        color: enabled && isDefault ? colors.accent : colors.fillMuted,
         borderRadius: BmTokens.rPillAll,
       ),
       child: BmPressable(
         onTap: action.onPressed,
+        enabled: enabled,
         borderRadius: BmTokens.rPillAll,
         child: Center(
           child: Padding(

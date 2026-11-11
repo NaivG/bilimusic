@@ -5,6 +5,7 @@ import 'package:bilimusic/domain/bili_fav_folder.dart';
 import 'package:bilimusic/features/fav_sync/models/fav_import_record.dart';
 import 'package:bilimusic/features/fav_sync/fav_sync_manager.dart';
 import 'package:bilimusic/features/fav_sync/ui/import_progress_dialog.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 
 /// Bilibili 收藏夹导入页面
@@ -129,7 +130,7 @@ class _FavImportPageState extends ConsumerState<FavImportPage> {
         continue; // 已导入的跳过
       }
 
-      final result = await showDialog<ImportResult>(
+      final result = await showBmDialog<ImportResult>(
         context: context,
         barrierDismissible: false,
         builder: (context) => ImportProgressDialog(
@@ -169,7 +170,7 @@ class _FavImportPageState extends ConsumerState<FavImportPage> {
       return;
     }
 
-    await showDialog<ImportResult>(
+    await showBmDialog<ImportResult>(
       context: context,
       barrierDismissible: false,
       builder: (context) => ImportProgressDialog(
@@ -199,7 +200,7 @@ class _FavImportPageState extends ConsumerState<FavImportPage> {
         action: SnackBarAction(
           label: '重新同步',
           onPressed: () async {
-            await showDialog<ImportResult>(
+            await showBmDialog<ImportResult>(
               context: context,
               barrierDismissible: false,
               builder: (context) => ImportProgressDialog(
