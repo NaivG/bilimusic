@@ -38,6 +38,10 @@ enum BmPageTransitionKind {
 /// - 视差是 `FractionalTranslation` 的绘制期位移，`Stack` 的 `clipBehavior`
 ///   只裁布局溢出；这里必须显式 [ClipRect]，否则被推走的页面会画到页面区域
 ///   之外（横屏内容区紧贴侧栏时最明显）。
+/// - 页面底是透明的（透出壳层背景），所以 `push` / `pop` 期间下层页面只保留
+///   上层页面尚未扫过的那条带：不裁的话旧页会从新页的透明区域漏出来，形成
+///   叠影。等价于给上层页面垫一张不透明的壳层背景，但不用重复渲染背景。
+///   `tab` / `replace` 是交叉淡化，两页本来就该同时可见，不裁。
 /// - reduce motion 下只保留 ≤120ms 的透明度过渡，不做位移与压暗。
 ///
 /// ```dart
@@ -196,12 +200,16 @@ class _BmPageSwitcherState extends State<BmPageSwitcher>
           final raw = _controller.value;
           final t = _easedProgress(raw);
           final geometry = _geometry(t);
+          // push 时新页在上、旧页在下；pop 反过来。下层页面只保留上层页面
+          // 外缘没盖住的那条带，避免从上层透明底漏出叠影。
+          final uncovered = _uncoveredBand(geometry);
 
           final incoming = _buildPage(
             _currentKey,
             _currentChild,
             offset: geometry.incoming,
             opacity: geometry.incomingOpacity,
+            visibleBand: _kind == BmPageTransitionKind.pop ? uncovered : null,
           );
           final outgoing = _buildPage(
             _previousKey!,
@@ -210,6 +218,7 @@ class _BmPageSwitcherState extends State<BmPageSwitcher>
             opacity: geometry.outgoingOpacity,
             dimOpacity: geometry.dim,
             colors: colors,
+            visibleBand: _kind == BmPageTransitionKind.push ? uncovered : null,
           );
 
           // push/tab 时新页盖在旧页上；pop 时退出的旧页盖在回归页上。
@@ -279,6 +288,21 @@ class _BmPageSwitcherState extends State<BmPageSwitcher>
     }
   }
 
+  /// 下层页面在过渡中的可见带（按页面宽归一，纵向铺满）。
+  Rect? _uncoveredBand(_BmPageGeometry geometry) {
+    if (_reduceMotion) return null;
+    final double? topDx = switch (_kind) {
+      BmPageTransitionKind.push => geometry.incoming.dx,
+      BmPageTransitionKind.pop => geometry.outgoing.dx,
+      BmPageTransitionKind.tab || BmPageTransitionKind.replace => null,
+    };
+    if (topDx == null) return null;
+    if (topDx >= 0) {
+      return Rect.fromLTRB(0, 0, topDx.clamp(0.0, 1.0).toDouble(), 1);
+    }
+    return Rect.fromLTRB((1 + topDx).clamp(0.0, 1.0).toDouble(), 0, 1, 1);
+  }
+
   Widget _buildPage(
     Key key,
     Widget child, {
@@ -286,6 +310,7 @@ class _BmPageSwitcherState extends State<BmPageSwitcher>
     double opacity = 1,
     double dimOpacity = 0,
     BmColors? colors,
+    Rect? visibleBand,
   }) {
     Widget content = child;
     // 每页各占一个重绘边界：视差只改 `FractionalTranslation` 的绘制偏移，
@@ -317,11 +342,36 @@ class _BmPageSwitcherState extends State<BmPageSwitcher>
       );
     }
 
-    return KeyedSubtree(
+    // 外层永远是同一个 `ClipRect`（key 挂在它身上），防止页面重建状态丢失。
+    // 不需要裁可见带时用 `Clip.none`，不产生裁剪层。
+    return ClipRect(
       key: key,
+      clipBehavior: visibleBand == null ? Clip.none : Clip.hardEdge,
+      clipper: visibleBand == null
+          ? null
+          : _BmPageBandClipper(
+              left: visibleBand.left,
+              right: visibleBand.right,
+            ),
       child: FractionalTranslation(translation: offset, child: content),
     );
   }
+}
+
+/// 按归一化横向区间裁剪页面：只保留 [left]..[right] 这条带。
+class _BmPageBandClipper extends CustomClipper<Rect> {
+  const _BmPageBandClipper({required this.left, required this.right});
+
+  final double left;
+  final double right;
+
+  @override
+  Rect getClip(Size size) =>
+      Rect.fromLTRB(left * size.width, 0, right * size.width, size.height);
+
+  @override
+  bool shouldReclip(_BmPageBandClipper oldClipper) =>
+      oldClipper.left != left || oldClipper.right != right;
 }
 
 /// 一次过渡的几何参数（偏移按页面宽高归一）。
