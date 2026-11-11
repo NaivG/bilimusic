@@ -259,7 +259,7 @@ class _HomeContentState extends ConsumerState<HomeContent> {
             ),
             child: HomeHeroCard(
               music: heroMusic,
-              eyebrow: current == null ? '今晚的舞台' : '继续聆听',
+              eyebrow: current == null ? '从推荐继续' : '继续聆听',
               onTap: () => _onHeroTap(heroMusic),
               onTogglePlay: _togglePlay,
             ),
@@ -302,7 +302,7 @@ class _HomeContentState extends ConsumerState<HomeContent> {
           HomeHeroCard(
             music: heroMusic,
             wide: true,
-            eyebrow: current == null ? '今晚的舞台' : '继续聆听',
+            eyebrow: current == null ? '从推荐继续' : '继续聆听',
             onTap: () => _onHeroTap(heroMusic),
             onTogglePlay: _togglePlay,
           ),
