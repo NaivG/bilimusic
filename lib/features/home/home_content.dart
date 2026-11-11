@@ -7,6 +7,7 @@ import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/playlist.dart';
 import 'package:bilimusic/domain/taste_profile.dart';
 import 'package:bilimusic/features/auth/user_providers.dart';
+import 'package:bilimusic/features/home/logic/home_section_limits.dart';
 import 'package:bilimusic/features/home/logic/recommendation_manager.dart';
 import 'package:bilimusic/features/home/widgets/greeting_card.dart';
 import 'package:bilimusic/features/home/widgets/home_hero.dart';
@@ -31,9 +32,11 @@ import 'package:bilimusic/shared/utils/responsive.dart';
 
 /// 首页内容。
 ///
-/// 竖屏：页头 + 问候带 + 继续聆听大卡 + 为你推荐 / 歌单货架 + 官方推荐列表。
+/// 竖屏：页头 + 问候带 + 继续聆听大卡 + 为你推荐 / 歌单货架（各最多 8 张）
+/// + 官方推荐列表。
 /// 横屏（[wide]）：页头 + 272 hero + 4 / 3 列网格 + 官方推荐 / 历史双列列表，
-/// 不出现任何横向滚动。
+/// 不出现任何横向滚动；「为你推荐」最多 8 张且不超过 2 行，「歌单」最多 8 张
+/// 且不超过 1 行（行数按当前列数换算，见 [HomeSectionLimits]）。
 class HomeContent extends ConsumerStatefulWidget {
   /// 竖屏是否绘制内置页头（日期 + 问候 + 右侧动作）；
   /// 横屏始终绘制，问候属于内容区。
@@ -57,9 +60,6 @@ class HomeContent extends ConsumerStatefulWidget {
 }
 
 class _HomeContentState extends ConsumerState<HomeContent> {
-  /// 「为你推荐」货架条数。
-  static const int _personalShelfCount = 8;
-
   List<Music> _recommended = const [];
   List<Music> _guessYouLike = const [];
   late final RecommendationManager _recommendationManager;
@@ -78,11 +78,21 @@ class _HomeContentState extends ConsumerState<HomeContent> {
   List<Music> get _personalSongs =>
       _guessYouLike.isNotEmpty ? _guessYouLike : _recommended;
 
+  /// 当前版式下「为你推荐」最多展示的张数。
+  int _personalLimit(BuildContext context) => _isWide(context)
+      ? HomeSectionLimits.personalGrid(_columnCount(context))
+      : HomeSectionLimits.personalMaxCards;
+
+  /// 当前版式下「歌单」最多展示的张数，同 [_personalLimit]。
+  int _playlistLimit(BuildContext context) => _isWide(context)
+      ? HomeSectionLimits.playlistGrid(_columnCount(context))
+      : HomeSectionLimits.playlistMaxCards;
+
   /// 「官方推荐」：官方结果里剔掉「为你推荐」已经展示过的曲目，避免两处重复。
-  List<Music> get _officialSongs {
+  List<Music> _officialSongs(BuildContext context) {
     if (_recommended.isEmpty) return const [];
     final shown = _personalSongs
-        .take(_personalShelfCount)
+        .take(_personalLimit(context))
         .map((music) => music.id)
         .toSet();
     return _recommended.where((music) => !shown.contains(music.id)).toList();
@@ -417,7 +427,7 @@ class _HomeContentState extends ConsumerState<HomeContent> {
   // ---------------------------------------------------------------- 竖屏货架
 
   Widget _buildRecommendShelf(BuildContext context) {
-    final songs = _personalSongs.take(_personalShelfCount).toList();
+    final songs = _personalSongs.take(_personalLimit(context)).toList();
     if (songs.isEmpty) {
       if (_loading) return _shelfSkeleton(BmTokens.shelfCoverLarge);
       return const Padding(
@@ -449,7 +459,7 @@ class _HomeContentState extends ConsumerState<HomeContent> {
     return BmShelf(
       itemWidth: BmTokens.shelfCoverSmall,
       height: BmShelf.heightFor(BmTokens.shelfCoverSmall),
-      children: _playlistCards(),
+      children: _playlistCards().take(_playlistLimit(context)).toList(),
     );
   }
 
@@ -502,7 +512,7 @@ class _HomeContentState extends ConsumerState<HomeContent> {
       _playlistCard(DefaultPlaylists.history..songs = history, history.length),
       _playlistCard(daily, daily.songCount),
     ];
-    for (final playlist in ref.watch(userPlaylistsProvider).take(3)) {
+    for (final playlist in ref.watch(userPlaylistsProvider).take(5)) {
       cards.add(_playlistCard(playlist, playlist.songCount));
     }
     return cards;
@@ -511,7 +521,7 @@ class _HomeContentState extends ConsumerState<HomeContent> {
   // ---------------------------------------------------------------- 官方推荐 / 历史
 
   Widget _buildOfficialList(BuildContext context, {required bool wide}) {
-    final songs = (_officialSongs.take(wide ? 12 : 6)).toList();
+    final songs = (_officialSongs(context).take(wide ? 12 : 6)).toList();
     if (songs.isEmpty) {
       if (_loading) return _skeletonList(wide: wide);
       return const BmEmptyState(
@@ -602,7 +612,7 @@ class _HomeContentState extends ConsumerState<HomeContent> {
   // ---------------------------------------------------------------- 横屏网格
 
   Widget _buildAlbumGrid(BuildContext context) {
-    final songs = _personalSongs.take(12).toList();
+    final songs = _personalSongs.take(_personalLimit(context)).toList();
     if (songs.isEmpty) {
       if (_loading) return _gridSkeleton(context);
       return const BmEmptyState(
@@ -627,7 +637,7 @@ class _HomeContentState extends ConsumerState<HomeContent> {
   }
 
   Widget _buildPlaylistGrid(BuildContext context) {
-    final cards = _playlistCards().take(4).toList();
+    final cards = _playlistCards().take(_playlistLimit(context)).toList();
     return _responsiveGrid(
       context,
       itemCount: cards.length,
