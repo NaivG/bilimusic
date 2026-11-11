@@ -5,7 +5,7 @@ import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/motion/spring_curve.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 
-/// 页面切换类型（见 `docs/lucent-motion.md` §4.1 / §4.2）。
+/// 页面切换类型。
 enum BmPageTransitionKind {
   /// 同层切换：微位移 + 双淡，240ms。
   tab,
@@ -30,7 +30,8 @@ enum BmPageTransitionKind {
 /// - `direction = +1` 表示进入更深一层（push / tab 下标增大），`-1` 表示返回。
 /// - `push` 新页 `Offset(1.0·d, 0)` → 0，旧页 0 → `Offset(-0.3·d, 0)`；
 ///   `pop` 新页 `Offset(0.3·d, 0)` → 0，旧页 0 → `Offset(-1.0·d, 0)`。
-/// - 旧页叠 [BmColors.dim]（15%），不响应指针、不参与语义树。
+/// - 旧页叠 [BmColors.dim]（15%），不响应指针、不参与语义树，ticker 在
+///   过渡期被 [TickerMode] 冻结；每页各占一个 [RepaintBoundary]。
 /// - `push` / `pop` 在 [BmMotion.pageMax]（300ms）窗口内走完：临界阻尼弹簧
 ///   理论上无限收敛，窗口末段的残差由 [SpringCurve] 线性收尾，旧页随窗口
 ///   一起出树，不会在动画看起来结束后继续挂着。
@@ -287,6 +288,9 @@ class _BmPageSwitcherState extends State<BmPageSwitcher>
     BmColors? colors,
   }) {
     Widget content = child;
+    // 每页各占一个重绘边界：视差只改 `FractionalTranslation` 的绘制偏移，
+    // 边缘内的页面可以直接复用已有图层，不必每帧重录整页绘制指令。
+    content = RepaintBoundary(child: content);
     if (dimOpacity > 0 && colors != null) {
       final overlay = colors.dim.withValues(alpha: colors.dim.a * dimOpacity);
       content = Stack(
@@ -305,7 +309,12 @@ class _BmPageSwitcherState extends State<BmPageSwitcher>
 
     final isCurrent = key == _currentKey;
     if (!isCurrent) {
-      content = ExcludeSemantics(child: IgnorePointer(child: content));
+      // 冻结旧页的 ticker（骨架 / 跳动条 / 列表动画），
+      // 过渡期间只花新页与背景的钱。
+      content = TickerMode(
+        enabled: false,
+        child: ExcludeSemantics(child: IgnorePointer(child: content)),
+      );
     }
 
     return KeyedSubtree(

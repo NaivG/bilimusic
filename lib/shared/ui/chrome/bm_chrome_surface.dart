@@ -95,19 +95,22 @@ class BmChromeSurface extends StatelessWidget {
     }
     content = ClipRRect(borderRadius: effectiveRadius, child: content);
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: effectiveRadius,
-        boxShadow: shadow,
-      ),
+    // 独立重绘边界：页面内容滚动 / 动画时不会连带重跑这层背景模糊。
+    return RepaintBoundary(
       child: DecoratedBox(
-        // 描边画在内容之上，避免被裁剪后的内容盖住。
-        position: DecorationPosition.foreground,
         decoration: BoxDecoration(
           borderRadius: effectiveRadius,
-          border: border,
+          boxShadow: shadow,
         ),
-        child: content,
+        child: DecoratedBox(
+          // 描边画在内容之上，避免被裁剪后的内容盖住。
+          position: DecorationPosition.foreground,
+          decoration: BoxDecoration(
+            borderRadius: effectiveRadius,
+            border: border,
+          ),
+          child: content,
+        ),
       ),
     );
   }

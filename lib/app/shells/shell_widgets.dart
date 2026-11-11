@@ -124,20 +124,26 @@ Widget buildLandscapeShellPageContent({
 
 /// 共享的背景层：fluidBackground 关闭时退化为当前 surface 色块；
 /// 开启时显示跟随当前播放曲目封面的模糊层。
+///
+/// 整层自带重绘边界，满窗模糊与页面内容分开重绘。
 Widget buildShellBackground(BuildContext context, WidgetRef ref) {
   if (ref.watch(settingsProvider).fluidBackground == false) {
-    return Container(color: Theme.of(context).colorScheme.surface);
+    return RepaintBoundary(
+      child: Container(color: Theme.of(context).colorScheme.surface),
+    );
   }
   final currentMusic = ref.watch(currentMusicProvider);
-  return AnimatedSwitcher(
-    switchInCurve: Curves.linearToEaseOut,
-    switchOutCurve: Curves.easeInToLinear,
-    duration: BmMotion.backdrop,
-    // coverUrl 在快速切歌时可能重复，防止过渡条目产生重复 key
-    transitionBuilder: switcherFadeTransition,
-    child: BackgroundBlurWidget(
-      key: ValueKey(currentMusic?.coverUrl),
-      coverUrl: currentMusic?.coverUrl,
+  return RepaintBoundary(
+    child: AnimatedSwitcher(
+      switchInCurve: Curves.linearToEaseOut,
+      switchOutCurve: Curves.easeInToLinear,
+      duration: BmMotion.backdrop,
+      // coverUrl 在快速切歌时可能重复，防止过渡条目产生重复 key
+      transitionBuilder: switcherFadeTransition,
+      child: BackgroundBlurWidget(
+        key: ValueKey(currentMusic?.coverUrl),
+        coverUrl: currentMusic?.coverUrl,
+      ),
     ),
   );
 }
@@ -187,6 +193,32 @@ Widget buildShellDetailLayer({required ShellPage currentPage}) {
       key: ValueKey(showDetail),
       child: showDetail ? const DetailPage() : const SizedBox.shrink(),
     ),
+  );
+}
+
+/// 把浮动 chrome（Dock / 迷你播放器）占用的底部高度写进页面子树的
+/// `MediaQuery.padding`：内容可以滚到它们下面，最后一项仍停在它们上方。
+Widget applyShellChromeInset(
+  BuildContext context, {
+  required double bottom,
+  required Widget child,
+}) {
+  final mediaQuery = MediaQuery.of(context);
+  final double inset;
+  if (bottom <= 0) {
+    // 不需要让位：沿用父级底距，data 与父级等价，不产生额外的依赖重建。
+    inset = mediaQuery.padding.bottom;
+  } else if (mediaQuery.viewInsets.bottom > 0) {
+    // 键盘弹起时 chrome 被顶到键盘下面，页面不再需要为它让位。
+    inset = 0;
+  } else {
+    inset = bottom + mediaQuery.viewPadding.bottom;
+  }
+  return MediaQuery(
+    data: mediaQuery.copyWith(
+      padding: mediaQuery.padding.copyWith(bottom: inset),
+    ),
+    child: child,
   );
 }
 

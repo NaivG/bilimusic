@@ -156,13 +156,14 @@ class _PortraitShellState extends ConsumerState<PortraitShell> {
               notification,
               enabled: miniPlayerCanAutoHide,
             ),
-            child: _withChromeInset(
-              context,
-              bottom: chromeInset,
-              child: shellPageSwitcher(
-                key: widget.pageManager.basePageKey,
-                kind: widget.pageManager.lastTransitionKind,
-                direction: widget.pageManager.lastTransitionDirection,
+            child: shellPageSwitcher(
+              key: widget.pageManager.basePageKey,
+              kind: widget.pageManager.lastTransitionKind,
+              direction: widget.pageManager.lastTransitionDirection,
+              // 让位包在页面内层：过渡期旧页保持自己的底距，两页互不干扰。
+              child: applyShellChromeInset(
+                context,
+                bottom: chromeInset,
                 child: _buildPageContent(widget.pageManager.baseEntry),
               ),
             ),
@@ -198,29 +199,6 @@ class _PortraitShellState extends ConsumerState<PortraitShell> {
             ),
         ],
       ),
-    );
-  }
-
-  /// 把浮动 chrome 的高度写进页面子树的底部安全区。
-  ///
-  /// 页面里的列表 / 网格会自动消费 `MediaQuery.padding`，自绘滚动视图则显式
-  /// 读取；这样内容可以滚到 Dock / 迷你条下面，最后一项仍能滚到它们上方。
-  Widget _withChromeInset(
-    BuildContext context, {
-    required double bottom,
-    required Widget child,
-  }) {
-    if (bottom <= 0) return child;
-    final mediaQuery = MediaQuery.of(context);
-    // 键盘弹起时 chrome 被顶到键盘下面，页面不再需要为它让位。
-    final inset = mediaQuery.viewInsets.bottom > 0
-        ? 0.0
-        : bottom + mediaQuery.viewPadding.bottom;
-    return MediaQuery(
-      data: mediaQuery.copyWith(
-        padding: mediaQuery.padding.copyWith(bottom: inset),
-      ),
-      child: child,
     );
   }
 

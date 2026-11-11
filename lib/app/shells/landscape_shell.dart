@@ -133,51 +133,73 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
             children: [
               // 背景模糊层（依赖当前播放曲目）
               buildShellBackground(context, ref),
-              // 轨 + workspace（标题栏 / 内容 / 底栏）
+              // 轨 + workspace（标题栏 / 内容 / 底栏）。
+              //
+              // 三块 chrome 的槽位常驻，只切换尺寸与可见性，防止页面区整棵重建
               Row(
                 children: [
-                  if (_showShellChrome)
-                    LandscapeRail(
-                      selected: _railSelection,
-                      settingsSelected:
-                          widget.pageManager.currentPage ==
-                              ShellPage.settings &&
-                          !_libraryOpen,
-                      onSelected: _onRailSelected,
-                      onSettings: () {
-                        _searchFocusNode.unfocus();
-                        widget.pageManager.goToTab(3);
-                      },
-                      onProfile: () {
-                        _searchFocusNode.unfocus();
-                        widget.pageManager.goToTab(2);
-                      },
-                      onSync: _openLanSync,
-                    ),
+                  SizedBox(
+                    width: _showShellChrome ? railWidth : 0,
+                    child: _showShellChrome
+                        ? LandscapeRail(
+                            selected: _railSelection,
+                            settingsSelected:
+                                widget.pageManager.currentPage ==
+                                    ShellPage.settings &&
+                                !_libraryOpen,
+                            onSelected: _onRailSelected,
+                            onSettings: () {
+                              _searchFocusNode.unfocus();
+                              widget.pageManager.goToTab(3);
+                            },
+                            onProfile: () {
+                              _searchFocusNode.unfocus();
+                              widget.pageManager.goToTab(2);
+                            },
+                            onSync: _openLanSync,
+                          )
+                        : null,
+                  ),
                   Expanded(
                     child: Column(
                       children: [
-                        if (_showShellChrome) _buildTitleBar(),
+                        SizedBox(
+                          height: _showShellChrome ? titleBarHeight : 0,
+                          child: _showShellChrome ? _buildTitleBar() : null,
+                        ),
                         Expanded(child: _buildContentStage()),
-                        if (_showShellChrome)
-                          LandscapeBottomControl(
-                            onExpand: () =>
-                                widget.pageManager.push(ShellPage.detail),
-                            onPlayList: _toggleQueue,
-                          ),
+                        SizedBox(
+                          height: _showShellChrome ? playbarHeight : 0,
+                          child: _showShellChrome
+                              ? LandscapeBottomControl(
+                                  onExpand: () =>
+                                      widget.pageManager.push(ShellPage.detail),
+                                  onPlayList: _toggleQueue,
+                                )
+                              : null,
+                        ),
                       ],
                     ),
                   ),
                 ],
               ),
-              // 标题栏搜索框驱动的联想面板
-              if (_showShellChrome && _searchFocused)
-                ..._buildSearchSuggestLayer(
-                  constraints.maxHeight,
-                  railWidth,
-                  titleBarHeight,
-                  playbarHeight,
+              // 标题栏搜索框驱动的联想面板。槽位常驻，避免聚焦状态改变
+              // 下方详情层的下标。
+              Positioned.fill(
+                child: IgnorePointer(
+                  ignoring: !(_showShellChrome && _searchFocused),
+                  child: _showShellChrome && _searchFocused
+                      ? Stack(
+                          children: _buildSearchSuggestLayer(
+                            constraints.maxHeight,
+                            railWidth,
+                            titleBarHeight,
+                            playbarHeight,
+                          ),
+                        )
+                      : const SizedBox.shrink(),
                 ),
+              ),
               // 详情页独立动画层（全窗，与底层切换完全解耦）
               buildShellDetailLayer(currentPage: widget.currentPage),
             ],
