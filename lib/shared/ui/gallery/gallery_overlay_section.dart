@@ -11,10 +11,20 @@ import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 /// 分区 8：菜单 + 浮层预览。
 ///
 /// 菜单浮层里静态铺开普通 / selected / destructive / disabled / 子菜单
-/// 五种行形态；浮层按钮分别打开对话框、底部单与 success / error 两个
-/// Toast，另放一枚静态 Toast 预览（不依赖 ScaffoldMessenger 宿主主题）。
+/// 五种行形态；浮层按钮分别打开对话框、底部单、锚定单选浮层与
+/// success / error 两个 Toast，另放一枚静态 Toast 预览（不依赖
+/// ScaffoldMessenger 宿主主题）。
 class GalleryOverlaySection extends StatefulWidget {
   const GalleryOverlaySection({super.key});
+
+  static const List<BmSelectOption<String>> languageOptions =
+      <BmSelectOption<String>>[
+        BmSelectOption(value: 'default', label: '默认'),
+        BmSelectOption(value: 'en', label: '英语'),
+        BmSelectOption(value: 'es', label: '西班牙语'),
+        BmSelectOption(value: 'fr', label: '法语'),
+        BmSelectOption(value: 'ja', label: '日语'),
+      ];
 
   @override
   State<GalleryOverlaySection> createState() => _GalleryOverlaySectionState();
@@ -23,6 +33,16 @@ class GalleryOverlaySection extends StatefulWidget {
 class _GalleryOverlaySectionState extends State<GalleryOverlaySection> {
   /// 入场只在挂载时播一次；换 key 重挂 [BmMenuSurface] 即可重播。
   int _entranceRound = 0;
+
+  /// 锚定单选浮层的演示值。
+  String _language = 'default';
+
+  String get _languageLabel {
+    for (final option in GalleryOverlaySection.languageOptions) {
+      if (option.value == _language) return option.label;
+    }
+    return '';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -97,6 +117,33 @@ class _GalleryOverlaySectionState extends State<GalleryOverlaySection> {
                 child: const Text('Toast · 错误'),
               ),
             ],
+          ),
+          const SizedBox(height: BmTokens.s3),
+          Text(
+            '锚定单选浮层（showBmSelectMenu）',
+            style: type.label.copyWith(color: colors.textPrimary),
+          ),
+          const SizedBox(height: BmTokens.s2),
+          _OverlayDemo(
+            label: '设置行：语言 · 点右侧展开',
+            width: BmTokens.s8 * 10,
+            child: Row(
+              children: [
+                Text(
+                  '语言',
+                  style: type.bodyStrong.copyWith(color: colors.textPrimary),
+                ),
+                const Spacer(),
+                BmSelectTrigger<String>(
+                  label: _languageLabel,
+                  options: GalleryOverlaySection.languageOptions,
+                  selected: _language,
+                  onSelected: (value) => setState(() => _language = value),
+                  menuWidth: 200,
+                  semanticLabel: '语言',
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: BmTokens.s3),
           _OverlayDemo(

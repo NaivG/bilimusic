@@ -210,6 +210,13 @@ class BmTokens extends ThemeExtension<BmTokens> {
   /// 菜单浮层内边距（设计文档 §4.6）。
   static const double menuInset = 6;
 
+  // ===== 锚定单选浮层 =====
+  /// 单选浮层默认宽度（iOS 菜单量级）。
+  static const double selectMenuWidth = 240;
+
+  /// 单选浮层最大高度；超过后面板内部滚动。
+  static const double selectMenuMaxHeight = 480;
+
   // ===== Chrome 材质（设计文档 §4.9 / §4.11）=====
   /// 0.5px hairline 宽。
   static const double hairlineWidth = 0.5;

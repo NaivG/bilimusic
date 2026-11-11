@@ -2,18 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
-import 'package:bilimusic/domain/lan_sync_mode.dart';
 import 'package:bilimusic/features/lan_sync/ui/sync_page.dart';
 import 'package:bilimusic/features/settings/settings_manager.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
-import 'package:bilimusic/features/settings/ui/widgets/settings_option_sheet.dart';
 import 'package:bilimusic/features/settings/ui/widgets/theme_picker.dart';
 import 'package:bilimusic/shared/theme/theme_registry.dart';
 import 'package:bilimusic/shared/ui/controls/bm_controls.dart';
 import 'package:bilimusic/shared/ui/gallery/bm_gallery_page.dart';
 import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_select_menu.dart';
 import 'package:bilimusic/shared/ui/sections/bm_page_header.dart';
 import 'package:bilimusic/shared/ui/settings/bm_settings_group.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
@@ -33,43 +31,37 @@ class SettingsPage extends ConsumerWidget {
   /// 应用版本；关于弹窗与页头 eyebrow 共用同一处来源。
   static const String _appVersion = '1.11.0';
 
-  static const List<BmSettingsOption<String>> _qualityOptions =
-      <BmSettingsOption<String>>[
-        BmSettingsOption(value: '30251', label: 'Hi-Res 无损', subtitle: '需要大会员'),
-        BmSettingsOption(value: '30250', label: '杜比全景声', subtitle: '需要大会员'),
-        BmSettingsOption(value: '30280', label: '192K HQ'),
-        BmSettingsOption(value: '30232', label: '132K SQ'),
-        BmSettingsOption(value: '30216', label: '64K AAC-HE'),
+  static const List<BmSelectOption<String>> _qualityOptions =
+      <BmSelectOption<String>>[
+        BmSelectOption(value: '30251', label: 'Hi-Res 无损', subtitle: '需要大会员'),
+        BmSelectOption(value: '30250', label: '杜比全景声', subtitle: '需要大会员'),
+        BmSelectOption(value: '30280', label: '192K HQ'),
+        BmSelectOption(value: '30232', label: '132K SQ'),
+        BmSelectOption(value: '30216', label: '64K AAC-HE'),
       ];
 
-  static const List<BmSettingsOption<String>> _appearanceOptions =
-      <BmSettingsOption<String>>[
-        BmSettingsOption(value: 'system', label: '跟随系统'),
-        BmSettingsOption(value: 'light', label: '浅色'),
-        BmSettingsOption(value: 'dark', label: '深色'),
+  static const List<BmSelectOption<String>> _appearanceOptions =
+      <BmSelectOption<String>>[
+        BmSelectOption(value: 'system', label: '跟随系统'),
+        BmSelectOption(value: 'light', label: '浅色'),
+        BmSelectOption(value: 'dark', label: '深色'),
       ];
 
-  static const List<BmSettingsOption<String>> _closeBehaviorOptions =
-      <BmSettingsOption<String>>[
-        BmSettingsOption(
-          value: SettingsManager.CLOSE_BEHAVIOR_PROMPT,
-          label: '弹出提示',
-        ),
-        BmSettingsOption(
-          value: SettingsManager.CLOSE_BEHAVIOR_MINIMIZE_TRAY,
-          label: '最小化至托盘',
-        ),
-        BmSettingsOption(
-          value: SettingsManager.CLOSE_BEHAVIOR_EXIT,
-          label: '直接退出',
-        ),
-      ];
+  static const List<BmSelectOption<String>>
+  _closeBehaviorOptions = <BmSelectOption<String>>[
+    BmSelectOption(value: SettingsManager.CLOSE_BEHAVIOR_PROMPT, label: '弹出提示'),
+    BmSelectOption(
+      value: SettingsManager.CLOSE_BEHAVIOR_MINIMIZE_TRAY,
+      label: '最小化至托盘',
+    ),
+    BmSelectOption(value: SettingsManager.CLOSE_BEHAVIOR_EXIT, label: '直接退出'),
+  ];
 
-  static const List<BmSettingsOption<String>> _lanSyncOptions =
-      <BmSettingsOption<String>>[
-        BmSettingsOption(value: 'off', label: '关闭', subtitle: '不广播也不发现'),
-        BmSettingsOption(value: 'private', label: '私有', subtitle: '配对后双向同步'),
-        BmSettingsOption(value: 'public', label: '公共', subtitle: '仅暴露正在播放'),
+  static const List<BmSelectOption<String>> _lanSyncOptions =
+      <BmSelectOption<String>>[
+        BmSelectOption(value: 'off', label: '关闭', subtitle: '不广播也不发现'),
+        BmSelectOption(value: 'private', label: '私有', subtitle: '配对后双向同步'),
+        BmSelectOption(value: 'public', label: '公共', subtitle: '仅暴露正在播放'),
       ];
 
   @override
@@ -132,10 +124,10 @@ class SettingsPage extends ConsumerWidget {
             settings,
             ref.read(settingsProvider.notifier),
           ),
-          _buildAudioGroup(context, ref, settings),
-          _buildAppearanceGroup(context, ref, settings),
+          _buildAudioGroup(ref, settings),
+          _buildAppearanceGroup(ref, settings),
           _buildLyricsGroup(settings, ref.read(settingsProvider.notifier)),
-          _buildDeviceGroup(context, ref, settings),
+          _buildDeviceGroup(ref, settings),
           _buildDataGroup(),
           _buildAboutGroup(context),
         ],
@@ -229,30 +221,19 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildAudioGroup(
-    BuildContext context,
-    WidgetRef ref,
-    SettingsState settings,
-  ) {
+  Widget _buildAudioGroup(WidgetRef ref, SettingsState settings) {
     final notifier = ref.read(settingsProvider.notifier);
-    final manager = ref.read(settingsManagerProvider);
     return BmSettingsGroup(
       title: '音频',
       children: [
-        BmSettingsValueRow(
+        BmSettingsSelectRow<String>(
           title: '播放音质',
           subtitle: '不可用时自动选最高可用音质',
           icon: Icons.high_quality_outlined,
-          value: manager.getAudioQualityText(settings.audioQuality),
-          onTap: () async {
-            final value = await showSettingsOptionSheet<String>(
-              context: context,
-              title: '播放音质',
-              options: _qualityOptions,
-              selected: settings.audioQuality,
-            );
-            if (value != null) await notifier.setAudioQuality(value);
-          },
+          options: _qualityOptions,
+          selected: settings.audioQuality,
+          onChanged: notifier.setAudioQuality,
+          menuWidth: 260,
         ),
         BmSettingsValueRow(
           title: '音效与均衡器',
@@ -270,53 +251,30 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildAppearanceGroup(
-    BuildContext context,
-    WidgetRef ref,
-    SettingsState settings,
-  ) {
-    final colors = context.bmColors;
+  Widget _buildAppearanceGroup(WidgetRef ref, SettingsState settings) {
     final notifier = ref.read(settingsProvider.notifier);
-    final manager = ref.read(settingsManagerProvider);
     final descriptor = ThemeRegistry.resolve(settings.theme);
     return BmSettingsGroup(
       title: '外观',
       children: [
-        BmSettingsValueRow(
+        BmSettingsSelectRow<String>(
           title: '外观',
           icon: Icons.brightness_6_outlined,
-          value: manager.getAppearanceText(settings.appearance),
-          onTap: () async {
-            final value = await showSettingsOptionSheet<String>(
-              context: context,
-              title: '外观',
-              options: _appearanceOptions,
-              selected: settings.appearance,
-            );
-            if (value != null) await notifier.setAppearance(value);
-          },
+          options: _appearanceOptions,
+          selected: settings.appearance,
+          onChanged: notifier.setAppearance,
+          menuWidth: 200,
         ),
-        BmSettingsRow(
+        BmSettingsSelectRow<String>(
           title: '主题',
-          subtitle: descriptor.label,
+          subtitle: descriptor.subtitle,
           icon: Icons.palette_outlined,
-          onTap: () => showThemePicker(
-            context: context,
-            currentThemeId: settings.theme,
-            onSelected: (id) => notifier.setTheme(id),
-          ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ThemePaletteDots(descriptor: descriptor),
-              const SizedBox(width: BmTokens.s1),
-              Icon(
-                Icons.chevron_right_rounded,
-                size: BmTokens.iconMenu,
-                color: colors.textTertiary,
-              ),
-            ],
-          ),
+          valueLeading: ThemePaletteDots(descriptor: descriptor),
+          valueLabel: descriptor.label,
+          options: themeSelectOptions(),
+          selected: settings.theme,
+          onChanged: notifier.setTheme,
+          menuWidth: 300,
         ),
         BmSettingsSwitchRow(
           title: '流体背景效果',
@@ -340,20 +298,14 @@ class SettingsPage extends ConsumerWidget {
           onChanged: notifier.setAlwaysShowMiniPlayer,
         ),
         if (PlatformHelper.isDesktop)
-          BmSettingsValueRow(
+          BmSettingsSelectRow<String>(
             title: '关闭行为',
             subtitle: '关闭主窗口时的行为',
             icon: Icons.window_outlined,
-            value: manager.getCloseBehaviorText(settings.closeBehavior),
-            onTap: () async {
-              final value = await showSettingsOptionSheet<String>(
-                context: context,
-                title: '关闭行为',
-                options: _closeBehaviorOptions,
-                selected: settings.closeBehavior,
-              );
-              if (value != null) await notifier.setCloseBehavior(value);
-            },
+            options: _closeBehaviorOptions,
+            selected: settings.closeBehavior,
+            onChanged: notifier.setCloseBehavior,
+            menuWidth: 220,
           ),
       ],
     );
@@ -374,30 +326,19 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildDeviceGroup(
-    BuildContext context,
-    WidgetRef ref,
-    SettingsState settings,
-  ) {
+  Widget _buildDeviceGroup(WidgetRef ref, SettingsState settings) {
     final notifier = ref.read(settingsProvider.notifier);
-    final mode = LanSyncMode.fromString(settings.lanSyncMode);
     return BmSettingsGroup(
       title: '设备与同步',
       children: [
-        BmSettingsValueRow(
+        BmSettingsSelectRow<String>(
           title: '局域网同步',
           subtitle: _lanSyncModeText(settings.lanSyncMode),
           icon: Icons.wifi_tethering_outlined,
-          value: modeShortLabel(mode),
-          onTap: () async {
-            final value = await showSettingsOptionSheet<String>(
-              context: context,
-              title: '局域网同步',
-              options: _lanSyncOptions,
-              selected: settings.lanSyncMode,
-            );
-            if (value != null) await notifier.setLanSyncMode(value);
-          },
+          options: _lanSyncOptions,
+          selected: settings.lanSyncMode,
+          onChanged: notifier.setLanSyncMode,
+          menuWidth: 300,
         ),
         BmSettingsValueRow(
           title: '设备管理',

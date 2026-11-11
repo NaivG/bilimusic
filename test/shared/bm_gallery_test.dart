@@ -1,5 +1,6 @@
 import 'package:bilimusic/shared/theme/theme_registry.dart';
 import 'package:bilimusic/shared/ui/gallery/bm_gallery_page.dart';
+import 'package:bilimusic/shared/ui/gallery/gallery_sections.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -66,7 +67,13 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('动效'), findsOneWidget);
     // Chrome 与页面切换是新增的两个验收分区。
-    expect(find.text('Chrome'), findsOneWidget);
+    // 「Chrome」在「三档材质」卡片里也出现一次，按分区标题精确定位。
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is GallerySection && widget.title == 'Chrome',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('页面切换'), findsOneWidget);
   });
 }

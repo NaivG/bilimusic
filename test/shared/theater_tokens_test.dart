@@ -95,7 +95,7 @@ void main() {
     test('竖屏壳：浮动 Dock + 迷你播放器', () {
       expect(BmTokens.dockHeight, 60);
       expect(BmTokens.dockInset, 12);
-      expect(BmTokens.dockBottom, 38);
+      expect(BmTokens.dockBottom, 18);
       expect(BmTokens.dockItemHeight, 46);
       expect(BmTokens.dockItemHeightActive, 56);
       expect(BmTokens.dockItemWidth, 88);
@@ -110,9 +110,9 @@ void main() {
       expect(BmTokens.miniPlayerHeight, 52);
       expect(BmTokens.miniPlayerCover, 36);
       expect(BmTokens.miniPlayerInset, 14);
-      expect(BmTokens.miniPlayerBottom, 104);
+      expect(BmTokens.miniPlayerBottom, 84);
       expect(BmTokens.miniPlayerRadius, BmTokens.r26All);
-      // 迷你条不能压到 Dock：Dock 顶 = 38 + 60 = 98 < 104。
+      // 迷你条不能压到 Dock：Dock 顶 = 18 + 60 = 78 < 84。
       expect(
         BmTokens.dockBottom + BmTokens.dockHeight,
         lessThan(BmTokens.miniPlayerBottom),
@@ -141,6 +141,11 @@ void main() {
       expect(BmTokens.libraryDrawerWidth, 320);
       expect(BmTokens.queuePanelWidth, 420);
       expect(BmTokens.contentInset, 30);
+    });
+
+    test('锚定单选浮层：默认宽 240 / 最大高 480', () {
+      expect(BmTokens.selectMenuWidth, 240);
+      expect(BmTokens.selectMenuMaxHeight, 480);
     });
 
     test('横屏底栏：全平台单档尺寸', () {

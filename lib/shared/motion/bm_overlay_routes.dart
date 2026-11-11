@@ -1,5 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
+import 'package:flutter/services.dart';
+
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 
 import 'motion_tokens.dart';
 
@@ -254,4 +259,237 @@ class BmSheetRoute<T> extends PopupRoute<T> {
       SpringSimulation(BmMotion.sheetSpring, controller.value, 1, 0),
     );
   }
+}
+
+/// 单选浮层菜单路由。
+///
+/// 面板在锚点下方（放不下时翻到上方）按锚点右缘对齐；进场 120ms
+/// scale 0.96→1 + fade，缩放锚点是面板贴近锚点的那个角；退场同样 120ms。
+/// [reduceMotion] 下只保留透明度过渡。
+///
+/// 路由本身只负责定位与转场，面板内容由 [builder] 提供。
+class BmSelectMenuRoute<T> extends PopupRoute<T> {
+  BmSelectMenuRoute({
+    required this.builder,
+    required this.theme,
+    required this.anchorRect,
+    required this.opensUp,
+    required this.width,
+    required this.maxHeightFactor,
+    required this.barrierLabel,
+    this.barrierDismissible = true,
+    this.reduceMotion = false,
+    super.settings,
+  });
+
+  /// 面板内容。
+  final WidgetBuilder builder;
+
+  /// 调用点当时的主题，在浮层里原样注入。
+  final ThemeData theme;
+
+  /// 锚点控件的全局矩形。
+  final Rect anchorRect;
+
+  /// 估算出的方向：菜单更高时优先向上翻。
+  final bool opensUp;
+
+  /// 面板宽度；null 时取 [BmTokens.selectMenuWidth]。
+  final double? width;
+
+  /// 面板最大高度占屏幕高度的比例。
+  final double maxHeightFactor;
+
+  @override
+  final String? barrierLabel;
+
+  @override
+  final bool barrierDismissible;
+
+  /// reduce motion 下只保留透明度过渡。
+  final bool reduceMotion;
+
+  /// 锚定浮层不压暗背景：透明的 ModalBarrier 只负责点外关闭。
+  @override
+  Color? get barrierColor => null;
+
+  @override
+  Duration get transitionDuration => BmMotion.small;
+
+  @override
+  Duration get reverseTransitionDuration => BmMotion.small;
+
+  @override
+  Curve get barrierCurve => BmMotion.linear;
+
+  @override
+  bool get opaque => false;
+
+  @override
+  bool get maintainState => false;
+
+  @override
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) {
+    final media = MediaQuery.of(context);
+    final direction = Directionality.of(context);
+
+    final panel = Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.escape) {
+          if (isCurrent) navigator?.maybePop();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Theme(
+        data: theme,
+        child: Builder(builder: builder),
+      ),
+    );
+
+    final Widget animatedPanel;
+    if (reduceMotion) {
+      animatedPanel = FadeTransition(opacity: animation, child: panel);
+    } else {
+      final curved = animation.drive(CurveTween(curve: BmMotion.emphasized));
+      animatedPanel = FadeTransition(
+        opacity: curved,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.96, end: 1).animate(curved),
+          alignment: _selectMenuAlignment(direction, opensUp),
+          child: panel,
+        ),
+      );
+    }
+
+    return CustomSingleChildLayout(
+      delegate: _BmSelectMenuLayout(
+        anchorRect: anchorRect,
+        opensUp: opensUp,
+        width: width,
+        maxHeightFactor: maxHeightFactor,
+        direction: direction,
+        padding: media.padding,
+      ),
+      child: SizedBox(width: double.infinity, child: animatedPanel),
+    );
+  }
+
+  /// 转场与定位都在 [buildPage] 里完成：缩放必须围绕面板自己的角，
+  /// 而不是整页的角，否则面板会随整页缩放产生位移。
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) => child;
+}
+
+/// 面板相对锚点的定位：优先下方，下方放不下时翻到上方。
+class _BmSelectMenuLayout extends SingleChildLayoutDelegate {
+  _BmSelectMenuLayout({
+    required this.anchorRect,
+    required this.opensUp,
+    required this.width,
+    required this.maxHeightFactor,
+    required this.direction,
+    required this.padding,
+  });
+
+  static const double _gap = BmTokens.s1;
+  static const double _margin = BmTokens.s2;
+
+  final Rect anchorRect;
+  final bool opensUp;
+  final double? width;
+  final double maxHeightFactor;
+  final TextDirection direction;
+  final EdgeInsets padding;
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
+    final safeWidth = constraints.maxWidth - padding.horizontal - _margin * 2;
+    final safeHeight = constraints.maxHeight - padding.vertical - _margin * 2;
+    final maxWidth = math.max(
+      1.0,
+      math.min(width ?? BmTokens.selectMenuWidth, safeWidth),
+    );
+    final safeTop = padding.top + _margin;
+    final safeBottom = constraints.maxHeight - padding.bottom - _margin;
+    final spaceBelow = math.max(0.0, safeBottom - (anchorRect.bottom + _gap));
+    final spaceAbove = math.max(0.0, anchorRect.top - _gap - safeTop);
+    final available = math.max(spaceAbove, spaceBelow);
+    final maxHeight = math.max(
+      1.0,
+      math.min(
+        math.min(safeHeight, constraints.maxHeight * maxHeightFactor),
+        math.min(
+          BmTokens.selectMenuMaxHeight,
+          available == 0 ? BmTokens.touchScreen : available,
+        ),
+      ),
+    );
+    return BoxConstraints(maxWidth: maxWidth, maxHeight: maxHeight);
+  }
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) {
+    final safeTop = padding.top + _margin;
+    final safeBottom = size.height - padding.bottom - _margin;
+    final safeLeft = padding.left + _margin;
+    final safeRight = size.width - padding.right - _margin;
+    final spaceBelow = math.max(0.0, safeBottom - (anchorRect.bottom + _gap));
+    final spaceAbove = math.max(0.0, anchorRect.top - _gap - safeTop);
+    final belowFits = spaceBelow >= childSize.height;
+    final aboveFits = spaceAbove >= childSize.height;
+    final bool up;
+    if (belowFits && aboveFits) {
+      up = opensUp;
+    } else if (belowFits) {
+      up = false;
+    } else if (aboveFits) {
+      up = true;
+    } else {
+      up = spaceAbove > spaceBelow;
+    }
+    final rawTop = up
+        ? anchorRect.top - _gap - childSize.height
+        : anchorRect.bottom + _gap;
+    final top = _clamp(rawTop, safeTop, safeBottom - childSize.height);
+    final anchorEdge = direction == TextDirection.rtl
+        ? anchorRect.left
+        : anchorRect.right;
+    final rawLeft = direction == TextDirection.rtl
+        ? anchorEdge
+        : anchorEdge - childSize.width;
+    final left = _clamp(rawLeft, safeLeft, safeRight - childSize.width);
+    return Offset(left, top);
+  }
+
+  @override
+  bool shouldRelayout(covariant _BmSelectMenuLayout oldDelegate) {
+    return anchorRect != oldDelegate.anchorRect ||
+        opensUp != oldDelegate.opensUp ||
+        width != oldDelegate.width ||
+        maxHeightFactor != oldDelegate.maxHeightFactor ||
+        direction != oldDelegate.direction ||
+        padding != oldDelegate.padding;
+  }
+
+  static double _clamp(double value, double lower, double upper) {
+    if (upper < lower) return lower;
+    return value.clamp(lower, upper).toDouble();
+  }
+}
+
+/// 缩放锚点：贴着锚点的那条边保持不动。
+Alignment _selectMenuAlignment(TextDirection direction, bool opensUp) {
+  return Alignment(direction == TextDirection.rtl ? -1 : 1, opensUp ? 1 : -1);
 }

@@ -9,6 +9,7 @@ import 'package:bilimusic/features/player/logic/dual_audio_service.dart';
 import 'package:bilimusic/features/settings/settings_manager.dart';
 import 'package:bilimusic/features/settings/ui/audio_output_page.dart';
 import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_select_menu.dart';
 
 /// 不建真实播放器的双播放器服务。
 ///
@@ -153,22 +154,21 @@ void main() {
       expect(find.text('恢复默认'), findsOneWidget);
     });
 
-    testWidgets('设备清单没就绪时下拉禁用，并把原因写出来', (tester) async {
+    testWidgets('设备清单没就绪时单选入口禁用，并把原因写出来', (tester) async {
       await loadSettings(values: {'audio_output_disclaimer_accepted': true});
 
       await tester.pumpWidget(wrap(const AudioOutputPage()));
       await tester.pumpAndSettle();
 
       expect(find.text('设备列表尚未就绪——mpv 初始化完成后自动填充。'), findsOneWidget);
-      final deviceDropdown = tester.widget<DropdownButton<String>>(
-        find.byWidgetPredicate(
-          (w) => w is DropdownButton && w.value is String?,
-        ),
+      final trigger = tester.widget<BmSelectTrigger<String>>(
+        find.byWidgetPredicate((w) => w is BmSelectTrigger<String>),
       );
-      expect(deviceDropdown.onChanged, isNull, reason: '空清单不该给出可点开的下拉');
+      expect(trigger.enabled, isFalse, reason: '空清单不该给出可点开的浮层');
+      expect(trigger.label, '自动（系统默认）');
     });
 
-    testWidgets('设备清单就绪后可选，并渲染设备描述', (tester) async {
+    testWidgets('设备清单就绪后可选，浮层里渲染设备描述', (tester) async {
       await loadSettings(values: {'audio_output_disclaimer_accepted': true});
 
       await tester.pumpWidget(
@@ -183,15 +183,30 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('设备列表尚未就绪——mpv 初始化完成后自动填充。'), findsNothing);
-      final dropdown = tester.widget<DropdownButton<String>>(
-        find.byWidgetPredicate(
-          (w) => w is DropdownButton && w.value is String?,
-        ),
+      final trigger = tester.widget<BmSelectTrigger<String>>(
+        find.byWidgetPredicate((w) => w is BmSelectTrigger<String>),
       );
-      expect(dropdown.onChanged, isNotNull);
+      expect(trigger.enabled, isTrue);
+      expect(trigger.label, '自动（系统默认）');
       // 0 号是「自动（系统默认）」，之后才是真设备。
-      expect(dropdown.items, hasLength(3));
-      expect(dropdown.items!.first.value, '');
+      expect(trigger.options, hasLength(3));
+      expect(trigger.options.first.value, '');
+
+      await tester.tap(
+        find.byWidgetPredicate((w) => w is BmSelectTrigger<String>),
+      );
+      await tester.pumpAndSettle();
+
+      final menu = find.byWidgetPredicate((w) => w is BmSelectMenu);
+      expect(menu, findsOneWidget);
+      expect(
+        find.descendant(of: menu, matching: find.text('USB 耳机')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: menu, matching: find.text('扬声器')),
+        findsOneWidget,
+      );
     });
   });
 }

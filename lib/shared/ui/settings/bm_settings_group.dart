@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:bilimusic/shared/motion/bm_pressable.dart';
 import 'package:bilimusic/shared/ui/controls/bm_switch.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_select_menu.dart';
 import 'package:bilimusic/shared/ui/surfaces/bm_card.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
@@ -289,6 +290,113 @@ class BmSettingsValueRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// 下拉单选行：整行可点，行尾是当前值 + 上下箭头，点开锚定浮层。
+///
+/// ```dart
+/// BmSettingsSelectRow<String>(
+///   title: '外观',
+///   options: appearanceOptions,
+///   selected: settings.appearance,
+///   onChanged: notifier.setAppearance,
+/// )
+/// ```
+class BmSettingsSelectRow<T> extends StatelessWidget {
+  const BmSettingsSelectRow({
+    super.key,
+    required this.title,
+    required this.options,
+    required this.selected,
+    required this.onChanged,
+    this.icon,
+    this.subtitle,
+    this.valueLeading,
+    this.valueLabel,
+    this.menuWidth,
+    this.menuMaxHeightFactor = 0.66,
+  });
+
+  final String title;
+  final List<BmSelectOption<T>> options;
+  final T selected;
+  final ValueChanged<T> onChanged;
+  final IconData? icon;
+  final String? subtitle;
+
+  /// 当前值左侧的附加内容（主题色点）。
+  final Widget? valueLeading;
+
+  /// 覆盖行尾文案；为 null 时取 [selected] 对应条目的 label。
+  final String? valueLabel;
+
+  final double? menuWidth;
+  final double menuMaxHeightFactor;
+
+  BmSelectOption<T>? get _selectedOption {
+    for (final option in options) {
+      if (option.value == selected) return option;
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.bmColors;
+    final type = context.bmType;
+    final displayValue = valueLabel ?? _selectedOption?.label ?? '';
+    // Builder 的父级 SizedBox 才是整行的 RenderBox；直接拿页面 context
+    // 会把锚点算到整张分组卡上。
+    return SizedBox(
+      child: Builder(
+        builder: (anchorContext) => BmSettingsRow(
+          title: title,
+          icon: icon,
+          subtitle: subtitle,
+          onTap: () => _open(anchorContext),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (valueLeading != null) ...[
+                valueLeading!,
+                const SizedBox(width: BmTokens.s1),
+              ],
+              if (displayValue.isNotEmpty)
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 140),
+                  child: Text(
+                    displayValue,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: BmTypography.numeric(
+                      type.caption.copyWith(color: colors.textSecondary),
+                    ),
+                  ),
+                ),
+              const SizedBox(width: BmTokens.s1),
+              Icon(
+                Icons.unfold_more_rounded,
+                size: BmTokens.iconMenu,
+                color: colors.textTertiary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _open(BuildContext anchorContext) async {
+    final value = await showBmSelectMenu<T>(
+      anchorContext: anchorContext,
+      options: options,
+      selected: selected,
+      width: menuWidth,
+      maxHeightFactor: menuMaxHeightFactor,
+    );
+    if (value == null || value == selected) return;
+    onChanged(value);
   }
 }
 
