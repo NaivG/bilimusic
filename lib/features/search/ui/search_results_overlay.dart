@@ -103,60 +103,66 @@ class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
     return Scaffold(
       // 透出壳层的流体背景；页面本身不再铺一层底色。
       backgroundColor: context.bmColors.bg.withAlpha(0),
-      body: PopScope(
-        canPop: false,
-        onPopInvokedWithResult: (didPop, result) {
-          if (!didPop) {
-            ShellPageManager.instance.pop();
-          }
-        },
-        child: CustomScrollView(
-          // 返回搜索结果页时保留滚动位置（搜索状态本身已在 Provider 里）
-          key: PageStorageKey<String>('searchResults:${widget.query}'),
-          slivers: [
-            _pad(
-              side,
-              SliverToBoxAdapter(
-                child: _buildHeader(
-                  context,
-                  selectedType: selectedType,
-                  availableTypes: availableTypes,
-                  isLandscape: isLandscape,
-                  isDesktop: isDesktop,
-                ),
-              ),
-            ),
-            if (availableTypes.isNotEmpty && !isDesktop)
+      body: SafeArea(
+        top: !isLandscape,
+        bottom: false,
+        left: false,
+        right: false,
+        child: PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) {
+            if (!didPop) {
+              ShellPageManager.instance.pop();
+            }
+          },
+          child: CustomScrollView(
+            // 返回搜索结果页时保留滚动位置（搜索状态本身已在 Provider 里）
+            key: PageStorageKey<String>('searchResults:${widget.query}'),
+            slivers: [
               _pad(
                 side,
                 SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: BmTokens.s3),
-                    child: SearchTypeTabs(
-                      selectedType: selectedType,
-                      onTypeChanged: _onTypeChanged,
-                      availableTypes: availableTypes,
-                    ),
+                  child: _buildHeader(
+                    context,
+                    selectedType: selectedType,
+                    availableTypes: availableTypes,
+                    isLandscape: isLandscape,
+                    isDesktop: isDesktop,
                   ),
                 ),
               ),
-            if (isLoading)
-              _buildLoadingContent()
-            else if (!hasSearched)
-              _buildInitialContent()
-            else if (results.isEmpty)
-              _buildEmptyContent(search.errorMessage)
-            else
-              ..._buildResultSlivers(
-                context,
-                side: side,
-                isLandscape: isLandscape,
-                selectedType: selectedType,
-                results: results,
-                pages: search.pages,
-                loadingPages: search.loadingPages,
-              ),
-          ],
+              if (availableTypes.isNotEmpty && !isDesktop)
+                _pad(
+                  side,
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: BmTokens.s3),
+                      child: SearchTypeTabs(
+                        selectedType: selectedType,
+                        onTypeChanged: _onTypeChanged,
+                        availableTypes: availableTypes,
+                      ),
+                    ),
+                  ),
+                ),
+              if (isLoading)
+                _buildLoadingContent()
+              else if (!hasSearched)
+                _buildInitialContent()
+              else if (results.isEmpty)
+                _buildEmptyContent(search.errorMessage)
+              else
+                ..._buildResultSlivers(
+                  context,
+                  side: side,
+                  isLandscape: isLandscape,
+                  selectedType: selectedType,
+                  results: results,
+                  pages: search.pages,
+                  loadingPages: search.loadingPages,
+                ),
+            ],
+          ),
         ),
       ),
     );

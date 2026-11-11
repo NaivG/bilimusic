@@ -98,7 +98,7 @@ class LandscapeBreakpoints {
     return width >= desktopMin ? BmTokens.railWidth : 68;
   }
 
-  /// 横屏标题栏高度：≥1200 58，900–1199 52。
+  /// 横屏标题栏设计高度：≥1200 58，900–1199 52（不含顶部系统栏）。
   static double topbarHeight(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     return width >= desktopMin ? BmTokens.topbarHeight : 52;

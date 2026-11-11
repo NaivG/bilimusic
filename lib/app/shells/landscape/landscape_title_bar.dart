@@ -44,19 +44,26 @@ class LandscapeTitleBar extends ConsumerWidget {
       BmTokens.touchScreen -
       BmTokens.s2;
 
+  /// 标题栏实际高度：设计稿高度 + 顶部系统栏（状态栏 / 刘海）。
+  static double heightOf(BuildContext context) =>
+      LandscapeBreakpoints.topbarHeight(context) +
+      MediaQuery.paddingOf(context).top;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.bmColors;
     final type = context.bmType;
+    final topInset = MediaQuery.paddingOf(context).top;
     final blur = ref.watch(
       settingsProvider.select((settings) => settings.blurEffect),
     );
 
     return SizedBox(
-      height: LandscapeBreakpoints.topbarHeight(context),
+      height: heightOf(context),
       child: BmChromeSurface(
         edges: const <BmChromeEdge>{BmChromeEdge.bottom},
         blur: blur,
+        padding: EdgeInsets.only(top: topInset),
         child: Stack(
           children: [
             // 可拖拽区域 + 双击最大化

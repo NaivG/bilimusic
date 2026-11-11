@@ -79,61 +79,68 @@ class LandscapeRail extends ConsumerWidget {
         tone: BmChromeTone.canvas,
         edges: const <BmChromeEdge>{BmChromeEdge.right},
         blur: blur,
-        child: Column(
-          children: [
-            const SizedBox(height: _verticalInset),
-            // 品牌 logo：点回首页
-            Tooltip(
-              message: LandscapeRailDestination.home.label,
-              child: BmPressable(
-                onTap: () => onSelected(LandscapeRailDestination.home),
-                borderRadius: BmTokens.r10All,
-                semanticLabel: '首页',
-                child: ClipRRect(
+        // 把内容让到安全区域
+        child: SafeArea(
+          top: true,
+          bottom: false,
+          left: false,
+          right: false,
+          child: Column(
+            children: [
+              const SizedBox(height: _verticalInset),
+              // 品牌 logo：点回首页
+              Tooltip(
+                message: LandscapeRailDestination.home.label,
+                child: BmPressable(
+                  onTap: () => onSelected(LandscapeRailDestination.home),
                   borderRadius: BmTokens.r10All,
-                  child: Image.asset(
-                    'assets/ic_launcher.png',
-                    width: BmTokens.railLogo,
-                    height: BmTokens.railLogo,
-                    fit: BoxFit.cover,
+                  semanticLabel: '首页',
+                  child: ClipRRect(
+                    borderRadius: BmTokens.r10All,
+                    child: Image.asset(
+                      'assets/ic_launcher.png',
+                      width: BmTokens.railLogo,
+                      height: BmTokens.railLogo,
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: _navTopGap),
-            // 窄屏横屏（手机 / 小平板）高度可能装不下六个入口，导航允许纵向滚动。
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    for (final destination in destinations) ...[
-                      _RailButton(
-                        icon: destination.icon,
-                        activeIcon: destination.activeIcon,
-                        label: destination.label,
-                        selected: destination == selected,
-                        onTap: () => onSelected(destination),
-                      ),
-                      if (destination != destinations.last)
-                        const SizedBox(height: BmTokens.railItemGap),
+              const SizedBox(height: _navTopGap),
+              // 窄屏横屏（手机 / 小平板）高度可能装不下六个入口，导航允许纵向滚动。
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      for (final destination in destinations) ...[
+                        _RailButton(
+                          icon: destination.icon,
+                          activeIcon: destination.activeIcon,
+                          label: destination.label,
+                          selected: destination == selected,
+                          onTap: () => onSelected(destination),
+                        ),
+                        if (destination != destinations.last)
+                          const SizedBox(height: BmTokens.railItemGap),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-            _SyncDot(connectedCount: connectedPeers.length, onTap: onSync),
-            const SizedBox(height: _bottomGap),
-            _RailButton(
-              icon: Icons.settings_outlined,
-              activeIcon: Icons.settings_rounded,
-              label: '设置',
-              selected: settingsSelected,
-              onTap: onSettings,
-            ),
-            const SizedBox(height: _bottomGap),
-            _Avatar(onTap: onProfile),
-            const SizedBox(height: _verticalInset),
-          ],
+              _SyncDot(connectedCount: connectedPeers.length, onTap: onSync),
+              const SizedBox(height: _bottomGap),
+              _RailButton(
+                icon: Icons.settings_outlined,
+                activeIcon: Icons.settings_rounded,
+                label: '设置',
+                selected: settingsSelected,
+                onTap: onSettings,
+              ),
+              const SizedBox(height: _bottomGap),
+              _Avatar(onTap: onProfile),
+              const SizedBox(height: _verticalInset),
+            ],
+          ),
         ),
       ),
     );

@@ -134,7 +134,7 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final railWidth = LandscapeBreakpoints.railWidth(context);
-          final topbarHeight = LandscapeBreakpoints.topbarHeight(context);
+          final titleBarHeight = LandscapeTitleBar.heightOf(context);
           final playbarHeight = _playbarHeight(context);
 
           return Stack(
@@ -184,7 +184,7 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
                 ..._buildSearchSuggestLayer(
                   constraints.maxHeight,
                   railWidth,
-                  topbarHeight,
+                  titleBarHeight,
                   playbarHeight,
                 ),
               // 详情页独立动画层（全窗，与底层切换完全解耦）
@@ -225,12 +225,13 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
 
   /// 标题栏搜索的联想层：内容区一层可点击遮罩 + 面板。
   ///
+  /// [titleBarHeight] 是含状态栏 / 刘海的标题栏总高，面板从它下沿展开。
   /// 面板用 [TextFieldTapRegion] 标记为「输入框的一部分」，否则点联想词会被
   /// TextField 的 TapRegion 当成外部点击先失焦，列表在抬手前就消失了。
   List<Widget> _buildSearchSuggestLayer(
     double bodyHeight,
     double railWidth,
-    double topbarHeight,
+    double titleBarHeight,
     double playbarHeight,
   ) {
     final size = MediaQuery.sizeOf(context);
@@ -239,14 +240,14 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
         .clamp(240.0, _searchPanelMaxWidth)
         .toDouble();
     final panelHeight =
-        (bodyHeight - topbarHeight - playbarHeight - BmTokens.s5)
+        (bodyHeight - titleBarHeight - playbarHeight - BmTokens.s5)
             .clamp(140.0, 420.0)
             .toDouble();
 
     return [
       Positioned(
         left: railWidth,
-        top: topbarHeight,
+        top: titleBarHeight,
         right: 0,
         bottom: playbarHeight,
         child: GestureDetector(
@@ -256,7 +257,7 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
         ),
       ),
       Positioned(
-        top: topbarHeight + BmTokens.s2,
+        top: titleBarHeight + BmTokens.s2,
         left: panelLeft,
         child: TextFieldTapRegion(
           child: BmMenuSurface(

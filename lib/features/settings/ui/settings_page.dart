@@ -82,20 +82,28 @@ class SettingsPage extends ConsumerWidget {
     return Scaffold(
       // 透明让壳层的流体背景透出。
       backgroundColor: context.bmColors.bg.withValues(alpha: 0),
-      body: SingleChildScrollView(
-        // 给竖屏浮动的迷你播放器 / Dock 让位；横屏该值即底部安全区。
-        padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            BmPageHeader(
-              title: '设置',
-              subtitle: _eyebrow(settings),
-              padding: EdgeInsets.fromLTRB(inset, topInset, inset, 0),
-            ),
-            _buildGroupColumn(context, ref, settings, isLandscape),
-            const SizedBox(height: BmTokens.s6),
-          ],
+      body: SafeArea(
+        top: !isLandscape,
+        bottom: false,
+        left: false,
+        right: false,
+        child: SingleChildScrollView(
+          // 给竖屏浮动的迷你播放器 / Dock 让位；横屏该值即底部安全区。
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.paddingOf(context).bottom,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              BmPageHeader(
+                title: '设置',
+                subtitle: _eyebrow(settings),
+                padding: EdgeInsets.fromLTRB(inset, topInset, inset, 0),
+              ),
+              _buildGroupColumn(context, ref, settings, isLandscape),
+              const SizedBox(height: BmTokens.s6),
+            ],
+          ),
         ),
       ),
     );
