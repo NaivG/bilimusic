@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/player/models/player_state.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/player/widgets/crossfade_indicator.dart';
@@ -112,7 +112,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
     _isVerticalSwipe = false;
 
     // 无音乐时不启动水平拖动
-    if (ref.read(playerCoordinatorProvider).currentMusic == null) {
+    if (ref.read(currentMusicProvider) == null) {
       _isVerticalSwipe = true;
     }
   }
@@ -221,7 +221,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
   Widget build(BuildContext context) {
     final currentPosition = ref.watch(positionProvider);
     final currentPlayerState = ref.watch(playerStateProvider);
-    ref.watch(currentMusicProvider);
+    final currentMusic = ref.watch(currentMusicProvider);
     final colors = context.bmColors;
     final type = context.bmType;
     final blurEffect = ref.watch(
@@ -233,14 +233,6 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
     final scale = absDragX > 20
         ? (1 - (absDragX.abs() / 1000)).clamp(0.92, 1.0)
         : 1.0;
-
-    // 计算滑动方向图标 scale 和 opacity
-    final iconScale = absDragX > 20
-        ? (0.5 + (absDragX / 200)).clamp(0.5, 1.2)
-        : 0.5;
-    final iconOpacity = absDragX > 20
-        ? ((absDragX - 20) / 40).clamp(0.0, 1.0)
-        : 0.0;
 
     return Padding(
       padding: EdgeInsets.zero,
@@ -275,55 +267,13 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
                         Positioned.fill(
                           child: Align(
                             alignment: Alignment.centerLeft,
-                            child: _buildProgressFill(colors, currentPosition),
+                            child: _buildProgressFill(
+                              colors,
+                              currentPosition,
+                              currentMusic,
+                            ),
                           ),
                         ),
-                        // 滑动方向图标层
-                        if (ref.read(playerCoordinatorProvider).currentMusic !=
-                            null) ...[
-                          if (_dragX > 20)
-                            Positioned(
-                              left:
-                                  -BmTokens.touchScreen -
-                                  (_dragX * 0.2).clamp(0.0, BmTokens.s5),
-                              top: 0,
-                              bottom: 0,
-                              child: Center(
-                                child: Transform.scale(
-                                  scale: iconScale,
-                                  child: Opacity(
-                                    opacity: iconOpacity,
-                                    child: Icon(
-                                      Icons.skip_previous_rounded,
-                                      color: colors.textPrimary,
-                                      size: BmTokens.touchScreen,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          if (_dragX < -20)
-                            Positioned(
-                              right:
-                                  -BmTokens.touchScreen -
-                                  (_dragX.abs() * 0.2).clamp(0.0, BmTokens.s5),
-                              top: 0,
-                              bottom: 0,
-                              child: Center(
-                                child: Transform.scale(
-                                  scale: iconScale,
-                                  child: Opacity(
-                                    opacity: iconOpacity,
-                                    child: Icon(
-                                      Icons.skip_next_rounded,
-                                      color: colors.textPrimary,
-                                      size: BmTokens.touchScreen,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
                         // 内容层
                         Padding(
                           padding: const EdgeInsets.symmetric(
@@ -335,9 +285,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
                               GestureDetector(
                                 onTap: widget.onExpand,
                                 child: MusicCover(
-                                  music: ref
-                                      .read(playerCoordinatorProvider)
-                                      .currentMusic,
+                                  music: currentMusic,
                                   size: BmTokens.miniPlayerCover,
                                   radius: BmTokens.rPill,
                                 ),
@@ -352,6 +300,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
                                     colors,
                                     type,
                                     currentPlayerState,
+                                    currentMusic,
                                   ),
                                 ),
                               ),
@@ -382,7 +331,42 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
                     ),
                   ),
                 ),
+                // 滑切歌提示，画在浮块外
+                if (currentMusic != null && absDragX > 20)
+                  _buildSwipeHint(colors),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 左右拖动时的切歌提示（上一首 / 下一首图标）。
+  ///
+  /// 画在浮块的圆角裁剪之外，落在拖动让出来的空白里；[BmTokens.s5] 是离
+  /// 浮块的最大间距，越拖越靠外、越拖越大。
+  Widget _buildSwipeHint(BmColors colors) {
+    final drag = _dragX.abs();
+    final previous = _dragX > 0;
+    return Positioned(
+      left: previous
+          ? -BmTokens.touchScreen - (drag * 0.2).clamp(0.0, BmTokens.s5)
+          : null,
+      right: previous
+          ? null
+          : -BmTokens.touchScreen - (drag * 0.2).clamp(0.0, BmTokens.s5),
+      top: 0,
+      bottom: 0,
+      child: Center(
+        child: Transform.scale(
+          scale: (0.5 + drag / 200).clamp(0.5, 1.2),
+          child: Opacity(
+            opacity: ((drag - 20) / 40).clamp(0.0, 1.0),
+            child: Icon(
+              previous ? Icons.skip_previous_rounded : Icons.skip_next_rounded,
+              color: colors.textPrimary,
+              size: BmTokens.touchScreen,
             ),
           ),
         ),
@@ -394,8 +378,8 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
     BmColors colors,
     BmTypographySet type,
     PlayerState playerState,
+    Music? music,
   ) {
-    final music = ref.read(playerCoordinatorProvider).currentMusic;
     final fading = isCrossfading(playerState);
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -430,8 +414,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
     );
   }
 
-  Widget _buildProgressFill(BmColors colors, Duration position) {
-    final music = ref.read(playerCoordinatorProvider).currentMusic;
+  Widget _buildProgressFill(BmColors colors, Duration position, Music? music) {
     final duration = music?.duration ?? Duration.zero;
     final p = duration.inMilliseconds == 0
         ? 0.0
