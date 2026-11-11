@@ -257,3 +257,29 @@ final List<EqualizerPresetGroup> kEqualizerPresetGroups = [
     ],
   ),
 ];
+
+/// 在全部内置预设里找与 [model] 参数一致的那一条；手调过的曲线返回 null。
+///
+/// 引擎侧 `anequalizer` 的 params 按 2 位小数序列化，应用预设后的模型是
+/// 舍入过的值，所以按落盘精度比较，而不是浮点精确相等。
+EqualizerPreset? findEqualizerPreset(EqualizerBandModel model) {
+  for (final group in kEqualizerPresetGroups) {
+    for (final preset in group.presets) {
+      if (_sameBands(preset.model, model)) return preset;
+    }
+  }
+  return null;
+}
+
+bool _sameBands(EqualizerBandModel a, EqualizerBandModel b) {
+  for (var i = 0; i < EqualizerBandModel.bandCount; i++) {
+    if (a.frequencies[i].toStringAsFixed(2) !=
+        b.frequencies[i].toStringAsFixed(2)) {
+      return false;
+    }
+    if (a.gainsDb[i].toStringAsFixed(2) != b.gainsDb[i].toStringAsFixed(2)) {
+      return false;
+    }
+  }
+  return true;
+}

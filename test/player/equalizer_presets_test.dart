@@ -166,4 +166,28 @@ void main() {
       }
     });
   });
+
+  group('findEqualizerPreset（预设菜单打勾）', () {
+    test('每个预设按引擎精度往返后都能匹配回自己', () {
+      for (final p in allPresets()) {
+        final applied = EqualizerBandModel.fromAnequalizerSettings(
+          p.model.toAnequalizerSettings(enabled: true),
+        );
+        expect(findEqualizerPreset(applied)?.id, p.id, reason: p.id);
+      }
+    });
+
+    test('平直曲线 / 手调过的曲线没有匹配预设', () {
+      expect(findEqualizerPreset(EqualizerBandModel.flat()), isNull);
+
+      final p = allPresets().first;
+      final applied = EqualizerBandModel.fromAnequalizerSettings(
+        p.model.toAnequalizerSettings(enabled: false),
+      );
+      expect(findEqualizerPreset(applied)?.id, p.id);
+
+      final nudged = applied.withBand(0, gainDb: applied.gainsDb[0] + 0.5);
+      expect(findEqualizerPreset(nudged), isNull);
+    });
+  });
 }

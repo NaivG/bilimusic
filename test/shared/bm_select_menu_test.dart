@@ -193,6 +193,51 @@ void main() {
     expect(route.transitionDuration, BmMotion.small);
   });
 
+  testWidgets('selected 为 null：浮层里不画对勾', (tester) async {
+    await _pumpHost(
+      tester,
+      anchorRect: const Rect.fromLTWH(300, 200, 240, 48),
+      options: options,
+      selected: null,
+    );
+
+    await tester.tap(find.byKey(_anchorKey));
+    await tester.pumpAndSettle();
+
+    expect(_menu(), findsOneWidget);
+    expect(find.byIcon(Icons.check_rounded), findsNothing);
+  });
+
+  testWidgets('分组标题：按组渲染小标题，不参与选择也不关闭浮层', (tester) async {
+    const grouped = <BmSelectOption<String>>[
+      BmSelectOption(value: 'a', label: '跟随系统', sectionTitle: '通用'),
+      BmSelectOption(value: 'b', label: '浅色'),
+      BmSelectOption(value: 'c', label: '深色', sectionTitle: '高级'),
+    ];
+    String? result = 'sentinel';
+    await _pumpHost(
+      tester,
+      anchorRect: const Rect.fromLTWH(300, 200, 240, 48),
+      options: grouped,
+      selected: 'b',
+      onResult: (value) => result = value,
+    );
+
+    await tester.tap(find.byKey(_anchorKey));
+    await tester.pumpAndSettle();
+
+    expect(find.text('通用'), findsOneWidget);
+    expect(find.text('高级'), findsOneWidget);
+
+    await tester.tap(find.text('通用'));
+    await tester.pumpAndSettle();
+    expect(result, 'sentinel');
+    expect(_menu(), findsOneWidget);
+
+    // 勾选仍然只落在当前值上，与分组无关。
+    expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+  });
+
   testWidgets('选项超过高度上限时内部滚动', (tester) async {
     final many = <BmSelectOption<String>>[
       for (var i = 0; i < 24; i++) BmSelectOption(value: '$i', label: '选项 $i'),
@@ -270,7 +315,7 @@ Future<_Host> _pumpHost(
   WidgetTester tester, {
   required Rect anchorRect,
   required List<BmSelectOption<String>> options,
-  String selected = 'b',
+  String? selected = 'b',
   bool reduceMotion = false,
   ValueChanged<String?>? onResult,
 }) async {

@@ -19,6 +19,7 @@ class BmSelectOption<T> {
     this.subtitle,
     this.leading,
     this.enabled = true,
+    this.sectionTitle,
   });
 
   final T value;
@@ -32,6 +33,11 @@ class BmSelectOption<T> {
 
   /// 为 false 时行降到禁用态且不可选。
   final bool enabled;
+
+  /// 分组标题：非空时在这一行上方先画一行小标题。
+  ///
+  /// 多组选项只给每组第一项设置；标题只做分隔，不参与选择。
+  final String? sectionTitle;
 }
 
 /// iOS 风味锚定单选浮层。
@@ -39,7 +45,8 @@ class BmSelectOption<T> {
 /// 从 [anchorContext] 所在控件的下方弹出（下方空间不足时翻到上方），
 /// 面板右缘与锚点右缘对齐；默认宽 [BmTokens.selectMenuWidth]，最大高
 /// [BmTokens.selectMenuMaxHeight]，超出后内部滚动。选中项只在行尾画
-/// accent 对勾，不铺整行选中底。
+/// accent 对勾，不铺整行选中底；[selected] 为 null 时都不画，选项可用
+/// [BmSelectOption.sectionTitle] 分组。
 ///
 /// 动画走 Lucent 菜单入场：120ms scale 0.96→1 + fade
 /// （[BmMotion.small] / [BmMotion.emphasized]），缩放锚点是面板贴近锚点的
@@ -47,7 +54,7 @@ class BmSelectOption<T> {
 Future<T?> showBmSelectMenu<T>({
   required BuildContext anchorContext,
   required List<BmSelectOption<T>> options,
-  required T selected,
+  required T? selected,
   double? width,
   double maxHeightFactor = 0.66,
   bool isDismissible = true,
@@ -94,7 +101,10 @@ class BmSelectMenu<T> extends StatelessWidget {
   });
 
   final List<BmSelectOption<T>> options;
-  final T selected;
+
+  /// 当前值；为 null 时没有任何行画对勾。
+  final T? selected;
+
   final ValueChanged<T> onSelected;
 
   @override
@@ -106,12 +116,15 @@ class BmSelectMenu<T> extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            for (final option in options)
+            for (final option in options) ...[
+              if (option.sectionTitle != null)
+                _BmSelectSectionHeader(title: option.sectionTitle!),
               _BmSelectMenuRow<T>(
                 option: option,
                 selected: option.value == selected,
                 onTap: option.enabled ? () => onSelected(option.value) : null,
               ),
+            ],
           ],
         ),
       ),
@@ -137,7 +150,10 @@ class BmSelectTrigger<T> extends StatelessWidget {
 
   final String label;
   final List<BmSelectOption<T>> options;
-  final T selected;
+
+  /// 当前值；为 null / 不在 [options] 里时浮层不画对勾。
+  final T? selected;
+
   final ValueChanged<T> onSelected;
   final bool enabled;
   final double? menuWidth;
@@ -301,6 +317,43 @@ Rect _anchorRectOf(BuildContext context, Size screen) {
   return Rect.fromLTWH(screen.width / 2, screen.height / 2, 0, 0);
 }
 
+/// 选项分组小标题：只做分隔，不参与选择。
+class _BmSelectSectionHeader extends StatelessWidget {
+  const _BmSelectSectionHeader({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.bmColors;
+    final type = context.bmType;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        BmTokens.s3,
+        BmTokens.s2,
+        BmTokens.s3,
+        BmTokens.s1 / 2,
+      ),
+      child: Semantics(
+        header: true,
+        child: Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: type.label.copyWith(
+              color: colors.textSecondary,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// 估算面板高度，只用于决定弹出方向（实际布局由路由按可用空间夹取）。
 double _estimatedMenuHeight<T>(
   BuildContext context,
@@ -312,8 +365,13 @@ double _estimatedMenuHeight<T>(
       scaler.scale(type.body.fontSize ?? 15) * (type.body.height ?? 1.4);
   final captionLine =
       scaler.scale(type.caption.fontSize ?? 12) * (type.caption.height ?? 1.42);
+  final sectionLine =
+      scaler.scale(type.label.fontSize ?? 13) * (type.label.height ?? 1.46);
   var height = BmTokens.menuInset * 2;
   for (final option in options) {
+    if (option.sectionTitle != null) {
+      height += sectionLine + BmTokens.s2 + BmTokens.s1 / 2;
+    }
     final content =
         bodyLine +
         (option.subtitle == null ? 0 : BmTokens.s1 / 2 + captionLine) +
