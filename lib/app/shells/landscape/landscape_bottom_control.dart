@@ -21,27 +21,22 @@ import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
 import 'package:bilimusic/shared/utils/play_mode_icon.dart';
-import 'package:bilimusic/shared/utils/platform_helper.dart';
-import 'package:bilimusic/shared/utils/responsive.dart';
 import 'package:bilimusic/shared/widgets/music_cover.dart';
 
-/// 横屏模式底部播放器控制栏 - Lucent设计语言
+/// 横屏模式底部播放器控制栏 - Theater 设计语言
 ///
-/// Chrome 材质：顶边 hairline + 可选背景模糊。左中右三段分别是当前歌曲、
-/// 播放控制、收藏 / 歌词 / 音量（悬停弹出竖向音量条）；进度是贴上沿的全宽
-/// 细线（[LandscapeSeekStrip]）。
+/// 左当前歌曲、中播放控制、右收藏 + 音量，三段
+/// 按 3:6:3 分宽；进度是贴上沿的全宽细线（[LandscapeSeekStrip]），不占三段的
+/// 高度。
 class LandscapeBottomControl extends ConsumerWidget {
   final VoidCallback? onExpand;
-  final VoidCallback? onPlayList;
+  final VoidCallback onPlayList;
 
-  const LandscapeBottomControl({super.key, this.onExpand, this.onPlayList});
-
-  double _barHeight(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    if (width >= LandscapeBreakpoints.desktopMin) return 90;
-    if (width >= LandscapeBreakpoints.largeTabletMin) return 96;
-    return 88;
-  }
+  const LandscapeBottomControl({
+    super.key,
+    this.onExpand,
+    required this.onPlayList,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -54,11 +49,9 @@ class LandscapeBottomControl extends ConsumerWidget {
     final playMode = ref.watch(playModeProvider);
     final isRoaming = ref.watch(isRoamingProvider);
     final playerState = ref.watch(playerStateProvider);
-    final barHeight = _barHeight(context);
-    final hPadding = LandscapeBreakpoints.getHorizontalPadding(context);
 
     return SizedBox(
-      height: barHeight,
+      height: BmTokens.playbarHeight,
       child: BmChromeSurface(
         edges: const <BmChromeEdge>{BmChromeEdge.top},
         blur: blurEnabled,
@@ -68,7 +61,9 @@ class LandscapeBottomControl extends ConsumerWidget {
               child: SafeArea(
                 top: false,
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: hPadding),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: BmTokens.playbarInset,
+                  ),
                   child: Row(
                     children: [
                       // Left: current song tile
@@ -84,26 +79,26 @@ class LandscapeBottomControl extends ConsumerWidget {
                       // Center: play controls
                       Expanded(
                         flex: 4,
-                        child: _buildPlayControls(
-                          context,
-                          ref,
-                          colors,
-                          playMode,
-                          isRoaming,
-                          playerState,
-                        ),
-                      ),
-                      // Right: favorite + lyrics + volume (desktop only)
-                      if (PlatformHelper.isDesktop)
-                        Expanded(
-                          flex: 3,
-                          child: _buildRightControls(
-                            context,
-                            ref,
-                            colors,
-                            currentMusic,
+                        child: Center(
+                          // 极窄窗口下（600 宽再叠侧边安全区）等比缩一点，
+                          // 保证单档尺寸不溢出。
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: _buildPlayControls(
+                              ref,
+                              colors,
+                              playMode,
+                              isRoaming,
+                              playerState,
+                            ),
                           ),
                         ),
+                      ),
+                      // Right: favorite + volume
+                      Expanded(
+                        flex: 3,
+                        child: _buildRightControls(ref, colors, currentMusic),
+                      ),
                     ],
                   ),
                 ),
@@ -187,15 +182,14 @@ class LandscapeBottomControl extends ConsumerWidget {
   // ==================== Center Section ====================
 
   Widget _buildPlayControls(
-    BuildContext context,
     WidgetRef ref,
     BmColors colors,
     PlayMode playMode,
     bool isRoaming,
     PlayerState playerState,
   ) {
-    final smallSize = 40.0;
-    final mainButtonSize = LandscapeBreakpoints.getMainPlayButtonSize(context);
+    const smallSize = BmTokens.controlLg;
+    const mainButtonSize = BmTokens.playbarMainButton;
     final isPlaying = playerState is PlayerPlaying;
     final commands = ref.read(playbackCommandsProvider.notifier);
 
@@ -212,7 +206,7 @@ class LandscapeBottomControl extends ConsumerWidget {
           // 漫游时底层固定顺序播放，不允许切换
           onTap: isRoaming ? null : commands.togglePlayMode,
         ),
-        const SizedBox(width: BmTokens.s4),
+        const SizedBox(width: BmTokens.s3),
         PlaybackControlButton(
           icon: Icons.skip_previous_rounded,
           size: smallSize,
@@ -221,7 +215,7 @@ class LandscapeBottomControl extends ConsumerWidget {
           hoverColor: colors.stateHover,
           onTap: commands.playPrevious,
         ),
-        const SizedBox(width: BmTokens.s4),
+        const SizedBox(width: BmTokens.s3),
         PlaybackPlayPauseButton(
           isPlaying: isPlaying,
           size: mainButtonSize,
@@ -230,7 +224,7 @@ class LandscapeBottomControl extends ConsumerWidget {
           hoverColor: colors.stateHover,
           onTap: isPlaying ? commands.pause : commands.resume,
         ),
-        const SizedBox(width: BmTokens.s4),
+        const SizedBox(width: BmTokens.s3),
         PlaybackControlButton(
           icon: Icons.skip_next_rounded,
           size: smallSize,
@@ -239,25 +233,19 @@ class LandscapeBottomControl extends ConsumerWidget {
           hoverColor: colors.stateHover,
           onTap: commands.playNext,
         ),
-        const SizedBox(width: BmTokens.s4),
-        if (onPlayList != null)
-          BmIconButton(
-            icon: Icons.queue_music,
-            tooltip: '播放队列',
-            onPressed: onPlayList,
-          ),
+        const SizedBox(width: BmTokens.s3),
+        BmIconButton(
+          icon: Icons.queue_music,
+          tooltip: '播放队列',
+          onPressed: onPlayList,
+        ),
       ],
     );
   }
 
   // ==================== Right Section ====================
 
-  Widget _buildRightControls(
-    BuildContext context,
-    WidgetRef ref,
-    BmColors colors,
-    Music? music,
-  ) {
+  Widget _buildRightControls(WidgetRef ref, BmColors colors, Music? music) {
     // 收藏态：跟随当前歌曲（无歌曲时按钮置灰不可点）
     final isFav = music != null && ref.watch(isFavoriteProvider(music));
 
@@ -273,14 +261,6 @@ class LandscapeBottomControl extends ConsumerWidget {
               : () => ref
                     .read(playlistCommandsProvider.notifier)
                     .toggleFavorite(music),
-        ),
-        const SizedBox(width: BmTokens.s1),
-        BmIconButton(
-          icon: Icons.lyrics_outlined,
-          tooltip: '歌词',
-          onPressed: () {
-            // TODO: 桌面歌词功能
-          },
         ),
         const SizedBox(width: BmTokens.s1),
         const LandscapeVolumeControl(),

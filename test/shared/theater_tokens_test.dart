@@ -143,6 +143,12 @@ void main() {
       expect(BmTokens.contentInset, 30);
     });
 
+    test('横屏底栏：全平台单档尺寸', () {
+      expect(BmTokens.playbarHeight, 88);
+      expect(BmTokens.playbarInset, 24);
+      expect(BmTokens.playbarMainButton, 52);
+    });
+
     test('Chrome / Stage 材质：描边 / 模糊 / 底栏 / 侧栏行', () {
       expect(BmTokens.hairlineWidth, 0.5);
       expect(BmTokens.chromeBlurSigma, 24);

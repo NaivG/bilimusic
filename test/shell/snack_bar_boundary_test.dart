@@ -11,9 +11,9 @@ void main() {
   final theme = ThemeRegistry.defaultTheme.dark();
   final colors = theme.extension<BmColors>()!;
 
-  // 与实现保持一致的尺寸：横屏控制栏 88 / 90 / 96，迷你播放器胶囊 68、
+  // 与实现保持一致的尺寸：横屏控制栏固定 90，迷你播放器胶囊 68、
   // 手机端离底 16、底部导航栏 56。
-  const double landscapeControlHeight = 96;
+  const double landscapeControlHeight = BmTokens.playbarHeight;
   const double miniPlayerHeight = 68;
   const double miniPlayerGap = 16;
   const double bottomNavHeight = 56;

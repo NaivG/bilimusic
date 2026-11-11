@@ -104,15 +104,6 @@ class LandscapeBreakpoints {
     return width >= desktopMin ? BmTokens.topbarHeight : 52;
   }
 
-  /// 横屏播放底栏高度：≥1200 90，900–1199 80。
-  ///
-  /// `LandscapeBottomControl` 自己按窗口宽度取高度（90 / 96 / 88），
-  /// 这个函数给壳层的布局占位用，不要拿去裁剪底栏。
-  static double shellBarHeight(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    return width >= desktopMin ? 90 : 80;
-  }
-
   /// 获取横屏封面尺寸（Apple Music 风格小封面）
   static double getCoverSize(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
@@ -142,14 +133,6 @@ class LandscapeBreakpoints {
     if (width >= desktopMin) return 34;
     if (width >= largeTabletMin) return 30;
     return 26;
-  }
-
-  /// 获取横屏主播放按钮尺寸
-  static double getMainPlayButtonSize(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    if (width >= desktopMin) return 56;
-    if (width >= largeTabletMin) return 52;
-    return 44;
   }
 
   /// 获取横屏左侧区域比例（左列已自包含控制条，可适度缩窄）

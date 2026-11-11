@@ -119,15 +119,6 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
     return widget.currentPage != ShellPage.detail;
   }
 
-  /// 底栏实际高度；`LandscapeBottomControl` 自己按窗口宽度取 90 / 96 / 88。
-  /// 搜索遮罩据此停在底栏上沿。
-  double _playbarHeight(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    if (width >= LandscapeBreakpoints.desktopMin) return 90;
-    if (width >= LandscapeBreakpoints.largeTabletMin) return 96;
-    return 88;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -135,7 +126,7 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
         builder: (context, constraints) {
           final railWidth = LandscapeBreakpoints.railWidth(context);
           final titleBarHeight = LandscapeTitleBar.heightOf(context);
-          final playbarHeight = _playbarHeight(context);
+          final playbarHeight = BmTokens.playbarHeight;
 
           return Stack(
             fit: StackFit.expand,
