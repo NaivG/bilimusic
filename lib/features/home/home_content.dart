@@ -11,6 +11,7 @@ import 'package:bilimusic/features/home/logic/home_section_limits.dart';
 import 'package:bilimusic/features/home/logic/recommendation_manager.dart';
 import 'package:bilimusic/features/home/widgets/greeting_card.dart';
 import 'package:bilimusic/features/home/widgets/home_hero.dart';
+import 'package:bilimusic/features/home/widgets/home_music_card.dart';
 import 'package:bilimusic/features/home/widgets/playlist_card.dart';
 import 'package:bilimusic/features/home/widgets/track_row.dart';
 import 'package:bilimusic/features/player/models/player_state.dart';
@@ -445,12 +446,7 @@ class _HomeContentState extends ConsumerState<HomeContent> {
       height: BmShelf.heightFor(BmTokens.shelfCoverLarge),
       children: [
         for (final music in songs)
-          BmMediaCard(
-            cover: BmArtImage(url: music.safeCoverUrl, cacheKey: music.id),
-            title: music.title,
-            subtitle: music.artist.displayName,
-            onTap: () => _playMusic(music),
-          ),
+          HomeMusicCard(music: music, onTap: () => _playMusic(music)),
       ],
     );
   }
@@ -626,12 +622,7 @@ class _HomeContentState extends ConsumerState<HomeContent> {
       itemCount: songs.length,
       itemBuilder: (context, index) {
         final music = songs[index];
-        return BmMediaCard(
-          cover: BmArtImage(url: music.safeCoverUrl, cacheKey: music.id),
-          title: music.title,
-          subtitle: music.artist.displayName,
-          onTap: () => _playMusic(music),
-        );
+        return HomeMusicCard(music: music, onTap: () => _playMusic(music));
       },
     );
   }
