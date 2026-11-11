@@ -7,7 +7,7 @@ import 'package:bilimusic/features/player/models/player_state.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/player/widgets/crossfade_indicator.dart';
 import 'package:bilimusic/features/player/widgets/landscape_seek_bar.dart';
-import 'package:bilimusic/features/player/widgets/landscape_volume_bar.dart';
+import 'package:bilimusic/features/player/widgets/landscape_volume_control.dart';
 import 'package:bilimusic/features/player/widgets/playback_buttons.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/roam/roam_providers.dart';
@@ -28,7 +28,7 @@ import 'package:bilimusic/shared/widgets/music_cover.dart';
 /// 横屏模式底部播放器控制栏 - Lucent设计语言
 ///
 /// Chrome 材质：顶边 hairline + 可选背景模糊。左中右三段分别是当前歌曲、
-/// 播放控制与进度、收藏 / 歌词 / 静音 / 音量。
+/// 播放控制与进度、收藏 / 歌词 / 音量（悬停弹出竖向音量条）。
 class LandscapeBottomControl extends ConsumerWidget {
   final VoidCallback? onExpand;
   final VoidCallback? onPlayList;
@@ -286,9 +286,6 @@ class LandscapeBottomControl extends ConsumerWidget {
     BmColors colors,
     Music? music,
   ) {
-    final volume = ref.watch(volumeProvider);
-    final commands = ref.read(playbackCommandsProvider.notifier);
-    final isMuted = volume == 0;
     // 收藏态：跟随当前歌曲（无歌曲时按钮置灰不可点）
     final isFav = music != null && ref.watch(isFavoriteProvider(music));
 
@@ -314,21 +311,7 @@ class LandscapeBottomControl extends ConsumerWidget {
           },
         ),
         const SizedBox(width: BmTokens.s1),
-        BmIconButton(
-          icon: isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-          tooltip: isMuted ? '取消静音' : '静音',
-          onPressed: commands.toggleMute,
-        ),
-        const SizedBox(width: BmTokens.s1),
-        SizedBox(
-          height: BmTokens.s5,
-          width: 120,
-          child: LandscapeVolumeBar(
-            activeColor: colors.accent,
-            inactiveColor: colors.hairline,
-          ),
-        ),
-        const SizedBox(width: BmTokens.s2),
+        const LandscapeVolumeControl(),
       ],
     );
   }
