@@ -164,6 +164,11 @@ class BmTokens extends ThemeExtension<BmTokens> {
   static const double libraryDrawerWidth = 320;
   static const double queuePanelWidth = 420;
 
+  /// 横屏底栏顶部进度条：命中区高 / 常态线高 / 悬停与拖动线高。
+  static const double playbarProgressHit = 16;
+  static const double playbarProgressLine = 3;
+  static const double playbarProgressLineActive = 6;
+
   // ===== 媒体卡 =====
   static const double shelfCoverLarge = 155;
   static const double shelfCoverSmall = 108;

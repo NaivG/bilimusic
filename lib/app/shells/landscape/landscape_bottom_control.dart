@@ -6,7 +6,7 @@ import 'package:bilimusic/domain/play_mode.dart';
 import 'package:bilimusic/features/player/models/player_state.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/player/widgets/crossfade_indicator.dart';
-import 'package:bilimusic/features/player/widgets/landscape_seek_bar.dart';
+import 'package:bilimusic/features/player/widgets/landscape_seek_strip.dart';
 import 'package:bilimusic/features/player/widgets/landscape_volume_control.dart';
 import 'package:bilimusic/features/player/widgets/playback_buttons.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
@@ -28,7 +28,8 @@ import 'package:bilimusic/shared/widgets/music_cover.dart';
 /// 横屏模式底部播放器控制栏 - Lucent设计语言
 ///
 /// Chrome 材质：顶边 hairline + 可选背景模糊。左中右三段分别是当前歌曲、
-/// 播放控制与进度、收藏 / 歌词 / 音量（悬停弹出竖向音量条）。
+/// 播放控制、收藏 / 歌词 / 音量（悬停弹出竖向音量条）；进度是贴上沿的全宽
+/// 细线（[LandscapeSeekStrip]）。
 class LandscapeBottomControl extends ConsumerWidget {
   final VoidCallback? onExpand;
   final VoidCallback? onPlayList;
@@ -61,48 +62,61 @@ class LandscapeBottomControl extends ConsumerWidget {
       child: BmChromeSurface(
         edges: const <BmChromeEdge>{BmChromeEdge.top},
         blur: blurEnabled,
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: hPadding),
-            child: Row(
-              children: [
-                // Left: current song tile
-                Expanded(
-                  flex: 3,
-                  child: _buildSongTile(
-                    context,
-                    colors,
-                    currentMusic,
-                    playerState,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: hPadding),
+                  child: Row(
+                    children: [
+                      // Left: current song tile
+                      Expanded(
+                        flex: 3,
+                        child: _buildSongTile(
+                          context,
+                          colors,
+                          currentMusic,
+                          playerState,
+                        ),
+                      ),
+                      // Center: play controls
+                      Expanded(
+                        flex: 4,
+                        child: _buildPlayControls(
+                          context,
+                          ref,
+                          colors,
+                          playMode,
+                          isRoaming,
+                          playerState,
+                        ),
+                      ),
+                      // Right: favorite + lyrics + volume (desktop only)
+                      if (PlatformHelper.isDesktop)
+                        Expanded(
+                          flex: 3,
+                          child: _buildRightControls(
+                            context,
+                            ref,
+                            colors,
+                            currentMusic,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-                // Center: play controls + seek bar
-                Expanded(
-                  flex: 4,
-                  child: _buildCenterControls(
-                    context,
-                    ref,
-                    colors,
-                    playMode,
-                    isRoaming,
-                    playerState,
-                  ),
-                ),
-                // Right: favorite + lyrics + volume (desktop only)
-                if (PlatformHelper.isDesktop)
-                  Expanded(
-                    flex: 3,
-                    child: _buildRightControls(
-                      context,
-                      ref,
-                      colors,
-                      currentMusic,
-                    ),
-                  ),
-              ],
+              ),
             ),
-          ),
+            // 顶沿进度条
+            const Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: LandscapeSeekStrip(),
+            ),
+          ],
         ),
       ),
     );
@@ -172,58 +186,16 @@ class LandscapeBottomControl extends ConsumerWidget {
 
   // ==================== Center Section ====================
 
-  Widget _buildCenterControls(
+  Widget _buildPlayControls(
     BuildContext context,
     WidgetRef ref,
     BmColors colors,
-    PlayMode playMode,
-    bool isRoaming,
-    PlayerState playerState,
-  ) {
-    final width = MediaQuery.of(context).size.width;
-    final showSeekBar = width >= LandscapeBreakpoints.largeTabletMin;
-    final mainButtonSize = LandscapeBreakpoints.getMainPlayButtonSize(context);
-
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _buildPlayButtonRow(
-          context,
-          ref,
-          colors,
-          mainButtonSize,
-          playMode,
-          isRoaming,
-          playerState,
-        ),
-        if (showSeekBar) ...[
-          const SizedBox(height: 6),
-          SizedBox(
-            width: 400,
-            height: 18,
-            child: LandscapeSeekBar(
-              widgetHeight: 18,
-              seekBarHeight: 6,
-              color: colors.accent,
-              inactiveColor: colors.hairline,
-              labelColor: colors.textTertiary,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildPlayButtonRow(
-    BuildContext context,
-    WidgetRef ref,
-    BmColors colors,
-    double mainButtonSize,
     PlayMode playMode,
     bool isRoaming,
     PlayerState playerState,
   ) {
     final smallSize = 40.0;
+    final mainButtonSize = LandscapeBreakpoints.getMainPlayButtonSize(context);
     final isPlaying = playerState is PlayerPlaying;
     final commands = ref.read(playbackCommandsProvider.notifier);
 
