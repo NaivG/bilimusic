@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
@@ -82,6 +83,19 @@ class _AppShellState extends ConsumerState<AppShell> {
       });
     }
 
+    // 页面没有 AppBar 时，状态栏文字颜色跟随主题。否则播放详情页（深色 AppBar）
+    // 关掉后，状态栏会一直停在浅色文字，在浅色页面上看不清。
+    final overlayStyle = Theme.of(context).brightness == Brightness.dark
+        ? SystemUiOverlayStyle.light
+        : SystemUiOverlayStyle.dark;
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: overlayStyle,
+      child: _buildShell(useLandscapeLayout),
+    );
+  }
+
+  Widget _buildShell(bool useLandscapeLayout) {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {

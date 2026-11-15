@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_lyric/core/lyric_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -113,6 +114,8 @@ class SquareDetailPage extends ConsumerWidget {
   PreferredSizeWidget _buildAppBar(BuildContext context, WidgetRef ref) {
     return AutoAppBar(
       backgroundColor: Colors.transparent,
+      // 黑底舞台：状态栏用浅色文字。
+      systemOverlayStyle: SystemUiOverlayStyle.light,
       elevation: 0,
       toolbarHeight: 48,
       leading: IconButton(

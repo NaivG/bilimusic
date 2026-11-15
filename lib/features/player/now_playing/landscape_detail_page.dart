@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_lyric/core/lyric_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/features/player/now_playing/album_section.dart';
@@ -70,72 +71,77 @@ class LandscapeDetailPage extends ConsumerWidget {
       settingsProvider.select((settings) => settings.fluidBackground),
     );
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      extendBodyBehindAppBar: true,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: BmStageBackdrop(
-              coverUrl: music.coverUrl,
-              dominantColor: dominantColor,
-              fallbackColor: Theme.of(context).colorScheme.primary,
-              fluid: fluid,
-              cacheManager: imageCacheManager,
-            ),
-          ),
-          Column(
-            children: [
-              _buildAppBar(context, ref),
-              Expanded(
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: MediaQuery.of(context).size.width * leftRatio,
-                      child: AlbumSection(
-                        coverUrl: music.coverUrl,
-                        title: music.title,
-                        artist: music.artist.displayName,
-                        album: music.album,
-                        dominantColor: dominantColor,
-                        isFavorite: isFavorite,
-                        trackId: music.id,
-                        onFavoritePressed: onToggleFavorite,
-                        onSharePressed: onShare,
-                        isPlaying: isPlaying,
-                        playModeIcon: playModeIcon,
-                        onPlayPause: onTogglePlay,
-                        onPrevious: () => ref
-                            .read(playbackCommandsProvider.notifier)
-                            .playPrevious(),
-                        onNext: () => ref
-                            .read(playbackCommandsProvider.notifier)
-                            .playNext(),
-                        onPlayModeToggle: onTogglePlayMode,
-                        onPlaylist: onPlaylist,
-                      ),
-                    ),
-                    Expanded(
-                      child: LyricSection(
-                        title: music.title,
-                        artist: music.artist.displayName,
-                        album: music.album,
-                        lyricController: lyricController,
-                        position: position,
-                        lyricSources: lyricSources,
-                        selectedLyricId: selectedLyricId,
-                        isLoadingLyrics: isLoadingLyrics,
-                        showHeader: false,
-                        onLyricSourceChanged: onLoadLyric,
-                        onLyricTap: onSeek,
-                      ),
-                    ),
-                  ],
-                ),
+    // 黑底舞台：状态栏用浅色文字。iPhone Duo 展开时状态栏竖在右侧，
+    // 不声明就会沿用上一页的深色文字，压在黑底上看不见。
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        extendBodyBehindAppBar: true,
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: BmStageBackdrop(
+                coverUrl: music.coverUrl,
+                dominantColor: dominantColor,
+                fallbackColor: Theme.of(context).colorScheme.primary,
+                fluid: fluid,
+                cacheManager: imageCacheManager,
               ),
-            ],
-          ),
-        ],
+            ),
+            Column(
+              children: [
+                _buildAppBar(context, ref),
+                Expanded(
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: MediaQuery.of(context).size.width * leftRatio,
+                        child: AlbumSection(
+                          coverUrl: music.coverUrl,
+                          title: music.title,
+                          artist: music.artist.displayName,
+                          album: music.album,
+                          dominantColor: dominantColor,
+                          isFavorite: isFavorite,
+                          trackId: music.id,
+                          onFavoritePressed: onToggleFavorite,
+                          onSharePressed: onShare,
+                          isPlaying: isPlaying,
+                          playModeIcon: playModeIcon,
+                          onPlayPause: onTogglePlay,
+                          onPrevious: () => ref
+                              .read(playbackCommandsProvider.notifier)
+                              .playPrevious(),
+                          onNext: () => ref
+                              .read(playbackCommandsProvider.notifier)
+                              .playNext(),
+                          onPlayModeToggle: onTogglePlayMode,
+                          onPlaylist: onPlaylist,
+                        ),
+                      ),
+                      Expanded(
+                        child: LyricSection(
+                          title: music.title,
+                          artist: music.artist.displayName,
+                          album: music.album,
+                          lyricController: lyricController,
+                          position: position,
+                          lyricSources: lyricSources,
+                          selectedLyricId: selectedLyricId,
+                          isLoadingLyrics: isLoadingLyrics,
+                          showHeader: false,
+                          onLyricSourceChanged: onLoadLyric,
+                          onLyricTap: onSeek,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

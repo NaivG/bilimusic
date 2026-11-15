@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
@@ -14,6 +15,12 @@ abstract class BmComponentThemes {
   static AppBarThemeData appBar(BmColors colors, BmTypographySet type) {
     return AppBarThemeData(
       backgroundColor: Colors.transparent,
+      // 背景透明时 AppBar 会把它当成深色、给出白色状态栏文字，浅色主题下
+      // 看不清；状态栏文字跟随页面底色。
+      systemOverlayStyle:
+          ThemeData.estimateBrightnessForColor(colors.bg) == Brightness.dark
+          ? SystemUiOverlayStyle.light
+          : SystemUiOverlayStyle.dark,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,

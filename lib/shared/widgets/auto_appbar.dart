@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:bilimusic/shared/widgets/window_drag_area.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
@@ -36,6 +37,9 @@ class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
   final double? bottomOpacity;
   final bool? forceMaterialTransparency;
 
+  /// 状态栏样式；为 null 时取主题（跟随页面底色）。
+  final SystemUiOverlayStyle? systemOverlayStyle;
+
   const AutoAppBar({
     super.key,
     this.leading,
@@ -63,6 +67,7 @@ class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.toolbarOpacity,
     this.bottomOpacity,
     this.forceMaterialTransparency,
+    this.systemOverlayStyle,
   });
 
   @override
@@ -99,6 +104,7 @@ class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
       toolbarOpacity: toolbarOpacity ?? 1.0,
       bottomOpacity: bottomOpacity ?? 1.0,
       forceMaterialTransparency: forceMaterialTransparency ?? false,
+      systemOverlayStyle: systemOverlayStyle,
     );
 
     // 桌面端：整条标题栏（含无标题时的空白区）都能拖动窗口
