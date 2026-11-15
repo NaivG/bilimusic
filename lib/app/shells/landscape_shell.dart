@@ -8,6 +8,7 @@ import 'package:bilimusic/app/shells/landscape/landscape_library_drawer.dart';
 import 'package:bilimusic/app/shells/landscape/landscape_queue_panel.dart';
 import 'package:bilimusic/app/shells/landscape/landscape_rail.dart';
 import 'package:bilimusic/app/shells/landscape/landscape_title_bar.dart';
+import 'package:bilimusic/app/shells/native_tab_bar.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/app/shells/shell_widgets.dart';
 import 'package:bilimusic/features/home/home_content.dart';
@@ -125,6 +126,12 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
 
   @override
   Widget build(BuildContext context) {
+    // 横屏外壳用自己的图标轨，原生标签栏收起。
+    if (NativeTabBar.isActive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) NativeTabBar.setHidden(true);
+      });
+    }
     // iPhone Duo 展开时，图标轨挪进竖栏（通常在右侧），工作区从左缘开始。
     final verticalBar = DuoLayout.verticalBarOf(context);
     return Scaffold(

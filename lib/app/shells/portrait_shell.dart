@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:bilimusic/app/shells/logic/mini_player_auto_hide.dart';
+import 'package:bilimusic/app/shells/native_tab_bar.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/app/shells/shell_widgets.dart';
 import 'package:bilimusic/app/shells/widgets/desktop_window_controls.dart';
@@ -14,6 +15,7 @@ import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/ui/chrome/bm_chrome.dart';
 import 'package:bilimusic/shared/ui/chrome/vertical_bar_toolbar.dart';
 import 'package:bilimusic/shared/ui/sections/status_bar_safe_area.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/utils/duo_layout.dart';
 
@@ -63,6 +65,10 @@ class _PortraitShellState extends ConsumerState<PortraitShell> {
   void initState() {
     super.initState();
     _basePageKey = widget.pageManager.basePageKey;
+    if (NativeTabBar.isActive) {
+      NativeTabBar.onSelect = widget.pageManager.goToTab;
+      NativeTabBar.setTitles([for (final item in _dockItems) item.label]);
+    }
   }
 
   @override
@@ -146,7 +152,12 @@ class _PortraitShellState extends ConsumerState<PortraitShell> {
     final selectedIndex = widget.pageManager.selectedTabIndex;
     // iPhone Duo 合上时，导航放进竖栏，不再画底部 Dock。
     final verticalBar = DuoLayout.verticalBarOf(context);
-    final showDock = _showBottomBar && verticalBar == null;
+    // iPhone（iOS 26+）由原生 Liquid Glass 标签栏代替 Dock：普通 iPhone 和
+    // 展开竖拿时在底部，合上时在竖栏最下面，都由 UIKit 摆放。标签栏的
+    // 高度已算进安全区，迷你播放器按「没有 Dock」的位置正好浮在它上方。
+    final nativeTabs = NativeTabBar.isActive;
+    if (nativeTabs) _scheduleNativeTabBarSync(selectedIndex);
+    final showDock = _showBottomBar && verticalBar == null && !nativeTabs;
     final showMiniPlayer = _showMiniPlayer(alwaysShowMiniPlayer);
     final miniPlayerCanAutoHide = _miniPlayerCanAutoHide(alwaysShowMiniPlayer);
     // 从迷你播放器的定位里扣掉键盘高度，让它保持屏幕上的原位，再由收缩后的 body 底边（键盘上沿）
@@ -239,6 +250,18 @@ class _PortraitShellState extends ConsumerState<PortraitShell> {
     );
   }
 
+  /// 原生标签栏只在 Tab 页显示；选中项和颜色跟着 Flutter 走。
+  void _scheduleNativeTabBarSync(int selectedIndex) {
+    final accent = context.bmColors.accent;
+    final hidden = !_showBottomBar;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      NativeTabBar.setTintColor(accent);
+      NativeTabBar.setSelectedIndex(selectedIndex);
+      NativeTabBar.setHidden(hidden);
+    });
+  }
+
   /// 竖栏：从上到下是摄像头和状态栏、当前页面的按钮（二级页的返回键等）、
   /// 标签导航（最下面）。区域取系统给竖栏的位置。
   Widget _buildVerticalBar(VerticalBar bar, int selectedIndex) {
@@ -250,7 +273,8 @@ class _PortraitShellState extends ConsumerState<PortraitShell> {
           if (!_showBottomBar)
             VerticalBarToolbar(controller: _barToolbar, width: bar.width),
           const Spacer(),
-          if (_showBottomBar)
+          // 原生标签栏自己会放进竖栏最下面。
+          if (_showBottomBar && !NativeTabBar.isActive)
             StatusBarNavRail(
               width: bar.width,
               items: _dockItems,

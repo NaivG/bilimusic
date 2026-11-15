@@ -28,6 +28,7 @@ import 'package:snownlp/snownlp_flutter.dart';
 import 'package:bilimusic/features/update/update_checker.dart';
 import 'package:bilimusic/features/update/ui/update_dialog.dart';
 import 'package:bilimusic/app/shells/app_shell.dart';
+import 'package:bilimusic/app/shells/native_tab_bar.dart';
 import 'package:bilimusic/shared/utils/duo_layout.dart';
 import 'package:bilimusic/features/storage/database_conflict_dialog.dart';
 import 'package:bilimusic/shared/theme/theme_registry.dart';
@@ -262,6 +263,10 @@ Future<void> _bootstrapApp({bool ohos = false}) async {
       DesktopTray.instance.useContent(container.read(trayMenuProvider));
     }
   }
+
+  // iPhone（iOS 26+）由原生 Liquid Glass 标签栏代替竖屏 Dock；先问清楚，
+  // 首帧就用对的布局。
+  await NativeTabBar.initialize();
 
   // iPhone Duo 的竖栏、状态栏那一行、折痕等位置由原生侧推来；先取一次，
   // 首帧就用对的布局。
