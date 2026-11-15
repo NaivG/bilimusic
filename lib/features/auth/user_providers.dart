@@ -33,7 +33,7 @@ class UserStateNotifier extends Notifier<UserState> {
     final um = ref.read(_userManagerProvider);
     // 先同步判一次登录态再挂监听：checkCookieLogin 只读 NetworkConfig 的内存
     // cookie（main 里已 await NetworkConfig.init，此处必然就绪），不发请求。
-    // 
+    //
     // 帧内通知本身由 UserManager 推迟到帧末补发。
     um.checkCookieLogin();
     um.addListener(_onUserManagerChanged);
