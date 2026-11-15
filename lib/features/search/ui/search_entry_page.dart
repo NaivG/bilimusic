@@ -9,6 +9,8 @@ import 'package:bilimusic/shared/ui/controls/bm_icon_button.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/shared/ui/chrome/vertical_bar_toolbar.dart';
+import 'package:bilimusic/shared/ui/sections/status_bar_safe_area.dart';
 
 /// 竖屏搜索中间态：输入框 + 联想面板。
 ///
@@ -81,37 +83,48 @@ class _SearchEntryPageState extends ConsumerState<SearchEntryPage> {
       return const SizedBox.shrink();
     }
 
-    return Scaffold(
+    final backButton = BmIconButton(
+      icon: Icons.arrow_back_ios_new_rounded,
+      tooltip: '返回',
+      onPressed: () => ShellPageManager.instance.pop(),
+    );
+    final inBar = VerticalBarToolbarScope.of(context) != null;
+
+    final page = Scaffold(
       // 透出壳层的流体背景；页面本身不再铺一层底色。
       backgroundColor: context.bmColors.bg.withAlpha(0),
-      body: SafeArea(
+      body: StatusBarSafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                BmTokens.pageInset,
-                BmTokens.s3,
-                BmTokens.pageInset,
-                BmTokens.s1,
-              ),
-              child: Row(
-                children: [
-                  BmIconButton(
-                    icon: Icons.arrow_back_ios_new_rounded,
-                    tooltip: '返回',
-                    onPressed: () => ShellPageManager.instance.pop(),
-                  ),
-                  const SizedBox(width: BmTokens.s2),
-                  Expanded(
-                    child: SearchBarWidget(
-                      controller: _controller,
-                      autoFocus: _autoFocus,
-                      hintText: '搜索音乐、视频、用户...',
-                      onSearch: _submit,
-                      onChanged: _onChanged,
+            // iPhone Duo 展开竖拿时，这一行上移进顶部状态栏、让开时间和 Wi-Fi。
+            StatusBarHeaderInset(
+              ownTopPadding: BmTokens.s3,
+              ownRightPadding: BmTokens.pageInset,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  BmTokens.pageInset,
+                  BmTokens.s3,
+                  BmTokens.pageInset,
+                  BmTokens.s1,
+                ),
+                child: Row(
+                  children: [
+                    // iPhone Duo 有竖栏时返回键放进竖栏。
+                    if (!inBar) ...[
+                      backButton,
+                      const SizedBox(width: BmTokens.s2),
+                    ],
+                    Expanded(
+                      child: SearchBarWidget(
+                        controller: _controller,
+                        autoFocus: _autoFocus,
+                        hintText: '搜索音乐、视频、用户...',
+                        onSearch: _submit,
+                        onChanged: _onChanged,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             Expanded(child: SearchSuggestPanel(onSelected: _submit)),
@@ -119,5 +132,7 @@ class _SearchEntryPageState extends ConsumerState<SearchEntryPage> {
         ),
       ),
     );
+    if (!inBar) return page;
+    return VerticalBarToolbarItems(items: [backButton], child: page);
   }
 }

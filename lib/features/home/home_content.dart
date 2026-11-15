@@ -30,6 +30,7 @@ import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/shared/ui/sections/status_bar_safe_area.dart';
 
 /// 首页内容。
 ///
@@ -235,7 +236,7 @@ class _HomeContentState extends ConsumerState<HomeContent> {
     return Scaffold(
       // 透传壳层的舞台背景（模糊封面）
       backgroundColor: colors.bg.withValues(alpha: 0),
-      body: SafeArea(
+      body: StatusBarSafeArea(
         top: !wide,
         bottom: false,
         child: wide ? _buildWide(context) : _buildPortrait(context),

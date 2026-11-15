@@ -19,6 +19,7 @@ import 'package:bilimusic/shared/utils/share_helpers.dart';
 import 'package:bilimusic/shared/ui/stage/bm_stage_backdrop.dart';
 import 'package:bilimusic/shared/widgets/window_drag_area.dart';
 import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/shared/utils/duo_layout.dart';
 
 /// 横屏详情页 —— 纯视图：左侧专辑区 + 右侧歌词面板（Apple Music 左右分栏布局）。
 /// 状态与业务回调由 [DetailPage] 宿主下发，与 Portrait/Square 同一套 props 模式。
@@ -67,6 +68,8 @@ class LandscapeDetailPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final leftRatio = LandscapeBreakpoints.getLeftSectionRatio(context);
+    // iPhone Duo 横拿半开时的折痕（详情页铺满整窗，坐标即本地坐标）。
+    final division = DuoLayout.of(context)?.verticalDivision;
     final fluid = ref.watch(
       settingsProvider.select((settings) => settings.fluidBackground),
     );
@@ -96,7 +99,10 @@ class LandscapeDetailPage extends ConsumerWidget {
                   child: Row(
                     children: [
                       SizedBox(
-                        width: MediaQuery.of(context).size.width * leftRatio,
+                        // 半开时两栏以折痕为界，中间空出折痕。
+                        width:
+                            division?.left ??
+                            MediaQuery.of(context).size.width * leftRatio,
                         child: AlbumSection(
                           coverUrl: music.coverUrl,
                           title: music.title,
@@ -120,6 +126,7 @@ class LandscapeDetailPage extends ConsumerWidget {
                           onPlaylist: onPlaylist,
                         ),
                       ),
+                      if (division != null) SizedBox(width: division.width),
                       Expanded(
                         child: LyricSection(
                           title: music.title,

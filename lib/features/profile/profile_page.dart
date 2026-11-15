@@ -36,6 +36,7 @@ import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
 import 'package:bilimusic/shared/widgets/long_press_menu.dart';
+import 'package:bilimusic/shared/ui/sections/status_bar_safe_area.dart';
 
 /// 我的：用户卡 + 统计 + 创建的歌单 + 音乐库 / 更多入口。
 ///
@@ -91,7 +92,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     return Scaffold(
       // 透明让壳层的流体背景透出。
       backgroundColor: context.bmColors.bg.withValues(alpha: 0),
-      body: SafeArea(
+      body: StatusBarSafeArea(
         bottom: false,
         child: SingleChildScrollView(
           // 给竖屏浮动的迷你播放器 / Dock 让位；横屏该值即底部安全区。

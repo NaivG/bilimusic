@@ -20,6 +20,7 @@ import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 import 'package:bilimusic/shared/utils/platform_helper.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
 import 'package:bilimusic/shared/utils/title_meta_filter.dart';
+import 'package:bilimusic/shared/ui/sections/status_bar_safe_area.dart';
 
 /// 设置页：页头 + 分组白卡，共八组。
 ///
@@ -74,7 +75,7 @@ class SettingsPage extends ConsumerWidget {
     return Scaffold(
       // 透明让壳层的流体背景透出。
       backgroundColor: context.bmColors.bg.withValues(alpha: 0),
-      body: SafeArea(
+      body: StatusBarSafeArea(
         top: !isLandscape,
         bottom: false,
         left: false,

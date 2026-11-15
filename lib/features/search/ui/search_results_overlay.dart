@@ -23,6 +23,8 @@ import 'package:bilimusic/shared/utils/responsive.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
+import 'package:bilimusic/shared/ui/chrome/vertical_bar_toolbar.dart';
+import 'package:bilimusic/shared/ui/sections/status_bar_safe_area.dart';
 
 /// 搜索结果Overlay - 只消费 [searchResultsProvider] 展示结果。
 ///
@@ -100,10 +102,10 @@ class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
     final isLandscape = LandscapeBreakpoints.shouldUseLandscapeLayout(context);
     final side = isLandscape ? BmTokens.contentInset : BmTokens.pageInset;
 
-    return Scaffold(
+    final page = Scaffold(
       // 透出壳层的流体背景；页面本身不再铺一层底色。
       backgroundColor: context.bmColors.bg.withAlpha(0),
-      body: SafeArea(
+      body: StatusBarSafeArea(
         top: !isLandscape,
         bottom: false,
         left: false,
@@ -166,7 +168,17 @@ class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
         ),
       ),
     );
+    if (isLandscape || VerticalBarToolbarScope.of(context) == null) {
+      return page;
+    }
+    return VerticalBarToolbarItems(items: [_backButton], child: page);
   }
+
+  Widget get _backButton => BmIconButton(
+    icon: Icons.arrow_back_ios_new_rounded,
+    tooltip: '返回',
+    onPressed: () => ShellPageManager.instance.pop(),
+  );
 
   Widget _pad(double side, Widget sliver) => SliverPadding(
     padding: EdgeInsets.symmetric(horizontal: side),
@@ -188,12 +200,9 @@ class _SearchResultsOverlayState extends ConsumerState<SearchResultsOverlay> {
         bottom: BmTokens.s3,
       ),
       actions: [
-        if (!isLandscape)
-          BmIconButton(
-            icon: Icons.arrow_back_ios_new_rounded,
-            tooltip: '返回',
-            onPressed: () => ShellPageManager.instance.pop(),
-          ),
+        // iPhone Duo 有竖栏时返回键放进竖栏（见 build）。
+        if (!isLandscape && VerticalBarToolbarScope.of(context) == null)
+          _backButton,
         if (isDesktop && availableTypes.isNotEmpty)
           SearchTypeDropdown(
             selectedType: selectedType,

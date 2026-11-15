@@ -24,6 +24,8 @@ import 'package:bilimusic/shared/utils/formatters.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
 import 'package:bilimusic/shared/widgets/long_press_menu.dart';
 import 'package:super_context_menu/super_context_menu.dart';
+import 'package:bilimusic/shared/ui/sections/status_bar_safe_area.dart';
+import 'package:bilimusic/shared/utils/duo_layout.dart';
 
 /// 发现页：B 站平台数据（热歌榜 / 音乐区排行 / 音乐区推荐流）。
 ///
@@ -143,13 +145,17 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
     final wide =
         LandscapeBreakpoints.shouldUseLandscapeLayout(context) &&
         size.width >= 900;
-    final columns = size.width >= 1200 ? _wideColumns : _mediumColumns;
+    // iPhone Duo 半开时用偶数列，内容自然分在折痕两边。
+    final halfOpen = DuoLayout.of(context)?.verticalDivision != null;
+    final columns = size.width >= 1200 || halfOpen
+        ? _wideColumns
+        : _mediumColumns;
     final side = wide ? BmTokens.contentInset : BmTokens.pageInset;
 
     return Scaffold(
       // 透出壳层的流体背景；页面本身不再铺一层底色。
       backgroundColor: context.bmColors.bg.withAlpha(0),
-      body: SafeArea(
+      body: StatusBarSafeArea(
         bottom: false,
         child: LayoutBuilder(
           builder: (context, constraints) {

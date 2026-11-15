@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/shared/utils/duo_layout.dart';
 import 'package:bilimusic/shared/utils/platform_helper.dart';
 import 'package:bilimusic/features/playlist/widgets/playlist_sheet.dart';
 import 'package:bilimusic/features/player/pip/pip_overlay.dart';
@@ -91,7 +92,8 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: overlayStyle,
-      child: _buildShell(useLandscapeLayout),
+      // iPhone Duo 的系统布局数值变化（开合、旋转、半开）时，外壳和页面重建。
+      child: DuoLayoutScope(child: _buildShell(useLandscapeLayout)),
     );
   }
 

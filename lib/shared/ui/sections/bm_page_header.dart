@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:bilimusic/shared/ui/sections/status_bar_safe_area.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
@@ -32,6 +33,11 @@ class BmPageHeader extends StatelessWidget {
   /// 覆盖默认内边距。
   final EdgeInsetsGeometry? padding;
 
+  static const EdgeInsets _defaultPadding = EdgeInsets.only(
+    top: BmTokens.s4,
+    bottom: BmTokens.s2,
+  );
+
   @override
   Widget build(BuildContext context) {
     final colors = context.bmColors;
@@ -39,10 +45,8 @@ class BmPageHeader extends StatelessWidget {
     final eyebrowText = eyebrow;
     final subtitleText = subtitle;
     final actionsList = actions;
-    return Padding(
-      padding:
-          padding ??
-          const EdgeInsets.only(top: BmTokens.s4, bottom: BmTokens.s2),
+    final header = Padding(
+      padding: padding ?? _defaultPadding,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -94,6 +98,16 @@ class BmPageHeader extends StatelessWidget {
           ],
         ],
       ),
+    );
+
+    // 页头上移进了 iPhone Duo 的顶部状态栏时，让开右上角的时间和 Wi-Fi。
+    final resolved = (padding ?? _defaultPadding).resolve(
+      Directionality.of(context),
+    );
+    return StatusBarHeaderInset(
+      ownTopPadding: resolved.top,
+      ownRightPadding: resolved.right,
+      child: header,
     );
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -32,10 +34,17 @@ class LandscapeBottomControl extends ConsumerWidget {
   final VoidCallback? onExpand;
   final VoidCallback onPlayList;
 
+  /// iPhone Duo 横拿半开时折痕在底栏里的横向范围（底栏自身坐标）。
+  ///
+  /// 非 null 时，歌曲信息和播放按钮排在折痕左边、收藏和音量排在右边，
+  /// 按钮不压在折痕上。
+  final ({double start, double end})? division;
+
   const LandscapeBottomControl({
     super.key,
     this.onExpand,
     required this.onPlayList,
+    this.division,
   });
 
   @override
@@ -64,43 +73,58 @@ class LandscapeBottomControl extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(
                     horizontal: BmTokens.playbarInset,
                   ),
-                  child: Row(
-                    children: [
-                      // Left: current song tile
-                      Expanded(
-                        flex: 3,
-                        child: _buildSongTile(
+                  child: division != null
+                      ? _buildDividedRow(
                           context,
+                          ref,
                           colors,
                           currentMusic,
+                          playMode,
+                          isRoaming,
                           playerState,
-                        ),
-                      ),
-                      // Center: play controls
-                      Expanded(
-                        flex: 4,
-                        child: Center(
-                          // 极窄窗口下（600 宽再叠侧边安全区）等比缩一点，
-                          // 保证单档尺寸不溢出。
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: _buildPlayControls(
-                              ref,
-                              colors,
-                              playMode,
-                              isRoaming,
-                              playerState,
+                          division!,
+                        )
+                      : Row(
+                          children: [
+                            // Left: current song tile
+                            Expanded(
+                              flex: 3,
+                              child: _buildSongTile(
+                                context,
+                                colors,
+                                currentMusic,
+                                playerState,
+                              ),
                             ),
-                          ),
+                            // Center: play controls
+                            Expanded(
+                              flex: 4,
+                              child: Center(
+                                // 极窄窗口下（600 宽再叠侧边安全区）等比缩一点，
+                                // 保证单档尺寸不溢出。
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: _buildPlayControls(
+                                    ref,
+                                    colors,
+                                    playMode,
+                                    isRoaming,
+                                    playerState,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Right: favorite + volume
+                            Expanded(
+                              flex: 3,
+                              child: _buildRightControls(
+                                ref,
+                                colors,
+                                currentMusic,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      // Right: favorite + volume
-                      Expanded(
-                        flex: 3,
-                        child: _buildRightControls(ref, colors, currentMusic),
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ),
@@ -114,6 +138,54 @@ class LandscapeBottomControl extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  /// 半开时的底栏：折痕左边是歌曲信息和播放按钮，右边是收藏和音量。
+  Widget _buildDividedRow(
+    BuildContext context,
+    WidgetRef ref,
+    BmColors colors,
+    Music? currentMusic,
+    PlayMode playMode,
+    bool isRoaming,
+    PlayerState playerState,
+    ({double start, double end}) division,
+  ) {
+    // 底栏内容区从左内边距开始，折痕位置换算到这一行里。
+    final leftWidth = math.max(0.0, division.start - BmTokens.playbarInset);
+    return Row(
+      children: [
+        SizedBox(
+          width: leftWidth,
+          child: Row(
+            children: [
+              Expanded(
+                child: _buildSongTile(
+                  context,
+                  colors,
+                  currentMusic,
+                  playerState,
+                ),
+              ),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: _buildPlayControls(
+                    ref,
+                    colors,
+                    playMode,
+                    isRoaming,
+                    playerState,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(width: division.end - division.start),
+        Expanded(child: _buildRightControls(ref, colors, currentMusic)),
+      ],
     );
   }
 

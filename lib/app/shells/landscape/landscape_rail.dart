@@ -10,6 +10,7 @@ import 'package:bilimusic/shared/ui/chrome/bm_chrome_surface.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/shared/utils/duo_layout.dart';
 
 /// 图标轨里的可跳转入口。
 enum LandscapeRailDestination {
@@ -41,6 +42,7 @@ class LandscapeRail extends ConsumerWidget {
     required this.onSettings,
     required this.onProfile,
     required this.onSync,
+    this.statusBar,
   });
 
   /// 当前高亮入口；非导航页（歌单 / 详情等）为 null。
@@ -55,6 +57,10 @@ class LandscapeRail extends ConsumerWidget {
 
   /// 同步状态点：进入局域网同步页。
   final VoidCallback onSync;
+
+  /// iPhone Duo 的竖栏。非 null 时图标轨画进竖栏：宽度等于竖栏，不画 logo
+  /// （竖栏顶端是状态栏），入口排在系统给竖栏的区域里。
+  final VerticalBar? statusBar;
 
   /// 设计稿 `.rail` padding 14。
   static const double _verticalInset = 14;
@@ -72,6 +78,62 @@ class LandscapeRail extends ConsumerWidget {
     );
     final connectedPeers = ref.watch(connectedPeersProvider);
     const destinations = LandscapeRailDestination.values;
+
+    final statusBar = this.statusBar;
+    final nav = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final destination in destinations) ...[
+          _RailButton(
+            icon: destination.icon,
+            activeIcon: destination.activeIcon,
+            label: destination.label,
+            selected: destination == selected,
+            onTap: () => onSelected(destination),
+          ),
+          if (destination != destinations.last)
+            const SizedBox(height: BmTokens.railItemGap),
+        ],
+      ],
+    );
+    final footer = <Widget>[
+      _SyncDot(connectedCount: connectedPeers.length, onTap: onSync),
+      const SizedBox(height: _bottomGap),
+      _RailButton(
+        icon: Icons.settings_outlined,
+        activeIcon: Icons.settings_rounded,
+        label: '设置',
+        selected: settingsSelected,
+        onTap: onSettings,
+      ),
+      const SizedBox(height: _bottomGap),
+      _Avatar(onTap: onProfile),
+      const SizedBox(height: _verticalInset),
+    ];
+
+    if (statusBar != null) {
+      return SizedBox(
+        width: statusBar.width,
+        child: BmChromeSurface(
+          tone: BmChromeTone.canvas,
+          edges: <BmChromeEdge>{
+            statusBar.onLeft ? BmChromeEdge.right : BmChromeEdge.left,
+          },
+          blur: blur,
+          // 按系统给竖栏的区域摆放：上面是状态栏，下面让开屏幕底边。
+          child: Column(
+            children: [
+              SizedBox(height: statusBar.barTop),
+              Expanded(
+                child: Center(child: SingleChildScrollView(child: nav)),
+              ),
+              ...footer,
+              SizedBox(height: statusBar.barBottom),
+            ],
+          ),
+        ),
+      );
+    }
 
     return SizedBox(
       width: LandscapeBreakpoints.railWidth(context),
@@ -108,37 +170,8 @@ class LandscapeRail extends ConsumerWidget {
               ),
               const SizedBox(height: _navTopGap),
               // 窄屏横屏（手机 / 小平板）高度可能装不下六个入口，导航允许纵向滚动。
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      for (final destination in destinations) ...[
-                        _RailButton(
-                          icon: destination.icon,
-                          activeIcon: destination.activeIcon,
-                          label: destination.label,
-                          selected: destination == selected,
-                          onTap: () => onSelected(destination),
-                        ),
-                        if (destination != destinations.last)
-                          const SizedBox(height: BmTokens.railItemGap),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              _SyncDot(connectedCount: connectedPeers.length, onTap: onSync),
-              const SizedBox(height: _bottomGap),
-              _RailButton(
-                icon: Icons.settings_outlined,
-                activeIcon: Icons.settings_rounded,
-                label: '设置',
-                selected: settingsSelected,
-                onTap: onSettings,
-              ),
-              const SizedBox(height: _bottomGap),
-              _Avatar(onTap: onProfile),
-              const SizedBox(height: _verticalInset),
+              Expanded(child: SingleChildScrollView(child: nav)),
+              ...footer,
             ],
           ),
         ),

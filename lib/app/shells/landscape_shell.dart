@@ -17,6 +17,7 @@ import 'package:bilimusic/shared/ui/menu/bm_menu_surface.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
+import 'package:bilimusic/shared/utils/duo_layout.dart';
 
 /// 横屏外壳：76 图标轨 + 58 标题栏 + 内容区 Stack + 90 播放底栏。
 ///
@@ -46,6 +47,9 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
   bool _queueOpen = false;
 
   static const double _searchPanelMaxWidth = 360;
+
+  /// 工作区（标题栏 / 内容 / 底栏）在有无竖栏的两种结构间移动时保留状态。
+  final GlobalKey _workspaceKey = GlobalKey();
 
   /// 同一份回调用于注册 / 反注册 [HardwareKeyboard]。
   late final bool Function(KeyEvent) _keyHandler = _handleKeyEvent;
@@ -121,68 +125,81 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
 
   @override
   Widget build(BuildContext context) {
+    // iPhone Duo 展开时，图标轨挪进竖栏（通常在右侧），工作区从左缘开始。
+    final verticalBar = DuoLayout.verticalBarOf(context);
     return Scaffold(
       body: LayoutBuilder(
         builder: (context, constraints) {
           final railWidth = LandscapeBreakpoints.railWidth(context);
+          // 工作区左右两侧被图标轨占用的宽度：普通横屏是左侧图标轨；
+          // 有竖栏时图标轨在竖栏那一侧。
+          final double leadingWidth;
+          final double trailingWidth;
+          if (verticalBar == null) {
+            leadingWidth = _showShellChrome ? railWidth : 0;
+            trailingWidth = 0;
+          } else {
+            leadingWidth = verticalBar.onLeft ? verticalBar.width : 0;
+            trailingWidth = verticalBar.onLeft ? 0 : verticalBar.width;
+          }
           final titleBarHeight = LandscapeTitleBar.heightOf(context);
           final playbarHeight = BmTokens.playbarHeight;
+
+          // 三块 chrome 的槽位常驻，只切换尺寸与可见性，防止页面区整棵重建；
+          // 工作区在有无竖栏的两种结构间移动时由 GlobalKey 保留状态。
+          final workspace = KeyedSubtree(
+            key: _workspaceKey,
+            child: Column(
+              children: [
+                SizedBox(
+                  height: _showShellChrome ? titleBarHeight : 0,
+                  child: _showShellChrome ? _buildTitleBar() : null,
+                ),
+                Expanded(child: _buildContentStage()),
+                SizedBox(
+                  height: _showShellChrome ? playbarHeight : 0,
+                  child: _showShellChrome
+                      ? LandscapeBottomControl(
+                          onExpand: () =>
+                              widget.pageManager.push(ShellPage.detail),
+                          onPlayList: _toggleQueue,
+                          division: _divisionInWorkspace(context, leadingWidth),
+                        )
+                      : null,
+                ),
+              ],
+            ),
+          );
 
           return Stack(
             fit: StackFit.expand,
             children: [
               // 背景模糊层（依赖当前播放曲目）
               buildShellBackground(context, ref),
-              // 轨 + workspace（标题栏 / 内容 / 底栏）。
-              //
-              // 三块 chrome 的槽位常驻，只切换尺寸与可见性，防止页面区整棵重建
-              Row(
-                children: [
-                  SizedBox(
-                    width: _showShellChrome ? railWidth : 0,
-                    child: _showShellChrome
-                        ? LandscapeRail(
-                            selected: _railSelection,
-                            settingsSelected:
-                                widget.pageManager.currentPage ==
-                                    ShellPage.settings &&
-                                !_libraryOpen,
-                            onSelected: _onRailSelected,
-                            onSettings: () {
-                              _searchFocusNode.unfocus();
-                              widget.pageManager.goToTab(3);
-                            },
-                            onProfile: () {
-                              _searchFocusNode.unfocus();
-                              widget.pageManager.goToTab(2);
-                            },
-                            onSync: _openLanSync,
-                          )
-                        : null,
-                  ),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        SizedBox(
-                          height: _showShellChrome ? titleBarHeight : 0,
-                          child: _showShellChrome ? _buildTitleBar() : null,
-                        ),
-                        Expanded(child: _buildContentStage()),
-                        SizedBox(
-                          height: _showShellChrome ? playbarHeight : 0,
-                          child: _showShellChrome
-                              ? LandscapeBottomControl(
-                                  onExpand: () =>
-                                      widget.pageManager.push(ShellPage.detail),
-                                  onPlayList: _toggleQueue,
-                                )
-                              : null,
-                        ),
-                      ],
+              // 轨 + workspace（标题栏 / 内容 / 底栏）
+              if (verticalBar == null)
+                Row(
+                  children: [
+                    SizedBox(
+                      width: _showShellChrome ? railWidth : 0,
+                      child: _showShellChrome ? _buildRail() : null,
                     ),
-                  ),
-                ],
-              ),
+                    Expanded(child: workspace),
+                  ],
+                )
+              else
+                Row(
+                  children: [
+                    if (verticalBar.onLeft) _buildVerticalBarRail(verticalBar),
+                    Expanded(
+                      child: verticalBar.removePadding(
+                        context: context,
+                        child: workspace,
+                      ),
+                    ),
+                    if (!verticalBar.onLeft) _buildVerticalBarRail(verticalBar),
+                  ],
+                ),
               // 标题栏搜索框驱动的联想面板。槽位常驻，避免聚焦状态改变
               // 下方详情层的下标。
               Positioned.fill(
@@ -192,7 +209,8 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
                       ? Stack(
                           children: _buildSearchSuggestLayer(
                             constraints.maxHeight,
-                            railWidth,
+                            leadingWidth,
+                            trailingWidth,
                             titleBarHeight,
                             playbarHeight,
                           ),
@@ -206,6 +224,47 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
           );
         },
       ),
+    );
+  }
+
+  /// iPhone Duo 横拿半开时折痕在工作区里的横向范围；工作区从
+  /// [workspaceLeft] 开始。没有生效的折痕时为 null。
+  ({double start, double end})? _divisionInWorkspace(
+    BuildContext context,
+    double workspaceLeft,
+  ) {
+    final division = DuoLayout.of(context)?.verticalDivision;
+    if (division == null) return null;
+    return (
+      start: division.left - workspaceLeft,
+      end: division.right - workspaceLeft,
+    );
+  }
+
+  Widget _buildRail({VerticalBar? verticalBar}) {
+    return LandscapeRail(
+      statusBar: verticalBar,
+      selected: _railSelection,
+      settingsSelected:
+          widget.pageManager.currentPage == ShellPage.settings && !_libraryOpen,
+      onSelected: _onRailSelected,
+      onSettings: () {
+        _searchFocusNode.unfocus();
+        widget.pageManager.goToTab(3);
+      },
+      onProfile: () {
+        _searchFocusNode.unfocus();
+        widget.pageManager.goToTab(2);
+      },
+      onSync: _openLanSync,
+    );
+  }
+
+  /// 竖栏里的图标轨；详情页全窗时留空，只保留竖栏的位置。
+  Widget _buildVerticalBarRail(VerticalBar verticalBar) {
+    return SizedBox(
+      width: verticalBar.width,
+      child: _showShellChrome ? _buildRail(verticalBar: verticalBar) : null,
     );
   }
 
@@ -243,13 +302,14 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
   /// TextField 的 TapRegion 当成外部点击先失焦，列表在抬手前就消失了。
   List<Widget> _buildSearchSuggestLayer(
     double bodyHeight,
-    double railWidth,
+    double leadingWidth,
+    double trailingWidth,
     double titleBarHeight,
     double playbarHeight,
   ) {
     final size = MediaQuery.sizeOf(context);
-    final panelLeft = railWidth + BmTokens.searchFieldLeft;
-    final panelWidth = (size.width - panelLeft - BmTokens.s5)
+    final panelLeft = leadingWidth + BmTokens.searchFieldLeft;
+    final panelWidth = (size.width - trailingWidth - panelLeft - BmTokens.s5)
         .clamp(240.0, _searchPanelMaxWidth)
         .toDouble();
     final panelHeight =
@@ -259,9 +319,9 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
 
     return [
       Positioned(
-        left: railWidth,
+        left: leadingWidth,
         top: titleBarHeight,
-        right: 0,
+        right: trailingWidth,
         bottom: playbarHeight,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,

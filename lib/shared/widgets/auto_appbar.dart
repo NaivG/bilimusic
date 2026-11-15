@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:bilimusic/shared/ui/chrome/vertical_bar_toolbar.dart';
 import 'package:bilimusic/shared/widgets/window_drag_area.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
@@ -75,15 +76,30 @@ class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
     final hideLeading =
         hideLeadingInLandscape &&
         LandscapeBreakpoints.shouldUseLandscapeLayout(context);
+    final shownLeading = hideLeading ? null : leading;
+
+    // iPhone Duo 有竖栏时：返回键和图标按钮放进竖栏，导航栏只留标题和
+    // 放不进竖栏的按钮。
+    final barToolbar = VerticalBarToolbarScope.of(context);
+    final barItems = <Widget>[
+      if (barToolbar != null && shownLeading != null) shownLeading,
+      if (barToolbar != null)
+        ...?actions?.where(VerticalBarToolbarScope.fitsInBar),
+    ];
+    final inlineActions = barToolbar == null
+        ? actions
+        : actions
+              ?.where((action) => !VerticalBarToolbarScope.fitsInBar(action))
+              .toList();
 
     final appBar = AppBar(
       key: key,
-      leading: hideLeading ? null : leading,
-      automaticallyImplyLeading: hideLeading
+      leading: barToolbar != null ? null : shownLeading,
+      automaticallyImplyLeading: hideLeading || barToolbar != null
           ? false
           : automaticallyImplyLeading,
       title: title,
-      actions: actions,
+      actions: inlineActions,
       flexibleSpace: flexibleSpace,
       bottom: bottom,
       elevation: elevation,
@@ -108,7 +124,9 @@ class AutoAppBar extends StatelessWidget implements PreferredSizeWidget {
     );
 
     // 桌面端：整条标题栏（含无标题时的空白区）都能拖动窗口
-    return WindowDragArea(child: appBar);
+    final bar = WindowDragArea(child: appBar);
+    if (barToolbar == null) return bar;
+    return VerticalBarToolbarItems(items: barItems, child: bar);
   }
 
   @override
