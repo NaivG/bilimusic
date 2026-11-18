@@ -8,7 +8,6 @@ import 'package:bilimusic/features/settings/settings_manager.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
 import 'package:bilimusic/features/settings/ui/widgets/theme_picker.dart';
 import 'package:bilimusic/shared/theme/theme_registry.dart';
-import 'package:bilimusic/shared/ui/controls/bm_controls.dart';
 import 'package:bilimusic/shared/ui/gallery/bm_gallery_page.dart';
 import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
 import 'package:bilimusic/shared/ui/overlay/bm_select_menu.dart';
@@ -19,7 +18,6 @@ import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 import 'package:bilimusic/shared/utils/platform_helper.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
-import 'package:bilimusic/shared/utils/title_meta_filter.dart';
 
 /// 设置页：页头 + 分组白卡，共八组。
 ///
@@ -206,17 +204,29 @@ class SettingsPage extends ConsumerWidget {
             onChanged: (value) => notifier.setPreloadSeconds(value.toInt()),
           ),
         ],
-        BmSettingsRow(
-          title: '标题元数据过滤（实验性）',
-          subtitle: '过滤 B 站标题中的元信息，点按查看示例',
-          icon: Icons.filter_alt_outlined,
-          onTap: () => _showTitleFilterPreview(context),
-          trailing: BmSwitch(
-            value: settings.titleMetaFilterEnabled,
-            onChanged: notifier.setTitleMetaFilterEnabled,
-            semanticLabel: '标题元数据过滤',
-          ),
+        BmSettingsSwitchRow(
+          title: '标题元数据过滤',
+          subtitle: '新拉取的标题按规则清理元信息，关闭时原样保留',
+          icon: Icons.auto_fix_high_outlined,
+          value: settings.titleMetaFilterEnabled,
+          onChanged: notifier.setTitleMetaFilterEnabled,
         ),
+        if (settings.titleMetaFilterEnabled)
+          BmSettingsRow(
+            title: '标题过滤规则',
+            subtitle: '正则表达式过滤 · 内置多种规则',
+            icon: Icons.filter_alt_outlined,
+            onTap: () =>
+                ShellPageManager.instance.push(ShellPage.titleFilterRules),
+            trailing: Text(
+              '${settings.titleFilterRules.length} 条自定义',
+              style: BmTypography.numeric(
+                context.bmType.caption.copyWith(
+                  color: context.bmColors.textSecondary,
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -460,61 +470,6 @@ class SettingsPage extends ConsumerWidget {
       'public' => '公共：仅对局域网暴露正在播放',
       _ => '关闭',
     };
-  }
-
-  Future<void> _showTitleFilterPreview(BuildContext context) {
-    final colors = context.bmColors;
-    final type = context.bmType;
-    const samples = <String>[
-      '【 作者 / MV 】Starlight【中字】',
-      '【Hi-Res】夜に駆ける【官方MV】',
-      'MV / 打上花火【自翻】',
-    ];
-    return showBmDialog<void>(
-      context: context,
-      builder: (dialogContext) => BmDialog(
-        title: '标题元数据过滤示例',
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '开启后，新从 B 站拉取的标题会清理掉这类元信息：',
-              style: type.body.copyWith(color: colors.textPrimary),
-            ),
-            const SizedBox(height: BmTokens.s3),
-            for (final sample in samples) ...[
-              Text(
-                sample,
-                style: type.label.copyWith(color: colors.textPrimary),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(
-                  left: BmTokens.s2,
-                  top: BmTokens.s1 / 2,
-                ),
-                child: Text(
-                  '→ ${TitleMetaFilter.clean(sample).cleaned}',
-                  style: type.label.copyWith(color: colors.accentDeep),
-                ),
-              ),
-              const SizedBox(height: BmTokens.s2),
-            ],
-            Text(
-              '音质信息（Hi-Res / 杜比等）不会被误删；'
-              '已保存到歌单与历史的标题不回溯修改。',
-              style: type.caption.copyWith(color: colors.textSecondary),
-            ),
-          ],
-        ),
-        actions: [
-          BmDialogAction(
-            label: '知道了',
-            onPressed: () => Navigator.of(dialogContext).pop(),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _showAboutDialog(BuildContext context) {

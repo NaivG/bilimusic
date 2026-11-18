@@ -426,6 +426,7 @@ class _LandscapeShellState extends ConsumerState<LandscapeShell> {
       ShellPage.roamOnboarding => '漫游',
       ShellPage.lanSync => '局域网同步',
       ShellPage.tasteProfile => '品味画像',
+      ShellPage.titleFilterRules => '标题过滤规则',
     };
   }
 

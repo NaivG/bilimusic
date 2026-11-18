@@ -60,8 +60,8 @@ class SearchResult {
         .replaceAll('&lt;', '<')
         .replaceAll('&gt;', '>');
 
-    // 实验性标题元数据过滤：只对视频稿件的标题做。作者名 / 话题名 /
-    // 番剧名不过滤——避免误伤「MV制作组」这类用户名（开关关闭时原样返回）。
+    // 标题过滤规则（正则）：只对视频稿件的标题做。作者名 / 话题名 /
+    // 番剧名不过滤——避免误伤「MV制作组」这类用户名（关闭时原样返回）。
     if (type == SearchResultType.video) {
       title = TitleMetaFilter.maybeClean(title);
     }

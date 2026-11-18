@@ -29,8 +29,9 @@ class SettingsState {
   final String lanSyncDeviceName;
   final String closeBehavior;
 
-  /// 标题元数据过滤（实验性）。
+  /// 标题过滤开关与用户自定义规则（正则源码）。
   final bool titleMetaFilterEnabled;
+  final List<String> titleFilterRules;
 
   // 音频输出四项 + 免责说明。
   //
@@ -62,6 +63,7 @@ class SettingsState {
     this.lanSyncDeviceName = '',
     this.closeBehavior = 'prompt',
     this.titleMetaFilterEnabled = false,
+    this.titleFilterRules = const [],
     this.audioOutputDisclaimerAccepted = false,
     this.audioDelayMs = 0,
     this.audioExclusive = false,
@@ -87,6 +89,7 @@ class SettingsState {
     String? lanSyncDeviceName,
     String? closeBehavior,
     bool? titleMetaFilterEnabled,
+    List<String>? titleFilterRules,
     bool? audioOutputDisclaimerAccepted,
     int? audioDelayMs,
     bool? audioExclusive,
@@ -112,6 +115,7 @@ class SettingsState {
       closeBehavior: closeBehavior ?? this.closeBehavior,
       titleMetaFilterEnabled:
           titleMetaFilterEnabled ?? this.titleMetaFilterEnabled,
+      titleFilterRules: titleFilterRules ?? this.titleFilterRules,
       audioOutputDisclaimerAccepted:
           audioOutputDisclaimerAccepted ?? this.audioOutputDisclaimerAccepted,
       audioDelayMs: audioDelayMs ?? this.audioDelayMs,
@@ -142,6 +146,7 @@ class SettingsState {
       lanSyncDeviceName: s.lanSyncDeviceName,
       closeBehavior: s.closeBehavior,
       titleMetaFilterEnabled: s.titleMetaFilterEnabled,
+      titleFilterRules: [for (final rule in s.titleFilterRules) rule.source],
       audioOutputDisclaimerAccepted: s.audioOutputDisclaimerAccepted,
       audioDelayMs: s.audioDelayMs,
       audioExclusive: s.audioExclusive,
@@ -265,6 +270,17 @@ class SettingsNotifier extends Notifier<SettingsState> {
   /// 会把新状态带回来。
   Future<void> setTitleMetaFilterEnabled(bool value) async {
     await ref.read(_settingsManagerProvider).setTitleMetaFilterEnabled(value);
+  }
+
+  /// 追加一条自定义正则规则。manager 负责去重、同步静态规则表并 notify，
+  /// 之后 [_onManagerChanged] 会把新的规则列表带回来。
+  Future<void> addTitleFilterRule(String source) async {
+    await ref.read(_settingsManagerProvider).addTitleFilterRule(source);
+  }
+
+  /// 按源码删除一条自定义规则。
+  Future<void> removeTitleFilterRule(String source) async {
+    await ref.read(_settingsManagerProvider).removeTitleFilterRule(source);
   }
 }
 

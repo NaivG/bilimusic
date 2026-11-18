@@ -22,6 +22,7 @@ import 'package:bilimusic/features/update/ui/changelog_page.dart';
 import 'package:bilimusic/features/auth/ui/cookie_page.dart';
 import 'package:bilimusic/features/settings/ui/data_management_page.dart';
 import 'package:bilimusic/features/settings/ui/data_migration_page.dart';
+import 'package:bilimusic/features/settings/ui/title_filter_rules_page.dart';
 import 'package:bilimusic/features/diagnostics/ui/audio_backend_page.dart';
 import 'package:bilimusic/features/settings/ui/audio_dsp_page.dart';
 import 'package:bilimusic/features/settings/ui/audio_output_page.dart';
@@ -104,6 +105,8 @@ Widget buildShellPageContent({
       return const LanSyncPage();
     case ShellPage.tasteProfile:
       return const TasteProfilePage();
+    case ShellPage.titleFilterRules:
+      return const TitleFilterRulesPage();
   }
 }
 

@@ -112,8 +112,8 @@ class Music {
   /// 它逐分P构造（cid/title/duration 来自 pages 数组），album 语义为
   /// 视频标题，与稿件卡片（分区名）不同，属有意区分。
   ///
-  /// 标题过 [TitleMetaFilter.maybeClean]：设置开启时清掉【MV】【中字】
-  /// 这类元信息，关闭时原样返回（实验性，见 title_meta_filter.dart）。
+  /// 标题过 [TitleMetaFilter.maybeClean]：设置开启时按内置 + 自定义正则
+  /// 规则清理，关闭时原样返回（见 title_meta_filter.dart）。
   factory Music.fromArchiveJson(Map<String, dynamic> json) {
     final cover = (json['pic'] ?? json['cover']) as String? ?? '';
     return Music(

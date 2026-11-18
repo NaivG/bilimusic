@@ -51,8 +51,9 @@ class SettingsManager extends ChangeNotifier {
   // 窗口行为设置键名
   static const String KEY_CLOSE_BEHAVIOR = 'close_behavior';
 
-  // 标题元数据过滤（实验性）设置键名
+  // 标题过滤规则设置键名
   static const String KEY_TITLE_META_FILTER = 'title_meta_filter';
+  static const String KEY_TITLE_FILTER_RULES = 'title_filter_rules';
 
   // 默认值
   static const bool DEFAULT_NOTIFICATIONS_ENABLED = true;
@@ -96,8 +97,9 @@ class SettingsManager extends ChangeNotifier {
   // 窗口行为默认值：关闭时弹窗询问
   static const String DEFAULT_CLOSE_BEHAVIOR = CLOSE_BEHAVIOR_PROMPT;
 
-  // 标题元数据过滤默认值：实验性功能，默认关闭
+  // 标题过滤规则默认值：opt-in，规则默认全空（只有内置规则）
   static const bool DEFAULT_TITLE_META_FILTER = false;
+  static const String DEFAULT_TITLE_FILTER_RULES = '[]';
 
   // 单例实例
   static final SettingsManager _instance = SettingsManager._internal();
@@ -209,13 +211,18 @@ class SettingsManager extends ChangeNotifier {
     _cache[KEY_CLOSE_BEHAVIOR] =
         prefs.getString(KEY_CLOSE_BEHAVIOR) ?? DEFAULT_CLOSE_BEHAVIOR;
 
-    // 加载标题元数据过滤（实验性），并同步静态开关：
+    // 加载标题过滤开关与自定义规则，并同步静态入口：
     // API 解析在 domain 层（fromArchiveJson / fromViewApi 等），
-    // 那里读不到 SettingsManager，只能读 TitleMetaFilter.enabled。
+    // 那里读不到 SettingsManager，只能读 TitleMetaFilter 的静态标志。
     final titleMetaFilter =
         prefs.getBool(KEY_TITLE_META_FILTER) ?? DEFAULT_TITLE_META_FILTER;
     _cache[KEY_TITLE_META_FILTER] = titleMetaFilter;
     TitleMetaFilter.enabled = titleMetaFilter;
+
+    final rawRules =
+        prefs.getString(KEY_TITLE_FILTER_RULES) ?? DEFAULT_TITLE_FILTER_RULES;
+    _cache[KEY_TITLE_FILTER_RULES] = rawRules;
+    TitleMetaFilter.userRules = TitleFilterRule.decodeList(rawRules);
   }
 
   /// 获取通知设置
@@ -455,13 +462,13 @@ class SettingsManager extends ChangeNotifier {
     }
   }
 
-  // ============ 标题元数据过滤（实验性） ============
+  // ============ 标题过滤规则 ============
 
-  /// 是否启用标题元数据过滤（实验性，默认关闭）。
+  /// 是否启用标题过滤（默认关闭）。
   bool get titleMetaFilterEnabled =>
       _cache[KEY_TITLE_META_FILTER] ?? DEFAULT_TITLE_META_FILTER;
 
-  /// 设置标题元数据过滤开关。
+  /// 设置标题过滤开关。
   ///
   /// 必须先同步 [TitleMetaFilter.enabled] 再落盘：标题过滤发生在 API
   /// 响应解析时（domain 层的解析工厂），那里读不到 Riverpod /
@@ -469,6 +476,38 @@ class SettingsManager extends ChangeNotifier {
   Future<void> setTitleMetaFilterEnabled(bool value) async {
     TitleMetaFilter.enabled = value;
     await _saveSetting(KEY_TITLE_META_FILTER, value);
+  }
+
+  /// 用户自定义的正则表达式规则（不含内置规则）。
+  List<TitleFilterRule> get titleFilterRules => TitleMetaFilter.userRules;
+
+  /// 覆盖整张自定义规则表。
+  ///
+  /// 同 [setTitleMetaFilterEnabled]：先同步纯 Dart 的静态规则表再落盘，
+  /// 否则新拉取的标题仍按旧规则过滤。非法正则原样保留在列表里
+  /// （设置页靠它提示用户），运行期由过滤器跳过。
+  Future<void> setTitleFilterRules(List<TitleFilterRule> rules) async {
+    TitleMetaFilter.userRules = rules;
+    await _saveSetting(
+      KEY_TITLE_FILTER_RULES,
+      TitleFilterRule.encodeList(rules),
+    );
+  }
+
+  /// 追加一条自定义规则；已存在同一源码时不做任何事。
+  Future<void> addTitleFilterRule(String source) async {
+    final trimmed = source.trim();
+    if (trimmed.isEmpty) return;
+    final rules = titleFilterRules;
+    if (rules.any((r) => r.source == trimmed)) return;
+    await setTitleFilterRules([...rules, TitleFilterRule(source: trimmed)]);
+  }
+
+  /// 按源码删除一条自定义规则。
+  Future<void> removeTitleFilterRule(String source) async {
+    final rules = titleFilterRules.where((r) => r.source != source).toList();
+    if (rules.length == titleFilterRules.length) return;
+    await setTitleFilterRules(rules);
   }
 
   /// 获取外观的文本描述
