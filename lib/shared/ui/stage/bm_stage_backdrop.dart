@@ -1,4 +1,5 @@
-import 'dart:ui' show ImageFilter;
+import 'dart:ui' as ui;
+import 'dart:ui' show Canvas, ImageFilter, Paint, Rect;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -145,6 +146,7 @@ class _BmStageBackdropState extends State<BmStageBackdrop>
                 child: AnimatedBuilder(
                   animation: _controller,
                   builder: (context, _) => CustomPaint(
+                    key: const ValueKey<String>('bm-stage-fluid'),
                     painter: _StageFluidPainter(_paletteAt(_controller.value)),
                   ),
                 ),
@@ -430,43 +432,102 @@ class _StagePalette {
 ///
 /// 不压整幅画面：AM 式背景的亮度主要来自封面虚化层，只在底部控制区和
 /// 右侧歌词区收暗。
+///
+/// 实现上把两层渐变离屏烘焙成一张小图再拉伸贴上去，烘焙图按 1/4 分辨率生成。
 class _StageVignette extends StatelessWidget {
   const _StageVignette();
 
   @override
   Widget build(BuildContext context) {
     return IgnorePointer(
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: <Color>[
-                  Color(0x24000000),
-                  Color(0x00000000),
-                  Color(0x00000000),
-                  Color(0x52000000),
-                  Color(0xB8000000),
-                ],
-                stops: <double>[0.0, 0.12, 0.55, 0.78, 1.0],
-              ),
-            ),
-          ),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: <Color>[Color(0x00000000), Color(0x4D000000)],
-                stops: <double>[0.40, 1.0],
-              ),
-            ),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final size = constraints.biggest;
+          if (size.isEmpty || !size.isFinite) return const SizedBox.shrink();
+          return CustomPaint(
+            key: const ValueKey<String>('bm-stage-vignette'),
+            painter: _VignetteImagePainter(_vignetteImageOf(size)),
+          );
+        },
       ),
     );
   }
+}
+
+const LinearGradient _vertical = LinearGradient(
+  begin: Alignment.topCenter,
+  end: Alignment.bottomCenter,
+  colors: <Color>[
+    Color(0x24000000),
+    Color(0x00000000),
+    Color(0x00000000),
+    Color(0x52000000),
+    Color(0xB8000000),
+  ],
+  stops: <double>[0.0, 0.12, 0.55, 0.78, 1.0],
+);
+
+const LinearGradient _horizontal = LinearGradient(
+  begin: Alignment.centerLeft,
+  end: Alignment.centerRight,
+  colors: <Color>[Color(0x00000000), Color(0x4D000000)],
+  stops: <double>[0.40, 1.0],
+);
+
+/// 烘焙图缓存：窗口尺寸变化时才重新生成。
+final Map<String, ui.Image> _vignetteCache = <String, ui.Image>{};
+
+/// 取（必要时生成）一张按 [size] 等比缩小的渐隐图。
+ui.Image _vignetteImageOf(Size size) {
+  final key = '${size.width.round()}x${size.height.round()}';
+  final cached = _vignetteCache[key];
+  if (cached != null) return cached;
+
+  // 线性渐变做双线性放大几乎无损，1/4 分辨率足够；上限再压一手防止超宽屏太大。
+  final width = (size.width * 0.25).clamp(8.0, 512.0).round();
+  final height = (size.height * 0.25).clamp(8.0, 512.0).round();
+  final rect = Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble());
+
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder, rect);
+  canvas.drawRect(rect, Paint()..shader = _vertical.createShader(rect));
+  canvas.drawRect(rect, Paint()..shader = _horizontal.createShader(rect));
+  final picture = recorder.endRecording();
+  final image = picture.toImageSync(width, height);
+  picture.dispose();
+
+  // 窗口尺寸变化时挪到帧末回收，避免画到已释放的图。
+  final stale = _vignetteCache.values.toList();
+  _vignetteCache
+    ..clear()
+    ..[key] = image;
+  if (stale.isNotEmpty) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final old in stale) {
+        old.dispose();
+      }
+    });
+  }
+  return image;
+}
+
+class _VignetteImagePainter extends CustomPainter {
+  const _VignetteImagePainter(this.image);
+
+  final ui.Image image;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+    canvas.drawImageRect(
+      image,
+      Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+      Offset.zero & size,
+      Paint()..filterQuality = FilterQuality.low,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_VignetteImagePainter oldDelegate) =>
+      !identical(oldDelegate.image, image);
 }

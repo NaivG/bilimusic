@@ -31,13 +31,11 @@ void main() {
     );
   }
 
+  final fluidKey = const ValueKey<String>('bm-stage-fluid');
+
+  /// 流体 / 色雾层（与渐隐层的 CustomPaint 区分开）。
   CustomPaint fluidLayer(WidgetTester tester) {
-    return tester.widget<CustomPaint>(
-      find.descendant(
-        of: find.byType(BmStageBackdrop),
-        matching: find.byType(CustomPaint),
-      ),
-    );
+    return tester.widget<CustomPaint>(find.byKey(fluidKey));
   }
 
   /// 纯色层当前渲染出来的颜色（动画中间态也能读到）。
@@ -78,13 +76,7 @@ void main() {
 
     expect(find.byKey(solidKey), findsOneWidget);
     expect(solidColor(tester), isNot(Colors.black));
-    expect(
-      find.descendant(
-        of: find.byType(BmStageBackdrop),
-        matching: find.byType(CustomPaint),
-      ),
-      findsNothing,
-    );
+    expect(find.byKey(fluidKey), findsNothing);
     expect(
       find.descendant(
         of: find.byType(BmStageBackdrop),
@@ -115,13 +107,7 @@ void main() {
   testWidgets('流体开启时包含色层', (tester) async {
     await pumpBackdrop(tester);
 
-    expect(
-      find.descendant(
-        of: find.byType(BmStageBackdrop),
-        matching: find.byType(CustomPaint),
-      ),
-      findsOneWidget,
-    );
+    expect(find.byKey(fluidKey), findsOneWidget);
   });
 
   testWidgets('静态层各自包 RepaintBoundary，位置 tick 不重绘背景', (tester) async {
