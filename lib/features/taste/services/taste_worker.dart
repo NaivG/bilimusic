@@ -24,7 +24,7 @@ class TasteWorker {
        _stopFilter = stopFilter;
 
   /// 空闲退出时间。
-  static const Duration defaultIdleTimeout = Duration(minutes: 10);
+  static const Duration defaultIdleTimeout = Duration(minutes: 5);
 
   final Duration idleTimeout;
 
@@ -165,13 +165,19 @@ class TasteWorker {
     handle?.close();
   }
 
-  Future<Map<String, Uint8List>> _loadModelBytes() async {
+  Future<Map<String, TransferableTypedData>> _loadModelBytes() async {
     // 两端都注入时 worker 完全不碰模型，不必读资产。
     if (_segmenter != null && _stopFilter != null) return const {};
     final loader = FlutterAssetLoader();
+    // 用 TransferableTypedData 交接。
+    // 转移语义下底层内存直接换手，主 isolate 只留一份。
     return {
-      'seg.bin': await loader.loadBytes('seg.bin'),
-      'stopwords.bin': await loader.loadBytes('stopwords.bin'),
+      'seg.bin': TransferableTypedData.fromList([
+        await loader.loadBytes('seg.bin'),
+      ]),
+      'stopwords.bin': TransferableTypedData.fromList([
+        await loader.loadBytes('stopwords.bin'),
+      ]),
     };
   }
 }
@@ -201,7 +207,7 @@ class _WorkerHandle {
   bool _closed = false;
 
   Future<void> start({
-    required Map<String, Uint8List> modelBytes,
+    required Map<String, TransferableTypedData> modelBytes,
     required TasteSegmenter? segmenter,
     required StopwordFilter? stopFilter,
   }) async {
@@ -325,10 +331,14 @@ void _workerMain(_WorkerBootstrap bootstrap) {
   final port = ReceivePort();
   bootstrap.parent.send(port.sendPort);
 
-  if (bootstrap.modelBytes.isNotEmpty) {
-    snow.SnowConfig.instance.assetLoader = _ModelBytesLoader(
-      bootstrap.modelBytes,
-    );
+  // TransferableTypedData 只能在接收端 materialize 一次。
+  final modelBytes = <String, Uint8List>{
+    for (final entry in bootstrap.modelBytes.entries)
+      entry.key: entry.value.materialize().asUint8List(),
+  };
+
+  if (modelBytes.isNotEmpty) {
+    snow.SnowConfig.instance.assetLoader = _ModelBytesLoader(modelBytes);
   }
 
   final segmenter = bootstrap.segmenter ?? TasteProfileBuilder.defaultSegmenter;
@@ -466,7 +476,7 @@ class _WorkerBootstrap {
   });
 
   final SendPort parent;
-  final Map<String, Uint8List> modelBytes;
+  final Map<String, TransferableTypedData> modelBytes;
   final TasteSegmenter? segmenter;
   final StopwordFilter? stopFilter;
 }

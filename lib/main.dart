@@ -76,6 +76,11 @@ void main() async {
     '(os=${Platform.operatingSystem})',
   );
 
+  // 全局图片缓存上限。
+  PaintingBinding.instance.imageCache
+    ..maximumSizeBytes = 64 << 20
+    ..maximumSize = 300;
+
   // snownlp 模型文件懒加载。
   useFlutterAssetLoader();
   startupStage = 'asset-ready';

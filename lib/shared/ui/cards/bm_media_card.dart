@@ -152,7 +152,8 @@ class BmArtImage extends StatelessWidget {
         ? constraints.maxWidth
         : 352.0;
     final pixels = (logicalWidth * dpr).ceil();
-    const steps = <int>[96, 176, 352, 768, 1600];
+    // 取不小于物理像素宽度的最小档，避免窗口每变 1px 就多解一份图。
+    const steps = <int>[96, 176, 352, 768, 1024, 1280];
     for (final step in steps) {
       if (pixels <= step) return step;
     }
