@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:flutter_lyric/core/lyric_model.dart';
+import 'package:flutter_lyric/flutter_lyric.dart';
 
 import 'package:lyrics_now/lyrics_now.dart';
 
@@ -11,11 +11,11 @@ import 'package:bilimusic/features/lyrics/lyric_source.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/player/logic/player_coordinator.dart';
 
-/// 已解析的歌词载荷 —— 直接喂给 [LyricController.loadLyricModel]。
+/// 已解析的歌词载荷 —— 直接喂给 [LyricController.loadDocument]。
 class LyricsPayload {
   const LyricsPayload({
     required this.sourceId,
-    required this.mainModel,
+    required this.document,
     this.offsetMs = 0,
     this.songKey = '',
   });
@@ -23,8 +23,8 @@ class LyricsPayload {
   /// 当前选中的歌词来源 id，与 [LyricSource.id] 对应。
   final String sourceId;
 
-  /// 已转成 flutter_lyric [LyricModel] 的歌词主体,带 ts / roma 翻译。
-  final LyricModel mainModel;
+  /// 已转成 flutter_lyric [LyricDocument] 的歌词主体,带 ts / roma 翻译。
+  final LyricDocument document;
 
   /// 歌词偏移,毫秒。
   final int offsetMs;
@@ -478,7 +478,7 @@ class LyricsService extends ChangeNotifier {
       if (payload != null && payload.songKey.isEmpty) {
         return LyricsPayload(
           sourceId: payload.sourceId,
-          mainModel: payload.mainModel,
+          document: payload.document,
           offsetMs: payload.offsetMs,
           songKey: songKeyOf(music),
         );
@@ -523,7 +523,7 @@ class LyricsService extends ChangeNotifier {
       if (payload != null && payload.songKey.isEmpty) {
         return LyricsPayload(
           sourceId: payload.sourceId,
-          mainModel: payload.mainModel,
+          document: payload.document,
           offsetMs: payload.offsetMs,
           songKey: songKeyOf(music),
         );
@@ -593,47 +593,73 @@ class LyricsService extends ChangeNotifier {
 
   // ==================== Payload 序列化 ====================
 
+  /// 载荷缓存版本。
+  ///
+  /// 2 = lyrics_now 0.3.1 起不再给普通 LRC 伪造行结束时间。
+  /// 旧版普通 LRC 缓存直接 free 了。
+  static const int payloadCacheVersion = 2;
+
   Map<String, Object?> _encodePayload(LyricsPayload payload) {
     return {
+      'v': payloadCacheVersion,
       'sourceId': payload.sourceId,
       'offsetMs': payload.offsetMs,
       'songKey': payload.songKey,
-      'model': _encodeModel(payload.mainModel),
+      // 键名沿用旧缓存里的 'model'，避免升级后整库歌词缓存失效。
+      'model': _encodeDocument(payload.document),
     };
   }
 
   LyricsPayload? _decodePayload(String raw) {
     try {
       final map = jsonDecode(raw) as Map<String, Object?>;
-      final modelJson = map['model'];
-      if (modelJson is! Map) return null;
-      final model = _decodeModel(modelJson.cast<String, Object?>());
+      final documentJson = map['model'];
+      if (documentJson is! Map) return null;
+      final document = _decodeDocument(documentJson.cast<String, Object?>());
+      // 没有版本号的是 v1 缓存。
+      final version = (map['v'] as num?)?.toInt() ?? 1;
+      if (version < payloadCacheVersion && _lacksWordTimings(document)) {
+        return null;
+      }
       return LyricsPayload(
         sourceId: map['sourceId']?.toString() ?? '',
         offsetMs: (map['offsetMs'] as num?)?.toInt() ?? 0,
         songKey: map['songKey']?.toString() ?? '',
-        mainModel: model,
+        document: document,
       );
     } catch (_) {
       return null;
     }
   }
 
-  Map<String, Object?> _encodeModel(LyricModel model) {
+  /// 整篇没有任何逐字时间，即普通 LRC 转出来的文档。
+  static bool _lacksWordTimings(LyricDocument document) =>
+      document.lines.every((line) => line.words == null || line.words!.isEmpty);
+
+  Map<String, Object?> _encodeDocument(LyricDocument document) {
     return {
-      'tags': model.idTags,
-      'lines': [for (final l in model.lines) _encodeLine(l)],
+      'tags': document.tags,
+      'offset': document.offset.inMilliseconds,
+      'lines': [for (final l in document.lines) _encodeLine(l)],
     };
   }
 
-  LyricModel _decodeModel(Map<String, Object?> json) {
+  LyricDocument _decodeDocument(Map<String, Object?> json) {
     final tags = (json['tags'] as Map?)?.cast<String, String>() ?? const {};
     final rawLines = (json['lines'] as List?) ?? const [];
     final lines = <LyricLine>[
       for (final l in rawLines.whereType<Map>())
         _decodeLine(l.cast<String, Object?>()),
     ];
-    return LyricModel(tags: Map<String, String>.from(tags), lines: lines);
+    return LyricDocument(
+      tags: Map<String, String>.from(tags),
+      // 旧缓存没有 offset 字段：传 null 让文档按 tags['offset'] 解析，
+      // 与新抓取的歌词保持一致（显式传 0 会把标签偏移吃掉）。
+      offset: json['offset'] == null
+          ? null
+          : Duration(milliseconds: (json['offset'] as num).toInt()),
+      lines: lines,
+    );
   }
 
   Map<String, Object?> _encodeLine(LyricLine line) {
@@ -681,41 +707,64 @@ class LyricsService extends ChangeNotifier {
     );
   }
 
-  // ==================== LyricModel 构造 ====================
+  // ==================== LyricDocument 构造 ====================
+
+  /// 普通 LRC 的行结束时间上限。
+  ///
+  /// 普通 LRC 只有行起点，没有真实行时长。lyrics_now 会把「结束时间未知」的
+  /// 行截到这个上限，剩下的空白才留得下器乐间奏。这里取上游默认的 8 秒。
+  static const int _maxLineDurationMs = 8000;
 
   LyricsPayload _buildPayload(
     Lyrics lyrics, {
     required String sourceId,
     required String songKey,
   }) {
+    // `toFullTimestamp` 会把每轨的 types 改写成 verbatim，所以必须在转换前取。
+    final keepsWordTiming =
+        lyrics.types[TrackNames.orig] == LyricsType.verbatim;
     final shifted = lyrics.addOffset(0);
-    final fs = shifted.toFullTimestamp(durationMs: lyrics.inferredDuration);
-    final model = _toFlutterLyricModel(fs);
+    final fs = shifted.toFullTimestamp(
+      durationMs: lyrics.inferredDuration,
+      maxLineDurationMs: _maxLineDurationMs,
+    );
+    final document = _toLyricDocument(fs, keepsWordTiming: keepsWordTiming);
     return LyricsPayload(
       sourceId: sourceId,
-      mainModel: model,
+      document: document,
       songKey: songKey,
     );
   }
 
-  LyricModel _toFlutterLyricModel(FSLyrics lyrics) {
+  /// 转成 `flutter_lyric` 的文档。
+  ///
+  /// [keepsWordTiming] 为 false 时丢掉 `words`：普通 LRC 在 lyrics_now 里每行
+  /// 只有一个「覆盖整行」的合成 word，带上去 4.x 就不会再按字素簇切分，
+  /// 逐字上弹会退化成整行一起弹。只有 verbatim（QRC/KRC/YRC、增强 LRC）
+  /// 的真逐字时间才值得保留。
+  LyricDocument _toLyricDocument(
+    FSLyrics lyrics, {
+    required bool keepsWordTiming,
+  }) {
     final orig = lyrics[TrackNames.orig];
     final ts = lyrics[TrackNames.ts];
-    if (orig == null) return LyricModel(lines: const []);
+    if (orig == null) return LyricDocument(lines: const []);
 
     final lines = <LyricLine>[];
     for (var i = 0; i < orig.length; i++) {
       final ol = orig[i];
       final tl = (ts != null && i < ts.length) ? ts[i] : null;
-      final words = ol.words
-          .map(
-            (w) => LyricWord(
-              text: w.text,
-              start: w.startDuration,
-              end: w.endDuration,
-            ),
-          )
-          .toList(growable: false);
+      final words = keepsWordTiming
+          ? ol.words
+                .map(
+                  (w) => LyricWord(
+                    text: w.text,
+                    start: w.startDuration,
+                    end: w.endDuration,
+                  ),
+                )
+                .toList(growable: false)
+          : null;
       lines.add(
         LyricLine(
           start: ol.startDuration,
@@ -727,7 +776,7 @@ class LyricsService extends ChangeNotifier {
       );
     }
 
-    return LyricModel(
+    return LyricDocument(
       tags: Map<String, String>.from(lyrics.tags),
       lines: lines,
     );

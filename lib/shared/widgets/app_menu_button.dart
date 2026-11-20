@@ -1,13 +1,19 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-// super_context_menu 没有公开「在指定位置打开菜单」的 API；这里直接复用它的
+
+// super_context_menu 没有公开「在指定位置打开菜单」的 API，这里直接复用它的
 // 桌面菜单会话。
-// PS: 这是个绿皮科技，能用就行
 // ignore: implementation_imports
 import 'package:super_context_menu/src/scaffold/desktop/menu_session.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 
-import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/motion/bm_pressable.dart';
+import 'package:bilimusic/shared/ui/menu/app_desktop_menu_widget_builder.dart';
+import 'package:bilimusic/shared/ui/menu/bm_menu_row.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_overlays.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 
 /// 点击触发的「更多」菜单按钮。
 ///
@@ -80,11 +86,11 @@ Future<void> showAppMenu(
 
   ContextMenuSession(
     context: context,
-    menuWidgetBuilder: DefaultDesktopMenuWidgetBuilder(),
+    menuWidgetBuilder: const AppDesktopMenuWidgetBuilder(),
     onInitialPointerUp: const _EmptyListenable(),
     menu: menu,
     position: position,
-    iconTheme: _desktopIconTheme(context),
+    iconTheme: IconThemeData(color: context.bmColors.textPrimary),
     onDone: (_) {},
     tapRegionGroupIds: const <Object>{},
   );
@@ -98,16 +104,6 @@ bool get _usesBottomSheet {
   };
 }
 
-/// 与 `DesktopContextMenuWidget` 保持一致的图标颜色。
-IconThemeData _desktopIconTheme(BuildContext context) {
-  final brightness = MediaQuery.platformBrightnessOf(context);
-  return const IconThemeData.fallback().copyWith(
-    color: brightness == Brightness.light
-        ? const Color(0xFF090909)
-        : const Color(0xFFF0F0F0),
-  );
-}
-
 class _EmptyListenable implements Listenable {
   const _EmptyListenable();
 
@@ -118,12 +114,9 @@ class _EmptyListenable implements Listenable {
   void removeListener(VoidCallback listener) {}
 }
 
-Future<void> _showMenuSheet(BuildContext context, Menu menu) {
-  return showModalBottomSheet<void>(
+Future<void> _showMenuSheet(BuildContext context, Menu menu) async {
+  await showBmSheet<void>(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withValues(alpha: 0.32),
     builder: (_) => _MenuSheet(menu: menu),
   );
 }
@@ -148,89 +141,55 @@ class _MenuSheetState extends State<_MenuSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final maxHeight = MediaQuery.sizeOf(context).height * 0.72;
-
-    return SafeArea(
-      top: false,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: maxHeight),
-        child: Material(
-          color: scheme.surfaceContainerHigh,
-          elevation: 0,
-          clipBehavior: Clip.antiAlias,
-          shape: RoundedRectangleBorder(
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(AppTokens.radiusLg),
-            ),
-            side: BorderSide(color: scheme.outlineVariant, width: 0.5),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildHandle(scheme),
-              if (_stack.length > 1) _buildSubmenuHeader(context),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.only(top: 4, bottom: 8),
-                  children: [
-                    for (final element in _stack.last.children)
-                      ..._buildElement(context, element),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+    return BmSheet(
+      padding: const EdgeInsets.symmetric(
+        horizontal: BmTokens.s2,
+        vertical: BmTokens.s1,
       ),
-    );
-  }
-
-  Widget _buildHandle(ColorScheme scheme) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 4),
-      child: Container(
-        width: 36,
-        height: 4,
-        decoration: BoxDecoration(
-          color: scheme.onSurfaceVariant.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(2),
-        ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_stack.length > 1) _buildSubmenuHeader(context),
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              children: [
+                for (final element in _stack.last.children)
+                  ..._buildElement(context, element),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildSubmenuHeader(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: _back,
-            icon: const Icon(Icons.chevron_left),
-            tooltip: '返回',
+    final colors = context.bmColors;
+    final type = context.bmType;
+    return Row(
+      children: [
+        _SheetIconButton(
+          icon: Icons.chevron_left,
+          semanticLabel: '返回',
+          onTap: _back,
+        ),
+        Expanded(
+          child: Text(
+            _stack.last.title ?? '更多',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: type.bodyStrong.copyWith(color: colors.textPrimary),
           ),
-          Expanded(
-            child: Text(
-              _stack.last.title ?? '更多',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: scheme.onSurface,
-              ),
-            ),
-          ),
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close),
-            tooltip: '关闭',
-          ),
-        ],
-      ),
+        ),
+        _SheetIconButton(
+          icon: Icons.close,
+          semanticLabel: '关闭',
+          onTap: () => Navigator.of(context).pop(),
+        ),
+      ],
     );
   }
 
@@ -238,12 +197,15 @@ class _MenuSheetState extends State<_MenuSheet> {
     BuildContext context,
     MenuElement element,
   ) sync* {
-    final scheme = Theme.of(context).colorScheme;
+    final colors = context.bmColors;
 
     if (element is MenuSeparator) {
-      yield Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        child: Divider(height: 1, color: scheme.outlineVariant),
+      yield Divider(
+        height: BmTokens.s2,
+        thickness: 0.5,
+        indent: BmTokens.s2,
+        endIndent: BmTokens.s2,
+        color: colors.hairline,
       );
       return;
     }
@@ -251,26 +213,17 @@ class _MenuSheetState extends State<_MenuSheet> {
     if (element is MenuAction) {
       final disabled = element.attributes.disabled;
       final destructive = element.attributes.destructive;
-      final textColor = disabled
-          ? scheme.onSurfaceVariant.withValues(alpha: 0.38)
-          : destructive
-          ? scheme.error
-          : scheme.onSurface;
-      final iconColor = disabled
-          ? scheme.onSurfaceVariant.withValues(alpha: 0.38)
-          : destructive
-          ? scheme.error
-          : scheme.onSurfaceVariant;
-      final iconTheme = IconThemeData(size: 22, color: iconColor);
+      final iconTheme = IconThemeData(
+        size: BmTokens.iconMenu,
+        color: destructive ? colors.danger : colors.textSecondary,
+      );
 
-      yield ListTile(
-        enabled: !disabled,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+      yield BmMenuRow(
+        title: element.title ?? '',
         leading: element.image?.asWidget(iconTheme),
-        title: Text(
-          element.title ?? '',
-          style: TextStyle(fontSize: 15, color: textColor),
-        ),
+        height: BmTokens.touchScreen,
+        enabled: !disabled,
+        destructive: destructive,
         onTap: disabled
             ? null
             : () {
@@ -282,22 +235,47 @@ class _MenuSheetState extends State<_MenuSheet> {
     }
 
     if (element is Menu) {
-      final iconTheme = IconThemeData(size: 22, color: scheme.onSurfaceVariant);
-      yield ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+      final iconTheme = IconThemeData(
+        size: BmTokens.iconMenu,
+        color: colors.textSecondary,
+      );
+      yield BmMenuRow(
+        title: element.title ?? '',
         leading: element.image?.asWidget(iconTheme),
-        title: Text(
-          element.title ?? '',
-          style: TextStyle(fontSize: 15, color: scheme.onSurface),
-        ),
-        trailing: Icon(
-          Icons.chevron_right,
-          size: 20,
-          color: scheme.onSurfaceVariant,
-        ),
+        height: BmTokens.touchScreen,
+        showChevron: true,
         onTap: () => setState(() => _stack.add(element)),
       );
-      return;
     }
+  }
+}
+
+/// 底部单里的图标按钮：44 触摸区 + 20 图标。
+class _SheetIconButton extends StatelessWidget {
+  const _SheetIconButton({
+    required this.icon,
+    required this.semanticLabel,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String semanticLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return BmPressable(
+      onTap: onTap,
+      borderRadius: BmTokens.r10All,
+      semanticLabel: semanticLabel,
+      child: SizedBox.square(
+        dimension: BmTokens.touchScreen,
+        child: Icon(
+          icon,
+          size: BmTokens.icon,
+          color: context.bmColors.textSecondary,
+        ),
+      ),
+    );
   }
 }

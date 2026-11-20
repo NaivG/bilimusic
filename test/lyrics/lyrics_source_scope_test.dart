@@ -90,7 +90,7 @@ void main() {
 
   String textOf(LyricsPayload? payload) => payload == null
       ? ''
-      : payload.mainModel.lines.map((line) => line.text).join('/');
+      : payload.document.lines.map((line) => line.text).join('/');
 
   test('手动选源只作用于当前曲目：切到下一首必须换成新曲子的歌词', () async {
     container.read(_queueProvider.notifier).state = music(titleA);

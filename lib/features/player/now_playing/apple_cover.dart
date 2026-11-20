@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 
@@ -127,7 +128,8 @@ class _AppleMusicCoverState extends State<AppleMusicCover>
     }
 
     return CachedNetworkImage(
-      imageUrl: widget.coverUrl,
+      imageUrl: biliSquareUrl(widget.coverUrl, 640),
+      memCacheWidth: 640,
       fit: BoxFit.cover,
       placeholder: (context, url) => Container(
         color: Colors.grey[800],

@@ -5,6 +5,9 @@ import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/features/search/search_providers.dart';
 import 'package:bilimusic/features/search/ui/search_bar_widget.dart';
 import 'package:bilimusic/features/search/ui/search_suggest_panel.dart';
+import 'package:bilimusic/shared/ui/controls/bm_icon_button.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
 
 /// 竖屏搜索中间态：输入框 + 联想面板。
@@ -79,21 +82,26 @@ class _SearchEntryPageState extends ConsumerState<SearchEntryPage> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      // 透出壳层的流体背景；页面本身不再铺一层底色。
+      backgroundColor: context.bmColors.bg.withAlpha(0),
       body: SafeArea(
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 12, 8, 4),
+              padding: const EdgeInsets.fromLTRB(
+                BmTokens.pageInset,
+                BmTokens.s3,
+                BmTokens.pageInset,
+                BmTokens.s1,
+              ),
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      size: 20,
-                    ),
+                  BmIconButton(
+                    icon: Icons.arrow_back_ios_new_rounded,
+                    tooltip: '返回',
                     onPressed: () => ShellPageManager.instance.pop(),
                   ),
+                  const SizedBox(width: BmTokens.s2),
                   Expanded(
                     child: SearchBarWidget(
                       controller: _controller,

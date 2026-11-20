@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:bilimusic/domain/search_result.dart';
 
-/// 搜索类型Tab组件
+import 'package:bilimusic/domain/search_result.dart';
+import 'package:bilimusic/shared/ui/controls/bm_chip.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
+
+/// 搜索类型分段：`BmChip` 的 [Wrap]，横屏也不会横向滚动。
 class SearchTypeTabs extends StatelessWidget {
   final SearchResultType selectedType;
   final Function(SearchResultType) onTypeChanged;
@@ -20,58 +25,17 @@ class SearchTypeTabs extends StatelessWidget {
         ? SearchResultType.values.take(4).toList()
         : availableTypes;
 
-    return Container(
-      height: 40,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: types.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final type = types[index];
-          final isSelected = type == selectedType;
-          return _buildTypeChip(context, type, isSelected);
-        },
-      ),
-    );
-  }
-
-  Widget _buildTypeChip(
-    BuildContext context,
-    SearchResultType type,
-    bool isSelected,
-  ) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => onTypeChanged(type),
-          borderRadius: BorderRadius.circular(20),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? colorScheme.primary
-                  : colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              _getTypeLabel(type),
-              style: TextStyle(
-                color: isSelected
-                    ? colorScheme.onPrimary
-                    : colorScheme.onSurfaceVariant,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                fontSize: 14,
-              ),
-            ),
+    return Wrap(
+      spacing: BmTokens.s2,
+      runSpacing: BmTokens.s2,
+      children: [
+        for (final type in types)
+          BmChip(
+            label: _getTypeLabel(type),
+            selected: type == selectedType,
+            onTap: () => onTypeChanged(type),
           ),
-        ),
-      ),
+      ],
     );
   }
 
@@ -108,18 +72,29 @@ class SearchTypeDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.bmColors;
+    final type = context.bmType;
+    final types = availableTypes.isEmpty
+        ? SearchResultType.values
+        : availableTypes;
+
     return PopupMenuButton<SearchResultType>(
       initialValue: selectedType,
       onSelected: onTypeChanged,
-      offset: const Offset(0, 40),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      offset: const Offset(0, BmTokens.controlLg),
+      color: colors.floating,
+      shape: const RoundedRectangleBorder(borderRadius: BmTokens.r12All),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(
+          horizontal: BmTokens.s3,
+          vertical: BmTokens.s2,
+        ),
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(20),
+          color: colors.surfaceRaised,
+          borderRadius: BmTokens.rPillAll,
           border: Border.all(
-            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+            color: colors.hairline,
+            width: BmTokens.hairlineWidth,
           ),
         ),
         child: Row(
@@ -127,46 +102,43 @@ class SearchTypeDropdown extends StatelessWidget {
           children: [
             Icon(
               _getTypeIcon(selectedType),
-              size: 18,
-              color: Theme.of(context).colorScheme.primary,
+              size: BmTokens.iconMenu,
+              color: colors.accent,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: BmTokens.s1),
             Text(
               _getTypeLabel(selectedType),
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontWeight: FontWeight.w500,
-              ),
+              style: type.label.copyWith(color: colors.textPrimary),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: BmTokens.s1),
             Icon(
-              Icons.arrow_drop_down,
-              size: 20,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              Icons.arrow_drop_down_rounded,
+              size: BmTokens.icon,
+              color: colors.textTertiary,
             ),
           ],
         ),
       ),
       itemBuilder: (context) {
-        final types = availableTypes.isEmpty
-            ? SearchResultType.values
-            : availableTypes;
         return types
             .where((t) => t != SearchResultType.upuser) // 隐藏用户类型
             .map(
-              (type) => PopupMenuItem<SearchResultType>(
-                value: type,
+              (item) => PopupMenuItem<SearchResultType>(
+                value: item,
                 child: Row(
                   children: [
                     Icon(
-                      _getTypeIcon(type),
-                      size: 18,
-                      color: type == selectedType
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                      _getTypeIcon(item),
+                      size: BmTokens.iconMenu,
+                      color: item == selectedType
+                          ? colors.accent
+                          : colors.textSecondary,
                     ),
-                    const SizedBox(width: 8),
-                    Text(_getTypeLabel(type)),
+                    const SizedBox(width: BmTokens.s2),
+                    Text(
+                      _getTypeLabel(item),
+                      style: type.label.copyWith(color: colors.textPrimary),
+                    ),
                   ],
                 ),
               ),
@@ -179,17 +151,17 @@ class SearchTypeDropdown extends StatelessWidget {
   IconData _getTypeIcon(SearchResultType type) {
     switch (type) {
       case SearchResultType.video:
-        return Icons.music_note;
+        return Icons.music_note_rounded;
       case SearchResultType.album:
-        return Icons.album;
+        return Icons.album_rounded;
       case SearchResultType.author:
-        return Icons.person;
+        return Icons.person_rounded;
       case SearchResultType.bangumi:
-        return Icons.tv;
+        return Icons.tv_rounded;
       case SearchResultType.topic:
-        return Icons.tag;
+        return Icons.tag_rounded;
       case SearchResultType.upuser:
-        return Icons.account_circle;
+        return Icons.account_circle_rounded;
     }
   }
 

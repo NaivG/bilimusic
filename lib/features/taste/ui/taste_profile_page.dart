@@ -68,7 +68,13 @@ class _TasteProfilePageState extends ConsumerState<TasteProfilePage> {
       appBar: AutoAppBar.generateAppBar(context: context, title: '音乐画像'),
       backgroundColor: Colors.transparent,
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        // 仅补底部：其余三边保持 16，给竖屏浮动 chrome 让位。
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          16 + MediaQuery.paddingOf(context).bottom,
+        ),
         children: [
           _buildIntro(context),
           const SizedBox(height: 16),

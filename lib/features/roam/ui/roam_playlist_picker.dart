@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/playlist.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
@@ -457,8 +458,8 @@ class _PlaylistThumb extends StatelessWidget {
 
   Widget _image(String url) {
     return CachedNetworkImage(
-      imageUrl: url,
-      cacheKey: url,
+      imageUrl: biliSquareUrl(url, 128),
+      memCacheWidth: 128,
       cacheManager: imageCacheManager,
       httpHeaders: NetworkConfig.biliHeaders,
       fit: BoxFit.cover,

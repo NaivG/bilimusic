@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 
@@ -144,8 +145,9 @@ class _SeedCardState extends State<SeedCard> {
     }
 
     return CachedNetworkImage(
-      imageUrl: music.safeCoverUrl,
-      cacheKey: music.id.isEmpty ? null : music.id,
+      imageUrl: biliSquareUrl(music.safeCoverUrl, 384),
+      cacheKey: music.id.isEmpty ? null : '${music.id}_384',
+      memCacheWidth: 384,
       cacheManager: imageCacheManager,
       httpHeaders: NetworkConfig.biliHeaders,
       fit: BoxFit.cover,

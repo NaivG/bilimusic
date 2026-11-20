@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 import 'package:bilimusic/features/player/logic/player_coordinator.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_service.dart';
 import 'package:bilimusic/shared/widgets/long_press_menu.dart';
-import 'package:super_context_menu/super_context_menu.dart';
+import 'package:bilimusic/shared/ui/menu/app_context_menu.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/core/network/network_config.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 
@@ -59,14 +61,14 @@ class _CommonMusicListTileState extends ConsumerState<CommonMusicListTile> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
-        duration: AppTokens.standardDuration,
+        duration: BmMotion.medium,
         curve: Curves.easeOutCubic,
         height: 64,
         decoration: BoxDecoration(
           color: _isHovered ? palette.surfaceHover : Colors.transparent,
           borderRadius: BorderRadius.circular(AppTokens.radiusSm),
         ),
-        child: ContextMenuWidget(
+        child: AppContextMenu(
           menuProvider: (_) => buildMusicContextMenu(
             context: context,
             music: widget.music,
@@ -121,7 +123,7 @@ class _CommonMusicListTileState extends ConsumerState<CommonMusicListTile> {
 
   Widget _buildCover(BuildContext context) {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
+      duration: BmMotion.medium,
       curve: Curves.easeOutCubic,
       width: 48,
       height: 48,
@@ -129,8 +131,9 @@ class _CommonMusicListTileState extends ConsumerState<CommonMusicListTile> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: CachedNetworkImage(
-          imageUrl: widget.music.safeCoverUrl,
+          imageUrl: biliSquareUrl(widget.music.safeCoverUrl, 96),
           httpHeaders: NetworkConfig.biliHeaders,
+          memCacheWidth: 96,
           placeholder: (context, url) => Container(
             color: Colors.grey[200],
             child: Center(
@@ -187,7 +190,7 @@ class _CommonMusicListTileState extends ConsumerState<CommonMusicListTile> {
     final theme = Theme.of(context);
 
     return AnimatedOpacity(
-      duration: const Duration(milliseconds: 200),
+      duration: BmMotion.medium,
       opacity: _isHovered ? 1.0 : 0.7,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

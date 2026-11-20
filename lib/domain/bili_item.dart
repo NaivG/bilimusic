@@ -87,7 +87,7 @@ class BiliItem {
   /// 从 API x/web-interface/view 响应构造
   ///
   /// 视频标题与多P分P标题过 [TitleMetaFilter.maybeClean]：设置开启时
-  /// 清掉【MV】【中字】这类元信息，关闭时原样返回（实验性）。
+  /// 按内置 + 自定义正则规则清理，关闭时原样返回。
   /// album 语义是视频标题，同样过滤。
   factory BiliItem.fromViewApi(Map<String, dynamic> data) {
     final pagesData = (data['pages'] ?? []) as List;
@@ -116,7 +116,7 @@ class BiliItem {
               ),
         artist: owner,
         album: data['title'] == null ? '未知专辑' : videoTitle,
-        coverUrl: pic.isNotEmpty ? '$pic$biliCoverThumbSuffix' : '',
+        coverUrl: pic,
         duration: Duration(
           seconds: int.tryParse(pageJson['duration']?.toString() ?? '0') ?? 0,
         ),

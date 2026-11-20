@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 
@@ -17,28 +18,43 @@ class MusicCover extends StatelessWidget {
   /// 非空时内部按此圆角裁剪；外层已包 ClipRRect 则传 null 避免双重裁剪。
   final double? radius;
 
+  /// 占位底色；为空时取主题 `surfaceHover`。
+  final Color? placeholderColor;
+
+  /// 占位图标色；为空时取主题 `onSurfaceVariant`。
+  final Color? placeholderIconColor;
+
+  /// 图片加载完成的淡入时长；reduce motion 下调用方传 [Duration.zero]。
+  final Duration fadeInDuration;
+
   const MusicCover({
     super.key,
     required this.music,
     required this.size,
     this.radius,
+    this.placeholderColor,
+    this.placeholderIconColor,
+    this.fadeInDuration = const Duration(milliseconds: 500),
   });
 
   @override
   Widget build(BuildContext context) {
     final m = music;
+    final target = size <= 48 ? 96 : (size <= 96 ? 176 : 352);
     Widget child = m == null
         ? _placeholder(context)
         : CachedNetworkImage(
-            imageUrl: m.safeCoverUrl,
+            imageUrl: biliSquareUrl(m.safeCoverUrl, target),
             httpHeaders: NetworkConfig.biliHeaders,
             width: size,
             height: size,
             fit: BoxFit.cover,
+            memCacheWidth: target,
+            fadeInDuration: fadeInDuration,
             placeholder: (context, url) => _placeholder(context),
             errorWidget: (context, url, error) => _placeholder(context),
             cacheManager: imageCacheManager,
-            cacheKey: m.id,
+            cacheKey: m.id.isEmpty ? null : '${m.id}_$target',
           );
     final r = radius;
     if (r != null) {
@@ -52,11 +68,11 @@ class MusicCover extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      color: context.appPalette.surfaceHover,
+      color: placeholderColor ?? context.appPalette.surfaceHover,
       alignment: Alignment.center,
       child: Icon(
         Icons.music_note_rounded,
-        color: colorScheme.onSurfaceVariant,
+        color: placeholderIconColor ?? colorScheme.onSurfaceVariant,
         size: size * 0.55,
       ),
     );

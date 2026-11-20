@@ -11,8 +11,13 @@ import 'package:bilimusic/features/auth/user_providers.dart';
 import 'package:bilimusic/features/offline/offline_providers.dart';
 import 'package:bilimusic/features/offline/services/offline_cache_service.dart';
 import 'package:bilimusic/features/lyrics/lyrics_providers.dart';
+import 'package:bilimusic/features/settings/settings_provider.dart';
 import 'package:restart_app/restart_app.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 
 class DataManagementPage extends ConsumerStatefulWidget {
   const DataManagementPage({super.key});
@@ -145,6 +150,12 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     return '$size ${suffixes[i]}';
   }
 
+  /// 缓存上限的显示：1024 的整数倍显示 GB，其余显示 MB。
+  ///
+  /// 上限来自设置页（MB），这里只做展示，不在本页放调整控件。
+  static String _formatCacheLimitMb(int mb) =>
+      mb % 1024 == 0 ? '${mb ~/ 1024} GB' : '$mb MB';
+
   Color _getPrimaryColor(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
         ? Colors.white
@@ -233,12 +244,19 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     // 登录状态来自 UserManager（按 cookie 里的 SESSDATA 判定），watch 以便
     // 登录/退出后回到本页能即时刷新。
     final userState = ref.watch(userStateProvider);
+    // 缓存上限在设置页调整，这里 watch 以便改完返回本页时「已用 / 上限」
+    // 立即显示新预算（上限显示、不提供调整控件）。
+    final settings = ref.watch(settingsProvider);
     return Scaffold(
       appBar: AutoAppBar.generateAppBar(context: context, title: '数据管理'),
       backgroundColor: Colors.transparent,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
+              // 给竖屏浮动的迷你播放器 / Dock 让位；横屏该值即底部安全区。
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.paddingOf(context).bottom,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -266,9 +284,17 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
                   _buildSectionTitle('存储占用'),
                   _buildInfoCard(
                     children: [
-                      _buildInfoRow('音乐缓存', _musicCacheSize),
+                      _buildInfoRow(
+                        '音乐缓存',
+                        '$_musicCacheSize / '
+                            '${_formatCacheLimitMb(settings.musicCacheLimitMb)}',
+                      ),
                       _buildDivider(),
-                      _buildInfoRow('图片缓存', _imageCacheSize),
+                      _buildInfoRow(
+                        '图片缓存',
+                        '$_imageCacheSize / '
+                            '${_formatCacheLimitMb(settings.imageCacheLimitMb)}',
+                      ),
                       _buildDivider(),
                       _buildInfoRow('歌词缓存', _lyricsCacheSize),
                       _buildDivider(),
@@ -461,24 +487,23 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
 
   /// 统一的二次确认弹窗：标题 + 纯文本说明 + 取消 / 确定。
   Future<bool> _confirm(String title, String message) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showBmDialog<bool>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(title),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('取消'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('确定'),
-            ),
-          ],
-        );
-      },
+      builder: (dialogContext) => BmDialog(
+        title: title,
+        message: message,
+        destructive: true,
+        actions: [
+          BmDialogAction(
+            label: '取消',
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+          ),
+          BmDialogAction(
+            label: '确定',
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+          ),
+        ],
+      ),
     );
     return confirmed ?? false;
   }
@@ -636,69 +661,63 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
   }
 
   void _clearAllData() async {
-    final confirm = await showDialog<bool>(
+    final confirm = await showBmDialog<bool>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Row(
-            children: const [
-              Icon(Icons.warning_amber, color: Colors.orange),
-              SizedBox(width: 8),
-              Text('清除所有数据'),
-            ],
-          ),
+      builder: (dialogContext) {
+        final colors = dialogContext.bmColors;
+        final type = dialogContext.bmType;
+        final bulletStyle = type.body.copyWith(color: colors.textPrimary);
+        return BmDialog(
+          title: '清除所有数据',
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('此操作将清除以下数据：'),
-              const SizedBox(height: 8),
-              const Text('• 播放历史'),
-              const Text('• 收藏列表'),
-              const Text('• 用户创建的歌单'),
-              const Text('• 自定义标签'),
-              const Text('• 登录信息'),
-              const Text('• 推荐缓存'),
-              const Text('• 文件系统缓存（含歌词缓存）'),
-              const Text('• 离线缓存（已下载的音频文件）'),
-              const SizedBox(height: 16),
+              Text('此操作将清除以下数据：', style: bulletStyle),
+              const SizedBox(height: BmTokens.s2),
+              Text('• 播放历史', style: bulletStyle),
+              Text('• 收藏列表', style: bulletStyle),
+              Text('• 用户创建的歌单', style: bulletStyle),
+              Text('• 自定义标签', style: bulletStyle),
+              Text('• 登录信息', style: bulletStyle),
+              Text('• 推荐缓存', style: bulletStyle),
+              Text('• 文件系统缓存（含歌词缓存）', style: bulletStyle),
+              Text('• 离线缓存（已下载的音频文件）', style: bulletStyle),
+              const SizedBox(height: BmTokens.s4),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(BmTokens.s3),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  color: colors.accentSoft,
+                  borderRadius: BmTokens.r10All,
                 ),
-                child: const Text(
+                child: Text(
                   '注意：基本设置（主题、通知等）将被保留。',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  style: type.bodyStrong.copyWith(color: colors.textPrimary),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: BmTokens.s3),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(BmTokens.s3),
                 decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  color: colors.danger.withValues(alpha: BmAlpha.selected),
+                  borderRadius: BmTokens.r10All,
                 ),
-                child: const Text(
+                child: Text(
                   '此操作不可撤销，应用将自动重启。',
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: type.bodyStrong.copyWith(color: colors.danger),
                 ),
               ),
             ],
           ),
+          destructive: true,
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('取消'),
+            BmDialogAction(
+              label: '取消',
+              onPressed: () => Navigator.of(dialogContext).pop(false),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('确定清除'),
+            BmDialogAction(
+              label: '确定清除',
+              onPressed: () => Navigator.of(dialogContext).pop(true),
             ),
           ],
         );

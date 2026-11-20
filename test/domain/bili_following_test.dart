@@ -69,7 +69,7 @@ void main() {
       'play': 12345,
     };
 
-    test('bvid / 标题 / 作者 / 封面缩略后缀都对得上', () {
+    test('bvid / 标题 / 作者 / 封面原样保留', () {
       final music = Music.fromSpaceArcJson(vlistItem(), album: '某UP主 的投稿');
 
       expect(music.id, 'BV1xx411c7mD');
@@ -77,7 +77,7 @@ void main() {
       expect(music.artist.name, '某UP主');
       expect(music.artist.mid, 1234);
       expect(music.album, '某UP主 的投稿');
-      expect(music.coverUrl, endsWith('@672w_378h'));
+      expect(music.coverUrl, 'http://i2.hdslb.com/bfs/archive/cover.jpg');
       expect(music.duration, const Duration(minutes: 4, seconds: 23));
       // 投稿列表不给 cid，取流时由 ApiService 按需回查详情补齐
       expect(music.cid, '');

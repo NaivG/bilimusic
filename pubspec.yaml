@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.11.0+300
+version: 1.12.0+360
 
 environment:
   sdk: ^3.13.0
@@ -37,7 +37,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   path: ^1.9.1
   path_provider: ^2.1.5
-  flutter_cache_manager: ^3.4.1
+  flutter_cache_manager: ^3.4.8
   shared_preferences: ^2.5.3
   sqflite: ^2.4.2+1
   sqflite_common_ffi: ^2.4.0+3 # for Windows and Linux
@@ -57,7 +57,6 @@ dependencies:
   pointycastle: ^3.9.1 # 密码登录 RSA_PKCS1 直接用到它的 RSAPublicKey 类型（encrypt 的底层）
   url_launcher: ^6.3.2
   gt3_flutter_plugin: ^0.1.1
-  color_thief_dart: ^0.1.0
   # audio_session 保留：换 mpv_audio_kit 后失去 just_audio 内置的打断处理，
   # 后续用它补回音频焦点（configure + interruptionEventStream）。
   #
@@ -68,7 +67,7 @@ dependencies:
   # （见文件末尾）。这里保留 hosted 约束，去掉 override 时会自然退回 pub.dev。
   audio_session: ^0.2.2
   rxdart: ^0.28.0
-  flutter_lyric: ^3.0.2
+  flutter_lyric: ^4.1.0 # Apple Music 式切句 / 逐字动效 / 倒计时圆点
   dart_tui: ^2.0.0 # TUI 客户端,不参与 App UI
   ffi: ^2.2.0 # TUI 的 libmpv FFI 封装使用
   window_manager: ^0.4.3
@@ -78,7 +77,7 @@ dependencies:
   pretty_qr_code: ^3.6.0
   bonsoir: ^7.1.4
   device_info_plus: ^11.5.0
-  uuid: 4.5.1
+  uuid: 4.6.0
   lyrics_now:
     git:
       url: https://github.com/NaivG/lyrics_now.git
@@ -149,6 +148,13 @@ dependency_overrides:
   # （基于 0.2.2，补了 ohos/ 与 lib/src/ohos.dart）。
   audio_session:
     path: packages/audio_session
+
+  # Windows 的 mDNS 实现：bonsoir_windows 7.3.1（pub.dev 最新版）原生 C++ 里
+  # DNS-SD 回调线程与平台线程会并发改/读同一个 BonsoirService，只要打开局域网同步后每次退出
+  # 会必定把进程崩飞。
+  # 修复对应上游 Issue #156 和 #159
+  bonsoir_windows:
+    path: packages/bonsoir_windows
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

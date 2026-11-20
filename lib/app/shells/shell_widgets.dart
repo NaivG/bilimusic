@@ -5,6 +5,8 @@ import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/domain/up_profile.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
+import 'package:bilimusic/shared/motion/bm_page_switcher.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
 import 'package:bilimusic/shared/widgets/background_blur_widget.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
@@ -20,6 +22,7 @@ import 'package:bilimusic/features/update/ui/changelog_page.dart';
 import 'package:bilimusic/features/auth/ui/cookie_page.dart';
 import 'package:bilimusic/features/settings/ui/data_management_page.dart';
 import 'package:bilimusic/features/settings/ui/data_migration_page.dart';
+import 'package:bilimusic/features/settings/ui/title_filter_rules_page.dart';
 import 'package:bilimusic/features/diagnostics/ui/audio_backend_page.dart';
 import 'package:bilimusic/features/settings/ui/audio_dsp_page.dart';
 import 'package:bilimusic/features/settings/ui/audio_output_page.dart';
@@ -102,25 +105,48 @@ Widget buildShellPageContent({
       return const LanSyncPage();
     case ShellPage.tasteProfile:
       return const TasteProfilePage();
+    case ShellPage.titleFilterRules:
+      return const TitleFilterRulesPage();
   }
+}
+
+/// 横屏壳的页面内容。
+///
+/// 与 [buildShellPageContent] 走同一张页面映射；横屏壳已经有自己的标题栏，
+/// 设置页不再叠一层它自己的 AppBar。竖屏仍用 [buildShellPageContent]。
+Widget buildLandscapeShellPageContent({
+  required ShellPage page,
+  required Map<String, dynamic> args,
+  required Widget homePage,
+}) {
+  if (page == ShellPage.settings) {
+    return const SettingsPage();
+  }
+  return buildShellPageContent(page: page, args: args, homePage: homePage);
 }
 
 /// 共享的背景层：fluidBackground 关闭时退化为当前 surface 色块；
 /// 开启时显示跟随当前播放曲目封面的模糊层。
+///
+/// 整层自带重绘边界，满窗模糊与页面内容分开重绘。
 Widget buildShellBackground(BuildContext context, WidgetRef ref) {
   if (ref.watch(settingsProvider).fluidBackground == false) {
-    return Container(color: Theme.of(context).colorScheme.surface);
+    return RepaintBoundary(
+      child: Container(color: Theme.of(context).colorScheme.surface),
+    );
   }
   final currentMusic = ref.watch(currentMusicProvider);
-  return AnimatedSwitcher(
-    switchInCurve: Curves.linearToEaseOut,
-    switchOutCurve: Curves.easeInToLinear,
-    duration: const Duration(milliseconds: 400),
-    // coverUrl 在快速切歌时可能重复，防止过渡条目产生重复 key
-    transitionBuilder: switcherFadeTransition,
-    child: BackgroundBlurWidget(
-      key: ValueKey(currentMusic?.coverUrl),
-      coverUrl: currentMusic?.coverUrl,
+  return RepaintBoundary(
+    child: AnimatedSwitcher(
+      switchInCurve: Curves.linearToEaseOut,
+      switchOutCurve: Curves.easeInToLinear,
+      duration: BmMotion.backdrop,
+      // coverUrl 在快速切歌时可能重复，防止过渡条目产生重复 key
+      transitionBuilder: switcherFadeTransition,
+      child: BackgroundBlurWidget(
+        key: ValueKey(currentMusic?.coverUrl),
+        coverUrl: currentMusic?.coverUrl,
+      ),
     ),
   );
 }
@@ -132,7 +158,7 @@ Widget buildShellBackground(BuildContext context, WidgetRef ref) {
 Widget buildShellDetailLayer({required ShellPage currentPage}) {
   final showDetail = currentPage == ShellPage.detail;
   return AnimatedSwitcher(
-    duration: const Duration(milliseconds: 350),
+    duration: BmMotion.xlarge,
     switchInCurve: Curves.easeOutCubic,
     switchOutCurve: Curves.easeInCubic,
     transitionBuilder: (child, animation) {
@@ -173,30 +199,48 @@ Widget buildShellDetailLayer({required ShellPage currentPage}) {
   );
 }
 
-/// 共享的页面切换容器：300ms 淡入 + 横向轻微 slide。
+/// 把浮动 chrome（Dock / 迷你播放器）占用的底部高度写进页面子树的
+/// `MediaQuery.padding`：内容可以滚到它们下面，最后一项仍停在它们上方。
+Widget applyShellChromeInset(
+  BuildContext context, {
+  required double bottom,
+  required Widget child,
+}) {
+  final mediaQuery = MediaQuery.of(context);
+  final double inset;
+  if (bottom <= 0) {
+    // 不需要让位：沿用父级底距，data 与父级等价，不产生额外的依赖重建。
+    inset = mediaQuery.padding.bottom;
+  } else if (mediaQuery.viewInsets.bottom > 0) {
+    // 键盘弹起时 chrome 被顶到键盘下面，页面不再需要为它让位。
+    inset = 0;
+  } else {
+    inset = bottom + mediaQuery.viewPadding.bottom;
+  }
+  return MediaQuery(
+    data: mediaQuery.copyWith(
+      padding: mediaQuery.padding.copyWith(bottom: inset),
+    ),
+    child: child,
+  );
+}
+
+/// 共享的页面切换容器：把 [ShellPageManager] 记录的动作与方向转交给
+/// [BmPageSwitcher]。
+///
 /// 详见 [ShellPageManager.basePage]：当栈顶是 detail 时，调用方应该把
-/// KeyedSubtree 的 key 设为 `ShellPageManager.basePage`，使 detail 进入/离开
+/// KeyedSubtree 的 key 设为 `ShellPageManager.basePageKey`，使 detail 进入/离开
 /// 不会触发底层的过渡动画。
-Widget shellPageSwitcher({required Key key, required Widget child}) {
-  return AnimatedSwitcher(
-    duration: const Duration(milliseconds: 300),
-    switchInCurve: Curves.easeOutCubic,
-    switchOutCurve: Curves.easeInCubic,
-    transitionBuilder: (child, animation) {
-      return FadeTransition(
-        opacity: animation,
-        child: SlideTransition(
-          position:
-              Tween<Offset>(
-                begin: const Offset(0.03, 0),
-                end: Offset.zero,
-              ).animate(
-                CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-              ),
-          child: child,
-        ),
-      );
-    },
-    child: KeyedSubtree(key: key, child: child),
+Widget shellPageSwitcher({
+  required Key key,
+  required Widget child,
+  required BmPageTransitionKind kind,
+  required int direction,
+}) {
+  return BmPageSwitcher(
+    pageKey: key,
+    kind: kind,
+    direction: direction,
+    child: child,
   );
 }

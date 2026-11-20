@@ -12,8 +12,22 @@ import 'package:bilimusic/features/settings/ui/widgets/compressor_curve.dart';
 import 'package:bilimusic/features/settings/ui/widgets/crossfeed_diagram.dart';
 import 'package:bilimusic/features/settings/ui/widgets/dsp_import_export_section.dart';
 import 'package:bilimusic/features/settings/ui/widgets/equalizer_curve.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_select_menu.dart';
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
+
+/// 均衡器预设浮层条目：分组标题只挂在每组第一项上。
+final List<BmSelectOption<EqualizerPreset>> _eqPresetOptions = [
+  for (final group in kEqualizerPresetGroups)
+    for (var i = 0; i < group.presets.length; i++)
+      BmSelectOption<EqualizerPreset>(
+        value: group.presets[i],
+        label: group.presets[i].name,
+        subtitle: group.presets[i].description,
+        sectionTitle: i == 0 ? group.title : null,
+      ),
+];
 
 /// 音效与均衡器（设置 → 音频）。
 ///
@@ -402,6 +416,7 @@ class _AudioDspPageState extends ConsumerState<AudioDspPage> {
         _draft ??
         EqualizerBandModel.fromAnequalizerSettings(effects.anequalizer);
     final eqEnabled = _aneqEnabled(effects);
+    final eqPreset = findEqualizerPreset(eqModel);
 
     final cfModel =
         _crossfeedDraft ??
@@ -431,7 +446,13 @@ class _AudioDspPageState extends ConsumerState<AudioDspPage> {
       appBar: AutoAppBar.generateAppBar(context: context, title: '音效与均衡器'),
       backgroundColor: Colors.transparent,
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+        // 尾部 120 是设计留白；叠加给竖屏浮动 chrome 让位的高度。
+        padding: EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          120 + MediaQuery.paddingOf(context).bottom,
+        ),
         children: [
           // ── 均衡器 ──
           _module(
@@ -459,56 +480,14 @@ class _AudioDspPageState extends ConsumerState<AudioDspPage> {
             // 均衡器的正文尾部是「预设 + 重置」一行（预设是它独有的入口）。
             footer: Row(
               children: [
-                PopupMenuButton<EqualizerPreset>(
-                  tooltip: '预设',
+                BmSelectTrigger<EqualizerPreset>(
+                  label: eqPreset == null ? '预设' : '预设 · ${eqPreset.name}',
+                  options: _eqPresetOptions,
+                  selected: eqPreset,
                   onSelected: _applyEqPreset,
-                  padding: EdgeInsets.zero,
-                  position: PopupMenuPosition.under,
-                  itemBuilder: (context) => [
-                    for (final group in kEqualizerPresetGroups) ...[
-                      // 组标题：禁用的菜单项只作分隔，不参与选择。
-                      PopupMenuItem<EqualizerPreset>(
-                        enabled: false,
-                        height: 32,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text(
-                          group.title,
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                      ),
-                      for (final p in group.presets)
-                        PopupMenuItem<EqualizerPreset>(
-                          value: p,
-                          height: 56,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  p.name,
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(fontWeight: FontWeight.w600),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  p.description,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
-                  ],
-                  icon: const Icon(Icons.tune, size: 18),
+                  menuWidth: 300,
+                  maxLabelWidth: 140,
+                  semanticLabel: '均衡器预设',
                 ),
                 const Spacer(),
                 TextButton.icon(
@@ -1252,8 +1231,8 @@ class _FxModule extends StatelessWidget {
           if (expanded) const Divider(height: 1, indent: 12, endIndent: 12),
           ClipRect(
             child: AnimatedSize(
-              duration: AppTokens.standardDuration,
-              curve: AppTokens.standardEasing,
+              duration: BmMotion.medium,
+              curve: BmMotion.standard,
               alignment: Alignment.topCenter,
               child: expanded
                   ? Padding(

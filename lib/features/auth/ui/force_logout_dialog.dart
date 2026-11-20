@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:bilimusic/core/network/bili_exception.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
 
 /// 服务端注销失败时的强制退出提示。
 ///
@@ -9,28 +10,23 @@ Future<bool> showForceLogoutDialog(
   BuildContext context, {
   Object? error,
 }) async {
-  final confirmed = await showDialog<bool>(
+  final confirmed = await showBmDialog<bool>(
     context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: const Text('强制退出登录'),
-        content: Text(_describeFailure(error)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-              foregroundColor: Theme.of(context).colorScheme.onError,
-            ),
-            child: const Text('强制退出'),
-          ),
-        ],
-      );
-    },
+    builder: (dialogContext) => BmDialog(
+      title: '强制退出登录',
+      message: _describeFailure(error),
+      destructive: true,
+      actions: [
+        BmDialogAction(
+          label: '取消',
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+        ),
+        BmDialogAction(
+          label: '强制退出',
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+        ),
+      ],
+    ),
   );
   return confirmed ?? false;
 }

@@ -11,6 +11,7 @@ import 'package:bilimusic/features/offline/offline_providers.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 
 /// 离线缓存页：列出已下载到本地的曲目，支持播放、删除与清空。
@@ -51,6 +52,10 @@ class OfflinePage extends ConsumerWidget {
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 96)),
+              // 给竖屏浮动的迷你播放器 / Dock 让位；横屏该值即底部安全区。
+              SliverToBoxAdapter(
+                child: SizedBox(height: MediaQuery.paddingOf(context).bottom),
+              ),
             ],
           );
         },
@@ -65,7 +70,13 @@ class OfflinePage extends ConsumerWidget {
 
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
+        // 给竖屏浮动的迷你播放器 / Dock 让位；横屏该值即底部安全区。
+        padding: EdgeInsets.fromLTRB(
+          32,
+          32,
+          32,
+          32 + MediaQuery.paddingOf(context).bottom,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -85,7 +96,8 @@ class OfflinePage extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '在歌曲菜单中选择「离线缓存」，下载完成后会出现在这里。',
+              '在歌曲菜单选择「离线缓存」；'
+              '也可以在歌单页中选择「离线缓存全部」或多选缓存，下载完成后会出现在这里。',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -448,23 +460,22 @@ class OfflinePage extends ConsumerWidget {
     OfflineTrack track,
   ) async {
     final isCurrent = _isTrackPlaying(track, ref.read(currentMusicProvider));
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showBmDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('删除离线缓存'),
-        content: Text(
-          isCurrent
-              ? '「${track.title}」正在播放，删除后将从本地移除并停止播放。'
-              : '将从本地删除「${track.title}」及其音频文件，该操作不可恢复。',
-        ),
+      builder: (dialogContext) => BmDialog(
+        title: '删除离线缓存',
+        message: isCurrent
+            ? '「${track.title}」正在播放，删除后将从本地移除并停止播放。'
+            : '将从本地删除「${track.title}」及其音频文件，该操作不可恢复。',
+        destructive: true,
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
+          BmDialogAction(
+            label: '取消',
+            onPressed: () => Navigator.of(dialogContext).pop(false),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('删除'),
+          BmDialogAction(
+            label: '删除',
+            onPressed: () => Navigator.of(dialogContext).pop(true),
           ),
         ],
       ),
@@ -491,22 +502,22 @@ class OfflinePage extends ConsumerWidget {
       0,
       (sum, track) => sum + track.fileSize,
     );
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showBmDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('清空离线缓存'),
-        content: Text(
-          '将删除本地已缓存的 ${tracks.length} 首音乐'
-          '（${_formatBytes(totalBytes)}）及其记录，该操作不可恢复。',
-        ),
+      builder: (dialogContext) => BmDialog(
+        title: '清空离线缓存',
+        message:
+            '将删除本地已缓存的 ${tracks.length} 首音乐'
+            '（${_formatBytes(totalBytes)}）及其记录，该操作不可恢复。',
+        destructive: true,
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
+          BmDialogAction(
+            label: '取消',
+            onPressed: () => Navigator.of(dialogContext).pop(false),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('清空'),
+          BmDialogAction(
+            label: '清空',
+            onPressed: () => Navigator.of(dialogContext).pop(true),
           ),
         ],
       ),

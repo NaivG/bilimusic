@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:bilimusic/domain/audio_quality.dart';
 import 'package:bilimusic/features/roam/models/roam_style.dart';
 import 'package:bilimusic/features/settings/logic/audio_output_options.dart';
 import 'package:bilimusic/shared/utils/title_meta_filter.dart';
@@ -50,8 +51,18 @@ class SettingsManager extends ChangeNotifier {
   // 窗口行为设置键名
   static const String KEY_CLOSE_BEHAVIOR = 'close_behavior';
 
-  // 标题元数据过滤（实验性）设置键名
+  // 标题过滤规则设置键名
   static const String KEY_TITLE_META_FILTER = 'title_meta_filter';
+  static const String KEY_TITLE_FILTER_RULES = 'title_filter_rules';
+
+  // 音乐 / 图片缓存上限设置键名（单位 MB）。
+  // 真正按字节淘汰的是 core 的 CacheBudget，这里只持久化用户设定的 MB 值，
+  // 由组合根 `app_providers.dart` 换算并同步过去。
+  static const String KEY_MUSIC_CACHE_LIMIT_MB = 'music_cache_limit_mb';
+  static const String KEY_IMAGE_CACHE_LIMIT_MB = 'image_cache_limit_mb';
+
+  // 上次启动时的版本号；用于区分「初次启动」和「升级」。
+  static const String KEY_LAST_BOOT_VERSION = 'last_boot_version';
 
   // 默认值
   static const bool DEFAULT_NOTIFICATIONS_ENABLED = true;
@@ -60,8 +71,9 @@ class SettingsManager extends ChangeNotifier {
   static const bool DEFAULT_AUTO_PLAY_NEXT = true;
   static const bool DEFAULT_ALWAYS_SHOW_MINI_PLAYER = false;
   static const bool DEFAULT_SHOW_LYRICS = true;
-  static const bool DEFAULT_FLUID_BACKGROUND = true;
-  static const bool DEFAULT_BLUR_EFFECT = true;
+  // 这两个效果是内存大户，默认切回关闭
+  static const bool DEFAULT_FLUID_BACKGROUND = false;
+  static const bool DEFAULT_BLUR_EFFECT = false;
   static const String DEFAULT_AUDIO_QUALITY = '30280'; // 默认 192K 高品
   static const int DEFAULT_VERSION_CODE = 80;
   static const bool DEFAULT_PC_MODE = false;
@@ -95,8 +107,16 @@ class SettingsManager extends ChangeNotifier {
   // 窗口行为默认值：关闭时弹窗询问
   static const String DEFAULT_CLOSE_BEHAVIOR = CLOSE_BEHAVIOR_PROMPT;
 
-  // 标题元数据过滤默认值：实验性功能，默认关闭
+  // 标题过滤规则默认值：opt-in，规则默认全空（只有内置规则）
   static const bool DEFAULT_TITLE_META_FILTER = false;
+  static const String DEFAULT_TITLE_FILTER_RULES = '[]';
+
+  // 缓存上限默认值与可调范围（MB）。默认值与 core 的 CacheBudget 保持一致：
+  // 音乐 512 MB、图片 256 MB，用户可在 64 MB ~ 8 GB 之间调整。
+  static const int DEFAULT_MUSIC_CACHE_LIMIT_MB = 512;
+  static const int DEFAULT_IMAGE_CACHE_LIMIT_MB = 256;
+  static const int MIN_CACHE_LIMIT_MB = 64;
+  static const int MAX_CACHE_LIMIT_MB = 8192;
 
   // 单例实例
   static final SettingsManager _instance = SettingsManager._internal();
@@ -208,13 +228,26 @@ class SettingsManager extends ChangeNotifier {
     _cache[KEY_CLOSE_BEHAVIOR] =
         prefs.getString(KEY_CLOSE_BEHAVIOR) ?? DEFAULT_CLOSE_BEHAVIOR;
 
-    // 加载标题元数据过滤（实验性），并同步静态开关：
+    // 加载标题过滤开关与自定义规则，并同步静态入口：
     // API 解析在 domain 层（fromArchiveJson / fromViewApi 等），
-    // 那里读不到 SettingsManager，只能读 TitleMetaFilter.enabled。
+    // 那里读不到 SettingsManager，只能读 TitleMetaFilter 的静态标志。
     final titleMetaFilter =
         prefs.getBool(KEY_TITLE_META_FILTER) ?? DEFAULT_TITLE_META_FILTER;
     _cache[KEY_TITLE_META_FILTER] = titleMetaFilter;
     TitleMetaFilter.enabled = titleMetaFilter;
+
+    final rawRules =
+        prefs.getString(KEY_TITLE_FILTER_RULES) ?? DEFAULT_TITLE_FILTER_RULES;
+    _cache[KEY_TITLE_FILTER_RULES] = rawRules;
+    TitleMetaFilter.userRules = TitleFilterRule.decodeList(rawRules);
+
+    // 加载音乐 / 图片缓存上限（MB）：历史脏数据在读取时夹取，脏值舍弃。
+    _cache[KEY_MUSIC_CACHE_LIMIT_MB] = clampCacheLimitMb(
+      prefs.getInt(KEY_MUSIC_CACHE_LIMIT_MB) ?? DEFAULT_MUSIC_CACHE_LIMIT_MB,
+    );
+    _cache[KEY_IMAGE_CACHE_LIMIT_MB] = clampCacheLimitMb(
+      prefs.getInt(KEY_IMAGE_CACHE_LIMIT_MB) ?? DEFAULT_IMAGE_CACHE_LIMIT_MB,
+    );
   }
 
   /// 获取通知设置
@@ -236,7 +269,7 @@ class SettingsManager extends ChangeNotifier {
     _cache[KEY_APPEARANCE] = value;
   }
 
-  /// 获取主题设置 (lucent / nocturne / verdant)
+  /// 获取主题设置 (lucent / nocturne / verdant / solarized / nord / gruvbox)
   String get theme => _cache[KEY_THEME] ?? DEFAULT_THEME;
 
   /// 设置主题
@@ -454,13 +487,13 @@ class SettingsManager extends ChangeNotifier {
     }
   }
 
-  // ============ 标题元数据过滤（实验性） ============
+  // ============ 标题过滤规则 ============
 
-  /// 是否启用标题元数据过滤（实验性，默认关闭）。
+  /// 是否启用标题过滤（默认关闭）。
   bool get titleMetaFilterEnabled =>
       _cache[KEY_TITLE_META_FILTER] ?? DEFAULT_TITLE_META_FILTER;
 
-  /// 设置标题元数据过滤开关。
+  /// 设置标题过滤开关。
   ///
   /// 必须先同步 [TitleMetaFilter.enabled] 再落盘：标题过滤发生在 API
   /// 响应解析时（domain 层的解析工厂），那里读不到 Riverpod /
@@ -468,6 +501,82 @@ class SettingsManager extends ChangeNotifier {
   Future<void> setTitleMetaFilterEnabled(bool value) async {
     TitleMetaFilter.enabled = value;
     await _saveSetting(KEY_TITLE_META_FILTER, value);
+  }
+
+  /// 用户自定义的正则表达式规则（不含内置规则）。
+  List<TitleFilterRule> get titleFilterRules => TitleMetaFilter.userRules;
+
+  /// 覆盖整张自定义规则表。
+  ///
+  /// 同 [setTitleMetaFilterEnabled]：先同步纯 Dart 的静态规则表再落盘，
+  /// 否则新拉取的标题仍按旧规则过滤。非法正则原样保留在列表里
+  /// （设置页靠它提示用户），运行期由过滤器跳过。
+  Future<void> setTitleFilterRules(List<TitleFilterRule> rules) async {
+    TitleMetaFilter.userRules = rules;
+    await _saveSetting(
+      KEY_TITLE_FILTER_RULES,
+      TitleFilterRule.encodeList(rules),
+    );
+  }
+
+  /// 追加一条自定义规则；已存在同一源码时不做任何事。
+  Future<void> addTitleFilterRule(String source) async {
+    final trimmed = source.trim();
+    if (trimmed.isEmpty) return;
+    final rules = titleFilterRules;
+    if (rules.any((r) => r.source == trimmed)) return;
+    await setTitleFilterRules([...rules, TitleFilterRule(source: trimmed)]);
+  }
+
+  /// 按源码删除一条自定义规则。
+  Future<void> removeTitleFilterRule(String source) async {
+    final rules = titleFilterRules.where((r) => r.source != source).toList();
+    if (rules.length == titleFilterRules.length) return;
+    await setTitleFilterRules(rules);
+  }
+
+  // ============ 缓存上限相关设置 ============
+
+  /// 把缓存上限（MB）夹到 [MIN_CACHE_LIMIT_MB, MAX_CACHE_LIMIT_MB]。
+  static int clampCacheLimitMb(int value) =>
+      value.clamp(MIN_CACHE_LIMIT_MB, MAX_CACHE_LIMIT_MB);
+
+  /// 音乐缓存上限（MB）。超出后由 core 的 SizeBoundedCacheManager 按最久
+  /// 未用淘汰，不再按条数 / 天数。
+  int get musicCacheLimitMb =>
+      _cache[KEY_MUSIC_CACHE_LIMIT_MB] ?? DEFAULT_MUSIC_CACHE_LIMIT_MB;
+
+  /// 设置音乐缓存上限（MB），夹取后落盘。
+  Future<void> setMusicCacheLimitMb(int value) async {
+    await _saveSetting(KEY_MUSIC_CACHE_LIMIT_MB, clampCacheLimitMb(value));
+  }
+
+  /// 图片缓存上限（MB），淘汰规则与音乐缓存一致。
+  int get imageCacheLimitMb =>
+      _cache[KEY_IMAGE_CACHE_LIMIT_MB] ?? DEFAULT_IMAGE_CACHE_LIMIT_MB;
+
+  /// 设置图片缓存上限（MB），夹取后落盘。
+  Future<void> setImageCacheLimitMb(int value) async {
+    await _saveSetting(KEY_IMAGE_CACHE_LIMIT_MB, clampCacheLimitMb(value));
+  }
+
+  // ============ 启动版本 ============
+
+  /// 直接从盘上读上次启动的版本号。
+  ///
+  /// [init] 是 fire-and-forget 的，门控绕开内存缓存直接读盘。
+  ///
+  /// 空串 / 全空白 / null 都按「从未记录」处理。
+  Future<String?> loadLastBootVersion() async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = prefs.getString(KEY_LAST_BOOT_VERSION)?.trim();
+    return value == null || value.isEmpty ? null : value;
+  }
+
+  /// 记录本次启动的版本号，供下次启动判断是首启还是升级。
+  Future<void> setLastBootVersion(String version) async {
+    _cache[KEY_LAST_BOOT_VERSION] = version;
+    await _saveSetting(KEY_LAST_BOOT_VERSION, version);
   }
 
   /// 获取外观的文本描述
@@ -531,20 +640,6 @@ class SettingsManager extends ChangeNotifier {
   }
 
   /// 获取播放音质的文本描述
-  String getAudioQualityText(String qualityId) {
-    switch (qualityId) {
-      case '30251':
-        return 'Hi-Res 无损';
-      case '30250':
-        return '杜比全景声';
-      case '30280':
-        return '192K HQ';
-      case '30232':
-        return '132K SQ';
-      case '30216':
-        return '64K AAC-HE';
-      default:
-        return '192K HQ';
-    }
-  }
+  String getAudioQualityText(String qualityId) =>
+      AudioQualityInfo.of(qualityId).label;
 }

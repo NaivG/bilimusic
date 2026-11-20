@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
 
 /// 更新前通知权限检查结果
 enum UpdateNotificationDecision {
@@ -50,45 +50,27 @@ Future<UpdateNotificationDecision> checkNotificationPermissionBeforeUpdate(
   if (!context.mounted) {
     return UpdateNotificationDecision.aborted;
   }
-  final action = await showDialog<_PermissionDialogAction>(
+  final action = await showBmDialog<_PermissionDialogAction>(
     context: context,
-    builder: (dialogContext) {
-      final colorScheme = Theme.of(dialogContext).colorScheme;
-      return AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-        ),
-        backgroundColor: colorScheme.surfaceContainerHighest,
-        title: const Text('无法显示更新通知'),
-        content: const Text(
+    builder: (dialogContext) => BmDialog(
+      title: '无法显示更新通知',
+      message:
           '通知权限已被拒绝，下载更新时将无法在系统通知栏显示进度（不影响下载与安装）。\n\n可前往系统设置开启通知权限，也可以不开启直接更新。',
+      actions: [
+        BmDialogAction(
+          label: '仍然更新',
+          onPressed: () =>
+              Navigator.of(dialogContext)
+                  .pop(_PermissionDialogAction.updateAnyway),
         ),
-        actions: [
-          TextButton(
-            onPressed: () =>
-                Navigator.of(dialogContext)
-                    .pop(_PermissionDialogAction.updateAnyway),
-            child: Text(
-              '仍然更新',
-              style: TextStyle(color: colorScheme.onSurfaceVariant),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () =>
-                Navigator.of(dialogContext)
-                    .pop(_PermissionDialogAction.openSettings),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: colorScheme.primary,
-              foregroundColor: colorScheme.onPrimary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-              ),
-            ),
-            child: const Text('去设置'),
-          ),
-        ],
-      );
-    },
+        BmDialogAction(
+          label: '去设置',
+          onPressed: () =>
+              Navigator.of(dialogContext)
+                  .pop(_PermissionDialogAction.openSettings),
+        ),
+      ],
+    ),
   );
   switch (action) {
     case _PermissionDialogAction.openSettings:

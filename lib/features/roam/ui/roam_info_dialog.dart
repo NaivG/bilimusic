@@ -6,6 +6,10 @@ import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/roam/models/roam_config.dart';
 import 'package:bilimusic/features/roam/models/roam_style.dart';
 import 'package:bilimusic/features/roam/roam_providers.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 import 'package:bilimusic/shared/utils/clipboard_helpers.dart';
 import 'package:bilimusic/shared/widgets/music_cover.dart';
 
@@ -20,7 +24,7 @@ import 'package:bilimusic/shared/widgets/music_cover.dart';
 /// 返回 `true` 表示用户点击了「停止漫游」，`null` 表示取消/关闭；
 /// 漫游状态本身以 [isRoamingProvider] 为准（遥控 / 跟随也会停漫游）。
 Future<bool?> showRoamInfoDialog(BuildContext context, WidgetRef ref) {
-  return showDialog<bool>(
+  return showBmDialog<bool>(
     context: context,
     builder: (_) => const _RoamInfoDialog(),
   );
@@ -38,46 +42,39 @@ class _RoamInfoDialog extends ConsumerWidget {
     final style = coordinator.roamStyle;
     final seeds = coordinator.roamSeeds;
 
-    return AlertDialog(
-      title: const Text('漫游详情'),
-      content: SizedBox(
-        width: 360,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _InfoRow(label: '风格', value: _styleDisplayName(style)),
-            const SizedBox(height: 6),
-            _InfoRow(label: '种子', value: '${seeds.length} 首'),
-            const SizedBox(height: 12),
-            if (seeds.isNotEmpty)
-              Flexible(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 220),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: seeds.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 6),
-                    itemBuilder: (_, i) => _SeedTile(music: seeds[i]),
-                  ),
-                ),
+    return BmDialog(
+      title: '漫游详情',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _InfoRow(label: '风格', value: _styleDisplayName(style)),
+          const SizedBox(height: BmTokens.s2),
+          _InfoRow(label: '种子', value: '${seeds.length} 首'),
+          const SizedBox(height: BmTokens.s3),
+          if (seeds.isNotEmpty)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: BmTokens.s8 * 7),
+              // 种子超过上限时内层自己滚：外层 BmDialog 的滚动到不了被裁的部分。
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: seeds.length,
+                separatorBuilder: (_, _) => const SizedBox(height: BmTokens.s2),
+                itemBuilder: (_, i) => _SeedTile(music: seeds[i]),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
       actions: [
-        TextButton(
-          onPressed: () => _onExport(context, ref),
-          child: const Text('导出配置'),
+        BmDialogAction(label: '导出配置', onPressed: () => _onExport(context, ref)),
+        BmDialogAction(
+          label: '停止漫游',
+          enabled: isRoaming,
+          onPressed: () => _onStop(context, ref),
         ),
-        TextButton(
-          onPressed: isRoaming ? () => _onStop(context, ref) : null,
-          style: TextButton.styleFrom(foregroundColor: Colors.red),
-          child: const Text('停止漫游'),
-        ),
-        TextButton(
+        BmDialogAction(
+          label: '关闭',
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('关闭'),
         ),
       ],
     );
@@ -116,20 +113,24 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final colors = context.bmColors;
+    final type = context.bmType;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 48,
+          width: BmTokens.s8,
           child: Text(
             label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: type.caption.copyWith(color: colors.textSecondary),
           ),
         ),
-        Expanded(child: Text(value, style: theme.textTheme.bodyMedium)),
+        Expanded(
+          child: Text(
+            value,
+            style: type.body.copyWith(color: colors.textPrimary),
+          ),
+        ),
       ],
     );
   }
@@ -141,11 +142,12 @@ class _SeedTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final colors = context.bmColors;
+    final type = context.bmType;
     return Row(
       children: [
-        MusicCover(music: music, size: 44, radius: 6),
-        const SizedBox(width: 10),
+        MusicCover(music: music, size: 44, radius: BmTokens.r4),
+        const SizedBox(width: BmTokens.s3),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,18 +157,14 @@ class _SeedTile extends StatelessWidget {
                 music.title.isEmpty ? '(无标题)' : music.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
-                ),
+                style: type.bodyStrong.copyWith(color: colors.textPrimary),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: BmTokens.s1),
               Text(
                 music.artist.displayName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+                style: type.caption.copyWith(color: colors.textSecondary),
               ),
             ],
           ),

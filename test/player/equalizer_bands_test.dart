@@ -3,9 +3,12 @@ import 'dart:math' as math;
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/features/player/logic/audio_effects_service.dart';
 import 'package:bilimusic/features/player/logic/equalizer_bands.dart';
+import 'package:bilimusic/features/player/logic/equalizer_presets.dart';
 import 'package:bilimusic/features/settings/ui/audio_dsp_page.dart';
 import 'package:bilimusic/features/settings/ui/widgets/compressor_curve.dart';
 import 'package:bilimusic/features/settings/ui/widgets/equalizer_curve.dart';
+import 'package:bilimusic/shared/motion/bm_pressable.dart';
+import 'package:bilimusic/shared/ui/menu/bm_menu_surface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -566,8 +569,9 @@ void main() {
       expect(tester.takeException(), isNull);
 
       // ── 9 个模块头一字不差地都在 ────────────────────────────
+      // 导入 / 导出分区也会按模块列出同名标签，所以这里只验存在性。
       for (final title in moduleTitles) {
-        expect(find.text(title), findsOneWidget, reason: '缺少模块「$title」');
+        expect(find.text(title), findsWidgets, reason: '缺少模块「$title」');
       }
 
       // 头部的开关与正文无关：收起时 9 个开关照常可见（这就是
@@ -577,7 +581,7 @@ void main() {
       // ── 正文整棵卸载（不是隐藏）─────────────────────────────
       // 全部未启用 → 全部收起，正文连树都没进。
       expect(find.byType(EqualizerCurve), findsNothing);
-      expect(find.byTooltip('预设'), findsNothing);
+      expect(find.text('预设'), findsNothing);
       expect(find.text('重置'), findsNothing);
 
       // 头部第二行是参数快照，不是重复的开 / 关状态。
@@ -592,17 +596,18 @@ void main() {
       );
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.text('均衡器'));
+      // 导入 / 导出分区也有同名模块标签，取第一个（模块头）作为点击目标。
+      await tester.tap(find.text('均衡器').first);
       await tester.pumpAndSettle();
 
       expect(find.byType(EqualizerCurve), findsOneWidget);
-      expect(find.byTooltip('预设'), findsOneWidget);
+      expect(find.text('预设'), findsOneWidget);
       expect(find.text('重置'), findsNWidgets(1));
       // 展开只动正文，不增减头部。
       expect(find.byType(Switch), findsNWidgets(9));
 
       // 再点一次收起：正文卸载、重置入口消失，头部原样留着。
-      await tester.tap(find.text('均衡器'));
+      await tester.tap(find.text('均衡器').first);
       await tester.pumpAndSettle();
 
       expect(find.byType(EqualizerCurve), findsNothing);
@@ -635,6 +640,92 @@ void main() {
       // 开关状态与展开状态一致：9 个开关，只有压缩器那个是开的。
       final switches = tester.widgetList<Switch>(find.byType(Switch)).toList();
       expect(switches.where((s) => s.value), hasLength(1));
+    });
+
+    testWidgets('预设入口是锚定单选浮层：分组小标题 + 当前预设对勾', (tester) async {
+      enlargeViewport(tester, 2400);
+
+      final svc = AudioEffectsService();
+      final preset = kEqualizerPresetGroups.first.presets.first;
+      svc.effects.value = svc.effects.value.copyWith(
+        anequalizer: preset.model.toAnequalizerSettings(enabled: true),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [audioEffectsServiceProvider.overrideWithValue(svc)],
+          child: const MaterialApp(home: AudioDspPage()),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+
+      // 均衡器开着 → 正文默认展开，预设入口就在页脚。
+      expect(find.byType(EqualizerCurve), findsOneWidget);
+      final triggerLabel = '预设 · ${preset.name}';
+      expect(find.text(triggerLabel), findsOneWidget);
+
+      await tester.tap(find.text(triggerLabel));
+      await tester.pumpAndSettle();
+
+      final panel = find.byType(BmMenuSurface);
+      expect(panel, findsOneWidget);
+      for (final group in kEqualizerPresetGroups) {
+        expect(
+          find.descendant(of: panel, matching: find.text(group.title)),
+          findsOneWidget,
+          reason: '缺少分组标题「${group.title}」',
+        );
+        for (final p in group.presets) {
+          expect(
+            find.descendant(of: panel, matching: find.text(p.name)),
+            findsOneWidget,
+            reason: '缺少预设「${p.name}」',
+          );
+          expect(
+            find.descendant(of: panel, matching: find.text(p.description)),
+            findsOneWidget,
+            reason: '缺少预设说明「${p.description}」',
+          );
+        }
+      }
+
+      // 只有当前值那一行有对勾，且紧贴它的名字。
+      expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+      final checkedRow = find.ancestor(
+        of: find.byIcon(Icons.check_rounded),
+        matching: find.byType(BmPressable),
+      );
+      expect(
+        find.descendant(of: checkedRow.first, matching: find.text(preset.name)),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('窄屏下预设页脚不溢出（长预设名省略）', (tester) async {
+      tester.view.physicalSize = const Size(360, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final svc = AudioEffectsService();
+      final preset = kEqualizerPresetGroups.last.presets.first;
+      svc.effects.value = svc.effects.value.copyWith(
+        anequalizer: preset.model.toAnequalizerSettings(enabled: true),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [audioEffectsServiceProvider.overrideWithValue(svc)],
+          child: const MaterialApp(home: AudioDspPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('预设 · ${preset.name}'), findsOneWidget);
+      expect(find.text('重置'), findsOneWidget);
     });
   });
 }

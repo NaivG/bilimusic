@@ -13,9 +13,6 @@ enum MusicRenderStyle {
   list,
 }
 
-/// B 站封面 CDN 缩略后缀：列表封面统一按此规格取图，省流量。
-const biliCoverThumbSuffix = '@672w_378h';
-
 /// 封面缺失 / 非法时的 fallback 占位图（唯一来源，勿再内联 URL 字面量）。
 const fallbackCoverUrl =
     'https://i0.hdslb.com/bfs/static/jinkela/video/asserts/no_video.png';
@@ -115,8 +112,8 @@ class Music {
   /// 它逐分P构造（cid/title/duration 来自 pages 数组），album 语义为
   /// 视频标题，与稿件卡片（分区名）不同，属有意区分。
   ///
-  /// 标题过 [TitleMetaFilter.maybeClean]：设置开启时清掉【MV】【中字】
-  /// 这类元信息，关闭时原样返回（实验性，见 title_meta_filter.dart）。
+  /// 标题过 [TitleMetaFilter.maybeClean]：设置开启时按内置 + 自定义正则
+  /// 规则清理，关闭时原样返回（见 title_meta_filter.dart）。
   factory Music.fromArchiveJson(Map<String, dynamic> json) {
     final cover = (json['pic'] ?? json['cover']) as String? ?? '';
     return Music(
@@ -124,7 +121,7 @@ class Music {
       title: TitleMetaFilter.maybeClean(json['title'] as String? ?? ''),
       artist: _artistFromCard(json),
       album: json['tname'] as String? ?? '未知专辑',
-      coverUrl: cover.isNotEmpty ? '$cover$biliCoverThumbSuffix' : '',
+      coverUrl: cover,
       duration: json['duration'] is int
           ? Duration(seconds: json['duration'] as int)
           : null,
@@ -151,7 +148,7 @@ class Music {
       title: TitleMetaFilter.maybeClean(json['title'] as String? ?? ''),
       artist: Artist.fromFlat(json, faceKey: 'face'),
       album: album,
-      coverUrl: cover.isNotEmpty ? '$cover$biliCoverThumbSuffix' : '',
+      coverUrl: cover,
       duration: _parseLength(json['length']?.toString()),
       audioUrl: '',
     );

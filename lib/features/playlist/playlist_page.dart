@@ -11,6 +11,8 @@ import 'package:bilimusic/features/playlist/ui/landscape_playlist_page.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_entries_io.dart';
+import 'package:bilimusic/features/offline/ui/offline_batch_download_dialog.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
 
 /// 播放列表页面
 /// 根据屏幕方向路由到竖屏或横屏布局
@@ -36,17 +38,38 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
   bool _isLoading = true;
   Playlist? _currentPlaylist;
 
+  /// 只装载一次：歌单整份进内存，之后滚动、缩放都不再回库。
+  bool _loadStarted = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (_loadStarted) return;
+    _loadStarted = true;
     _loadData();
   }
 
-  /// 加载数据
+  @override
+  void didUpdateWidget(covariant PlaylistPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 壳层换一个歌单/一组条目复用了同一个 State 时才重新装载。
+    final changed =
+        oldWidget.playlistId != widget.playlistId ||
+        oldWidget.playlistName != widget.playlistName ||
+        !identical(oldWidget.songs, widget.songs);
+    if (changed) _loadData();
+  }
+
+  /// 加载数据：整份歌单一次读进内存，滚动时不再回库。
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
 
     try {
+      final service = ref.read(playlistServiceProvider);
+      // 启动期库是异步打开的（`playlistService.initialize()` 刻意不 await），
+      // 这里等它就位再读，免得抢在初始化前拿到空歌单。
+      await service.initialize();
+
       final systemDefault = widget.playlistId != null
           ? DefaultPlaylists.getById(widget.playlistId!)
           : null;
@@ -66,9 +89,7 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
         }
       } else if (widget.playlistId != null) {
         // 从服务加载歌单详情
-        final detail = await ref
-            .read(playlistServiceProvider)
-            .getPlaylistDetail(widget.playlistId!);
+        final detail = await service.getPlaylistDetail(widget.playlistId!);
         if (detail != null) {
           _currentPlaylist = detail;
           _songs = detail.songs;
@@ -170,6 +191,102 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
   }
 
   bool get _canImportEntries => widget.playlistId != 'history';
+
+  /// 整张歌单是否已收藏：全部曲目都在「我喜欢的音乐」里。
+  bool _isLiked(Set<String> favoriteKeys) =>
+      _songs.isNotEmpty &&
+      _songs.every((music) => favoriteKeys.contains(music.key));
+
+  /// 收藏 / 取消收藏整张歌单（逐首切换收藏态）。
+  Future<void> _toggleLike() async {
+    if (_songs.isEmpty) return;
+
+    final commands = ref.read(playlistCommandsProvider.notifier);
+    final favoriteKeys = ref
+        .read(favoritesProvider)
+        .map((music) => music.key)
+        .toSet();
+    final liked = _isLiked(favoriteKeys);
+    final count = _songs.length;
+
+    try {
+      for (final music in _songs) {
+        if (liked) {
+          if (favoriteKeys.contains(music.key)) {
+            await commands.removeFromFavorites(music);
+          }
+        } else if (!favoriteKeys.contains(music.key)) {
+          await commands.addToFavorites(music);
+        }
+      }
+    } catch (e) {
+      _showSnack('收藏操作失败：$e');
+      return;
+    }
+
+    if (!mounted) return;
+    // 「我喜欢的音乐」本身就是收藏列表，收藏态变了要同步回页面数据。
+    if (widget.playlistId == 'favorites') {
+      _syncSongs(List<Music>.from(ref.read(favoritesProvider)));
+    }
+    _showSnack(liked ? '已取消收藏 $count 首' : '已收藏 $count 首');
+  }
+
+  /// 把当前歌单的全部歌曲加入离线缓存（已缓存的自动跳过）。
+  ///
+  /// 批量下载放到 [OfflineBatchDownloadDialog] 里串行执行，
+  /// 这里只负责确认与打开进度对话框。
+  Future<void> _offlineCacheAll() async {
+    if (_songs.isEmpty) {
+      _showSnack('当前歌单没有可缓存的歌曲');
+      return;
+    }
+
+    final name = _currentPlaylist?.displayName ?? widget.playlistName ?? '播放列表';
+    final confirmed = await showBmDialog<bool>(
+      context: context,
+      builder: (dialogContext) => BmDialog(
+        title: '离线缓存',
+        message:
+            '将把「$name」中的 ${_songs.length} 首歌曲下载到离线缓存，'
+            '已缓存的会自动跳过。\n\n是否继续？',
+        actions: [
+          BmDialogAction(
+            label: '取消',
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+          ),
+          BmDialogAction(
+            label: '开始缓存',
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    await _showBatchCacheDialog(_songs, name);
+  }
+
+  /// 把多选中的曲目加入离线缓存（已缓存/音质足够的会自动跳过）。
+  Future<void> _offlineCacheSelected(List<Music> songs) async {
+    if (songs.isEmpty || !mounted) return;
+
+    final name = _currentPlaylist?.displayName ?? widget.playlistName ?? '播放列表';
+    await _showBatchCacheDialog(songs, '$name · 已选 ${songs.length} 首');
+  }
+
+  /// 打开批量缓存进度对话框（运行期间不可关闭，可取消剩余曲目）。
+  Future<void> _showBatchCacheDialog(List<Music> songs, String label) {
+    return showBmDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => OfflineBatchDownloadDialog(
+        songs: List<Music>.unmodifiable(songs),
+        playlistName: label,
+      ),
+    );
+  }
 
   /// 导出当前歌单的条目（只含歌曲，不含歌单元信息）。
   Future<void> _exportEntries() async {
@@ -297,23 +414,22 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
     final playlistId = widget.playlistId;
     if (playlistId == null || songs.isEmpty) return false;
 
-    final confirm = await showDialog<bool>(
+    final confirm = await showBmDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('确认删除'),
-        content: Text(
-          songs.length == 1
-              ? '确定要从歌单中移除"${songs.single.title}"吗？'
-              : '确定要从歌单中删除选中的 ${songs.length} 首歌曲吗？',
-        ),
+      builder: (dialogContext) => BmDialog(
+        title: '确认删除',
+        message: songs.length == 1
+            ? '确定要从歌单中移除"${songs.single.title}"吗？'
+            : '确定要从歌单中删除选中的 ${songs.length} 首歌曲吗？',
+        destructive: true,
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+          BmDialogAction(
+            label: '取消',
+            onPressed: () => Navigator.of(dialogContext).pop(false),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('删除'),
+          BmDialogAction(
+            label: '删除',
+            onPressed: () => Navigator.of(dialogContext).pop(true),
           ),
         ],
       ),
@@ -382,6 +498,11 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
 
     // 检测是否为横屏模式
     final isLandscape = LandscapeBreakpoints.isLandscapeMode(context);
+    final favoriteKeys = ref
+        .watch(favoritesProvider)
+        .map((music) => music.key)
+        .toSet();
+    final liked = _isLiked(favoriteKeys);
 
     // 横屏模式：使用横屏布局
     if (isLandscape) {
@@ -389,14 +510,18 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
         playlistId: widget.playlistId,
         songs: _songs,
         currentPlaylist: _currentPlaylist,
+        isLiked: liked,
         onSongTap: _playSong,
         onRemoveSong: _removeSong,
         onRemoveMany: _removeSongs,
+        onCacheMany: _offlineCacheSelected,
         onPlayAll: _playAll,
         onShufflePlay: _shufflePlay,
+        onToggleLike: _toggleLike,
         onAddToPlaylist: _addAllToPlaylist,
         onExportEntries: _exportEntries,
         onImportEntries: _importEntries,
+        onOfflineCacheAll: _offlineCacheAll,
         canImportEntries: _canImportEntries,
       );
     }
@@ -406,14 +531,18 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
       playlistId: widget.playlistId,
       songs: _songs,
       currentPlaylist: _currentPlaylist,
+      isLiked: liked,
       onSongTap: _playSong,
       onRemoveSong: _removeSong,
       onRemoveMany: _removeSongs,
+      onCacheMany: _offlineCacheSelected,
       onPlayAll: _playAll,
       onShufflePlay: _shufflePlay,
+      onToggleLike: _toggleLike,
       onAddToPlaylist: _addAllToPlaylist,
       onExportEntries: _exportEntries,
       onImportEntries: _importEntries,
+      onOfflineCacheAll: _offlineCacheAll,
       canImportEntries: _canImportEntries,
     );
   }

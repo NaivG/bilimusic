@@ -185,10 +185,15 @@ class ThemeRegistry {
     for (final t in all) t.id: t,
   };
 
+  /// 旧 id → 当前 id 的兼容映射
+  static const Map<String, String> _legacyIds = <String, String>{
+    'theater': 'lucent',
+  };
+
   static AppThemeDescriptor get defaultTheme => all.first;
 
   static AppThemeDescriptor resolve(String? id) {
     if (id == null) return defaultTheme;
-    return _byId[id] ?? defaultTheme;
+    return _byId[id] ?? _byId[_legacyIds[id]] ?? defaultTheme;
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lyrics_now/lyrics_now.dart';
@@ -6,11 +8,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bilimusic/core/network/bili_client.dart';
 import 'package:bilimusic/core/network/passport_store.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/core/storage/size_lru_cache.dart';
 import 'package:bilimusic/core/network/api_service.dart';
 import 'package:bilimusic/features/player/logic/audio_focus_service.dart';
 import 'package:bilimusic/features/player/logic/audio_effects_service.dart';
 import 'package:bilimusic/features/player/logic/dual_audio_service.dart';
 import 'package:bilimusic/features/player/logic/sleep_timer_service.dart';
+import 'package:bilimusic/features/lyrics/lyric_progress_source.dart';
 import 'package:bilimusic/features/lyrics/lyrics_service.dart';
 import 'package:bilimusic/features/player/logic/notification_service.dart';
 import 'package:bilimusic/features/player/logic/player_coordinator.dart';
@@ -18,6 +22,7 @@ import 'package:bilimusic/features/playlist/playlist_service.dart';
 import 'package:bilimusic/features/player/pip/pip_service.dart';
 import 'package:bilimusic/features/roam/roaming_service.dart';
 import 'package:bilimusic/features/taste/services/taste_profile_service.dart';
+import 'package:bilimusic/features/taste/services/taste_worker.dart';
 import 'package:bilimusic/features/lan_sync/services/device_identity.dart';
 import 'package:bilimusic/features/lan_sync/services/lan_sync_service.dart';
 import 'package:bilimusic/features/lan_sync/services/pairing_service.dart';
@@ -132,7 +137,24 @@ final passportStoreProvider = Provider<PassportStore>((ref) {
 
 final settingsManagerProvider = Provider<SettingsManager>((ref) {
   final mgr = SettingsManager();
-  mgr.init();
+
+  // 缓存预算跟着设置走：SettingsManager 只负责持久化「MB」这个用户单位，
+  // 字节预算落到 core 的 CacheBudget。
+  void syncCacheBudget() {
+    CacheBudget.musicLimitBytes = CacheBudget.clamp(
+      CacheBudget.mbToBytes(mgr.musicCacheLimitMb),
+    );
+    CacheBudget.imageLimitBytes = CacheBudget.clamp(
+      CacheBudget.mbToBytes(mgr.imageCacheLimitMb),
+    );
+  }
+
+  syncCacheBudget();
+  mgr.addListener(syncCacheBudget);
+  ref.onDispose(() => mgr.removeListener(syncCacheBudget));
+  // init() 读 shared_preferences 是异步的，读完再同步一次。
+  // 读盘完成前 getter 返回默认值（512 / 256 MB），与 CacheBudget 的初始值一致。
+  unawaited(mgr.init().then((_) => syncCacheBudget()));
   return mgr;
 });
 
@@ -164,14 +186,26 @@ final artistServiceProvider = Provider<ArtistService>((ref) {
 // ==================== 推荐 ====================
 
 final recommendationManagerProvider = Provider<RecommendationManager>((ref) {
-  return RecommendationManager();
+  return RecommendationManager(
+    tasteScorer: ref.watch(tasteWorkerProvider).scoreTracks,
+  );
 });
 
 // ==================== 音乐画像 ====================
 
+/// snownlp 常驻 worker isolate：画像重建、猜你喜欢重排、漫游打分共用。
+///
+/// 放进独立 isolate 后空闲一段时间自动退出，模型内存随隔离堆一起回收。
+final tasteWorkerProvider = Provider<TasteWorker>((ref) {
+  final worker = TasteWorker();
+  ref.onDispose(worker.dispose);
+  return worker;
+});
+
 final tasteProfileServiceProvider = Provider<TasteProfileService>((ref) {
   return TasteProfileService(
     playlistService: ref.watch(playlistServiceProvider),
+    worker: ref.watch(tasteWorkerProvider),
   );
 });
 
@@ -182,6 +216,7 @@ final roamingServiceProvider = Provider<RoamingService>((ref) {
     client: BiliClient(),
     playlistService: ref.watch(playlistServiceProvider),
     tasteService: ref.watch(tasteProfileServiceProvider),
+    tasteScorer: ref.watch(tasteWorkerProvider).scoreTracks,
   );
 });
 
@@ -260,6 +295,22 @@ final lyricsServiceProvider = Provider<LyricsService>((ref) {
   svc.bind(ref.watch(playerCoordinatorProvider));
   ref.onDispose(svc.dispose);
   return svc;
+});
+
+/// 歌词播放进度源（flutter_lyric 4.x 的 `LyricProgressSource`）。
+///
+/// 详情页把它挂到自己的 `LyricController` 上：Controller 持有订阅、按帧采样，
+/// 组件层不再逐 tick 手动 `setPosition`。做成长期服务是为了让「谁在采样」
+/// 只有一处，而不是每个详情页各造一个时钟。
+final lyricProgressSourceProvider = Provider<PlayerLyricProgressSource>((ref) {
+  final audio = ref.watch(dualAudioServiceProvider);
+  final source = PlayerLyricProgressSource(
+    positionTicks: audio.position,
+    playerState: audio.playerState,
+    readPosition: () => audio.currentPosition,
+  );
+  ref.onDispose(source.dispose);
+  return source;
 });
 
 // ==================== 局域网同步 ====================

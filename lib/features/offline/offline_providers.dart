@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/features/offline/logic/offline_cache_index.dart';
 import 'package:bilimusic/features/offline/models/offline_track.dart';
 
 /// 当前进行中的下载进度（key → 进度）。
@@ -95,6 +96,72 @@ class OfflineTracksNotifier extends AsyncNotifier<List<OfflineTrack>> {
     throw StateError('落盘失败，请检查离线目录是否可写');
   }
 
+  /// 批量下载一组曲目到离线目录（歌单「离线缓存全部」的入口）。
+  ///
+  /// - 已有且音质足够的曲目直接跳过，不重复联网；
+  /// - 单曲失败不中断整批，原因记入 [OfflineBatchResult.errors]；
+  /// - 串行下载，避免同时抢占带宽；
+  /// - [onProgress] 在每个曲目开始前调用（[current] 从 1 开始）；
+  /// - [shouldCancel] 返回 true 时，在当前曲目完成后停止。
+  Future<OfflineBatchResult> downloadMany(
+    List<Music> songs, {
+    void Function(int current, int total, Music music)? onProgress,
+    bool Function()? shouldCancel,
+  }) async {
+    final svc = ref.read(offlineCacheServiceProvider);
+    await svc.initialize();
+    final qualityId = ref.read(settingsManagerProvider).audioQuality;
+
+    var downloaded = 0;
+    var skipped = 0;
+    var failed = 0;
+    final errors = <String>[];
+    var cancelled = false;
+
+    for (var i = 0; i < songs.length; i++) {
+      if (shouldCancel?.call() ?? false) {
+        cancelled = true;
+        break;
+      }
+
+      final music = songs[i];
+      onProgress?.call(i + 1, songs.length, music);
+
+      // 已缓存且音质够用 → 跳过。这里先查一次表，避免 download() 为补
+      // cid/封面而发起不必要的详情请求。稿件卡片不带 cid（落库时补的真实
+      // cid 查不到）按 bvid 兜底。
+      final cid = svc.effectiveCid(music);
+      final existing =
+          await svc.find(music.id, cid) ??
+          (cid.isEmpty ? await svc.findFirstByBvid(music.id) : null);
+      if (existing != null && svc.isQualitySufficient(existing, qualityId)) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        await download(music);
+        downloaded++;
+      } catch (e) {
+        failed++;
+        debugPrint('[Offline] 批量下载失败 ${music.title}: $e');
+        if (errors.length < 3) {
+          final message = e is StateError ? e.message : '$e';
+          errors.add('${music.title}：$message');
+        }
+      }
+    }
+
+    ref.invalidateSelf();
+    return OfflineBatchResult(
+      downloaded: downloaded,
+      skipped: skipped,
+      failed: failed,
+      cancelled: cancelled,
+      errors: errors,
+    );
+  }
+
   /// 删除单条离线记录及其文件。
   Future<void> remove(OfflineTrack track) async {
     await ref.read(offlineCacheServiceProvider).remove(track.bvid, track.cid);
@@ -115,12 +182,13 @@ class OfflineTracksNotifier extends AsyncNotifier<List<OfflineTrack>> {
   }
 }
 
-/// 已下载曲目的 key 集合（`bvid_cid`），供列表项判断"是否已下载"。
+/// 已缓存曲目索引，供列表项判断"是否已下载"。
 ///
-/// 派生自 [offlineTracksProvider]，下载/删除后自动重算。
-final offlineKeysProvider = Provider<Set<String>>((ref) {
+/// 派生自 [offlineTracksProvider]，下载/删除后自动重算；cid 缺失的稿件卡片
+/// 按 bvid 兜底匹配。
+final offlineCacheIndexProvider = Provider<OfflineCacheIndex>((ref) {
   final tracks = ref.watch(offlineTracksProvider).value ?? const [];
-  return {for (final t in tracks) t.key};
+  return OfflineCacheIndex(tracks);
 });
 
 /// 下载一首曲子到离线目录（UI 入口，含用户提示）。

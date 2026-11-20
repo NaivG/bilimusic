@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 
 /// 瀑布流里的一张封面。
 ///
@@ -34,7 +35,6 @@ class RoamCoverWaterfall extends StatefulWidget {
     this.gap = 8,
     this.tileRadius = 12,
     this.opacity = 1,
-    this.fadeEdges = true,
     this.alternateDirection = true,
   });
 
@@ -44,9 +44,6 @@ class RoamCoverWaterfall extends StatefulWidget {
   final double gap;
   final double tileRadius;
   final double opacity;
-
-  /// 上下边缘渐隐，避免生硬的裁切边。
-  final bool fadeEdges;
 
   /// 奇数列反向滚动，形成交错感。
   final bool alternateDirection;
@@ -127,26 +124,11 @@ class _RoamCoverWaterfallState extends State<RoamCoverWaterfall>
           ],
         );
 
-        final faded = widget.fadeEdges
-            ? ShaderMask(
-                blendMode: BlendMode.dstIn,
-                shaderCallback: (rect) => const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.white,
-                    Colors.white,
-                    Colors.transparent,
-                  ],
-                  stops: [0.0, 0.14, 0.86, 1.0],
-                ).createShader(rect),
-                child: stack,
-              )
-            : stack;
-
+        // 渐隐交给卡片自己的渐变盖板。
         return IgnorePointer(
-          child: Opacity(opacity: widget.opacity, child: faded),
+          child: widget.opacity >= 1
+              ? stack
+              : Opacity(opacity: widget.opacity, child: stack),
         );
       },
     );
@@ -305,8 +287,10 @@ class _WaterfallTile extends StatelessWidget {
         children: [
           if (hasImage)
             CachedNetworkImage(
-              imageUrl: data.imageUrl,
-              cacheKey: data.cacheKey,
+              // 单块宽度 118 逻辑像素，DPR 2.0 时 236 物理像素；255 足够清晰（大概）。
+              imageUrl: biliSquareUrl(data.imageUrl, 256),
+              cacheKey: '${data.cacheKey}_256',
+              memCacheWidth: 256,
               cacheManager: imageCacheManager,
               httpHeaders: NetworkConfig.biliHeaders,
               fit: BoxFit.cover,

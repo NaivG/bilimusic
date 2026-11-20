@@ -107,11 +107,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 
   Widget _buildLandscapeShell(ShellPage currentPage) {
-    return LandscapeShell(
-      currentPage: currentPage,
-      pageManager: _pageManager,
-      onPlayList: _openPlayList,
-    );
+    return LandscapeShell(currentPage: currentPage, pageManager: _pageManager);
   }
 
   Widget _buildPortraitShell(ShellPage currentPage) {

@@ -9,9 +9,6 @@ library;
 import 'package:bilimusic/domain/music.dart';
 
 /// 纯视频信息噪音词（大小写不敏感，比较前先 lowercase）。
-///
-/// 取自 TitleMetaFilter.videoMetaKeywords 中「对口味毫无信息量」的子集；
-/// 【翻唱】【原创曲】【自制】等内容类型标签**刻意不在此列**——它们是风格信号。
 const Set<String> videoNoiseTokens = {
   'mv',
   'pv',

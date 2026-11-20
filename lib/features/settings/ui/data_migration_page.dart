@@ -1,3 +1,4 @@
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,6 +36,8 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
       appBar: AutoAppBar.generateAppBar(context: context, title: '数据迁移'),
       backgroundColor: Colors.transparent,
       body: SingleChildScrollView(
+        // 给竖屏浮动的迷你播放器 / Dock 让位；横屏该值即底部安全区。
+        padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -335,48 +338,43 @@ class _DataMigrationPageState extends ConsumerState<DataMigrationPage> {
   }
 
   Future<bool> _confirm(String title, String message) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showBmDialog<bool>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          icon: const Icon(Icons.warning_amber),
-          title: Text(title),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('取消'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('继续导入'),
-            ),
-          ],
-        );
-      },
+      builder: (dialogContext) => BmDialog(
+        title: title,
+        message: message,
+        actions: [
+          BmDialogAction(
+            label: '取消',
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+          ),
+          BmDialogAction(
+            label: '继续导入',
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+          ),
+        ],
+      ),
     );
     return confirmed ?? false;
   }
 
   Future<void> _showRestartDialog() async {
-    final shouldRestart = await showDialog<bool>(
+    final shouldRestart = await showBmDialog<bool>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('导入成功'),
-          content: const Text('数据导入完成，建议重启应用以确保所有设置生效。是否现在重启？'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('稍后重启'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('立即重启'),
-            ),
-          ],
-        );
-      },
+      builder: (dialogContext) => BmDialog(
+        title: '导入成功',
+        message: '数据导入完成，建议重启应用以确保所有设置生效。是否现在重启？',
+        actions: [
+          BmDialogAction(
+            label: '稍后重启',
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+          ),
+          BmDialogAction(
+            label: '立即重启',
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+          ),
+        ],
+      ),
     );
 
     if (shouldRestart == true) {

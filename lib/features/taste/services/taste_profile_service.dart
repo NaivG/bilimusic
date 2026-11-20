@@ -8,6 +8,7 @@ import 'package:bilimusic/domain/taste_profile.dart';
 import 'package:bilimusic/features/playlist/playlist_service.dart';
 import 'package:bilimusic/features/taste/logic/profile_builder.dart';
 import 'package:bilimusic/features/taste/logic/text_normalizer.dart';
+import 'package:bilimusic/features/taste/services/taste_worker.dart';
 
 /// 音乐画像服务：收集正信号样本 → 建画像 → 落盘 kv 表 → 24h 节流。
 ///
@@ -16,15 +17,25 @@ import 'package:bilimusic/features/taste/logic/text_normalizer.dart';
 /// - 收藏：固定加成
 /// - 用户歌单名 / 歌单标签名：[forcedTexts]，最高权重（用户亲手写的词）
 ///
-/// 生命周期：Provider 在 `app_providers.dart` 创建；本身无资源需要释放。
+/// 分词放在常驻 worker isolate（[TasteWorker]）里跑，主 isolate 只负责收集
+/// 样本、落盘与读盘；worker 空闲一段时间后自行退出，模型内存随之回收。
+///
+/// 生命周期：Provider 在 `app_providers.dart` 创建，worker 由 Provider 释放；
+/// 本服务自身无资源需要释放。
 class TasteProfileService {
   TasteProfileService({
     required PlaylistService playlistService,
     TasteProfileBuilder? builder,
+    TasteWorker? worker,
     AppDatabase? db,
-  }) : _playlistService = playlistService,
-       _builder = builder ?? TasteProfileBuilder(),
-       _db = db ?? AppDatabase.instance;
+  }) : this._(playlistService, builder, worker, db ?? AppDatabase.instance);
+
+  TasteProfileService._(
+    this._playlistService,
+    this._builder,
+    this._worker,
+    this._db,
+  );
 
   static const String _storageKey = 'taste_profile_v1';
   static const Duration _ttl = Duration(hours: 24);
@@ -33,10 +44,18 @@ class TasteProfileService {
   static const double _historyFloor = 0.15;
 
   final PlaylistService _playlistService;
-  final TasteProfileBuilder _builder;
+
+  /// 就地构建（测试注入）：非 null 时不进 worker。
+  final TasteProfileBuilder? _builder;
+
+  /// 常驻 worker isolate：生产环境唯一的画像构建执行器。
+  final TasteWorker? _worker;
   final AppDatabase _db;
 
   TasteProfile? _cached;
+
+  /// 在飞的重建：首页与画像页可能同时触发，共享同一次构建。
+  Future<TasteProfile>? _building;
 
   /// 内存中的画像（可能是 null：还没 ensureFresh 过）。
   TasteProfile? get cached => _cached;
@@ -59,12 +78,18 @@ class TasteProfileService {
     return rebuild();
   }
 
-  /// 立即重建画像并落盘。
-  Future<TasteProfile> rebuild() async {
-    final profile = await _builder.build(
-      _collectSamples(),
-      forcedTexts: _collectForcedTexts(),
-    );
+  /// 立即重建画像并落盘；并发调用共享同一次构建。
+  Future<TasteProfile> rebuild() {
+    final inFlight = _building;
+    if (inFlight != null) return inFlight;
+    final future = _rebuild().whenComplete(() => _building = null);
+    _building = future;
+    return future;
+  }
+
+  Future<TasteProfile> _rebuild() async {
+    final now = DateTime.now();
+    final profile = await _build(_collectSamples(), _collectForcedTexts(), now);
     _cached = profile;
     try {
       await _db.kvSet(_storageKey, jsonEncode(profile.toJson()));
@@ -72,6 +97,22 @@ class TasteProfileService {
       debugPrint('[TasteProfileService] 画像落盘失败: $e');
     }
     return profile;
+  }
+
+  Future<TasteProfile> _build(
+    List<ProfileSample> samples,
+    List<String> forcedTexts,
+    DateTime now,
+  ) {
+    final builder = _builder;
+    if (builder != null) {
+      return builder.build(samples, forcedTexts: forcedTexts, now: now);
+    }
+    final worker = _worker;
+    if (worker == null) {
+      throw StateError('TasteProfileService 需要在 builder 或 worker 中二选一');
+    }
+    return worker.buildProfile(samples, forcedTexts: forcedTexts, now: now);
   }
 
   bool _isFresh(TasteProfile p, DateTime now) =>

@@ -1,6 +1,6 @@
 {
   "name": "bilimusic",
-  "version": "1.11.0",
+  "version": "1.12.0",
   "description": "Another Bilibili Music Player.",
   "engines": {
     "node": ">=8.10"

@@ -1,124 +1,117 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/domain/play_mode.dart';
+
 import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/domain/play_mode.dart';
 import 'package:bilimusic/features/player/models/player_state.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/player/widgets/crossfade_indicator.dart';
+import 'package:bilimusic/features/player/widgets/landscape_seek_strip.dart';
+import 'package:bilimusic/features/player/widgets/landscape_volume_control.dart';
+import 'package:bilimusic/features/player/widgets/playback_buttons.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/roam/roam_providers.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
-import 'package:bilimusic/shared/theme/app_palette.dart';
-import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/motion/bm_pressable.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
+import 'package:bilimusic/shared/ui/chrome/bm_chrome.dart';
+import 'package:bilimusic/shared/ui/controls/bm_controls.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
 import 'package:bilimusic/shared/utils/play_mode_icon.dart';
-import 'package:bilimusic/shared/utils/platform_helper.dart';
-import 'package:bilimusic/shared/utils/responsive.dart';
 import 'package:bilimusic/shared/widgets/music_cover.dart';
-import 'package:bilimusic/features/player/widgets/landscape_seek_bar.dart';
-import 'package:bilimusic/features/player/widgets/landscape_volume_bar.dart';
-import 'package:bilimusic/features/player/widgets/playback_buttons.dart';
 
-/// 横屏模式底部播放器控制栏 - Lucent设计语言
+/// 横屏模式底部播放器控制栏 - Theater 设计语言
+///
+/// 左当前歌曲、中播放控制、右收藏 + 音量，三段
+/// 按 3:6:3 分宽；进度是贴上沿的全宽细线（[LandscapeSeekStrip]），不占三段的
+/// 高度。
 class LandscapeBottomControl extends ConsumerWidget {
   final VoidCallback? onExpand;
-  final VoidCallback? onPlayList;
+  final VoidCallback onPlayList;
 
-  const LandscapeBottomControl({super.key, this.onExpand, this.onPlayList});
-
-  double _barHeight(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    if (width >= LandscapeBreakpoints.desktopMin) return 90;
-    if (width >= LandscapeBreakpoints.largeTabletMin) return 96;
-    return 88;
-  }
+  const LandscapeBottomControl({
+    super.key,
+    this.onExpand,
+    required this.onPlayList,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final palette = context.appPalette;
-    final colorScheme = Theme.of(context).colorScheme;
-    final blurEnabled = ref.watch(settingsProvider).blurEffect;
-
-    // Theme-aware tokens
-    final glassColor = palette.surfaceOverlay;
-    final textPrimary = colorScheme.onSurface;
-    final textSecondary = colorScheme.onSurfaceVariant;
-    final iconColor = colorScheme.onSurfaceVariant;
-    final accentColor = colorScheme.primary;
-    final borderColor = colorScheme.outline;
-    final seekBarColor = palette.seekBarActive;
-    final volumeBarColor = palette.volumeBarActive;
+    final colors = context.bmColors;
+    final blurEnabled = ref.watch(
+      settingsProvider.select((settings) => settings.blurEffect),
+    );
 
     final currentMusic = ref.watch(currentMusicProvider);
     final playMode = ref.watch(playModeProvider);
     final isRoaming = ref.watch(isRoamingProvider);
     final playerState = ref.watch(playerStateProvider);
-    final barHeight = _barHeight(context);
-    final hPadding = LandscapeBreakpoints.getHorizontalPadding(context);
 
-    return Container(
-      height: barHeight,
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: borderColor, width: 0.5)),
-      ),
-      child: ClipRRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: blurEnabled ? AppTokens.glassBlurSigma : 0,
-            sigmaY: blurEnabled ? AppTokens.glassBlurSigma : 0,
-          ),
-          child: Container(
-            color: glassColor,
-            child: SafeArea(
-              top: false,
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: hPadding),
-                child: Row(
-                  children: [
-                    // Left: current song tile
-                    Expanded(
-                      flex: 3,
-                      child: _buildSongTile(
-                        context,
-                        textPrimary,
-                        textSecondary,
-                        currentMusic,
-                        playerState,
-                      ),
-                    ),
-                    // Center: play controls + seek bar
-                    Expanded(
-                      flex: 4,
-                      child: _buildCenterControls(
-                        context,
-                        ref,
-                        iconColor,
-                        accentColor,
-                        seekBarColor,
-                        playMode,
-                        isRoaming,
-                        playerState,
-                      ),
-                    ),
-                    // Right: favorite + lyrics + volume (desktop only)
-                    if (PlatformHelper.isDesktop)
+    return SizedBox(
+      height: BmTokens.playbarHeight,
+      child: BmChromeSurface(
+        edges: const <BmChromeEdge>{BmChromeEdge.top},
+        blur: blurEnabled,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: BmTokens.playbarInset,
+                  ),
+                  child: Row(
+                    children: [
+                      // Left: current song tile
                       Expanded(
                         flex: 3,
-                        child: _buildRightControls(
+                        child: _buildSongTile(
                           context,
-                          ref,
-                          iconColor,
-                          volumeBarColor,
+                          colors,
                           currentMusic,
+                          playerState,
                         ),
                       ),
-                  ],
+                      // Center: play controls
+                      Expanded(
+                        flex: 4,
+                        child: Center(
+                          // 极窄窗口下（600 宽再叠侧边安全区）等比缩一点，
+                          // 保证单档尺寸不溢出。
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: _buildPlayControls(
+                              ref,
+                              colors,
+                              playMode,
+                              isRoaming,
+                              playerState,
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Right: favorite + volume
+                      Expanded(
+                        flex: 3,
+                        child: _buildRightControls(ref, colors, currentMusic),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
+            // 顶沿进度条
+            const Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: LandscapeSeekStrip(),
+            ),
+          ],
         ),
       ),
     );
@@ -126,85 +119,61 @@ class LandscapeBottomControl extends ConsumerWidget {
 
   // ==================== Left Section ====================
 
-  /// 左侧当前歌曲卡片：圆角卡片 + 悬停高亮/放大 + 按压水波纹反馈。
+  /// 左侧当前歌曲卡片：整块可点开详情页，四态走 [BmPressable]。
   Widget _buildSongTile(
     BuildContext context,
-    Color textPrimary,
-    Color textSecondary,
+    BmColors colors,
     Music? music,
     PlayerState playerState,
   ) {
+    final type = context.bmType;
     final fading = isCrossfading(playerState);
-    final palette = context.appPalette;
-    final radius = BorderRadius.circular(AppTokens.radiusMd);
 
-    return ScaleOnHover(
-      hoverScale: 1.02,
-      child: ClipRRect(
-        borderRadius: radius,
-        child: Material(
-          // 静置时的卡片底色和底栏颜色一致以保持协调
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onExpand,
-            borderRadius: radius,
-            // hover 相当于玻璃条上压出一层轻浮雕
-            // 你别管写得怎么样，你就说好不好看吧
-            hoverColor: palette.surfaceHover.withValues(alpha: 0.55),
-            highlightColor: palette.surfacePressed.withValues(alpha: 0.65),
-            splashColor: palette.surfacePressed.withValues(alpha: 0.45),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              child: Row(
+    return BmPressable(
+      onTap: onExpand,
+      borderRadius: BmTokens.r10All,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: BmTokens.s2,
+          vertical: BmTokens.s2,
+        ),
+        child: Row(
+          children: [
+            MusicCover(music: music, size: 48, radius: BmTokens.r10),
+            const SizedBox(width: BmTokens.s3),
+            Flexible(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  MusicCover(
-                    music: music,
-                    size: 48,
-                    radius: AppTokens.radiusSm,
+                  Text(
+                    music?.title ?? 'Not Playing',
+                    style: type.body,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(width: 12),
-                  Flexible(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          music?.title ?? 'Not Playing',
-                          style: TextStyle(
-                            color: textPrimary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        music != null
-                            ? AnimatedSwitcher(
-                                duration: AppTokens.standardDuration,
-                                transitionBuilder: switcherFadeTransition,
-                                child: fading
-                                    ? const CrossfadeIndicator()
-                                    : Text(
-                                        music.artist.displayName,
-                                        key: const ValueKey('artist'),
-                                        style: TextStyle(
-                                          color: textSecondary,
-                                          fontSize: 12,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                              )
-                            : const SizedBox.shrink(),
-                      ],
+                  const SizedBox(height: 2),
+                  if (music != null)
+                    AnimatedSwitcher(
+                      duration: BmMotion.medium,
+                      transitionBuilder: switcherFadeTransition,
+                      child: fading
+                          ? const CrossfadeIndicator()
+                          : Text(
+                              music.artist.displayName,
+                              key: const ValueKey('artist'),
+                              style: type.caption.copyWith(
+                                color: colors.textSecondary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                     ),
-                  ),
                 ],
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -212,64 +181,17 @@ class LandscapeBottomControl extends ConsumerWidget {
 
   // ==================== Center Section ====================
 
-  Widget _buildCenterControls(
-    BuildContext context,
+  Widget _buildPlayControls(
     WidgetRef ref,
-    Color iconColor,
-    Color accentColor,
-    Color seekBarColor,
+    BmColors colors,
     PlayMode playMode,
     bool isRoaming,
     PlayerState playerState,
   ) {
-    final width = MediaQuery.of(context).size.width;
-    final showSeekBar = width >= LandscapeBreakpoints.largeTabletMin;
-    final mainButtonSize = LandscapeBreakpoints.getMainPlayButtonSize(context);
-
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _buildPlayButtonRow(
-          context,
-          ref,
-          iconColor,
-          accentColor,
-          mainButtonSize,
-          playMode,
-          isRoaming,
-          playerState,
-        ),
-        if (showSeekBar) ...[
-          const SizedBox(height: 6),
-          SizedBox(
-            width: 400,
-            height: 18,
-            child: LandscapeSeekBar(
-              widgetHeight: 18,
-              seekBarHeight: 6,
-              color: seekBarColor,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildPlayButtonRow(
-    BuildContext context,
-    WidgetRef ref,
-    Color iconColor,
-    Color accentColor,
-    double mainButtonSize,
-    PlayMode playMode,
-    bool isRoaming,
-    PlayerState playerState,
-  ) {
-    final smallSize = 40.0;
+    const smallSize = BmTokens.controlLg;
+    const mainButtonSize = BmTokens.playbarMainButton;
     final isPlaying = playerState is PlayerPlaying;
     final commands = ref.read(playbackCommandsProvider.notifier);
-    // 底栏保留桌面悬停反馈：浅色圆形底 + 轻微放大，静置时仍是无底色图标。
-    final hoverColor = context.appPalette.surfacePressed.withValues(alpha: 0.5);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -279,125 +201,69 @@ class LandscapeBottomControl extends ConsumerWidget {
           icon: playMode.iconFor(isRoaming: isRoaming),
           size: smallSize,
           iconSize: smallSize * 0.78,
-          iconColor: iconColor.withValues(alpha: 0.7),
-          hoverColor: hoverColor,
+          iconColor: colors.textSecondary,
+          hoverColor: colors.stateHover,
           // 漫游时底层固定顺序播放，不允许切换
           onTap: isRoaming ? null : commands.togglePlayMode,
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: BmTokens.s3),
         PlaybackControlButton(
           icon: Icons.skip_previous_rounded,
           size: smallSize,
           iconSize: smallSize * 0.78,
-          iconColor: iconColor.withValues(alpha: 0.85),
-          hoverColor: hoverColor,
+          iconColor: colors.textSecondary,
+          hoverColor: colors.stateHover,
           onTap: commands.playPrevious,
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: BmTokens.s3),
         PlaybackPlayPauseButton(
           isPlaying: isPlaying,
           size: mainButtonSize,
           iconSize: mainButtonSize * 0.8,
-          iconColor: accentColor,
-          hoverColor: accentColor.withValues(alpha: 0.14),
+          iconColor: colors.accent,
+          hoverColor: colors.stateHover,
           onTap: isPlaying ? commands.pause : commands.resume,
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: BmTokens.s3),
         PlaybackControlButton(
           icon: Icons.skip_next_rounded,
           size: smallSize,
           iconSize: smallSize * 0.78,
-          iconColor: iconColor.withValues(alpha: 0.85),
-          hoverColor: hoverColor,
+          iconColor: colors.textSecondary,
+          hoverColor: colors.stateHover,
           onTap: commands.playNext,
         ),
-        const SizedBox(width: 16),
-        if (onPlayList != null)
-          PlaybackControlButton(
-            icon: Icons.queue_music,
-            size: smallSize,
-            iconSize: smallSize * 0.78,
-            iconColor: iconColor.withValues(alpha: 0.7),
-            hoverColor: hoverColor,
-            onTap: onPlayList,
-          ),
+        const SizedBox(width: BmTokens.s3),
+        BmIconButton(
+          icon: Icons.queue_music,
+          tooltip: '播放队列',
+          onPressed: onPlayList,
+        ),
       ],
     );
   }
 
   // ==================== Right Section ====================
 
-  Widget _buildRightControls(
-    BuildContext context,
-    WidgetRef ref,
-    Color iconColor,
-    Color volumeBarColor,
-    Music? music,
-  ) {
-    final volume = ref.watch(volumeProvider);
-    final commands = ref.read(playbackCommandsProvider.notifier);
-    final isMuted = volume == 0;
+  Widget _buildRightControls(WidgetRef ref, BmColors colors, Music? music) {
     // 收藏态：跟随当前歌曲（无歌曲时按钮置灰不可点）
     final isFav = music != null && ref.watch(isFavoriteProvider(music));
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        ScaleOnHover(
-          hoverScale: 1.1,
-          child: IconButton(
-            onPressed: music == null
-                ? null
-                : () => ref
-                      .read(playlistCommandsProvider.notifier)
-                      .toggleFavorite(music),
-            icon: Icon(
-              isFav ? Icons.favorite : Icons.favorite_border,
-              size: 22,
-              color: isFav
-                  ? Colors.red.withValues(alpha: 0.7)
-                  : iconColor.withValues(alpha: 0.7),
-            ),
-            splashRadius: 18,
-          ),
+        BmIconButton(
+          icon: isFav ? Icons.favorite : Icons.favorite_border,
+          tooltip: isFav ? '取消收藏' : '收藏',
+          color: isFav ? colors.accent : colors.textSecondary,
+          onPressed: music == null
+              ? null
+              : () => ref
+                    .read(playlistCommandsProvider.notifier)
+                    .toggleFavorite(music),
         ),
-        const SizedBox(width: 4),
-        ScaleOnHover(
-          hoverScale: 1.1,
-          child: IconButton(
-            onPressed: () {
-              // TODO: 桌面歌词功能
-            },
-            icon: Icon(
-              Icons.lyrics_outlined,
-              size: 22,
-              color: iconColor.withValues(alpha: 0.7),
-            ),
-            splashRadius: 18,
-          ),
-        ),
-        const SizedBox(width: 4),
-        ScaleOnHover(
-          hoverScale: 1.1,
-          child: IconButton(
-            onPressed: () => commands.toggleMute(),
-            icon: Icon(
-              isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-              size: 20,
-              color: iconColor.withValues(alpha: 0.7),
-            ),
-            splashRadius: 16,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-          ),
-        ),
-        const SizedBox(width: 4),
-        SizedBox(
-          height: 20,
-          width: 120,
-          child: LandscapeVolumeBar(activeColor: volumeBarColor),
-        ),
-        const SizedBox(width: 8),
+        const SizedBox(width: BmTokens.s1),
+        const LandscapeVolumeControl(),
       ],
     );
   }

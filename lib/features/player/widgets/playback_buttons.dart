@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
 
 /// 半透明白底圆形图标按钮 —— 收藏 / 分享 / 任意迷你按钮。
@@ -119,6 +119,8 @@ class PlaybackControlButton extends StatelessWidget {
       height: size,
       child: ScaleOnHover(
         hoverScale: 1.12,
+        // 不可用时不做悬停放大：否则禁用按钮看着仍像能点。
+        enableHover: onTap != null,
         child: IconButton(
           onPressed: onTap,
           icon: Icon(
@@ -147,6 +149,9 @@ class PlaybackPlayPauseButton extends StatelessWidget {
   final double iconSize;
   final Color iconColor;
 
+  /// 读屏文案（播放 / 暂停）；为 null 时不额外标注。
+  final String? semanticLabel;
+
   /// 悬停 / 按压时的底色。为 null 时完全透明（纯 AM 无底色样式）。
   final Color? hoverColor;
   final VoidCallback? onTap;
@@ -157,6 +162,7 @@ class PlaybackPlayPauseButton extends StatelessWidget {
     required this.size,
     required this.iconSize,
     this.iconColor = Colors.white,
+    this.semanticLabel,
     this.hoverColor,
     this.onTap,
   });
@@ -169,6 +175,8 @@ class PlaybackPlayPauseButton extends StatelessWidget {
       height: size,
       child: ScaleOnHover(
         hoverScale: 1.06,
+        // 不可用时不做悬停放大：否则禁用按钮看着仍像能点。
+        enableHover: onTap != null,
         child: IconButton(
           onPressed: onTap,
           splashRadius: size * 0.5,
@@ -178,15 +186,16 @@ class PlaybackPlayPauseButton extends StatelessWidget {
           highlightColor: overlay,
           splashColor: overlay,
           icon: AnimatedSwitcher(
-            duration: AppTokens.standardDuration,
-            switchInCurve: AppTokens.standardEasing,
-            switchOutCurve: AppTokens.standardEasing,
+            duration: BmMotion.medium,
+            switchInCurve: BmMotion.standard,
+            switchOutCurve: BmMotion.standard,
             transitionBuilder: switcherFadeTransition,
             child: Icon(
               isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
               key: ValueKey(isPlaying),
               size: iconSize,
               color: iconColor,
+              semanticLabel: semanticLabel,
             ),
           ),
         ),

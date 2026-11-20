@@ -1,402 +1,507 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/app/app_providers.dart';
-import 'package:bilimusic/features/settings/settings_manager.dart';
-import 'package:bilimusic/features/settings/settings_provider.dart';
-import 'package:bilimusic/shared/widgets/auto_appbar.dart';
-import 'package:bilimusic/shared/theme/app_tokens.dart';
-import 'package:bilimusic/shared/theme/theme_registry.dart';
-import 'package:bilimusic/shared/utils/platform_helper.dart';
-import 'package:bilimusic/shared/utils/title_meta_filter.dart';
-import 'package:bilimusic/app/shells/shell_page_manager.dart';
-import 'package:bilimusic/features/lan_sync/ui/sync_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class SettingsPage extends ConsumerStatefulWidget {
+import 'package:bilimusic/app/shells/shell_page_manager.dart';
+import 'package:bilimusic/features/lan_sync/ui/sync_page.dart';
+import 'package:bilimusic/features/settings/settings_manager.dart';
+import 'package:bilimusic/features/settings/settings_provider.dart';
+import 'package:bilimusic/features/onboarding/ui/open_onboarding.dart';
+import 'package:bilimusic/features/settings/ui/widgets/theme_picker.dart';
+import 'package:bilimusic/shared/theme/theme_registry.dart';
+import 'package:bilimusic/shared/ui/gallery/bm_gallery_page.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_select_menu.dart';
+import 'package:bilimusic/shared/ui/sections/bm_page_header.dart';
+import 'package:bilimusic/shared/ui/settings/bm_settings_group.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
+import 'package:bilimusic/shared/utils/app_version.dart';
+import 'package:bilimusic/shared/utils/platform_helper.dart';
+import 'package:bilimusic/shared/utils/responsive.dart';
+
+/// 设置页：页头 + 分组白卡，共八组。
+///
+/// 分区顺序固定为通知 → 播放 → 音频 → 外观 → 歌词 → 设备与同步 →
+/// 数据 → 关于；横屏壳直接复用本页（[showAppBar] 传 false）。
+class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
-  @override
-  ConsumerState<SettingsPage> createState() => _SettingsPageState();
-}
+  static const List<BmSelectOption<String>> _qualityOptions =
+      <BmSelectOption<String>>[
+        BmSelectOption(value: '30251', label: 'Hi-Res 无损', subtitle: '需要大会员'),
+        BmSelectOption(value: '30250', label: '杜比全景声', subtitle: '需要大会员'),
+        BmSelectOption(value: '30280', label: '192K HQ'),
+        BmSelectOption(value: '30232', label: '132K SQ'),
+        BmSelectOption(value: '30216', label: '64K AAC-HE'),
+      ];
 
-class _SettingsPageState extends ConsumerState<SettingsPage> {
+  static const List<BmSelectOption<String>> _appearanceOptions =
+      <BmSelectOption<String>>[
+        BmSelectOption(value: 'system', label: '跟随系统'),
+        BmSelectOption(value: 'light', label: '浅色'),
+        BmSelectOption(value: 'dark', label: '深色'),
+      ];
+
+  static const List<BmSelectOption<String>>
+  _closeBehaviorOptions = <BmSelectOption<String>>[
+    BmSelectOption(value: SettingsManager.CLOSE_BEHAVIOR_PROMPT, label: '弹出提示'),
+    BmSelectOption(
+      value: SettingsManager.CLOSE_BEHAVIOR_MINIMIZE_TRAY,
+      label: '最小化至托盘',
+    ),
+    BmSelectOption(value: SettingsManager.CLOSE_BEHAVIOR_EXIT, label: '直接退出'),
+  ];
+
+  static const List<BmSelectOption<String>> _lanSyncOptions =
+      <BmSelectOption<String>>[
+        BmSelectOption(value: 'off', label: '关闭', subtitle: '不广播也不发现'),
+        BmSelectOption(value: 'private', label: '私有', subtitle: '配对后双向同步'),
+        BmSelectOption(value: 'public', label: '公共', subtitle: '仅暴露正在播放'),
+      ];
+
+  /// 缓存上限可选档位（MB）。实际字节预算与淘汰在 core 的 CacheBudget 里，
+  /// 这里只负责把用户选的档位传给 SettingsManager。
+  static const List<int> _cacheLimitMbOptions = <int>[
+    128,
+    256,
+    512,
+    1024,
+    2048,
+    4096,
+  ];
+
+  /// 两个缓存上限下拉共用的选项表（label 与行尾 valueLabel 同源格式化）。
+  static final List<BmSelectOption<int>> _cacheLimitOptions =
+      <BmSelectOption<int>>[
+        for (final mb in _cacheLimitMbOptions)
+          BmSelectOption<int>(value: mb, label: _formatCacheLimitMb(mb)),
+      ];
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
-    final notifier = ref.read(settingsProvider.notifier);
+    final isLandscape = LandscapeBreakpoints.shouldUseLandscapeLayout(context);
+    final inset = isLandscape ? BmTokens.contentInset : BmTokens.pageInsetWide;
+    final topInset = isLandscape ? BmTokens.contentInsetTop : BmTokens.s4;
+
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AutoAppBar.generateAppBar(context: context, title: '设置'),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 通知设置
-            _buildSectionTitle('通知'),
-            _buildSwitchListTile(
-              icon: Icons.notifications,
-              title: '推送媒体通知',
-              value: settings.notificationsEnabled,
-              onChanged: notifier.setNotificationsEnabled,
-            ),
-
-            // 播放设置
-            _buildSectionTitle('播放'),
-            _buildSwitchListTile(
-              icon: Icons.play_arrow,
-              title: '自动播放下一首',
-              value: settings.autoPlayNext,
-              onChanged: notifier.setAutoPlayNext,
-            ),
-
-            // Crossfade设置
-            _buildSwitchListTile(
-              icon: Icons.graphic_eq,
-              title: '交叉淡入淡出',
-              subtitle: '歌曲自动切换时平滑过渡(仅自动切歌生效)',
-              value: settings.crossfadeEnabled,
-              onChanged: notifier.setCrossfadeEnabled,
-            ),
-
-            // 仅在启用crossfade时显示详细设置
-            if (settings.crossfadeEnabled) ...[
-              // 自动过渡：过渡位置与时长按歌曲时长推导
-              _buildSwitchListTile(
-                icon: Icons.auto_awesome,
-                title: '自动过渡（跟随歌曲时长）',
-                subtitle: '过渡时长取歌曲时长的3%（1-10秒）',
-                value: settings.crossfadeAuto,
-                onChanged: notifier.setCrossfadeAuto,
+      // 透明让壳层的流体背景透出。
+      backgroundColor: context.bmColors.bg.withValues(alpha: 0),
+      body: SafeArea(
+        top: !isLandscape,
+        bottom: false,
+        left: false,
+        right: false,
+        child: SingleChildScrollView(
+          // 给竖屏浮动的迷你播放器 / Dock 让位；横屏该值即底部安全区。
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.paddingOf(context).bottom,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              BmPageHeader(
+                title: '设置',
+                subtitle: _eyebrow(settings),
+                padding: EdgeInsets.fromLTRB(inset, topInset, inset, 0),
               ),
-
-              // Crossfade时长滑块（自动模式下时长由歌曲推导，不显示）
-              if (!settings.crossfadeAuto)
-                ListTile(
-                  leading: Icon(Icons.timer, color: _getPrimaryColor(context)),
-                  title: Text('淡入淡出时长'),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('当前: ${settings.crossfadeDuration ~/ 1000}秒'),
-                      Slider(
-                        value: settings.crossfadeDuration.toDouble(),
-                        min: 1000,
-                        max: 10000,
-                        divisions: 9,
-                        label: '${settings.crossfadeDuration ~/ 1000}秒',
-                        onChanged: (value) {
-                          notifier.setCrossfadeDuration(value.toInt());
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-
-              // 预加载时间滑块
-              ListTile(
-                leading: Icon(Icons.download, color: _getPrimaryColor(context)),
-                title: Text('提前加载时间'),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('当前: 当开始过渡前${settings.preloadSeconds}秒开始加载下一首'),
-                    Slider(
-                      value: settings.preloadSeconds.toDouble(),
-                      min: 5,
-                      max: 30,
-                      divisions: 25,
-                      label: '${settings.preloadSeconds}秒',
-                      onChanged: (value) {
-                        notifier.setPreloadSeconds(value.toInt());
-                      },
-                    ),
-                  ],
-                ),
-              ),
+              _buildGroupColumn(context, ref, settings, isLandscape),
+              const SizedBox(height: BmTokens.s6),
             ],
-
-            // 标题元数据过滤（实验性）：点按行本身查看示例预览，
-            // 开关负责切换设置
-            ListTile(
-              leading: Icon(
-                Icons.filter_alt_outlined,
-                color: _getPrimaryColor(context),
-              ),
-              title: const Text('标题元数据过滤（实验性）'),
-              subtitle: const Text('过滤 B 站标题中的元信息，点按查看示例'),
-              trailing: Switch(
-                value: settings.titleMetaFilterEnabled,
-                onChanged: notifier.setTitleMetaFilterEnabled,
-              ),
-              onTap: _showTitleFilterPreview,
-            ),
-
-            // 音频设置
-            _buildSectionTitle('音频'),
-            ListTile(
-              leading: Icon(
-                Icons.high_quality,
-                color: _getPrimaryColor(context),
-              ),
-              title: Text('播放音质'),
-              subtitle: Text(
-                '${ref.read(settingsManagerProvider).getAudioQualityText(settings.audioQuality)} · 不可用时自动选最高可用音质',
-              ),
-              trailing: DropdownButton<String>(
-                value: settings.audioQuality,
-                items: const [
-                  DropdownMenuItem(
-                    value: '30251',
-                    child: Text('Hi-Res 无损 (需大会员)'),
-                  ),
-                  DropdownMenuItem(value: '30250', child: Text('杜比全景声 (需大会员)')),
-                  DropdownMenuItem(value: '30280', child: Text('192K HQ')),
-                  DropdownMenuItem(value: '30232', child: Text('132K SQ')),
-                  DropdownMenuItem(value: '30216', child: Text('64K AAC-HE')),
-                ],
-                onChanged: notifier.setAudioQuality,
-              ),
-            ),
-            ListTile(
-              leading: Icon(Icons.equalizer, color: _getPrimaryColor(context)),
-              title: Text('音效与均衡器'),
-              subtitle: Text('均衡器、音效、DSP 等音频处理设置'),
-              trailing: Icon(Icons.arrow_forward_ios_rounded),
-              onTap: () {
-                ShellPageManager.instance.push(ShellPage.audioDsp);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.speaker, color: _getPrimaryColor(context)),
-              title: Text('音频输出'),
-              subtitle: Text('延迟、独占模式、采样率与输出设备'),
-              trailing: Icon(Icons.arrow_forward_ios_rounded),
-              onTap: () {
-                ShellPageManager.instance.push(ShellPage.audioOutput);
-              },
-            ),
-
-            // 外观设置
-            _buildSectionTitle('外观'),
-            ListTile(
-              leading: Icon(
-                Icons.settings_brightness,
-                color: _getPrimaryColor(context),
-              ),
-              title: Text('外观'),
-              subtitle: Text(
-                ref
-                    .read(settingsManagerProvider)
-                    .getAppearanceText(settings.appearance),
-              ),
-              trailing: DropdownButton<String>(
-                value: settings.appearance,
-                items: [
-                  DropdownMenuItem(value: 'system', child: Text('跟随系统')),
-                  DropdownMenuItem(value: 'light', child: Text('浅色')),
-                  DropdownMenuItem(value: 'dark', child: Text('深色')),
-                ],
-                onChanged: notifier.setAppearance,
-              ),
-            ),
-            ListTile(
-              leading: Icon(Icons.palette, color: _getPrimaryColor(context)),
-              title: Text('主题'),
-              subtitle: Text(ThemeRegistry.resolve(settings.theme).label),
-              trailing: _PalettePreview(
-                lightAccent: ThemeRegistry.resolve(settings.theme)
-                    .paletteAccent(Brightness.light),
-                lightSurface: ThemeRegistry.resolve(settings.theme)
-                    .paletteSurface(Brightness.light),
-                darkAccent: ThemeRegistry.resolve(settings.theme)
-                    .paletteAccent(Brightness.dark),
-                darkSurface: ThemeRegistry.resolve(settings.theme)
-                    .paletteSurface(Brightness.dark),
-              ),
-              onTap: () => _showThemePickerDialog(context, settings, notifier),
-            ),
-            _buildSwitchListTile(
-              icon: Icons.auto_awesome,
-              title: '流体背景效果',
-              subtitle: '为页面启用模糊背景',
-              value: settings.fluidBackground,
-              onChanged: notifier.setFluidBackground,
-            ),
-            _buildSwitchListTile(
-              icon: Icons.blur_on,
-              title: '毛玻璃效果',
-              subtitle: '为迷你播放器栏启用毛玻璃效果',
-              value: settings.blurEffect,
-              onChanged: notifier.setBlurEffect,
-            ),
-            _buildSwitchListTile(
-              icon: Icons.play_circle_outline,
-              title: '始终显示迷你播放器（竖屏）',
-              subtitle: '在其他页面也显示；向下滚动时自动隐藏',
-              value: settings.alwaysShowMiniPlayer,
-              onChanged: notifier.setAlwaysShowMiniPlayer,
-            ),
-
-            // 窗口行为（仅桌面端显示）
-            if (PlatformHelper.isDesktop) ...[
-              _buildSectionTitle('窗口行为'),
-              ListTile(
-                leading: Icon(Icons.window, color: _getPrimaryColor(context)),
-                title: Text('关闭行为'),
-                subtitle: Text(
-                  ref
-                      .read(settingsManagerProvider)
-                      .getCloseBehaviorText(settings.closeBehavior),
-                ),
-                trailing: DropdownButton<String>(
-                  value: settings.closeBehavior,
-                  items: const [
-                    DropdownMenuItem(
-                      value: SettingsManager.CLOSE_BEHAVIOR_PROMPT,
-                      child: Text('弹出提示'),
-                    ),
-                    DropdownMenuItem(
-                      value: SettingsManager.CLOSE_BEHAVIOR_MINIMIZE_TRAY,
-                      child: Text('最小化至托盘'),
-                    ),
-                    DropdownMenuItem(
-                      value: SettingsManager.CLOSE_BEHAVIOR_EXIT,
-                      child: Text('直接退出'),
-                    ),
-                  ],
-                  onChanged: notifier.setCloseBehavior,
-                ),
-              ),
-            ],
-
-            // 局域网同步
-            _buildSectionTitle('局域网同步 (Beta)'),
-            ListTile(
-              leading: Icon(
-                Icons.wifi_tethering,
-                color: _getPrimaryColor(context),
-              ),
-              title: const Text('同步模式'),
-              subtitle: Text(_lanSyncModeText(settings.lanSyncMode)),
-              trailing: DropdownButton<String>(
-                value: settings.lanSyncMode,
-                items: const [
-                  DropdownMenuItem(value: 'off', child: Text('关闭')),
-                  DropdownMenuItem(value: 'private', child: Text('私有')),
-                  DropdownMenuItem(value: 'public', child: Text('公共')),
-                ],
-                onChanged: notifier.setLanSyncMode,
-              ),
-            ),
-            ListTile(
-              leading: Icon(Icons.devices, color: _getPrimaryColor(context)),
-              title: const Text('设备管理'),
-              subtitle: const Text('发现设备、配对、查看本机 PIN'),
-              trailing: const Icon(Icons.arrow_forward_ios_rounded),
-              onTap: openLanSyncPage,
-            ),
-
-            // 数据管理
-            _buildSectionTitle('数据'),
-            ListTile(
-              leading: Icon(
-                Icons.download_outlined,
-                color: _getPrimaryColor(context),
-              ),
-              title: Text('离线缓存'),
-              subtitle: Text('查看已下载到本地的音乐、占用空间与删除'),
-              trailing: Icon(Icons.arrow_forward_ios_rounded),
-              onTap: () {
-                ShellPageManager.instance.push(ShellPage.offline);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.insights, color: _getPrimaryColor(context)),
-              title: Text('音乐画像'),
-              subtitle: Text('口味关键词、推荐依据与手动重建'),
-              trailing: Icon(Icons.arrow_forward_ios_rounded),
-              onTap: () {
-                ShellPageManager.instance.push(ShellPage.tasteProfile);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.storage, color: _getPrimaryColor(context)),
-              title: Text('数据管理'),
-              subtitle: Text('查看详细数据、缓存信息与数据操作'),
-              trailing: Icon(Icons.arrow_forward_ios_rounded),
-              onTap: () {
-                ShellPageManager.instance.push(ShellPage.dataManagement);
-              },
-            ),
-
-            // 诊断
-            _buildSectionTitle('诊断'),
-            ListTile(
-              leading: Icon(
-                Icons.monitor_heart,
-                color: _getPrimaryColor(context),
-              ),
-              title: Text('音频后端'),
-              subtitle: Text('播放引擎 / 媒体会话 / 音频焦点现场与日志'),
-              trailing: Icon(Icons.arrow_forward_ios_rounded),
-              onTap: () {
-                ShellPageManager.instance.push(ShellPage.audioBackend);
-              },
-            ),
-
-            // 关于
-            _buildSectionTitle('关于'),
-            ListTile(
-              leading: Icon(Icons.info, color: _getPrimaryColor(context)),
-              title: Text('关于应用'),
-              onTap: _showAboutDialog,
-            ),
-            ListTile(
-              leading: Icon(Icons.update, color: _getPrimaryColor(context)),
-              title: Text('更新日志'),
-              onTap: _showChangelog,
-            ),
-            ListTile(
-              leading: Icon(
-                Icons.privacy_tip,
-                color: _getPrimaryColor(context),
-              ),
-              title: Text('隐私政策'),
-              onTap: _showPrivacyPolicy,
-            ),
-            ListTile(
-              leading: Icon(Icons.cookie, color: _getPrimaryColor(context)),
-              title: Text('查看 Cookie'),
-              subtitle: Text('查看当前保存的 Cookie 信息'),
-              trailing: Icon(Icons.arrow_forward_ios_rounded),
-              onTap: _showCookies,
-            ),
-            ListTile(
-              leading: Icon(Icons.code, color: _getPrimaryColor(context)),
-              title: Text('查看 Github 仓库'),
-              subtitle: Text('NaivG/BiliMusic'),
-              trailing: Icon(Icons.open_in_new),
-              onTap: () {
-                final url = Uri.parse('https://github.com/NaivG/BiliMusic');
-                launchUrl(url, mode: LaunchMode.externalApplication);
-              },
-            ),
-            SizedBox(height: 120),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  // 获取适合当前主题的主色调
-  Color _getPrimaryColor(BuildContext context) {
-    // 在深色主题中使用白色，在浅色主题中使用primaryColor
-    return Theme.of(context).brightness == Brightness.dark
-        ? Colors.white
-        : Theme.of(context).primaryColor;
+  /// 横屏把分组卡内缩到与页头一致的 30，竖屏保持 16。
+  Widget _buildGroupColumn(
+    BuildContext context,
+    WidgetRef ref,
+    SettingsState settings,
+    bool isLandscape,
+  ) {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: isLandscape ? BmTokens.contentInset - BmTokens.s4 : 0,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildNotificationGroup(
+            settings,
+            ref.read(settingsProvider.notifier),
+          ),
+          _buildPlaybackGroup(
+            context,
+            settings,
+            ref.read(settingsProvider.notifier),
+          ),
+          _buildAudioGroup(ref, settings),
+          _buildAppearanceGroup(ref, settings),
+          _buildLyricsGroup(settings, ref.read(settingsProvider.notifier)),
+          _buildDeviceGroup(ref, settings),
+          _buildDataGroup(settings, ref.read(settingsProvider.notifier)),
+          _buildAboutGroup(context),
+        ],
+      ),
+    );
   }
 
-  String _lanSyncModeText(String mode) {
+  Widget _buildNotificationGroup(
+    SettingsState settings,
+    SettingsNotifier notifier,
+  ) {
+    return BmSettingsGroup(
+      title: '通知',
+      children: [
+        BmSettingsSwitchRow(
+          title: '推送媒体通知',
+          subtitle: '锁屏与通知栏的播放控制',
+          icon: Icons.notifications_outlined,
+          value: settings.notificationsEnabled,
+          onChanged: notifier.setNotificationsEnabled,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPlaybackGroup(
+    BuildContext context,
+    SettingsState settings,
+    SettingsNotifier notifier,
+  ) {
+    return BmSettingsGroup(
+      title: '播放',
+      footer: '交叉淡入淡出仅对自动切歌生效；手动切歌不会触发。',
+      children: [
+        BmSettingsSwitchRow(
+          title: '自动播放下一首',
+          icon: Icons.play_arrow_outlined,
+          value: settings.autoPlayNext,
+          onChanged: notifier.setAutoPlayNext,
+        ),
+        BmSettingsSwitchRow(
+          title: '交叉淡入淡出',
+          subtitle: '歌曲自动切换时平滑过渡（仅自动切歌生效）',
+          icon: Icons.graphic_eq_outlined,
+          value: settings.crossfadeEnabled,
+          onChanged: notifier.setCrossfadeEnabled,
+        ),
+        if (settings.crossfadeEnabled) ...[
+          BmSettingsSwitchRow(
+            title: '自动过渡（跟随歌曲时长）',
+            subtitle: '过渡时长取歌曲时长的 3%（1–10 秒）',
+            icon: Icons.auto_awesome_outlined,
+            value: settings.crossfadeAuto,
+            onChanged: notifier.setCrossfadeAuto,
+          ),
+          if (!settings.crossfadeAuto)
+            BmSettingsSliderRow(
+              title: '淡入淡出时长',
+              icon: Icons.timer_outlined,
+              value: settings.crossfadeDuration.toDouble(),
+              min: 1000,
+              max: 10000,
+              divisions: 9,
+              valueLabel: '${settings.crossfadeDuration ~/ 1000} 秒',
+              onChanged: (value) =>
+                  notifier.setCrossfadeDuration(value.toInt()),
+            ),
+          BmSettingsSliderRow(
+            title: '提前加载时间',
+            icon: Icons.download_outlined,
+            value: settings.preloadSeconds.toDouble(),
+            min: 5,
+            max: 30,
+            divisions: 25,
+            valueLabel: '${settings.preloadSeconds} 秒',
+            onChanged: (value) => notifier.setPreloadSeconds(value.toInt()),
+          ),
+        ],
+        BmSettingsSwitchRow(
+          title: '标题元数据过滤',
+          subtitle: '新拉取的标题按规则清理元信息，关闭时原样保留',
+          icon: Icons.auto_fix_high_outlined,
+          value: settings.titleMetaFilterEnabled,
+          onChanged: notifier.setTitleMetaFilterEnabled,
+        ),
+        if (settings.titleMetaFilterEnabled)
+          BmSettingsRow(
+            title: '标题过滤规则',
+            subtitle: '正则表达式过滤 · 内置多种规则',
+            icon: Icons.filter_alt_outlined,
+            onTap: () =>
+                ShellPageManager.instance.push(ShellPage.titleFilterRules),
+            trailing: Text(
+              '${settings.titleFilterRules.length} 条自定义',
+              style: BmTypography.numeric(
+                context.bmType.caption.copyWith(
+                  color: context.bmColors.textSecondary,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildAudioGroup(WidgetRef ref, SettingsState settings) {
+    final notifier = ref.read(settingsProvider.notifier);
+    return BmSettingsGroup(
+      title: '音频',
+      children: [
+        BmSettingsSelectRow<String>(
+          title: '播放音质',
+          subtitle: '不可用时自动选最高可用音质',
+          icon: Icons.high_quality_outlined,
+          options: _qualityOptions,
+          selected: settings.audioQuality,
+          onChanged: notifier.setAudioQuality,
+          menuWidth: 260,
+        ),
+        BmSettingsValueRow(
+          title: '音效与均衡器',
+          subtitle: '均衡器、音效、DSP 等音频处理',
+          icon: Icons.equalizer_outlined,
+          onTap: () => ShellPageManager.instance.push(ShellPage.audioDsp),
+        ),
+        BmSettingsValueRow(
+          title: '音频输出',
+          subtitle: '延迟、独占模式、采样率与输出设备',
+          icon: Icons.speaker_outlined,
+          onTap: () => ShellPageManager.instance.push(ShellPage.audioOutput),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAppearanceGroup(WidgetRef ref, SettingsState settings) {
+    final notifier = ref.read(settingsProvider.notifier);
+    final descriptor = ThemeRegistry.resolve(settings.theme);
+    return BmSettingsGroup(
+      title: '外观',
+      children: [
+        BmSettingsSelectRow<String>(
+          title: '外观',
+          icon: Icons.brightness_6_outlined,
+          options: _appearanceOptions,
+          selected: settings.appearance,
+          onChanged: notifier.setAppearance,
+          menuWidth: 200,
+        ),
+        BmSettingsSelectRow<String>(
+          title: '主题',
+          subtitle: descriptor.subtitle,
+          icon: Icons.palette_outlined,
+          valueLeading: ThemePaletteDots(descriptor: descriptor),
+          valueLabel: descriptor.label,
+          options: themeSelectOptions(),
+          // descriptor 归一值。
+          selected: descriptor.id,
+          onChanged: notifier.setTheme,
+          menuWidth: 300,
+        ),
+        BmSettingsSwitchRow(
+          title: '流体背景效果',
+          subtitle: '为页面启用模糊背景',
+          icon: Icons.auto_awesome_outlined,
+          value: settings.fluidBackground,
+          onChanged: notifier.setFluidBackground,
+        ),
+        BmSettingsSwitchRow(
+          title: '毛玻璃效果',
+          subtitle: '为迷你播放器栏启用毛玻璃效果',
+          icon: Icons.blur_on_outlined,
+          value: settings.blurEffect,
+          onChanged: notifier.setBlurEffect,
+        ),
+        BmSettingsSwitchRow(
+          title: '始终显示迷你播放器（竖屏）',
+          subtitle: '在其他页面也显示；向下滚动时自动隐藏',
+          icon: Icons.smart_display_outlined,
+          value: settings.alwaysShowMiniPlayer,
+          onChanged: notifier.setAlwaysShowMiniPlayer,
+        ),
+        if (PlatformHelper.isDesktop)
+          BmSettingsSelectRow<String>(
+            title: '关闭行为',
+            subtitle: '关闭主窗口时的行为',
+            icon: Icons.window_outlined,
+            options: _closeBehaviorOptions,
+            selected: settings.closeBehavior,
+            onChanged: notifier.setCloseBehavior,
+            menuWidth: 220,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildLyricsGroup(SettingsState settings, SettingsNotifier notifier) {
+    return BmSettingsGroup(
+      title: '歌词',
+      children: [
+        BmSettingsSwitchRow(
+          title: '显示歌词',
+          subtitle: '在播放页展开歌词视图',
+          icon: Icons.lyrics_outlined,
+          value: settings.showLyrics,
+          onChanged: notifier.setShowLyrics,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDeviceGroup(WidgetRef ref, SettingsState settings) {
+    final notifier = ref.read(settingsProvider.notifier);
+    return BmSettingsGroup(
+      title: '设备与同步',
+      children: [
+        BmSettingsSelectRow<String>(
+          title: '局域网同步',
+          subtitle: _lanSyncModeText(settings.lanSyncMode),
+          icon: Icons.wifi_tethering_outlined,
+          options: _lanSyncOptions,
+          selected: settings.lanSyncMode,
+          onChanged: notifier.setLanSyncMode,
+          menuWidth: 300,
+        ),
+        BmSettingsValueRow(
+          title: '设备管理',
+          subtitle: '发现设备、配对、查看本机 PIN',
+          icon: Icons.devices_outlined,
+          onTap: openLanSyncPage,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDataGroup(SettingsState settings, SettingsNotifier notifier) {
+    return BmSettingsGroup(
+      title: '数据',
+      children: [
+        BmSettingsSelectRow<int>(
+          title: '音乐缓存上限',
+          subtitle: '播放时临时缓存音频，超出后按最久未用淘汰',
+          icon: Icons.library_music_outlined,
+          options: _cacheLimitOptions,
+          selected: settings.musicCacheLimitMb,
+          valueLabel: _formatCacheLimitMb(settings.musicCacheLimitMb),
+          onChanged: notifier.setMusicCacheLimitMb,
+          menuWidth: 200,
+        ),
+        BmSettingsSelectRow<int>(
+          title: '图片缓存上限',
+          subtitle: '封面与头图缓存，超出后按最久未用淘汰',
+          icon: Icons.image_outlined,
+          options: _cacheLimitOptions,
+          selected: settings.imageCacheLimitMb,
+          valueLabel: _formatCacheLimitMb(settings.imageCacheLimitMb),
+          onChanged: notifier.setImageCacheLimitMb,
+          menuWidth: 200,
+        ),
+        BmSettingsValueRow(
+          title: '离线缓存',
+          subtitle: '查看已下载到本地的音乐、占用空间与删除',
+          icon: Icons.download_outlined,
+          onTap: () => ShellPageManager.instance.push(ShellPage.offline),
+        ),
+        BmSettingsValueRow(
+          title: '音乐画像',
+          subtitle: '口味关键词、推荐依据与手动重建',
+          icon: Icons.insights_outlined,
+          onTap: () => ShellPageManager.instance.push(ShellPage.tasteProfile),
+        ),
+        BmSettingsValueRow(
+          title: '数据管理',
+          subtitle: '查看详细数据、缓存信息与数据操作',
+          icon: Icons.storage_outlined,
+          onTap: () => ShellPageManager.instance.push(ShellPage.dataManagement),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAboutGroup(BuildContext context) {
+    final colors = context.bmColors;
+    return BmSettingsGroup(
+      title: '关于',
+      children: [
+        GestureDetector(
+          onLongPress: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const BmGalleryPage()),
+            );
+          },
+          child: BmSettingsValueRow(
+            title: '关于应用',
+            subtitle: 'BiliMusic $appVersion · AGPL-3.0',
+            icon: Icons.info_outlined,
+            onTap: () => _showAboutDialog(context),
+          ),
+        ),
+        BmSettingsValueRow(
+          title: '更新日志',
+          subtitle: '查看版本更新记录',
+          icon: Icons.update_outlined,
+          onTap: () => ShellPageManager.instance.push(ShellPage.changelog),
+        ),
+        BmSettingsValueRow(
+          title: '隐私政策',
+          subtitle: '播放记录与设置只保存在本机',
+          icon: Icons.privacy_tip_outlined,
+          onTap: () => _showPrivacyPolicy(context),
+        ),
+        BmSettingsValueRow(
+          title: '查看 Cookie',
+          subtitle: '查看当前保存的 Cookie 信息',
+          icon: Icons.cookie_outlined,
+          onTap: () => ShellPageManager.instance.push(ShellPage.cookie),
+        ),
+        BmSettingsRow(
+          title: '查看 Github 仓库',
+          subtitle: 'NaivG/BiliMusic',
+          icon: Icons.code_outlined,
+          onTap: () {
+            final url = Uri.parse('https://github.com/NaivG/BiliMusic');
+            launchUrl(url, mode: LaunchMode.externalApplication);
+          },
+          trailing: Icon(
+            Icons.open_in_new_rounded,
+            size: BmTokens.iconMenu,
+            color: colors.textTertiary,
+          ),
+        ),
+        BmSettingsValueRow(
+          title: '音频诊断',
+          subtitle: '播放引擎 / 媒体会话 / 音频焦点现场',
+          icon: Icons.monitor_heart_outlined,
+          onTap: () => ShellPageManager.instance.push(ShellPage.audioBackend),
+        ),
+      ],
+    );
+  }
+
+  String _eyebrow(SettingsState settings) {
+    final customName = settings.lanSyncDeviceName.trim();
+    final device = customName.isEmpty ? _platformName() : customName;
+    return 'BiliMusic $appVersion · $device';
+  }
+
+  static String _platformName() {
+    return switch (PlatformHelper.currentPlatform) {
+      PlatformType.android => 'Android',
+      PlatformType.ios => 'iOS',
+      PlatformType.windows => 'Windows',
+      PlatformType.linux => 'Linux',
+      PlatformType.macos => 'macOS',
+      PlatformType.unknown => '本机',
+    };
+  }
+
+  static String _lanSyncModeText(String mode) {
     return switch (mode) {
       'off' => '关闭：不广播也不发现',
       'private' => '私有：配对后双向同步（推荐）',
@@ -405,305 +510,89 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     };
   }
 
-  /// 标题元数据过滤的示例预览：样本实时跑一遍 [TitleMetaFilter.clean]，
-  /// 让用户在开启前看清效果。只做展示，与开关状态无关。
-  void _showTitleFilterPreview() {
-    const samples = <String>[
-      '【 作者 / MV 】Starlight【中字】',
-      '【Hi-Res】夜に駆ける【官方MV】',
-      'MV / 打上花火【自翻】',
-    ];
-    showDialog<void>(
+  /// 缓存上限的显示：1024 的整数倍显示 GB，其余显示 MB。
+  static String _formatCacheLimitMb(int mb) =>
+      mb % 1024 == 0 ? '${mb ~/ 1024} GB' : '$mb MB';
+
+  /// 「关于应用」对话框。
+  Future<void> _showAboutDialog(BuildContext context) async {
+    final colors = context.bmColors;
+    final type = context.bmType;
+    final openGuide = await showBmDialog<bool>(
       context: context,
-      builder: (ctx) {
-        final captionColor = Theme.of(ctx).colorScheme.onSurfaceVariant;
-        return AlertDialog(
-          title: const Text('标题元数据过滤示例'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('开启后，新从 B 站拉取的标题会清理掉这类元信息：'),
-                const SizedBox(height: 12),
-                for (final sample in samples) ...[
-                  Text(sample, style: const TextStyle(fontSize: 14)),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 8, top: 2),
-                    child: Text(
-                      '→ ${TitleMetaFilter.clean(sample).cleaned}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: _getPrimaryColor(ctx),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                ],
-                const SizedBox(height: 2),
-                Text(
-                  '音质信息（Hi-Res / 杜比等）不会被误删；'
-                  '已保存到歌单与历史的标题不回溯修改。',
-                  style: TextStyle(fontSize: 12, color: captionColor),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('知道了'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-          color: Theme.of(context).brightness == Brightness.dark
-              ? Colors.white
-              : Theme.of(context).primaryColor,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSwitchListTile({
-    required IconData icon,
-    required String title,
-    String? subtitle,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return ListTile(
-      leading: Icon(icon, color: _getPrimaryColor(context)),
-      title: Text(title),
-      subtitle: subtitle != null ? Text(subtitle) : null,
-      trailing: Switch(value: value, onChanged: onChanged),
-    );
-  }
-
-  void _showAboutDialog() {
-    showAboutDialog(
-      context: context,
-      applicationName: 'BiliMusic',
-      applicationVersion: '1.11.0',
-      applicationIcon: Image.asset(
-        "assets/ic_launcher.png",
-        width: 84,
-        height: 84,
-      ),
-      applicationLegalese: '© 2025-2026 NaivG.',
-      children: [
-        SizedBox(height: 16),
-        Text('另一个基于 Flutter 开发的 Bilibili 音乐播放器应用'),
-      ],
-    );
-  }
-
-  void _showChangelog() {
-    ShellPageManager.instance.push(ShellPage.changelog);
-  }
-
-  void _showPrivacyPolicy() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('隐私政策'),
-          content: SingleChildScrollView(
-            child: Text(
-              '我们非常重视您的隐私保护。本应用不会收集上传您的个人隐私信息，所有数据仅存储在本地设备上。\n\n'
-              '我们可能使用的信息包括：\n'
-              '1. 播放历史记录\n'
-              '2. 收藏列表\n'
-              '3. 用户设置\n\n'
-              '这些信息仅用于提供更好的用户体验，不会上传到任何服务器。\n\n'
-              '如果您有任何疑问，请通过 Github Issues 联系我们。',
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('确定'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showCookies() {
-    ShellPageManager.instance.push(ShellPage.cookie);
-  }
-
-  void _showThemePickerDialog(
-    BuildContext context,
-    SettingsState settings,
-    SettingsNotifier notifier,
-  ) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) {
-        return Dialog(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 360),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-                    child: Row(
-                      children: [
-                        Icon(Icons.palette, color: _getPrimaryColor(context)),
-                        const SizedBox(width: 8),
-                        Text(
-                          '选择主题',
-                          style: Theme.of(ctx).textTheme.titleMedium,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  Flexible(
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: ThemeRegistry.all.length,
-                      itemBuilder: (_, i) {
-                        final descriptor = ThemeRegistry.all[i];
-                        final selected = descriptor.id == settings.theme;
-                        return _ThemeOptionTile(
-                          descriptor: descriptor,
-                          selected: selected,
-                          onTap: () {
-                            notifier.setTheme(descriptor.id);
-                            Navigator.pop(ctx);
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-/// 主题选择项
-class _ThemeOptionTile extends StatelessWidget {
-  final AppThemeDescriptor descriptor;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _ThemeOptionTile({
-    required this.descriptor,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return ListTile(
-      leading: _PalettePreview(
-        lightAccent: descriptor.paletteAccent(Brightness.light),
-        lightSurface: descriptor.paletteSurface(Brightness.light),
-        darkAccent: descriptor.paletteAccent(Brightness.dark),
-        darkSurface: descriptor.paletteSurface(Brightness.dark),
-      ),
-      title: Text(
-        descriptor.label,
-        style: TextStyle(
-          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-        ),
-      ),
-      subtitle: descriptor.subtitle == null
-          ? null
-          : Text(
-              descriptor.subtitle!,
-              style: TextStyle(
-                fontSize: 12,
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-      trailing: selected
-          ? Icon(Icons.check_circle, color: colorScheme.primary)
-          : null,
-      onTap: onTap,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-      ),
-    );
-  }
-}
-
-/// 双色板预览（左侧浅色 / 右侧暗色）
-class _PalettePreview extends StatelessWidget {
-  final Color lightAccent;
-  final Color lightSurface;
-  final Color darkAccent;
-  final Color darkSurface;
-
-  const _PalettePreview({
-    required this.lightAccent,
-    required this.lightSurface,
-    required this.darkAccent,
-    required this.darkSurface,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 44,
-      height: 28,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-        child: Row(
+      builder: (dialogContext) => BmDialog(
+        title: '关于应用',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: Container(
-                color: lightSurface,
-                alignment: Alignment.center,
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: lightAccent,
-                    shape: BoxShape.circle,
-                  ),
-                ),
+            ClipRRect(
+              borderRadius: BmTokens.r20All,
+              child: Image.asset(
+                'assets/ic_launcher.png',
+                width: 84,
+                height: 84,
               ),
             ),
-            Expanded(
-              child: Container(
-                color: darkSurface,
-                alignment: Alignment.center,
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: darkAccent,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
+            const SizedBox(height: BmTokens.s3),
+            Text(
+              'BiliMusic',
+              style: type.title.copyWith(color: colors.textPrimary),
+            ),
+            const SizedBox(height: BmTokens.s1 / 2),
+            Text(
+              '版本 $appVersion',
+              style: type.caption.copyWith(color: colors.textSecondary),
+            ),
+            const SizedBox(height: BmTokens.s3),
+            Text(
+              '另一个基于 Flutter 开发的 Bilibili 音乐播放器应用',
+              textAlign: TextAlign.center,
+              style: type.body.copyWith(color: colors.textPrimary),
+            ),
+            const SizedBox(height: BmTokens.s2),
+            Text(
+              '© 2025-2026 NaivG.',
+              style: type.caption.copyWith(color: colors.textTertiary),
             ),
           ],
         ),
+        actions: [
+          BmDialogAction(
+            label: '查看引导',
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+          ),
+          BmDialogAction(
+            label: '关闭',
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+          ),
+        ],
+      ),
+    );
+    if (openGuide != true || !context.mounted) return;
+    await openOnboarding(context);
+  }
+
+  Future<void> _showPrivacyPolicy(BuildContext context) {
+    return showBmDialog<void>(
+      context: context,
+      builder: (dialogContext) => BmDialog(
+        title: '隐私政策',
+        content: const Text(
+          '我们非常重视您的隐私保护。本应用不会收集上传您的个人隐私信息，'
+          '所有数据仅存储在本地设备上。\n\n'
+          '我们可能使用的信息包括：\n'
+          '1. 播放历史记录\n'
+          '2. 收藏列表\n'
+          '3. 用户设置\n\n'
+          '这些信息仅用于提供更好的用户体验，不会上传到任何服务器。\n\n'
+          '如果您有任何疑问，请通过 Github Issues 联系我们。',
+        ),
+        actions: [
+          BmDialogAction(
+            label: '确定',
+            onPressed: () => Navigator.of(dialogContext).pop(),
+          ),
+        ],
       ),
     );
   }

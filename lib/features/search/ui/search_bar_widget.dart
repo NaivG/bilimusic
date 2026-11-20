@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+
+import 'package:bilimusic/shared/ui/controls/bm_icon_button.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
 
-/// 搜索栏组件
+/// 搜索栏组件：40 高胶囊，`surfaceRaised` 底 + `hairline` 描边。
 class SearchBarWidget extends StatefulWidget {
   final TextEditingController controller;
   final Function(String) onSearch;
@@ -51,89 +56,72 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
     }
   }
 
+  void _clear() {
+    widget.controller.clear();
+    widget.onChanged?.call('');
+    widget.onClear?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screenSize = ResponsiveHelper.getScreenSize(context);
-    final isDesktop = screenSize == ScreenSize.desktop;
+    final colors = context.bmColors;
+    final type = context.bmType;
+    final isDesktop =
+        ResponsiveHelper.getScreenSize(context) == ScreenSize.desktop;
 
-    if (isDesktop) {
-      return _buildDesktopSearchBar(context);
-    } else {
-      return _buildMobileSearchBar(context);
-    }
-  }
-
-  Widget _buildDesktopSearchBar(BuildContext context) {
     return Container(
-      height: 40,
-      constraints: const BoxConstraints(maxWidth: 500),
-      child: TextField(
-        controller: widget.controller,
-        autofocus: widget.autoFocus,
-        decoration: InputDecoration(
-          hintText: widget.hintText,
-          prefixIcon: Icon(Icons.search, color: Colors.grey.shade600),
-          suffixIcon: _hasText
-              ? IconButton(
-                  icon: const Icon(Icons.clear, size: 20),
-                  onPressed: () {
-                    widget.controller.clear();
-                    widget.onChanged?.call('');
-                    widget.onClear?.call();
-                  },
-                )
-              : null,
-          filled: true,
-          fillColor: Theme.of(context).cardColor,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
-            borderSide: BorderSide.none,
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      height: BmTokens.controlLg,
+      constraints: isDesktop ? const BoxConstraints(maxWidth: 500) : null,
+      decoration: BoxDecoration(
+        color: colors.surfaceRaised,
+        borderRadius: BmTokens.r12All,
+        border: Border.all(
+          color: colors.hairline,
+          width: BmTokens.hairlineWidth,
         ),
-        onSubmitted: widget.onSearch,
-        onChanged: (value) {
-          widget.onChanged?.call(value);
-          if (value.isEmpty) {
-            widget.onClear?.call();
-          }
-        },
       ),
-    );
-  }
-
-  Widget _buildMobileSearchBar(BuildContext context) {
-    return Container(
-      height: 40,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
       child: TextField(
         controller: widget.controller,
         autofocus: widget.autoFocus,
+        textInputAction: TextInputAction.search,
+        style: type.body.copyWith(color: colors.textPrimary),
         decoration: InputDecoration(
           hintText: widget.hintText,
+          hintStyle: type.body.copyWith(color: colors.textTertiary),
+          isDense: true,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: BmTokens.s3,
+            vertical: BmTokens.s2,
+          ),
           prefixIcon: widget.showBackButton
-              ? IconButton(
-                  icon: const Icon(Icons.arrow_back),
+              ? BmIconButton(
+                  icon: Icons.arrow_back_ios_new_rounded,
+                  tooltip: '返回',
+                  size: BmIconButtonSize.sm,
                   onPressed: () => Navigator.pop(context),
                 )
-              : Icon(Icons.search, color: Colors.grey.shade600),
+              : Icon(
+                  Icons.search_rounded,
+                  size: BmTokens.icon,
+                  color: colors.textSecondary,
+                ),
           suffixIcon: _hasText
-              ? IconButton(
-                  icon: const Icon(Icons.clear, size: 20),
-                  onPressed: () {
-                    widget.controller.clear();
-                    widget.onChanged?.call('');
-                    widget.onClear?.call();
-                  },
+              ? BmIconButton(
+                  icon: Icons.close_rounded,
+                  tooltip: '清除',
+                  size: BmIconButtonSize.sm,
+                  onPressed: _clear,
                 )
               : null,
-          filled: true,
-          fillColor: Theme.of(context).cardColor,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
-            borderSide: BorderSide.none,
+          prefixIconConstraints: const BoxConstraints(
+            minWidth: BmTokens.controlLg,
+            minHeight: BmTokens.controlLg,
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+          suffixIconConstraints: const BoxConstraints(
+            minWidth: BmTokens.controlLg,
+            minHeight: BmTokens.controlLg,
+          ),
         ),
         onSubmitted: widget.onSearch,
         onChanged: (value) {

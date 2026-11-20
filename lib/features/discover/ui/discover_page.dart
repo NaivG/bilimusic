@@ -11,8 +11,17 @@ import 'package:bilimusic/features/discover/widgets/discover_music_tile.dart';
 import 'package:bilimusic/features/discover/widgets/hot_song_card.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
-import 'package:bilimusic/shared/theme/app_palette.dart';
+import 'package:bilimusic/shared/ui/controls/bm_icon_button.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_toast.dart';
+import 'package:bilimusic/shared/ui/sections/bm_page_header.dart';
+import 'package:bilimusic/shared/ui/sections/bm_section_header.dart';
+import 'package:bilimusic/shared/ui/status/bm_empty.dart';
+import 'package:bilimusic/shared/ui/status/bm_skeleton.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 import 'package:bilimusic/shared/utils/formatters.dart';
+import 'package:bilimusic/shared/utils/responsive.dart';
 import 'package:bilimusic/shared/widgets/long_press_menu.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 
@@ -31,8 +40,9 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
   /// 音乐区排行默认展开的条数（缓存里有 30 条，展开后一次看全）。
   static const int _rankPreviewCount = 20;
 
-  /// 内容区最大宽度，超出后左右留白居中（桌面端别铺满整屏）。
-  static const double _maxContentWidth = 960;
+  /// 宽屏网格列数（横屏内容区 ≥1200 四列，900–1199 三列）。
+  static const int _wideColumns = 4;
+  static const int _mediumColumns = 3;
 
   bool _rankExpanded = false;
   bool _refreshingAll = false;
@@ -106,9 +116,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
 
   void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
-    );
+    showBmToast(context, message);
   }
 
   /// 曲目行的右键 / 长按菜单：与搜索结果、歌单列表共用同一套菜单。
@@ -131,37 +139,77 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
     final rank = ref.watch(musicRankProvider);
     final feed = ref.watch(discoverFeedProvider);
 
+    final size = MediaQuery.sizeOf(context);
+    final wide =
+        LandscapeBreakpoints.shouldUseLandscapeLayout(context) &&
+        size.width >= 900;
+    final columns = size.width >= 1200 ? _wideColumns : _mediumColumns;
+    final side = wide ? BmTokens.contentInset : BmTokens.pageInset;
+
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      // 透出壳层的流体背景；页面本身不再铺一层底色。
+      backgroundColor: context.bmColors.bg.withAlpha(0),
       body: SafeArea(
         bottom: false,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final side = constraints.maxWidth > _maxContentWidth + 64
-                ? (constraints.maxWidth - _maxContentWidth) / 2
-                : 16.0;
+            final contentWidth = constraints.maxWidth - side * 2;
+            final cellWidth =
+                (contentWidth - BmTokens.s3 * (columns - 1)) / columns;
+            final cardExtent = cellWidth + BmTokens.s8 * 2 + BmTokens.s4;
+            final hotExtent = cellWidth < 300
+                ? BmTokens.s2 * 2 +
+                      BmTokens.controlLg +
+                      BmTokens.s2 +
+                      BmTokens.controlLg +
+                      BmTokens.s2
+                : BmTokens.s2 * 2 +
+                      BmTokens.row +
+                      BmTokens.s2 +
+                      BmTokens.row +
+                      BmTokens.s2;
+
             return RefreshIndicator(
               onRefresh: _refreshAll,
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
-                  _pad(side, SliverToBoxAdapter(child: _buildHeader(context))),
                   _pad(
                     side,
-                    SliverToBoxAdapter(child: _buildHotHeader(context, hot)),
+                    SliverToBoxAdapter(
+                      child: _buildHeader(context, wide: wide),
+                    ),
                   ),
-                  ..._buildHotRows(context, hot, side),
-                  _pad(
-                    side,
-                    SliverToBoxAdapter(child: _buildRankHeader(context, rank)),
+                  ..._buildHotSection(
+                    context,
+                    hot,
+                    side: side,
+                    wide: wide,
+                    columns: columns,
+                    hotExtent: hotExtent,
                   ),
-                  ..._buildRankRows(context, rank, side),
-                  _pad(
-                    side,
-                    SliverToBoxAdapter(child: _buildFeedHeader(context, feed)),
+                  ..._buildRankSection(
+                    context,
+                    rank,
+                    side: side,
+                    wide: wide,
+                    columns: columns,
+                    cardExtent: cardExtent,
                   ),
-                  ..._buildFeedRows(context, feed, side),
-                  const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                  ..._buildFeedSection(
+                    context,
+                    feed,
+                    side: side,
+                    wide: wide,
+                    columns: columns,
+                    cardExtent: cardExtent,
+                  ),
+                  // 给竖屏浮动的迷你播放器 / Dock 让位；横屏该值即底部安全区。
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: MediaQuery.paddingOf(context).bottom,
+                    ),
+                  ),
                 ],
               ),
             );
@@ -178,46 +226,68 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
 
   // ---------------------------------------------------------------- 页头
 
-  Widget _buildHeader(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: 20, bottom: 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '发现',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'B 站平台数据：热歌榜、音乐区排行与推荐流',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.colorScheme.onSurfaceVariant.withValues(
-                      alpha: 0.7,
-                    ),
-                  ),
-                ),
-              ],
+  Widget _buildHeader(BuildContext context, {required bool wide}) {
+    return BmPageHeader(
+      title: '发现',
+      subtitle: 'B 站平台数据：热歌榜、音乐区排行与推荐流',
+      padding: EdgeInsets.only(
+        top: wide ? BmTokens.contentInsetTop : BmTokens.s4,
+        bottom: BmTokens.s2,
+      ),
+      actions: [
+        if (_refreshingAll)
+          SizedBox(
+            width: BmTokens.touchDesktop,
+            height: BmTokens.touchDesktop,
+            child: Center(
+              child: SizedBox(
+                width: BmTokens.s4,
+                height: BmTokens.s4,
+                child: CircularProgressIndicator(strokeWidth: BmTokens.s1 / 2),
+              ),
             ),
-          ),
-          IconButton(
+          )
+        else
+          BmIconButton(
+            icon: Icons.refresh_rounded,
             tooltip: '刷新全部',
-            onPressed: _refreshingAll ? null : () => unawaited(_refreshAll()),
-            icon: _refreshingAll
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.refresh, size: 22),
+            onPressed: () => unawaited(_refreshAll()),
           ),
+      ],
+    );
+  }
+
+  /// 分区标题：统一走 [BmSectionHeader]，副标题作为标题下方的一行说明。
+  Widget _buildSectionHeader(
+    BuildContext context, {
+    required String title,
+    String? subtitle,
+    Widget? trailing,
+  }) {
+    final colors = context.bmColors;
+    final type = context.bmType;
+    final subtitleText = subtitle?.trim() ?? '';
+
+    return Padding(
+      padding: const EdgeInsets.only(top: BmTokens.s6, bottom: BmTokens.s3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          BmSectionHeader(
+            title: title,
+            trailing: trailing,
+            padding: EdgeInsets.zero,
+          ),
+          if (subtitleText.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: BmTokens.s1),
+              child: Text(
+                subtitleText,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: type.caption.copyWith(color: colors.textSecondary),
+              ),
+            ),
         ],
       ),
     );
@@ -225,33 +295,36 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
 
   // ---------------------------------------------------------- 热歌榜
 
-  Widget _buildHotHeader(BuildContext context, HotSongsState hot) {
+  List<Widget> _buildHotSection(
+    BuildContext context,
+    HotSongsState hot, {
+    required double side,
+    required bool wide,
+    required int columns,
+    required double hotExtent,
+  }) {
     final parts = <String>[];
     if (hot.period > 0) parts.add('第 ${hot.period} 期');
     final publishedAt = hot.publishedAt;
     if (publishedAt != null) parts.add('${_formatDate(publishedAt)} 发布');
     if (hot.fromCache && !hot.isEmpty) parts.add('缓存');
 
-    return _SectionHeader(
+    final header = _buildSectionHeader(
+      context,
       title: '热歌榜',
       subtitle: parts.isEmpty ? '版权音乐周榜，取当期榜单' : parts.join(' · '),
       trailing: TextButton.icon(
         onPressed: hot.songs.isEmpty
             ? null
             : () => unawaited(_playAllHotSongs(hot.songs)),
-        icon: const Icon(Icons.play_arrow_rounded, size: 20),
+        icon: const Icon(Icons.play_arrow_rounded, size: BmTokens.icon),
         label: const Text('播放全部'),
       ),
     );
-  }
 
-  List<Widget> _buildHotRows(
-    BuildContext context,
-    HotSongsState hot,
-    double side,
-  ) {
     if (hot.songs.isEmpty) {
       return [
+        _pad(side, SliverToBoxAdapter(child: header)),
         _pad(
           side,
           SliverToBoxAdapter(
@@ -267,17 +340,47 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
       ];
     }
 
+    if (wide) {
+      return [
+        _pad(side, SliverToBoxAdapter(child: header)),
+        _pad(
+          side,
+          SliverGrid.builder(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              mainAxisSpacing: BmTokens.s3,
+              crossAxisSpacing: BmTokens.s3,
+              mainAxisExtent: hotExtent,
+            ),
+            itemCount: hot.songs.length,
+            itemBuilder: (context, index) {
+              final song = hot.songs[index];
+              return HotSongCard(
+                song: song,
+                onTap: () => _playHotSong(song),
+                contextMenuBuilder: _musicContextMenu(song.toMusic()),
+              );
+            },
+          ),
+        ),
+      ];
+    }
+
     return [
+      _pad(side, SliverToBoxAdapter(child: header)),
       _pad(
         side,
         SliverList.builder(
           itemCount: hot.songs.length,
           itemBuilder: (context, index) {
             final song = hot.songs[index];
-            return HotSongCard(
-              song: song,
-              onTap: () => _playHotSong(song),
-              contextMenuBuilder: _musicContextMenu(song.toMusic()),
+            return Padding(
+              padding: const EdgeInsets.only(bottom: BmTokens.s2),
+              child: HotSongCard(
+                song: song,
+                onTap: () => _playHotSong(song),
+                contextMenuBuilder: _musicContextMenu(song.toMusic()),
+              ),
             );
           },
         ),
@@ -287,9 +390,18 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
 
   // ---------------------------------------------------------- 音乐区排行
 
-  Widget _buildRankHeader(BuildContext context, MusicRankState rank) {
+  List<Widget> _buildRankSection(
+    BuildContext context,
+    MusicRankState rank, {
+    required double side,
+    required bool wide,
+    required int columns,
+    required double cardExtent,
+  }) {
     final subtitle = rank.note.trim().isNotEmpty ? rank.note : '音乐区稿件综合热度，动态更新';
-    return _SectionHeader(
+
+    final header = _buildSectionHeader(
+      context,
       title: '音乐区排行',
       subtitle: rank.fromCache && !rank.isEmpty ? '$subtitle · 缓存' : subtitle,
       trailing: rank.items.length > _rankPreviewCount
@@ -299,15 +411,10 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
             )
           : null,
     );
-  }
 
-  List<Widget> _buildRankRows(
-    BuildContext context,
-    MusicRankState rank,
-    double side,
-  ) {
     if (rank.items.isEmpty) {
       return [
+        _pad(side, SliverToBoxAdapter(child: header)),
         _pad(
           side,
           SliverToBoxAdapter(
@@ -326,7 +433,40 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
     final items = _rankExpanded
         ? rank.items
         : rank.items.take(_rankPreviewCount).toList();
+
+    if (wide) {
+      return [
+        _pad(side, SliverToBoxAdapter(child: header)),
+        _pad(
+          side,
+          SliverGrid.builder(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              mainAxisSpacing: BmTokens.s3,
+              crossAxisSpacing: BmTokens.s3,
+              mainAxisExtent: cardExtent,
+            ),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final music = items[index];
+              return DiscoverMusicCard(
+                rank: index + 1,
+                title: music.title,
+                subtitle: music.subtitleText,
+                coverUrl: music.safeCoverUrl,
+                cacheKey: music.id,
+                onTap: () => _playMusic(music),
+                contextMenuBuilder: _musicContextMenu(music),
+                trailing: _buildDuration(context, music),
+              );
+            },
+          ),
+        ),
+      ];
+    }
+
     return [
+      _pad(side, SliverToBoxAdapter(child: header)),
       _pad(
         side,
         SliverList.builder(
@@ -351,35 +491,38 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
 
   // ---------------------------------------------------------- 推荐流
 
-  Widget _buildFeedHeader(BuildContext context, DiscoverFeedState feed) {
+  List<Widget> _buildFeedSection(
+    BuildContext context,
+    DiscoverFeedState feed, {
+    required double side,
+    required bool wide,
+    required int columns,
+    required double cardExtent,
+  }) {
     final parts = <String>['音乐区推荐'];
     if (feed.page > 1) parts.add('第 ${feed.page} 批');
     if (feed.fromCache && !feed.isEmpty) parts.add('缓存');
 
-    return _SectionHeader(
+    final header = _buildSectionHeader(
+      context,
       title: '发现音乐',
       subtitle: parts.join(' · '),
       trailing: TextButton.icon(
         onPressed: feed.isLoading ? null : () => unawaited(_nextBatch()),
         icon: feed.isLoading
-            ? const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(strokeWidth: 2),
+            ? SizedBox(
+                width: BmTokens.s4,
+                height: BmTokens.s4,
+                child: CircularProgressIndicator(strokeWidth: BmTokens.s1 / 2),
               )
-            : const Icon(Icons.autorenew_rounded, size: 18),
+            : const Icon(Icons.autorenew_rounded, size: BmTokens.iconMenu),
         label: const Text('换一批'),
       ),
     );
-  }
 
-  List<Widget> _buildFeedRows(
-    BuildContext context,
-    DiscoverFeedState feed,
-    double side,
-  ) {
     if (feed.items.isEmpty) {
       return [
+        _pad(side, SliverToBoxAdapter(child: header)),
         _pad(
           side,
           SliverToBoxAdapter(
@@ -395,7 +538,39 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
       ];
     }
 
+    if (wide) {
+      return [
+        _pad(side, SliverToBoxAdapter(child: header)),
+        _pad(
+          side,
+          SliverGrid.builder(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              mainAxisSpacing: BmTokens.s3,
+              crossAxisSpacing: BmTokens.s3,
+              mainAxisExtent: cardExtent,
+            ),
+            itemCount: feed.items.length,
+            itemBuilder: (context, index) {
+              final music = feed.items[index];
+              return DiscoverMusicCard(
+                title: music.title,
+                // 推荐流条目没有分区名（album 会兜成「未知专辑」），只显示作者
+                subtitle: music.artist.displayName,
+                coverUrl: music.safeCoverUrl,
+                cacheKey: music.id,
+                onTap: () => _playMusic(music),
+                contextMenuBuilder: _musicContextMenu(music),
+                trailing: _buildDuration(context, music),
+              );
+            },
+          ),
+        ),
+      ];
+    }
+
     return [
+      _pad(side, SliverToBoxAdapter(child: header)),
       _pad(
         side,
         SliverList.builder(
@@ -423,10 +598,8 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
     if (duration == null) return const SizedBox.shrink();
     return Text(
       formatDuration(duration),
-      style: TextStyle(
-        fontSize: 11,
-        color: Theme.of(context).colorScheme.onSurfaceVariant
-            .withValues(alpha: 0.6),
+      style: context.bmType.micro.copyWith(
+        color: context.bmColors.textTertiary,
       ),
     );
   }
@@ -434,65 +607,6 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
   static String _formatDate(DateTime date) {
     String two(int value) => value.toString().padLeft(2, '0');
     return '${date.year}-${two(date.month)}-${two(date.day)}';
-  }
-}
-
-/// 分区标题：主题色竖条 + 标题 + 说明 + 右侧操作。
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final String? subtitle;
-  final Widget? trailing;
-
-  const _SectionHeader({required this.title, this.subtitle, this.trailing});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: 24, bottom: 6),
-      child: Row(
-        children: [
-          Container(
-            width: 4,
-            height: 18,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (subtitle != null && subtitle!.trim().isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      subtitle!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: theme.colorScheme.onSurfaceVariant.withValues(
-                          alpha: 0.65,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          ?trailing,
-        ],
-      ),
-    );
   }
 }
 
@@ -512,42 +626,27 @@ class _SectionPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final muted = theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
+    if (isLoading) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: BmTokens.s4),
+        child: BmSkeleton.list(count: 3),
+      );
+    }
 
-    return Container(
-      height: 88,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: context.appPalette.panelSurface.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: isLoading
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                const SizedBox(width: 10),
-                Text('加载中…', style: TextStyle(fontSize: 12, color: muted)),
-              ],
-            )
-          : errorMessage != null
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  errorMessage!,
-                  style: TextStyle(fontSize: 12, color: muted),
-                ),
-                const SizedBox(width: 8),
-                TextButton(onPressed: onRetry, child: const Text('重试')),
-              ],
-            )
-          : Text(emptyText, style: TextStyle(fontSize: 12, color: muted)),
+    final error = errorMessage;
+    if (error != null) {
+      return BmEmptyState(
+        compact: true,
+        icon: Icons.cloud_off_rounded,
+        title: error,
+        action: TextButton(onPressed: onRetry, child: const Text('重试')),
+      );
+    }
+
+    return BmEmptyState(
+      compact: true,
+      icon: Icons.music_off_rounded,
+      title: emptyText,
     );
   }
 }

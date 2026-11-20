@@ -348,7 +348,7 @@ class ApiService {
       id: bvid,
       title: biliItem.title,
       subtitle: biliItem.owner.displayName,
-      coverUrl: cover.isNotEmpty ? '$cover$biliCoverThumbSuffix' : cover,
+      coverUrl: cover,
       type: SearchResultType.video,
       artist: biliItem.owner,
     );

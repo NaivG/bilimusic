@@ -44,5 +44,52 @@ void main() {
       expect(result.artist.name, '洛天依');
       expect(result.subtitle, '洛天依 - VOCALOID');
     });
+
+    test('标题里的 HTML 实体还原成原文（与 BV 直取一致）', () {
+      final result = SearchResult.fromJson({
+        'type': 'video',
+        'bvid': 'BV1NPGd6wE4g',
+        'title':
+            '【中译版】[MV] ABM - &#x27;[呀啦啦啦]ヤラララ&#x27; '
+            '(YARARARA) feat. 重音テト',
+        'author': 'ABM',
+        'tag': 'VOCALOID',
+        'pic': '//i0.hdslb.com/bfs/archive/example.jpg',
+      }, SearchResultType.video);
+
+      expect(
+        result.title,
+        "【中译版】[MV] ABM - '[呀啦啦啦]ヤラララ' (YARARARA) feat. 重音テト",
+      );
+    });
+
+    test('高亮标签与 HTML 实体一起还原，且只还原一层', () {
+      final result = SearchResult.fromJson({
+        'type': 'video',
+        'bvid': 'BV1xx411c7mD',
+        'title':
+            '<em class="keyword">A&amp;B</em> - &#x27;x&#x27; '
+            '&lt;live&gt; &amp;#x27;',
+        'author': 'A&amp;B',
+        'tag': 'Rock&nbsp;Live',
+      }, SearchResultType.video);
+
+      expect(result.title, "A&B - 'x' <live> &#x27;");
+      expect(result.subtitle, 'A&B - Rock Live');
+    });
+
+    test('用户结果的昵称与签名同样还原实体', () {
+      final result = SearchResult.fromJson({
+        'type': 'bili_user',
+        'mid': 1,
+        'uname': 'A&amp;B',
+        'usign': '&quot;hello&quot;',
+        'fans': 0,
+        'videos': 0,
+      }, SearchResultType.author);
+
+      expect(result.title, 'A&B');
+      expect(result.subtitle, '"hello"');
+    });
   });
 }

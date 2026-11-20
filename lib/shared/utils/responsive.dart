@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+
 /// 屏幕尺寸分类
 enum ScreenSize {
   /// 手机端：宽度 < 600dp
@@ -90,6 +92,18 @@ class LandscapeBreakpoints {
     return size.height >= size.width || size.width < tabletLandscapeMin;
   }
 
+  /// 横屏图标轨宽度：≥1200 76，900–1199 68。
+  static double railWidth(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    return width >= desktopMin ? BmTokens.railWidth : 68;
+  }
+
+  /// 横屏标题栏设计高度：≥1200 58，900–1199 52（不含顶部系统栏）。
+  static double topbarHeight(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    return width >= desktopMin ? BmTokens.topbarHeight : 52;
+  }
+
   /// 获取横屏封面尺寸（Apple Music 风格小封面）
   static double getCoverSize(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
@@ -108,33 +122,26 @@ class LandscapeBreakpoints {
   /// 获取横屏歌词当前行字号（Apple Music 风格大字）
   static double getCurrentLyricFontSize(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width >= desktopMin) return 36;
-    if (width >= largeTabletMin) return 30;
-    return 24;
+    if (width >= desktopMin) return 40;
+    if (width >= largeTabletMin) return 34;
+    return 28;
   }
 
   /// 获取横屏歌词其他行字号
   static double getOtherLyricFontSize(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width >= desktopMin) return 30;
-    if (width >= largeTabletMin) return 26;
-    return 22;
-  }
-
-  /// 获取横屏主播放按钮尺寸
-  static double getMainPlayButtonSize(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    if (width >= desktopMin) return 56;
-    if (width >= largeTabletMin) return 52;
-    return 44;
+    if (width >= desktopMin) return 34;
+    if (width >= largeTabletMin) return 30;
+    return 26;
   }
 
   /// 获取横屏左侧区域比例（左列已自包含控制条，可适度缩窄）
+  /// 反直觉分配，越宽的屏幕内容区就更足，需要分配的就越少
   static double getLeftSectionRatio(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width >= desktopMin) return 0.38;
-    if (width >= largeTabletMin) return 0.36;
-    return 0.34;
+    if (width >= desktopMin) return 0.32;
+    if (width >= largeTabletMin) return 0.34;
+    return 0.36;
   }
 
   /// 获取横屏边距

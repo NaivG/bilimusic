@@ -52,7 +52,13 @@ class _AudioBackendPageState extends ConsumerState<AudioBackendPage> {
       body: snapshot == null
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+              // 尾部 120 是设计留白；叠加给竖屏浮动 chrome 让位的高度。
+              padding: EdgeInsets.fromLTRB(
+                16,
+                8,
+                16,
+                120 + MediaQuery.paddingOf(context).bottom,
+              ),
               children: [
                 _buildSelfCheck(snapshot),
                 const SizedBox(height: 12),

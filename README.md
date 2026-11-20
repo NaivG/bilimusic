@@ -245,8 +245,8 @@ Chrome 扩展端（MV3），同样和主项目不共享代码与包管理，需�
 - 详情页与长按菜单支持一键打开 B 站原网页。
 - 动态歌词：自动匹配、逐字点亮、辉光效果。
 - 主题系统：Lucent / Nocturne / Verdant / Gruvbox / Nord / Solarized 六套主题，运行时切换，并按封面主色适配。
-- 标题元数据过滤（实验性）：用 AST 解析标题结构，把【MV】【中字】这类视频平台元信息从 B 站标题里剥掉，Hi-Res、杜比这些音质标识留着。
-- 离线缓存：歌曲下载到本地，断网也能播。
+- 标题元数据过滤：用 AST 解析标题结构，内置正则规则把【MV】【中字】这类视频平台元信息从 B 站标题里剥离（Hi-Res、杜比这些音质标识留着）；用户可自行添加任意正则表达式规则。
+- 离线缓存：单曲、歌单内多选曲目或整张歌单都能下载到本地，断网也能播。
 
 ### 整理与同步
 
@@ -409,6 +409,8 @@ flutter run           # 调试运行
 - GitHub Actions：[FlutterHub](https://github.com/xmaihh/FlutterHub)
 - README 规范：[standard-readme](https://github.com/RichardLitt/standard-readme)
 - SnowNLP 文本处理：[SnowNLP](https://github.com/isnowfy/snownlp)
+- Apple Music样式参考：[AMLL](https://github.com/Steve-xmh/applemusic-like-lyrics)
+- iOS风味组件设计参考：[prism_ui](https://github.com/chen08209/prism_ui)
 
 ---
 

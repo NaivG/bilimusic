@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/theme/app_palette.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 
@@ -43,7 +45,7 @@ class _PlaylistItemState extends State<PlaylistItem> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
-        duration: AppTokens.standardDuration,
+        duration: BmMotion.medium,
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
           color: _isHovered || widget.isPlaying
@@ -67,7 +69,8 @@ class _PlaylistItemState extends State<PlaylistItem> {
                       width: 48,
                       height: 48,
                       child: CachedNetworkImage(
-                        imageUrl: widget.music.safeCoverUrl,
+                        imageUrl: biliSquareUrl(widget.music.safeCoverUrl, 96),
+                        memCacheWidth: 96,
                         fit: BoxFit.cover,
                         placeholder: (context, url) => Container(
                           color: brightness == Brightness.dark

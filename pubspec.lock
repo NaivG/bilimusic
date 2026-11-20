@@ -137,12 +137,11 @@ packages:
     source: hosted
     version: "7.0.1"
   bonsoir_windows:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: bonsoir_windows
-      sha256: "22ca4c5dcba2b95fcedb723132a5d65930df3d69634f169eb327c366c9f89151"
-      url: "https://pub.dev"
-    source: hosted
+      path: "packages/bonsoir_windows"
+      relative: true
+    source: path
     version: "7.3.1"
   boolean_selector:
     dependency: transitive
@@ -216,14 +215,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.19.1"
-  color_thief_dart:
-    dependency: "direct main"
-    description:
-      name: color_thief_dart
-      sha256: b3410cf809ca877e64b59b91a4a5e5eb2316ebe3d148b19ba1680eac2a08dc76
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.1.0"
   convert:
     dependency: transitive
     description:
@@ -368,10 +359,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_cache_manager
-      sha256: "400b6592f16a4409a7f2bb929a9a7e38c72cceb8ffb99ee57bbf2cb2cecf8386"
+      sha256: a42024cf8bbb7e1f4d2875301660f62543601a4c3b20119ea9a683e4d191d0f4
       url: "https://pub.dev"
     source: hosted
-    version: "3.4.1"
+    version: "3.5.0"
   flutter_lints:
     dependency: "direct dev"
     description:
@@ -384,10 +375,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_lyric
-      sha256: "7cb3531568c4b5607564555298ac4415c5868a50d77172338894e535529f07d2"
+      sha256: "71ea9ed607c1e5f4261135764be5ee70e21b9332d553dd9d94a9ceb83cfe4be0"
       url: "https://pub.dev"
     source: hosted
-    version: "3.0.8"
+    version: "4.1.0"
   flutter_native_splash:
     dependency: "direct main"
     description:
@@ -587,10 +578,10 @@ packages:
     description:
       path: "."
       ref: HEAD
-      resolved-ref: a719d2aa6ee2b0238781021518f17a1737364155
+      resolved-ref: "9b10f5eb78e37f0438a06b8d87776064a7778f41"
       url: "https://github.com/NaivG/lyrics_now.git"
     source: git
-    version: "0.3.0"
+    version: "0.3.1"
   matcher:
     dependency: transitive
     description:
@@ -1060,14 +1051,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.10.2"
-  sprintf:
-    dependency: transitive
-    description:
-      name: sprintf
-      sha256: "1fc9ffe69d4df602376b52949af107d8f5703b77cda567c4d7d86a0693120f23"
-      url: "https://pub.dev"
-    source: hosted
-    version: "7.0.0"
   sqflite:
     dependency: "direct main"
     description:
@@ -1313,10 +1296,10 @@ packages:
     dependency: "direct main"
     description:
       name: uuid
-      sha256: a5be9ef6618a7ac1e964353ef476418026db906c4facdedaa299b7a2e71690ff
+      sha256: "9b129329f58692f6e6578329498a8fe9fbe98f090beb764ffbb8ee2eadd01dcd"
       url: "https://pub.dev"
     source: hosted
-    version: "4.5.1"
+    version: "4.6.0"
   vector_math:
     dependency: transitive
     description:

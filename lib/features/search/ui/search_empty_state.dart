@@ -1,4 +1,11 @@
 import 'package:flutter/material.dart';
+
+import 'package:bilimusic/shared/ui/controls/bm_chip.dart';
+import 'package:bilimusic/shared/ui/status/bm_empty.dart';
+import 'package:bilimusic/shared/ui/status/bm_skeleton.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
 
 /// 空状态类型
@@ -9,7 +16,7 @@ enum EmptyStateType {
   loading, // 加载状态
 }
 
-/// 搜索空状态组件
+/// 搜索空状态组件：统一走 [BmEmptyState]，热门搜索用 [BmChip] 的 [Wrap]。
 class SearchEmptyState extends StatelessWidget {
   final EmptyStateType type;
   final String? customMessage;
@@ -26,144 +33,86 @@ class SearchEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _buildIcon(context),
-            const SizedBox(height: 24),
-            _buildMessage(context),
-            if (type == EmptyStateType.error && onRetry != null) ...[
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
-                label: const Text('重试'),
-              ),
-            ],
-            if (suggestions != null && suggestions!.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              _buildSuggestions(context),
-            ],
-          ],
+    if (type == EmptyStateType.loading) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: BmTokens.pageInset,
+          vertical: BmTokens.s6,
         ),
+        child: BmSkeleton.list(count: 4),
+      );
+    }
+
+    final colors = context.bmColors;
+    final typography = context.bmType;
+    final message = customMessage;
+
+    return FadeInWidget(
+      child: BmEmptyState(
+        title: message ?? _defaultTitle,
+        icon: _icon,
+        action: _buildAction(colors, typography),
       ),
     );
   }
 
-  Widget _buildIcon(BuildContext context) {
-    IconData iconData;
-    Color iconColor;
-
+  String get _defaultTitle {
     switch (type) {
       case EmptyStateType.initial:
-        iconData = Icons.search;
-        iconColor = Colors.grey[400]!;
-        break;
+        return '开始搜索你喜欢的音乐';
       case EmptyStateType.noResults:
-        iconData = Icons.music_off_outlined;
-        iconColor = Colors.grey[400]!;
-        break;
+        return '没有找到相关结果';
       case EmptyStateType.error:
-        iconData = Icons.error_outline;
-        iconColor = Colors.red[300]!;
-        break;
+        return '加载失败，请稍后重试';
       case EmptyStateType.loading:
-        return SizedBox(
-          width: 48,
-          height: 48,
-          child: CircularProgressIndicator(
-            color: Theme.of(context).primaryColor,
-          ),
-        );
+        return '搜索中...';
+    }
+  }
+
+  IconData get _icon {
+    switch (type) {
+      case EmptyStateType.initial:
+        return Icons.search_rounded;
+      case EmptyStateType.noResults:
+        return Icons.music_off_outlined;
+      case EmptyStateType.error:
+        return Icons.error_outline_rounded;
+      case EmptyStateType.loading:
+        return Icons.search_rounded;
+    }
+  }
+
+  Widget? _buildAction(BmColors colors, BmTypographySet typography) {
+    final suggestionList = suggestions;
+    final canRetry = type == EmptyStateType.error && onRetry != null;
+
+    if (suggestionList == null || suggestionList.isEmpty) {
+      if (!canRetry) return null;
+      return TextButton(onPressed: onRetry, child: const Text('重试'));
     }
 
-    return FadeInWidget(
-      duration: const Duration(milliseconds: 400),
-      child: Container(
-        width: 96,
-        height: 96,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: iconColor.withValues(alpha: 0.1),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '热门搜索',
+          style: typography.caption.copyWith(color: colors.textSecondary),
         ),
-        child: Icon(iconData, size: 48, color: iconColor),
-      ),
-    );
-  }
-
-  Widget _buildMessage(BuildContext context) {
-    String message;
-    if (customMessage != null) {
-      message = customMessage!;
-    } else {
-      switch (type) {
-        case EmptyStateType.initial:
-          message = '开始搜索你喜欢的音乐';
-          break;
-        case EmptyStateType.noResults:
-          message = '没有找到相关结果';
-          break;
-        case EmptyStateType.error:
-          message = '加载失败，请稍后重试';
-          break;
-        case EmptyStateType.loading:
-          message = '搜索中...';
-          break;
-      }
-    }
-
-    return FadeInWidget(
-      duration: const Duration(milliseconds: 400),
-      delay: const Duration(milliseconds: 100),
-      child: Text(
-        message,
-        style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-        textAlign: TextAlign.center,
-      ),
-    );
-  }
-
-  Widget _buildSuggestions(BuildContext context) {
-    return FadeInWidget(
-      duration: const Duration(milliseconds: 400),
-      delay: const Duration(milliseconds: 200),
-      child: Column(
-        children: [
-          Text(
-            '热门搜索',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[500],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: suggestions!.map((suggestion) {
-              return ActionChip(
-                label: Text(suggestion, style: const TextStyle(fontSize: 13)),
-                onPressed: () {
-                  // 外部处理搜索建议点击
-                },
-                backgroundColor: Theme.of(context)
-                    .colorScheme
-                    .surfaceContainerHighest,
-              );
-            }).toList(),
-          ),
-        ],
-      ),
+        const SizedBox(height: BmTokens.s2),
+        Wrap(
+          spacing: BmTokens.s2,
+          runSpacing: BmTokens.s2,
+          alignment: WrapAlignment.center,
+          children: [
+            for (final suggestion in suggestionList) BmChip(label: suggestion),
+          ],
+        ),
+      ],
     );
   }
 }
 
-/// 热门搜索建议组件
+/// 热门搜索建议：标题 + [BmChip] 的 [Wrap]。
 class HotSearchSuggestions extends StatelessWidget {
   final List<String> suggestions;
   final Function(String) onSuggestionTap;
@@ -176,106 +125,36 @@ class HotSearchSuggestions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.bmColors;
+    final type = context.bmType;
+
     return FadeInWidget(
-      duration: const Duration(milliseconds: 400),
-      delay: const Duration(milliseconds: 300),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: BmTokens.pageInset),
             child: Text(
               '热门搜索',
-              style: Theme.of(context).textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
+              style: type.bodyStrong.copyWith(color: colors.textPrimary),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: BmTokens.s3),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: BmTokens.pageInset),
             child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: suggestions.asMap().entries.map((entry) {
-                final index = entry.key;
-                final suggestion = entry.value;
-                return _SuggestionChip(
-                  index: index + 1,
-                  label: suggestion,
-                  onTap: () => onSuggestionTap(suggestion),
-                );
-              }).toList(),
+              spacing: BmTokens.s2,
+              runSpacing: BmTokens.s2,
+              children: [
+                for (final suggestion in suggestions)
+                  BmChip(
+                    label: suggestion,
+                    onTap: () => onSuggestionTap(suggestion),
+                  ),
+              ],
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _SuggestionChip extends StatelessWidget {
-  final int index;
-  final String label;
-  final VoidCallback onTap;
-
-  const _SuggestionChip({
-    required this.index,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isTopThree = index <= 3;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: isTopThree
-                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
-                : Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (isTopThree) ...[
-                Container(
-                  width: 18,
-                  height: 18,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    '$index',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onPrimary,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: isTopThree
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

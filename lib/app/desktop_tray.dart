@@ -162,17 +162,16 @@ class DesktopTray {
   /// 由 `AppLifecycleManager.quit()` 在退出流程第一步调用（也可重入，见 [TrayMenuContent.dispose]）。
   Future<void> dispose() async {
     _ready = false;
-    final icon = _trayIcon;
-    final content = _content;
-    _trayIcon = null;
-    _content = null;
-    _tooltip = null;
     try {
-      icon?.setVisible(false);
+      _trayIcon?.setVisible(false);
       // 先释放菜单句柄再销毁托盘图标——与 tray_manager 自己的 destroy() 同序，
       // 免得原生层在图标销毁时再去引用已经释放的菜单。
-      content?.dispose();
-      icon?.dispose();
+      _content?.dispose();
+      _trayIcon?.dispose();
+      _content = null;
+      _trayIcon = null;
+      _tooltip = null;
+      debugPrint('[Tray] 托盘释放完毕');
     } catch (error) {
       debugPrint('[Tray] 释放托盘失败：$error');
     }

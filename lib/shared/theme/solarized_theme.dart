@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'app_component_themes.dart';
+import '../ui/theme/bm_theme.dart';
 import 'app_palette.dart';
-import 'app_tokens.dart';
 
 /// Solarized 主题颜色常量 —— Ethan Schoonover 的经典 Solarized 调色板
 /// (https://ethanschoonover.com/solarized/)。被广泛用于终端、IDE 与编辑器,
@@ -41,6 +40,8 @@ abstract class SolarizedColors {
   // ===== Semantic =====
   static const Color errorLight = Color(0xFFDC322F);
   static const Color errorDark = Color(0xFFF2777A);
+  static const Color warningLight = Color(0xFFB58900); // Solarized yellow
+  static const Color warningDark = Color(0xFFB58900);
   static const Color successLight = Color(0xFF859900);
   static const Color successDark = Color(0xFF859900);
 }
@@ -56,6 +57,8 @@ AppPalette _solarizedPalette(Brightness brightness) {
       playBar: SolarizedColors.surfaceContainerLight,
       seekBarActive: SolarizedColors.onSurfaceLight,
       volumeBarActive: SolarizedColors.onSurfaceLight,
+      warning: SolarizedColors.warningLight,
+      success: SolarizedColors.successLight,
       surfaceOverlay: Color(0xCCFDF6E3),
       surfaceHover: SolarizedColors.surfaceContainerHighLight,
       surfacePressed: SolarizedColors.surfaceContainerHighLight,
@@ -70,6 +73,8 @@ AppPalette _solarizedPalette(Brightness brightness) {
     playBar: SolarizedColors.surfaceContainerDark,
     seekBarActive: SolarizedColors.onSurfaceVariantDark,
     volumeBarActive: SolarizedColors.onSurfaceVariantDark,
+    warning: SolarizedColors.warningDark,
+    success: SolarizedColors.successDark,
     surfaceOverlay: Color(0xBF002B36),
     surfaceHover: SolarizedColors.surfaceContainerHighDark,
     surfacePressed: SolarizedColors.surfaceContainerHighDark,
@@ -136,57 +141,9 @@ ColorScheme _solarizedColorScheme(Brightness brightness) {
 }
 
 ThemeData _buildSolarized(Brightness brightness) {
-  final scheme = _solarizedColorScheme(brightness);
-  final palette = _solarizedPalette(brightness);
-
-  return ThemeData(
-    colorScheme: scheme,
-    useMaterial3: true,
-    extensions: [palette],
-    snackBarTheme: AppComponentThemes.snackBar(scheme),
-    cardTheme: CardThemeData(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-      ),
-      elevation: 0,
-      color: scheme.surfaceContainer,
-    ),
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-        ),
-      ),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        borderSide: BorderSide(color: scheme.outlineVariant, width: 0.5),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        borderSide: BorderSide(color: scheme.outlineVariant, width: 0.5),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        borderSide: BorderSide(color: scheme.primary, width: 0.5),
-      ),
-      filled: true,
-      fillColor: scheme.surfaceContainer,
-    ),
-    scaffoldBackgroundColor: scheme.surface,
-    sliderTheme: SliderThemeData(
-      activeTrackColor: scheme.primary,
-      inactiveTrackColor: scheme.surfaceContainerHigh,
-      thumbColor: scheme.primary,
-      overlayColor: scheme.primary.withValues(alpha: 0.12),
-    ),
-    dividerTheme: DividerThemeData(
-      color: scheme.outline,
-      thickness: 0.5,
-      space: 0.5,
-    ),
-    dividerColor: scheme.outline,
+  return BmTheme.build(
+    scheme: _solarizedColorScheme(brightness),
+    palette: _solarizedPalette(brightness),
   );
 }
 

@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_lyric/core/lyric_controller.dart';
+import 'package:flutter_lyric/flutter_lyric.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/features/player/now_playing/background.dart';
 import 'package:bilimusic/features/player/now_playing/album_section.dart';
 import 'package:bilimusic/features/lyrics/widgets/lyric_section.dart';
 import 'package:bilimusic/features/lyrics/lyric_source.dart';
 import 'package:bilimusic/domain/music.dart' as model;
 import 'package:bilimusic/app/shells/navigation_providers.dart';
+import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
+import 'package:bilimusic/features/settings/settings_provider.dart';
 import 'package:bilimusic/features/player/widgets/sleep_timer_sheet.dart';
 import 'package:bilimusic/features/lan_sync/lan_sync_providers.dart';
 import 'package:bilimusic/features/lan_sync/ui/sync_panel.dart';
 import 'package:bilimusic/shared/utils/dialog_helpers.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
 import 'package:bilimusic/shared/utils/share_helpers.dart';
+import 'package:bilimusic/shared/ui/stage/bm_stage_backdrop.dart';
 import 'package:bilimusic/shared/widgets/window_drag_area.dart';
 import 'package:bilimusic/app/app_providers.dart';
 
@@ -21,7 +23,6 @@ import 'package:bilimusic/app/app_providers.dart';
 /// 状态与业务回调由 [DetailPage] 宿主下发，与 Portrait/Square 同一套 props 模式。
 class LandscapeDetailPage extends ConsumerWidget {
   final model.Music music;
-  final Duration position;
   final Duration? duration;
   final bool isPlaying;
   final bool isFavorite;
@@ -30,9 +31,6 @@ class LandscapeDetailPage extends ConsumerWidget {
   final LyricController? lyricController;
   final bool isLoadingLyrics;
   final Color? dominantColor;
-
-  /// 上一首的主导色 —— 供 [AnimatedLandscapeBackground] 做切换渐变。
-  final Color? previousDominantColor;
   final IconData playModeIcon;
   final VoidCallback onToggleFavorite;
   final VoidCallback onShare;
@@ -45,7 +43,6 @@ class LandscapeDetailPage extends ConsumerWidget {
   const LandscapeDetailPage({
     super.key,
     required this.music,
-    required this.position,
     required this.duration,
     required this.isPlaying,
     required this.isFavorite,
@@ -54,7 +51,6 @@ class LandscapeDetailPage extends ConsumerWidget {
     required this.lyricController,
     required this.isLoadingLyrics,
     required this.dominantColor,
-    required this.previousDominantColor,
     required this.playModeIcon,
     required this.onToggleFavorite,
     required this.onShare,
@@ -68,17 +64,23 @@ class LandscapeDetailPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final leftRatio = LandscapeBreakpoints.getLeftSectionRatio(context);
+    final fluid = ref.watch(
+      settingsProvider.select((settings) => settings.fluidBackground),
+    );
 
     return Scaffold(
       backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          AnimatedLandscapeBackground(
-            coverUrl: music.coverUrl,
-            previousColor: previousDominantColor,
-            newColor: dominantColor,
-            child: const SizedBox.expand(),
+          Positioned.fill(
+            child: BmStageBackdrop(
+              coverUrl: music.coverUrl,
+              dominantColor: dominantColor,
+              fallbackColor: Theme.of(context).colorScheme.primary,
+              fluid: fluid,
+              cacheManager: imageCacheManager,
+            ),
           ),
           Column(
             children: [
@@ -93,6 +95,7 @@ class LandscapeDetailPage extends ConsumerWidget {
                         title: music.title,
                         artist: music.artist.displayName,
                         album: music.album,
+                        duration: duration ?? Duration.zero,
                         dominantColor: dominantColor,
                         isFavorite: isFavorite,
                         trackId: music.id,
@@ -117,7 +120,6 @@ class LandscapeDetailPage extends ConsumerWidget {
                         artist: music.artist.displayName,
                         album: music.album,
                         lyricController: lyricController,
-                        position: position,
                         lyricSources: lyricSources,
                         selectedLyricId: selectedLyricId,
                         isLoadingLyrics: isLoadingLyrics,

@@ -110,7 +110,7 @@ class TuiApi {
       id: bvid,
       title: item.title,
       subtitle: item.owner.name,
-      coverUrl: cover.isNotEmpty ? '$cover$biliCoverThumbSuffix' : cover,
+      coverUrl: cover,
       type: SearchResultType.video,
     );
   }

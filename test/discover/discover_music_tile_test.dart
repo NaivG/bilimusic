@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 
 import 'package:bilimusic/features/discover/widgets/discover_music_tile.dart';
+import 'package:bilimusic/shared/ui/menu/bm_menu_row.dart';
 
 /// 封面缓存要写盘，测试里把 path_provider 指到临时目录。
 void _stubPathProvider() {
@@ -73,18 +74,12 @@ void main() {
       kind: PointerDeviceKind.mouse,
       buttons: kSecondaryMouseButton,
     );
-    await tester.pump();
     await gesture.up();
     await tester.pumpAndSettle();
 
     expect(menuRequested, isTrue);
-    // 菜单由 super_context_menu 默认构建器绘制，从菜单项元素确认浮层已铺开。
-    expect(
-      find.byWidgetPredicate(
-        (widget) => widget.runtimeType.toString() == '_MenuItemWidget',
-      ),
-      findsWidgets,
-    );
+    // 菜单走 AppContextMenu 注入的 Lucent 桌面构建器。
+    expect(find.byType(BmMenuRow), findsOneWidget);
     debugDefaultTargetPlatformOverride = null;
   });
 

@@ -234,6 +234,7 @@ UI / Riverpod Provider → PlayerCoordinator → DualAudioService → ApiService
 7. **版本号改动必须同步两处**：`pubspec.yaml`（`version: x.y.z+build`）与 `assets/version.json`（`version` + `changelog` 条目）。只改一处会让应用内更新判断错乱，详见[版本号与更新日志](#版本号与更新日志)。
 8. **禁止提交**：Cookie、账号信息、`build/`、任何构建产物与敏感数据。
 9. **不要整项目关闭 lint 规则**：`analysis_options.yaml` 保留 `flutter_lints`；确需例外时用**行级** `// ignore:` 抑制。
+10. **禁止提交含 agent coauthor 的 commit**: 请不要提交含 agent coauthor 的commit，这意味着你压根没有审核过真实代码。
 
 ---
 
@@ -296,8 +297,8 @@ UI / Riverpod Provider → PlayerCoordinator → DualAudioService → ApiService
 
 ```json
 {
-  "version": "1.11.0",
-  "date": "2026-11-02",
+  "version": "1.12.0",
+  "date": "2026-11-21",
   "changes": [
     "新增……",
     "修复……",

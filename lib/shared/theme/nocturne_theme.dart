@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'app_component_themes.dart';
+import '../ui/theme/bm_theme.dart';
 import 'app_palette.dart';
-import 'app_tokens.dart';
 
 /// Nocturne 主题颜色常量 —— 极简风格,白底/真黑底 + 单点深空蓝 accent。
 /// 参考 `tessera/lib/ui/theme/tokens.dart` 设计稿。
@@ -38,6 +37,8 @@ abstract class NocturneColors {
   // ===== Semantic =====
   static const Color errorLight = Color(0xFFC0392B);
   static const Color errorDark = Color(0xFFFF6961);
+  static const Color warningLight = Color(0xFFFF9F0A);
+  static const Color warningDark = Color(0xFFFFB340);
   static const Color successLight = Color(0xFF1A8754);
   static const Color successDark = Color(0xFF30D158);
 }
@@ -53,6 +54,8 @@ AppPalette _nocturnePalette(Brightness brightness) {
       playBar: NocturneColors.surfaceContainerLight,
       seekBarActive: NocturneColors.onSurfaceLight,
       volumeBarActive: NocturneColors.onSurfaceLight,
+      warning: NocturneColors.warningLight,
+      success: NocturneColors.successLight,
       surfaceOverlay: Color(0xCCFFFFFF),
       surfaceHover: NocturneColors.surfaceContainerHighLight,
       surfacePressed: NocturneColors.surfaceContainerHighLight,
@@ -67,6 +70,8 @@ AppPalette _nocturnePalette(Brightness brightness) {
     playBar: NocturneColors.surfaceContainerDark,
     seekBarActive: NocturneColors.onSurfaceVariantDark,
     volumeBarActive: NocturneColors.onSurfaceVariantDark,
+    warning: NocturneColors.warningDark,
+    success: NocturneColors.successDark,
     surfaceOverlay: Color(0xBF000000),
     surfaceHover: NocturneColors.surfaceContainerHighDark,
     surfacePressed: NocturneColors.surfaceContainerHighDark,
@@ -133,57 +138,9 @@ ColorScheme _nocturneColorScheme(Brightness brightness) {
 }
 
 ThemeData _buildNocturne(Brightness brightness) {
-  final scheme = _nocturneColorScheme(brightness);
-  final palette = _nocturnePalette(brightness);
-
-  return ThemeData(
-    colorScheme: scheme,
-    useMaterial3: true,
-    extensions: [palette],
-    snackBarTheme: AppComponentThemes.snackBar(scheme),
-    cardTheme: CardThemeData(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-      ),
-      elevation: 0,
-      color: scheme.surfaceContainer,
-    ),
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-        ),
-      ),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        borderSide: BorderSide(color: scheme.outlineVariant, width: 0.5),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        borderSide: BorderSide(color: scheme.outlineVariant, width: 0.5),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        borderSide: BorderSide(color: scheme.primary, width: 0.5),
-      ),
-      filled: true,
-      fillColor: scheme.surfaceContainer,
-    ),
-    scaffoldBackgroundColor: scheme.surface,
-    sliderTheme: SliderThemeData(
-      activeTrackColor: scheme.primary,
-      inactiveTrackColor: scheme.surfaceContainerHigh,
-      thumbColor: scheme.primary,
-      overlayColor: scheme.primary.withValues(alpha: 0.12),
-    ),
-    dividerTheme: DividerThemeData(
-      color: scheme.outline,
-      thickness: 0.5,
-      space: 0.5,
-    ),
-    dividerColor: scheme.outline,
+  return BmTheme.build(
+    scheme: _nocturneColorScheme(brightness),
+    palette: _nocturnePalette(brightness),
   );
 }
 

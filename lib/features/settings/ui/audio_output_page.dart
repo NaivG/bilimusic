@@ -7,6 +7,9 @@ import 'package:bilimusic/features/player/audio_output_providers.dart';
 import 'package:bilimusic/features/settings/logic/audio_output_options.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_select_menu.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/utils/platform_helper.dart';
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 
@@ -59,31 +62,30 @@ class _AudioOutputPageState extends ConsumerState<AudioOutputPage> {
     if (!mounted) return;
     if (ref.read(settingsProvider).audioOutputDisclaimerAccepted) return;
 
-    final agreed = await showDialog<bool>(
+    final agreed = await showBmDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.warning_amber_rounded, size: 36),
-        title: const Text('高级音频输出 · 免责说明'),
+      builder: (dialogContext) => BmDialog(
+        title: '高级音频输出 · 免责说明',
         content: const Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('1. 硬件直通（独占模式）会锁死输出设备，期间其他应用将没有声音。'),
-            SizedBox(height: 10),
+            SizedBox(height: BmTokens.s2),
             Text('2. 强制采样率、切换设备可能与硬件不兼容，出现无声、爆音，或需要重启应用。'),
-            SizedBox(height: 10),
+            SizedBox(height: BmTokens.s2),
             Text('3. 以上均为高级音频选项，因配置导致的问题请自行承担。'),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('不同意'),
+          BmDialogAction(
+            label: '不同意',
+            onPressed: () => Navigator.of(dialogContext).pop(false),
           ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('同意并继续'),
+          BmDialogAction(
+            label: '同意并继续',
+            onPressed: () => Navigator.of(dialogContext).pop(true),
           ),
         ],
       ),
@@ -137,9 +139,8 @@ class _AudioOutputPageState extends ConsumerState<AudioOutputPage> {
 
     final delayMs = _delayDraft ?? settings.audioDelayMs;
 
-    // 已存的设备可能已经不在清单里（拔了 / 改名了）。DropdownButton 的
-    // value 必须命中某个 item 否则直接断言，所以回落到「自动」，
-    // 由下面的回退提示把真实情况讲清楚。
+    // 已存的设备可能已经不在清单里（拔了 / 改名了）。浮层里没有能勾选的
+    // 条目就回落到「自动」。
     final deviceNames = ['', ...devices.map((d) => d.name)];
     final storedDevice = normalizeDeviceName(settings.audioDeviceName);
     final selectedDevice = deviceNames.contains(storedDevice)
@@ -150,17 +151,34 @@ class _AudioOutputPageState extends ConsumerState<AudioOutputPage> {
     final fellBack = normalizeDeviceName(activeDevice.name) != storedDevice;
 
     // 落盘值不在档位表里（手改过 prefs）时退回「自动」，
-    // 否则 DropdownButton 的 value 命不中 item 会直接断言。
+    // 否则浮层里没有能勾选的条目。
     final storedRate =
         kDacSampleRates.any((o) => o.rate == settings.audioSampleRate)
         ? settings.audioSampleRate
         : 0;
+    final rateLabel = kDacSampleRates
+        .firstWhere((o) => o.rate == storedRate)
+        .label;
+    final rateOptions = [
+      for (final o in kDacSampleRates)
+        BmSelectOption<int>(value: o.rate, label: o.label),
+    ];
+    final deviceOptions = [
+      for (final name in deviceNames)
+        BmSelectOption<String>(value: name, label: _deviceLabel(name, devices)),
+    ];
 
     return Scaffold(
       appBar: AutoAppBar.generateAppBar(context: context, title: '音频输出'),
       backgroundColor: Colors.transparent,
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+        // 尾部 120 是设计留白；叠加给竖屏浮动 chrome 让位的高度。
+        padding: EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          120 + MediaQuery.paddingOf(context).bottom,
+        ),
         children: [
           // ── 音频延迟 ──
           _card(
@@ -215,17 +233,13 @@ class _AudioOutputPageState extends ConsumerState<AudioOutputPage> {
                 '默认跟随音源、不做多余重采样。'
                 '要 bit-perfect 就选与音源一致的档位，'
                 '选了硬件不支持的档位可能直接无声。',
-            trailing: DropdownButton<int>(
-              value: storedRate,
-              isExpanded: false,
-              items: [
-                for (final o in kDacSampleRates)
-                  DropdownMenuItem<int>(value: o.rate, child: Text(o.label)),
-              ],
-              onChanged: (v) {
-                if (v == null) return;
-                _run(() => commands.setSampleRate(v));
-              },
+            trailing: BmSelectTrigger<int>(
+              label: rateLabel,
+              options: rateOptions,
+              selected: storedRate,
+              onSelected: (v) => _run(() => commands.setSampleRate(v)),
+              menuWidth: 220,
+              semanticLabel: '强制 DAC 采样率',
             ),
           ),
 
@@ -241,28 +255,16 @@ class _AudioOutputPageState extends ConsumerState<AudioOutputPage> {
                 : devices.isEmpty
                 ? '设备列表尚未就绪——mpv 初始化完成后自动填充。'
                 : '切换会重建音频输出，当前曲目可能出现短暂静音。',
-            trailing: DropdownButton<String>(
-              value: selectedDevice,
-              isExpanded: false,
-              // 列表没就绪时禁用而不是给一个空下拉：空下拉看起来像
+            trailing: BmSelectTrigger<String>(
+              label: _deviceLabel(selectedDevice, devices),
+              options: deviceOptions,
+              selected: selectedDevice,
+              // 列表没就绪时禁用而不是给一个空浮层：空浮层看起来像
               // 「系统只有自动一个设备」，那是假信息。
-              onChanged: devices.isEmpty
-                  ? null
-                  : (v) {
-                      if (v == null) return;
-                      _run(() => commands.setDeviceName(v));
-                    },
-              selectedItemBuilder: (ctx) => [
-                for (final name in deviceNames)
-                  _deviceItem(_deviceLabel(name, devices)),
-              ],
-              items: [
-                for (final name in deviceNames)
-                  DropdownMenuItem<String>(
-                    value: name,
-                    child: _deviceItem(_deviceLabel(name, devices)),
-                  ),
-              ],
+              enabled: devices.isNotEmpty,
+              onSelected: (v) => _run(() => commands.setDeviceName(v)),
+              menuWidth: 300,
+              semanticLabel: '输出设备',
             ),
           ),
 
@@ -362,13 +364,7 @@ class _AudioOutputPageState extends ConsumerState<AudioOutputPage> {
     ),
   );
 
-  /// 设备下拉项的固定宽度 + 省略号：设备描述能长到
-  /// 「扬声器 (Realtek(R) Audio)」这种长度，不裁会在卡片里把标题挤没。
-  Widget _deviceItem(String label) => SizedBox(
-    width: 200,
-    child: Text(label, overflow: TextOverflow.ellipsis, maxLines: 1),
-  );
-
+  /// 设备显示名：空串是「自动（系统默认）」，其余优先用 mpv 报的描述。
   String _deviceLabel(String name, List<mpv.Device> devices) {
     if (name.isEmpty) return '自动（系统默认）';
     for (final d in devices) {

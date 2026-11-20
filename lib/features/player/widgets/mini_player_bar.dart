@@ -1,21 +1,25 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/player/models/player_state.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/player/widgets/crossfade_indicator.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
-import 'package:bilimusic/shared/theme/app_palette.dart';
-import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
+import 'package:bilimusic/shared/ui/chrome/bm_chrome.dart';
+import 'package:bilimusic/shared/ui/controls/bm_controls.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
 import 'package:bilimusic/shared/widgets/music_cover.dart';
 
-/// Mini Player Bar
-/// 应用Lucent主题下的迷你播放器
+/// 竖屏悬浮迷你播放器。
+///
+/// Chrome 浮块：14 圆角 + hairline + shadow；保留左右滑切歌、上滑展开与
+/// 拖拽回弹。封面 40，进度条用 accentBorder 填充。
 class MiniPlayerBar extends ConsumerStatefulWidget {
   final VoidCallback onExpand;
   final VoidCallback onPlayList;
@@ -52,7 +56,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
     super.initState();
     _slideController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 250),
+      duration: BmMotion.large,
     );
     _slideAnimation = _slideController.drive(Tween<double>(begin: 0, end: 0));
     _slideController.addStatusListener(_onSlideStatus);
@@ -108,7 +112,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
     _isVerticalSwipe = false;
 
     // 无音乐时不启动水平拖动
-    if (ref.read(playerCoordinatorProvider).currentMusic == null) {
+    if (ref.read(currentMusicProvider) == null) {
       _isVerticalSwipe = true;
     }
   }
@@ -193,12 +197,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
       Tween<double>(begin: _dragX, end: 0),
     );
 
-    final simulation = SpringSimulation(
-      SpringDescription.withDampingRatio(mass: 1, stiffness: 500, ratio: 1),
-      _dragX,
-      0,
-      0,
-    );
+    final simulation = SpringSimulation(BmMotion.pressSpring, _dragX, 0, 0);
 
     _slideController.animateWith(simulation);
     _slideController.addListener(_onSnapBackUpdate);
@@ -222,16 +221,12 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
   Widget build(BuildContext context) {
     final currentPosition = ref.watch(positionProvider);
     final currentPlayerState = ref.watch(playerStateProvider);
-    ref.watch(currentMusicProvider);
-    final palette = context.appPalette;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    final baseColor = palette.surfaceOverlay;
-    final progressColor = palette.surfaceHover;
-    final textPrimary = colorScheme.onSurface;
-    final textSecondary = colorScheme.onSurfaceVariant;
-
-    final blurEffect = ref.read(settingsProvider).blurEffect;
+    final currentMusic = ref.watch(currentMusicProvider);
+    final colors = context.bmColors;
+    final type = context.bmType;
+    final blurEffect = ref.watch(
+      settingsProvider.select((settings) => settings.blurEffect),
+    );
 
     // Compute scale/opacity based on drag distance
     final absDragX = _dragX.abs();
@@ -239,16 +234,8 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
         ? (1 - (absDragX.abs() / 1000)).clamp(0.92, 1.0)
         : 1.0;
 
-    // 计算滑动方向图标 scale 和 opacity
-    final iconScale = absDragX > 20
-        ? (0.5 + (absDragX / 200)).clamp(0.5, 1.2)
-        : 0.5;
-    final iconOpacity = absDragX > 20
-        ? ((absDragX - 20) / 40).clamp(0.0, 1.0)
-        : 0.0;
-
     return Padding(
-      padding: EdgeInsets.only(left: 12, right: 12),
+      padding: EdgeInsets.zero,
       child: GestureDetector(
         onHorizontalDragStart: _onDragStart,
         onHorizontalDragUpdate: _onDragUpdate,
@@ -263,146 +250,123 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
           ),
           child: Transform.scale(
             scale: scale,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    // 毛玻璃层
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-                      child: BackdropFilter(
-                        filter: blurEffect
-                            ? ImageFilter.blur(
-                                sigmaX: AppTokens.overlayBlurSigma,
-                                sigmaY: AppTokens.overlayBlurSigma,
-                              )
-                            : ImageFilter.blur(),
-                        child: Container(
-                          height: 68,
-                          decoration: BoxDecoration(
-                            color: baseColor,
-                            borderRadius: BorderRadius.circular(
-                              AppTokens.radiusLg,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Chrome 浮块：白底 + 模糊 + 26 胶囊；整条高度画进度填充。
+                BmChromeSurface(
+                  floating: true,
+                  tone: BmChromeTone.raised,
+                  radius: BmTokens.miniPlayerRadius,
+                  blur: blurEffect,
+                  child: SizedBox(
+                    height: BmTokens.miniPlayerHeight,
+                    child: Stack(
+                      children: [
+                        // 背景进度条层（订阅 position）
+                        Positioned.fill(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: _buildProgressFill(
+                              colors,
+                              currentPosition,
+                              currentMusic,
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                    // 背景进度条层（订阅 position）
-                    Positioned.fill(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: _buildProgressBar(
-                            constraints,
-                            progressColor,
-                            currentPosition,
+                        // 内容层
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: BmTokens.s1 + 2,
                           ),
-                        ),
-                      ),
-                    ),
-                    // 滑动方向图标层
-                    if (ref.read(playerCoordinatorProvider).currentMusic !=
-                        null) ...[
-                      if (_dragX > 20)
-                        Positioned(
-                          left: -44 - (_dragX * 0.2).clamp(0.0, 20.0),
-                          top: 0,
-                          bottom: 0,
-                          child: Center(
-                            child: Transform.scale(
-                              scale: iconScale,
-                              child: Opacity(
-                                opacity: iconOpacity,
-                                child: Icon(
-                                  Icons.skip_previous_rounded,
-                                  color: textPrimary,
-                                  size: 44,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      if (_dragX < -20)
-                        Positioned(
-                          right: -44 - (_dragX.abs() * 0.2).clamp(0.0, 20.0),
-                          top: 0,
-                          bottom: 0,
-                          child: Center(
-                            child: Transform.scale(
-                              scale: iconScale,
-                              child: Opacity(
-                                opacity: iconOpacity,
-                                child: Icon(
-                                  Icons.skip_next_rounded,
-                                  color: textPrimary,
-                                  size: 44,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                    // 内容层
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 12,
-                      ),
-                      child: Row(
-                        children: [
-                          // 专辑封面
-                          GestureDetector(
-                            onTap: widget.onExpand,
-                            child: MusicCover(
-                              music: ref
-                                  .read(playerCoordinatorProvider)
-                                  .currentMusic,
-                              size: 44,
-                              radius: AppTokens.radiusMd,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          // 歌曲信息（点击标题/歌手也可进入详情页）
-                          Expanded(
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: widget.onExpand,
-                              child: _buildSongInfo(
-                                textPrimary,
-                                textSecondary,
-                                currentPlayerState,
-                              ),
-                            ),
-                          ),
-                          // 控制按钮
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
+                          child: Row(
                             children: [
-                              _buildPlayButton(currentPlayerState),
+                              // 专辑封面
                               GestureDetector(
-                                onTap: widget.onPlayList,
-                                child: Container(
-                                  width: 44,
-                                  height: 44,
-                                  alignment: Alignment.center,
-                                  child: Icon(
-                                    Icons.playlist_play_rounded,
-                                    color: textSecondary,
-                                    size: 24,
+                                onTap: widget.onExpand,
+                                child: MusicCover(
+                                  music: currentMusic,
+                                  size: BmTokens.miniPlayerCover,
+                                  radius: BmTokens.rPill,
+                                ),
+                              ),
+                              const SizedBox(width: BmTokens.s3),
+                              // 歌曲信息（点击标题/歌手也可进入详情页）
+                              Expanded(
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: widget.onExpand,
+                                  child: _buildSongInfo(
+                                    colors,
+                                    type,
+                                    currentPlayerState,
+                                    currentMusic,
                                   ),
                                 ),
                               ),
+                              // 控制按钮
+                              BmIconButton(
+                                icon: currentPlayerState is PlayerPlaying
+                                    ? Icons.pause_rounded
+                                    : Icons.play_arrow_rounded,
+                                tooltip: currentPlayerState is PlayerPlaying
+                                    ? '暂停'
+                                    : '播放',
+                                color: colors.accent,
+                                iconSize: BmTokens.iconLarge,
+                                hitSize: BmTokens.touchScreen,
+                                onPressed: _togglePlay,
+                              ),
+                              BmIconButton(
+                                icon: Icons.playlist_play_rounded,
+                                tooltip: '播放列表',
+                                iconSize: BmTokens.iconLarge,
+                                hitSize: BmTokens.touchScreen,
+                                onPressed: widget.onPlayList,
+                              ),
                             ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                );
-              },
+                  ),
+                ),
+                // 滑切歌提示，画在浮块外
+                if (currentMusic != null && absDragX > 20)
+                  _buildSwipeHint(colors),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 左右拖动时的切歌提示（上一首 / 下一首图标）。
+  ///
+  /// 画在浮块的圆角裁剪之外，落在拖动让出来的空白里；[BmTokens.s5] 是离
+  /// 浮块的最大间距，越拖越靠外、越拖越大。
+  Widget _buildSwipeHint(BmColors colors) {
+    final drag = _dragX.abs();
+    final previous = _dragX > 0;
+    return Positioned(
+      left: previous
+          ? -BmTokens.touchScreen - (drag * 0.2).clamp(0.0, BmTokens.s5)
+          : null,
+      right: previous
+          ? null
+          : -BmTokens.touchScreen - (drag * 0.2).clamp(0.0, BmTokens.s5),
+      top: 0,
+      bottom: 0,
+      child: Center(
+        child: Transform.scale(
+          scale: (0.5 + drag / 200).clamp(0.5, 1.2),
+          child: Opacity(
+            opacity: ((drag - 20) / 40).clamp(0.0, 1.0),
+            child: Icon(
+              previous ? Icons.skip_previous_rounded : Icons.skip_next_rounded,
+              color: colors.textPrimary,
+              size: BmTokens.touchScreen,
             ),
           ),
         ),
@@ -411,11 +375,11 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
   }
 
   Widget _buildSongInfo(
-    Color textPrimary,
-    Color textSecondary,
+    BmColors colors,
+    BmTypographySet type,
     PlayerState playerState,
+    Music? music,
   ) {
-    final music = ref.read(playerCoordinatorProvider).currentMusic;
     final fading = isCrossfading(playerState);
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -425,16 +389,15 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
           music?.title ?? 'Not Playing',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: textPrimary,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
+          style: type.label.copyWith(
+            color: colors.textPrimary,
+            fontWeight: FontWeight.w600,
           ),
         ),
         if (music != null) ...[
           const SizedBox(height: 2),
           AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
+            duration: BmMotion.large,
             transitionBuilder: switcherFadeTransition,
             child: fading
                 ? const CrossfadeIndicator()
@@ -443,7 +406,7 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
                     key: const ValueKey('artist'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: textSecondary, fontSize: 12),
+                    style: type.caption.copyWith(color: colors.textSecondary),
                   ),
           ),
         ],
@@ -451,44 +414,24 @@ class _MiniPlayerBarState extends ConsumerState<MiniPlayerBar>
     );
   }
 
-  Widget _buildProgressBar(
-    BoxConstraints constraints,
-    Color progressColor,
-    Duration position,
-  ) {
-    final music = ref.read(playerCoordinatorProvider).currentMusic;
+  Widget _buildProgressFill(BmColors colors, Duration position, Music? music) {
     final duration = music?.duration ?? Duration.zero;
     final p = duration.inMilliseconds == 0
         ? 0.0
         : (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: p),
-      duration: AppTokens.standardDuration,
-      curve: AppTokens.standardEasing,
+      duration: BmMotion.progress,
+      curve: BmMotion.linear,
       builder: (context, value, child) {
-        return Container(
-          width: constraints.maxWidth * value,
-          color: progressColor,
+        return FractionallySizedBox(
+          widthFactor: value,
+          heightFactor: 1,
+          child: ColoredBox(
+            color: colors.accent.withValues(alpha: BmAlpha.miniFill),
+          ),
         );
       },
-    );
-  }
-
-  Widget _buildPlayButton(PlayerState state) {
-    final isPlaying = state is PlayerPlaying;
-    final accent = Theme.of(context).colorScheme.primary;
-    return GestureDetector(
-      onTap: _togglePlay,
-      child: Container(
-        width: 44,
-        height: 44,
-        alignment: Alignment.center,
-        child: Icon(
-          isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-          color: accent,
-          size: 28,
-        ),
-      ),
     );
   }
 }

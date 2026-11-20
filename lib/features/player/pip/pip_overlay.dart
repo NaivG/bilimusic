@@ -1,26 +1,49 @@
-import 'dart:ui';
+import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:window_manager/window_manager.dart';
+
+import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/player/models/player_state.dart';
+import 'package:bilimusic/features/player/now_playing/color_extractor.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/player/pip/pip_service.dart';
 import 'package:bilimusic/features/player/widgets/crossfade_indicator.dart';
-import 'package:bilimusic/features/playlist/playlist_providers.dart';
-import 'package:bilimusic/shared/theme/app_palette.dart';
-import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/features/player/widgets/playback_buttons.dart';
+import 'package:bilimusic/features/playlist/playlist_providers.dart'
+    show currentMusicProvider;
+import 'package:bilimusic/features/settings/settings_provider.dart';
+import 'package:bilimusic/shared/motion/motion_scope.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
+import 'package:bilimusic/shared/ui/stage/bm_audio_quality_badge.dart';
+import 'package:bilimusic/shared/ui/stage/bm_stage_backdrop.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
 import 'package:bilimusic/shared/utils/formatters.dart';
 import 'package:bilimusic/shared/widgets/music_cover.dart';
-import 'package:window_manager/window_manager.dart';
 
-/// 桌面端画中画覆盖层。
-///
-/// 布局：左侧封面顶满窗口高度（正方形，切歌时旧封面左滑淡出、新封面自右滑入），
-/// 右侧控制区自上而下为歌曲信息、可拖动进度条（带时间显示）与传输控件。
+/// 小窗专用紧凑尺寸：窗口内容只有约 134 逻辑像素高，详情页控制行的常规尺寸放不下。
+const double _closeButtonSize = 24;
+const double _sideButtonSize = 30;
+const double _mainButtonSize = 36;
+
+/// 桌面端画中画（PiP）小窗。
 class PipOverlay extends ConsumerWidget {
   const PipOverlay({super.key});
+
+  /// 内容四周留白：Stage 卡片的 s3。
+  static const EdgeInsets _padding = EdgeInsets.all(BmTokens.s3);
+
+  /// 封面缩略图边长上限；窗口被拉高时不让封面吞掉控制区。
+  static const double _maxCover = 176;
+
+  /// 系统字号放大的上限。窗口高度固定，1.2 倍是右栏还能完整放下的极限。
+  static const double _maxTextScale = 1.2;
 
   void _togglePlay(PlayerState state, WidgetRef ref) {
     final commands = ref.read(playbackCommandsProvider.notifier);
@@ -33,80 +56,187 @@ class PipOverlay extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentMusic = ref.watch(currentMusicProvider);
+    final music = ref.watch(currentMusicProvider);
     final playerState = ref.watch(playerStateProvider);
+    final fluid = ref.watch(
+      settingsProvider.select((settings) => settings.fluidBackground),
+    );
 
+    // 小窗背景透明：圆角靠 ClipRRect 裁，角上露出的桌面由窗口透明度负责，
+    // 不能再垫一层不透明的 Scaffold 底色，否则圆角会被填成直角。
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: ClipRRect(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        child: Stack(
-          children: [
-            _buildBackground(context),
-            // 空白区域拖动窗口；交互控件位于上层，各自消费手势
-            Positioned.fill(
-              child: MouseRegion(
-                cursor: SystemMouseCursors.move,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onPanStart: (_) => windowManager.startDragging(),
-                  child: const SizedBox.expand(),
+      body: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: _maxTextScale,
+        child: ClipRRect(
+          borderRadius: BmTokens.r14All,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _PipStageBackdrop(music: music, fluid: fluid),
+              const _PipStageScrim(),
+              // 拖动层垫在内容下面：Text / Image 的 RenderObject 会吸收命中，
+              // 所以下面把封面、文字这些非交互子树包进 IgnorePointer，
+              // 让它们落到这一层上。
+              Positioned.fill(
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.move,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onPanStart: (_) => windowManager.startDragging(),
+                    child: const SizedBox.expand(),
+                  ),
                 ),
               ),
-            ),
-            Positioned.fill(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _PipCoverPanel(music: currentMusic),
-                  Expanded(
-                    child: _PipControlPanel(
-                      music: currentMusic,
-                      playerState: playerState,
-                      onTogglePlay: () => _togglePlay(playerState, ref),
-                    ),
-                  ),
-                ],
+              Padding(
+                padding: _padding,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final coverSize = math.min(
+                      constraints.maxHeight,
+                      math.min(_maxCover, constraints.maxWidth * 0.42),
+                    );
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        IgnorePointer(
+                          child: _PipCover(music: music, size: coverSize),
+                        ),
+                        const SizedBox(width: BmTokens.s3),
+                        Expanded(
+                          child: _PipControlPanel(
+                            music: music,
+                            playerState: playerState,
+                            onTogglePlay: () => _togglePlay(playerState, ref),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildBackground(BuildContext context) {
-    final palette = context.appPalette;
-    return BackdropFilter(
-      filter: ImageFilter.blur(
-        sigmaX: AppTokens.overlayBlurSigma,
-        sigmaY: AppTokens.overlayBlurSigma,
-      ),
-      child: Container(color: palette.surfaceOverlay),
+/// Stage 打底：封面虚化 / 主色纯色，跟随设置里的「流体背景效果」。
+///
+/// 封面主色优先命中 [ColorExtractor] 的缓存；没取过色时先留旧色，
+/// 等异步结果回来再让 [BmStageBackdrop] 做颜色过渡。
+class _PipStageBackdrop extends StatefulWidget {
+  const _PipStageBackdrop({required this.music, required this.fluid});
+
+  final Music? music;
+  final bool fluid;
+
+  @override
+  State<_PipStageBackdrop> createState() => _PipStageBackdropState();
+}
+
+class _PipStageBackdropState extends State<_PipStageBackdrop> {
+  String _coverUrl = '';
+  Color? _dominantColor;
+
+  @override
+  void initState() {
+    super.initState();
+    _track(widget.music?.coverUrl ?? '');
+  }
+
+  @override
+  void didUpdateWidget(_PipStageBackdrop oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.music?.coverUrl != widget.music?.coverUrl) {
+      _track(widget.music?.coverUrl ?? '');
+    }
+  }
+
+  /// 记录当前封面主色。同步命中缓存时不 setState：调用点后紧跟一次 build。
+  void _track(String coverUrl) {
+    _coverUrl = coverUrl;
+    if (coverUrl.isEmpty) {
+      _dominantColor = null;
+      return;
+    }
+    final cached = ColorExtractor.cachedColorOf(coverUrl);
+    if (cached != null) {
+      _dominantColor = cached;
+      return;
+    }
+
+    final requested = coverUrl;
+    unawaited(
+      ColorExtractor.extractColorFromUrl(requested).then((color) {
+        if (!mounted || _coverUrl != requested) return;
+        setState(() => _dominantColor = color);
+      }),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BmStageBackdrop(
+      coverUrl: _coverUrl,
+      dominantColor: _dominantColor,
+      fallbackColor: Theme.of(context).colorScheme.primary,
+      fluid: widget.fluid,
+      cacheManager: imageCacheManager,
     );
   }
 }
 
-/// 左侧封面面板：顶满窗口高度的正方形。
+/// 文字可读性遮罩：整体压暗 + 文字列（右半边）再压深一档。
+///
+/// 封面虚化层亮度不可控（近白封面会把白字压到 4.5:1 以下），而小窗的曲名
+/// 直接从封面右缘开始，比详情页（文字在封面下方、另有底部渐暗）更需要压暗。
+/// 这里只压背景，不压左侧封面缩略图（封面画在遮罩之上）。
+/// 透明度是艺术化压暗，不套 UI 状态层档位。
+class _PipStageScrim extends StatelessWidget {
+  const _PipStageScrim();
+
+  @override
+  Widget build(BuildContext context) {
+    return const IgnorePointer(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: <Color>[Color(0x00000000), Color(0x8C000000)],
+            stops: <double>[0.05, 1.0],
+          ),
+        ),
+        child: ColoredBox(color: Color(0x40000000)),
+      ),
+    );
+  }
+}
+
+/// 左侧封面缩略图。
 ///
 /// 切歌动画：旧封面向左滑出 + 淡出，新封面自右滑入 + 淡入。
 /// 不用 AnimatedSwitcher——两个子项需要相反方向的位移，
 /// 用单个 AnimationController 显式编排入场/出场两份动画。
-class _PipCoverPanel extends StatefulWidget {
-  final Music? music;
+class _PipCover extends StatefulWidget {
+  const _PipCover({required this.music, required this.size});
 
-  const _PipCoverPanel({required this.music});
+  final Music? music;
+  final double size;
 
   @override
-  State<_PipCoverPanel> createState() => _PipCoverPanelState();
+  State<_PipCover> createState() => _PipCoverState();
 }
 
-class _PipCoverPanelState extends State<_PipCoverPanel>
+class _PipCoverState extends State<_PipCover>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: AppTokens.layoutDuration,
-  );
+    duration: BmMotion.xlarge,
+  )..addStatusListener(_onStatus);
 
   // 入场：自右滑入 + 淡入
   late final Animation<Offset> _inSlide = Tween<Offset>(
@@ -143,23 +273,31 @@ class _PipCoverPanelState extends State<_PipCoverPanel>
   void initState() {
     super.initState();
     _current = widget.music;
-    _controller.addStatusListener((status) {
-      if (status == AnimationStatus.completed && mounted && _outgoing != null) {
-        setState(() => _outgoing = null);
-      }
-    });
   }
 
   @override
-  void didUpdateWidget(covariant _PipCoverPanel oldWidget) {
+  void didUpdateWidget(covariant _PipCover oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // key 含 bvid + cid，是队列域的唯一标识
+    // key 含 bvid + cid，是队列域的唯一标识。
     if (oldWidget.music?.key != widget.music?.key) {
+      final reduceMotion = reduceMotionOf(context);
       setState(() {
-        _outgoing = _current;
+        // reduce motion 下不留旧封面，避免控制器已停在终点时状态回调
+        // 不再触发、_outgoing 永远清不掉。
+        _outgoing = reduceMotion ? null : _current;
         _current = widget.music;
       });
-      _controller.forward(from: 0);
+      if (reduceMotion) {
+        _controller.value = 1;
+      } else {
+        _controller.forward(from: 0);
+      }
+    }
+  }
+
+  void _onStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed && mounted && _outgoing != null) {
+      setState(() => _outgoing = null);
     }
   }
 
@@ -169,306 +307,199 @@ class _PipCoverPanelState extends State<_PipCoverPanel>
     super.dispose();
   }
 
+  Widget _cover(BuildContext context, Music? music) {
+    final colors = context.bmColors;
+    return MusicCover(
+      music: music,
+      size: widget.size,
+      radius: null,
+      placeholderColor: colors.stageControlFill,
+      placeholderIconColor: colors.stageTextSecondary,
+      fadeInDuration: motionDuration(context, BmMotion.medium),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // 正方形边长跟随窗口高度
-        final side = constraints.maxHeight;
-        final currentCover = MusicCover(music: _current, size: side);
-        final outgoingCover = _outgoing == null
-            ? null
-            : MusicCover(music: _outgoing, size: side);
+    final side = widget.size;
+    final currentCover = _cover(context, _current);
+    final outgoingCover = _outgoing == null ? null : _cover(context, _outgoing);
 
-        return SizedBox(
-          // 钉死正方形边长：Row 给非 flex 子项的主轴宽度是无穷大，
-          // 而「只有 Positioned 子项的 Stack」会取 constraints.biggest，
-          // 不钉住会撑出无穷宽直接崩溃
-          width: side,
-          height: side,
-          child: ClipRect(
-            child: Stack(
-              children: [
-                if (outgoingCover != null) ...[
-                  Positioned.fill(
-                    child: FadeTransition(
-                      opacity: _outFade,
-                      child: SlideTransition(
-                        position: _outSlide,
-                        child: outgoingCover,
-                      ),
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: FadeTransition(
-                      opacity: _inFade,
-                      child: SlideTransition(
-                        position: _inSlide,
-                        child: currentCover,
-                      ),
-                    ),
-                  ),
-                ] else
-                  // 无动画期直接平铺，避免首帧停留在 opacity 0
-                  Positioned.fill(child: currentCover),
-              ],
+    return SizedBox(
+      // 钉死边长
+      width: side,
+      height: side,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BmTokens.r10All,
+          boxShadow: [
+            BoxShadow(
+              color: context.bmColors.shadowStrong,
+              blurRadius: BmTokens.s4,
+              offset: const Offset(0, BmTokens.s1),
             ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BmTokens.r10All,
+          child: Stack(
+            children: [
+              if (outgoingCover != null) ...[
+                Positioned.fill(
+                  child: FadeTransition(
+                    opacity: _outFade,
+                    child: SlideTransition(
+                      position: _outSlide,
+                      child: outgoingCover,
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: FadeTransition(
+                    opacity: _inFade,
+                    child: SlideTransition(
+                      position: _inSlide,
+                      child: currentCover,
+                    ),
+                  ),
+                ),
+              ] else
+                // 无动画期直接平铺，避免首帧停留在 opacity 0。
+                Positioned.fill(child: currentCover),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
 
-/// 右侧控制面板：歌曲信息 / 进度条 / 传输控件
+/// 右侧控制面板：曲名 / 歌手 / 进度条 / 传输控件
 class _PipControlPanel extends ConsumerWidget {
-  final Music? music;
-  final PlayerState playerState;
-  final VoidCallback onTogglePlay;
-
   const _PipControlPanel({
     required this.music,
     required this.playerState,
     required this.onTogglePlay,
   });
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textPrimary = colorScheme.onSurface;
-    final textSecondary = colorScheme.onSurfaceVariant;
-    final hasMusic = music != null;
-    final isPlaying = playerState is PlayerPlaying;
-    final commands = ref.read(playbackCommandsProvider.notifier);
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 14, 8, 10),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _SongInfo(
-                  music: music,
-                  playerState: playerState,
-                  textPrimary: textPrimary,
-                  textSecondary: textSecondary,
-                ),
-              ),
-              _PipIconButton(
-                icon: Icons.close_rounded,
-                iconSize: 16,
-                iconColor: textSecondary,
-                tooltip: '退出小窗',
-                onTap: () => PipService().exitPipMode(),
-              ),
-            ],
-          ),
-          _PipSeekBar(music: music),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _PipIconButton(
-                icon: Icons.skip_previous_rounded,
-                iconSize: 24,
-                iconColor: textPrimary,
-                tooltip: '上一首',
-                onTap: hasMusic ? () => commands.playPrevious() : null,
-              ),
-              const SizedBox(width: 18),
-              _PipPlayButton(
-                isPlaying: isPlaying,
-                enabled: hasMusic,
-                tooltip: isPlaying ? '暂停' : '播放',
-                onTap: onTogglePlay,
-              ),
-              const SizedBox(width: 18),
-              _PipIconButton(
-                icon: Icons.skip_next_rounded,
-                iconSize: 24,
-                iconColor: textPrimary,
-                tooltip: '下一首',
-                onTap: hasMusic ? () => commands.playNext() : null,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 歌名 + 歌手（crossfade 期间歌手行切换为过渡指示器）
-class _SongInfo extends StatelessWidget {
   final Music? music;
   final PlayerState playerState;
-  final Color textPrimary;
-  final Color textSecondary;
-
-  const _SongInfo({
-    required this.music,
-    required this.playerState,
-    required this.textPrimary,
-    required this.textSecondary,
-  });
+  final VoidCallback onTogglePlay;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.bmColors;
+    final type = context.bmType;
+    final hasMusic = music != null;
+    final isPlaying = playerState is PlayerPlaying;
     final fading = isCrossfading(playerState);
+    final commands = ref.read(playbackCommandsProvider.notifier);
+    final actualQuality = ref.watch(actualQualityProvider);
+    final qualityId = actualQuality.isEmpty
+        ? ref.watch(
+            settingsProvider.select((settings) => settings.audioQuality),
+          )
+        : actualQuality;
+
+    // 没有曲目时按钮不可用：用统一的禁用档压暗图标，避免无底色按钮看不出禁用。
+    final controlColor = hasMusic
+        ? colors.stageText
+        : colors.stageText.withValues(alpha: BmAlpha.disabled);
+
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          music?.title ?? 'Not Playing',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: textPrimary,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        if (music != null) ...[
-          const SizedBox(height: 2),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            transitionBuilder: switcherFadeTransition,
-            child: fading
-                ? const CrossfadeIndicator()
-                : Text(
-                    music!.artist.displayName,
-                    key: const ValueKey('artist'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: textSecondary, fontSize: 11.5),
-                  ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-/// 小窗圆形图标按钮（带悬停底色）
-class _PipIconButton extends StatefulWidget {
-  final IconData icon;
-  final double iconSize;
-  final Color iconColor;
-  final String tooltip;
-  final VoidCallback? onTap;
-
-  const _PipIconButton({
-    required this.icon,
-    required this.iconSize,
-    required this.iconColor,
-    required this.tooltip,
-    this.onTap,
-  });
-
-  @override
-  State<_PipIconButton> createState() => _PipIconButtonState();
-}
-
-class _PipIconButtonState extends State<_PipIconButton> {
-  bool _hover = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final enabled = widget.onTap != null;
-    final button = MouseRegion(
-      cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: AppTokens.microDuration,
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: enabled && _hover
-                ? widget.iconColor.withValues(alpha: 0.12)
-                : Colors.transparent,
-          ),
-          child: Icon(
-            widget.icon,
-            size: widget.iconSize,
-            color: enabled
-                ? widget.iconColor
-                : widget.iconColor.withValues(alpha: 0.4),
-          ),
-        ),
-      ),
-    );
-    return Tooltip(message: widget.tooltip, child: button);
-  }
-}
-
-/// 播放/暂停按钮：实心主色圆 + 悬停微缩放
-class _PipPlayButton extends StatefulWidget {
-  final bool isPlaying;
-  final bool enabled;
-  final String tooltip;
-  final VoidCallback onTap;
-
-  const _PipPlayButton({
-    required this.isPlaying,
-    required this.enabled,
-    required this.tooltip,
-    required this.onTap,
-  });
-
-  @override
-  State<_PipPlayButton> createState() => _PipPlayButtonState();
-}
-
-class _PipPlayButtonState extends State<_PipPlayButton> {
-  bool _hover = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final background = widget.enabled
-        ? colorScheme.primary
-        : colorScheme.onSurface.withValues(alpha: 0.10);
-    final iconColor = widget.enabled
-        ? colorScheme.onPrimary
-        : colorScheme.onSurfaceVariant.withValues(alpha: 0.6);
-
-    return Tooltip(
-      message: widget.tooltip,
-      child: MouseRegion(
-        cursor: widget.enabled ? SystemMouseCursors.click : MouseCursor.defer,
-        onEnter: (_) => setState(() => _hover = true),
-        onExit: (_) => setState(() => _hover = false),
-        child: GestureDetector(
-          onTap: widget.enabled ? widget.onTap : null,
-          child: AnimatedScale(
-            scale: _hover && widget.enabled ? 1.06 : 1.0,
-            duration: AppTokens.microDuration,
-            curve: AppTokens.standardEasing,
-            child: AnimatedContainer(
-              duration: AppTokens.microDuration,
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: background,
-              ),
-              child: Icon(
-                widget.isPlaying
-                    ? Icons.pause_rounded
-                    : Icons.play_arrow_rounded,
-                size: 24,
-                color: iconColor,
+        Row(
+          children: [
+            Expanded(
+              // 非交互文字不吸收命中，让空白/文字处也能起拖窗口。
+              child: IgnorePointer(
+                child: Text(
+                  music?.title ?? 'Not Playing',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: type.bodyStrong.copyWith(color: colors.stageText),
+                ),
               ),
             ),
-          ),
+            const SizedBox(width: BmTokens.s2),
+            PlaybackControlButton(
+              icon: Icons.close_rounded,
+              size: _closeButtonSize,
+              iconSize: BmTokens.iconInline,
+              iconColor: colors.stageText,
+              semanticLabel: '退出小窗',
+              onTap: () => PipService().exitPipMode(),
+            ),
+          ],
         ),
-      ),
+        if (hasMusic) ...[
+          const SizedBox(height: 2),
+          IgnorePointer(
+            child: AnimatedSwitcher(
+              duration: BmMotion.medium,
+              transitionBuilder: switcherFadeTransition,
+              layoutBuilder: (currentChild, previousChildren) => Stack(
+                alignment: Alignment.centerLeft,
+                children: [...previousChildren, ?currentChild],
+              ),
+              child: fading
+                  ? const CrossfadeIndicator(key: ValueKey('crossfade'))
+                  : Text(
+                      music!.artist.displayName,
+                      key: const ValueKey('artist'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: type.caption.copyWith(
+                        color: colors.stageTextSecondary,
+                      ),
+                    ),
+            ),
+          ),
+        ],
+        const Spacer(),
+        _PipSeekBar(music: music),
+        const SizedBox(height: BmTokens.s1),
+        Row(
+          children: [
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  PlaybackControlButton(
+                    icon: Icons.skip_previous_rounded,
+                    size: _sideButtonSize,
+                    iconSize: BmTokens.icon,
+                    iconColor: controlColor,
+                    semanticLabel: '上一首',
+                    onTap: hasMusic ? () => commands.playPrevious() : null,
+                  ),
+                  const SizedBox(width: BmTokens.s2),
+                  PlaybackPlayPauseButton(
+                    isPlaying: isPlaying,
+                    size: _mainButtonSize,
+                    iconSize: BmTokens.iconLarge,
+                    iconColor: controlColor,
+                    semanticLabel: isPlaying ? '暂停' : '播放',
+                    onTap: hasMusic ? onTogglePlay : null,
+                  ),
+                  const SizedBox(width: BmTokens.s2),
+                  PlaybackControlButton(
+                    icon: Icons.skip_next_rounded,
+                    size: _sideButtonSize,
+                    iconSize: BmTokens.icon,
+                    iconColor: controlColor,
+                    semanticLabel: '下一首',
+                    onTap: hasMusic ? () => commands.playNext() : null,
+                  ),
+                ],
+              ),
+            ),
+            if (hasMusic)
+              IgnorePointer(child: BmAudioQualityBadge(qualityId: qualityId)),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -476,9 +507,9 @@ class _PipPlayButtonState extends State<_PipPlayButton> {
 /// 可拖动进度条 + 时间显示。
 /// 拖动期间显示预览值，松手后才真正 seek（与横屏进度条语义一致）。
 class _PipSeekBar extends ConsumerStatefulWidget {
-  final Music? music;
-
   const _PipSeekBar({required this.music});
+
+  final Music? music;
 
   @override
   ConsumerState<_PipSeekBar> createState() => _PipSeekBarState();
@@ -486,9 +517,12 @@ class _PipSeekBar extends ConsumerStatefulWidget {
 
 class _PipSeekBarState extends ConsumerState<_PipSeekBar> {
   static const double _laneHeight = 10;
-  static const double _barHeight = 4;
-  static const double _barHeightActive = 6;
-  static const double _thumbSize = 10;
+  static const double _barHeight = 3;
+  static const double _barHeightActive = 4;
+  static const double _thumbSize = 7;
+
+  /// 读屏/键盘微调步长。
+  static const Duration _nudgeStep = Duration(seconds: 5);
 
   double? _dragMs;
   bool _hovering = false;
@@ -506,19 +540,27 @@ class _PipSeekBarState extends ConsumerState<_PipSeekBar> {
         .read(playbackCommandsProvider.notifier)
         .seek(Duration(milliseconds: ms.round()));
     // seek 期间用户可能已经开始下一段拖动，只有预览值未变时才清除；
-    // await 期间小窗可能已退出，必须先判 mounted
+    // await 期间小窗可能已退出，必须先判 mounted。
     if (mounted && _dragMs == ms) {
       setState(() => _dragMs = null);
     }
   }
 
+  /// 无障碍微调：在当前进度上前后跳 5 秒，夹在 [0, duration] 内。
+  Future<void> _nudge(Duration delta) async {
+    final duration = widget.music?.duration ?? Duration.zero;
+    final current = ref.read(positionProvider);
+    var target = current + delta;
+    if (target < Duration.zero) target = Duration.zero;
+    if (duration > Duration.zero && target > duration) target = duration;
+    await ref.read(playbackCommandsProvider.notifier).seek(target);
+  }
+
   @override
   Widget build(BuildContext context) {
     final position = ref.watch(positionProvider);
-    final palette = context.appPalette;
-    final colorScheme = Theme.of(context).colorScheme;
-    final accent = colorScheme.primary;
-    final textSecondary = colorScheme.onSurfaceVariant;
+    final colors = context.bmColors;
+    final type = context.bmType;
 
     final duration = widget.music?.duration ?? Duration.zero;
     final durationMs = duration.inMilliseconds.toDouble();
@@ -529,121 +571,139 @@ class _PipSeekBarState extends ConsumerState<_PipSeekBar> {
     final active = _hovering || _dragMs != null;
     final enabled = widget.music != null && durationMs > 0;
 
-    final timeStyle = TextStyle(
-      color: textSecondary,
-      fontSize: 10.5,
-      fontWeight: FontWeight.w500,
-      fontFeatures: const [FontFeature.tabularFigures()],
+    final positionLabel = formatDuration(
+      Duration(milliseconds: effectiveMs.round()),
+    );
+    final durationLabel = formatDuration(duration);
+    final timeStyle = BmTypography.numeric(
+      type.micro.copyWith(color: colors.stageTextSecondary),
     );
 
     return Row(
       children: [
-        Text(
-          formatDuration(Duration(milliseconds: effectiveMs.round())),
-          style: timeStyle,
-        ),
-        const SizedBox(width: 8),
+        IgnorePointer(child: Text(positionLabel, style: timeStyle)),
+        const SizedBox(width: BmTokens.s2),
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
               final barWidth = constraints.maxWidth;
-              return MouseRegion(
-                cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
-                onEnter: (_) => setState(() => _hovering = true),
-                onExit: (_) => setState(() => _hovering = false),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTapDown: enabled
-                      ? (details) => _previewSeek(
-                          details.localPosition.dx,
-                          barWidth,
-                          durationMs,
-                        )
-                      : null,
-                  onTapUp: enabled ? (_) => _commitSeek() : null,
-                  onTapCancel: enabled
-                      ? () => setState(() => _dragMs = null)
-                      : null,
-                  onHorizontalDragStart: enabled
-                      ? (details) => _previewSeek(
-                          details.localPosition.dx,
-                          barWidth,
-                          durationMs,
-                        )
-                      : null,
-                  onHorizontalDragUpdate: enabled
-                      ? (details) => _previewSeek(
-                          details.localPosition.dx,
-                          barWidth,
-                          durationMs,
-                        )
-                      : null,
-                  onHorizontalDragEnd: enabled ? (_) => _commitSeek() : null,
-                  onHorizontalDragCancel: enabled
-                      ? () => setState(() => _dragMs = null)
-                      : null,
-                  child: SizedBox(
-                    height: 22,
-                    child: Center(
-                      child: SizedBox(
-                        height: _laneHeight,
-                        width: double.infinity,
-                        child: Stack(
-                          alignment: Alignment.centerLeft,
-                          children: [
-                            // 轨道
-                            Center(
-                              child: AnimatedContainer(
-                                duration: AppTokens.microDuration,
-                                curve: AppTokens.standardEasing,
-                                height: active ? _barHeightActive : _barHeight,
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: palette.surfaceHover,
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                              ),
-                            ),
-                            // 已播放部分
-                            FractionallySizedBox(
-                              widthFactor: fraction,
-                              child: Center(
+              return Semantics(
+                slider: true,
+                enabled: enabled,
+                label: '播放进度',
+                value: '$positionLabel / $durationLabel',
+                onIncrease: enabled
+                    ? () => unawaited(_nudge(_nudgeStep))
+                    : null,
+                onDecrease: enabled
+                    ? () => unawaited(_nudge(-_nudgeStep))
+                    : null,
+                child: MouseRegion(
+                  cursor: enabled
+                      ? SystemMouseCursors.click
+                      : MouseCursor.defer,
+                  onEnter: (_) => setState(() => _hovering = true),
+                  onExit: (_) => setState(() => _hovering = false),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: enabled
+                        ? (details) => _previewSeek(
+                            details.localPosition.dx,
+                            barWidth,
+                            durationMs,
+                          )
+                        : null,
+                    onTapUp: enabled ? (_) => _commitSeek() : null,
+                    onTapCancel: enabled
+                        ? () => setState(() => _dragMs = null)
+                        : null,
+                    onHorizontalDragStart: enabled
+                        ? (details) => _previewSeek(
+                            details.localPosition.dx,
+                            barWidth,
+                            durationMs,
+                          )
+                        : null,
+                    onHorizontalDragUpdate: enabled
+                        ? (details) => _previewSeek(
+                            details.localPosition.dx,
+                            barWidth,
+                            durationMs,
+                          )
+                        : null,
+                    onHorizontalDragEnd: enabled ? (_) => _commitSeek() : null,
+                    onHorizontalDragCancel: enabled
+                        ? () => setState(() => _dragMs = null)
+                        : null,
+                    child: SizedBox(
+                      height: 20,
+                      child: Center(
+                        child: SizedBox(
+                          height: _laneHeight,
+                          width: double.infinity,
+                          child: Stack(
+                            alignment: Alignment.centerLeft,
+                            children: [
+                              // 轨道
+                              Center(
                                 child: AnimatedContainer(
-                                  duration: AppTokens.microDuration,
-                                  curve: AppTokens.standardEasing,
+                                  duration: motionDuration(
+                                    context,
+                                    BmMotion.small,
+                                  ),
+                                  curve: BmMotion.standard,
                                   height: active
                                       ? _barHeightActive
                                       : _barHeight,
+                                  width: double.infinity,
                                   decoration: BoxDecoration(
-                                    color: accent,
-                                    borderRadius: BorderRadius.circular(3),
+                                    color: colors.stageBorder,
+                                    borderRadius: BmTokens.rPillAll,
                                   ),
                                 ),
                               ),
-                            ),
-                            // 悬停/拖动时显示的拇指
-                            if (active && enabled)
-                              Align(
-                                alignment: Alignment(fraction * 2 - 1, 0),
-                                child: Container(
-                                  width: _thumbSize,
-                                  height: _thumbSize,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: accent,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.25,
+                              // 已播放部分
+                              FractionallySizedBox(
+                                widthFactor: fraction,
+                                child: Center(
+                                  child: AnimatedContainer(
+                                    duration: motionDuration(
+                                      context,
+                                      BmMotion.small,
+                                    ),
+                                    curve: BmMotion.standard,
+                                    height: active
+                                        ? _barHeightActive
+                                        : _barHeight,
+                                    decoration: BoxDecoration(
+                                      color: colors.stageText,
+                                      borderRadius: BmTokens.rPillAll,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              // 悬停/拖动时显示的拇指
+                              if (active && enabled)
+                                Align(
+                                  alignment: Alignment(fraction * 2 - 1, 0),
+                                  child: Container(
+                                    width: _thumbSize,
+                                    height: _thumbSize,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: colors.stageText,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: colors.shadow,
+                                          blurRadius: 3,
+                                          offset: const Offset(0, 1),
                                         ),
-                                        blurRadius: 3,
-                                        offset: const Offset(0, 1),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -653,8 +713,8 @@ class _PipSeekBarState extends ConsumerState<_PipSeekBar> {
             },
           ),
         ),
-        const SizedBox(width: 8),
-        Text(formatDuration(duration), style: timeStyle),
+        const SizedBox(width: BmTokens.s2),
+        IgnorePointer(child: Text(durationLabel, style: timeStyle)),
       ],
     );
   }

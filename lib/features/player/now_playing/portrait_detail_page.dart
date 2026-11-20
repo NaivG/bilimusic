@@ -2,22 +2,25 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_lyric/core/lyric_controller.dart';
+import 'package:flutter_lyric/flutter_lyric.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 import 'package:bilimusic/features/lyrics/widgets/lyric_section.dart';
 import 'package:bilimusic/features/lyrics/lyric_source.dart';
 import 'package:bilimusic/features/player/now_playing/album_section.dart';
 import 'package:bilimusic/features/player/now_playing/now_playing_action_bar.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 import 'package:bilimusic/domain/music.dart' as model;
-import 'package:bilimusic/features/player/now_playing/detail_blur_background.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/player/widgets/sleep_timer_sheet.dart';
 import 'package:bilimusic/features/lan_sync/lan_sync_providers.dart';
 import 'package:bilimusic/features/lan_sync/ui/sync_panel.dart';
+import 'package:bilimusic/features/settings/settings_provider.dart';
 import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/ui/stage/bm_stage_backdrop.dart';
 import 'package:bilimusic/shared/utils/dialog_helpers.dart';
 import 'package:bilimusic/shared/utils/share_helpers.dart';
 
@@ -25,7 +28,6 @@ import 'package:bilimusic/shared/utils/share_helpers.dart';
 /// （封面 + 信息 + 操作 + 进度 + 5 按钮 + 音量 + 同步 / 定时 / 歌词）。
 class PortraitDetailPage extends ConsumerStatefulWidget {
   final model.Music music;
-  final Duration position;
   final Duration? duration;
   final bool isPlaying;
   final bool isFavorite;
@@ -48,7 +50,6 @@ class PortraitDetailPage extends ConsumerStatefulWidget {
   const PortraitDetailPage({
     super.key,
     required this.music,
-    required this.position,
     required this.duration,
     required this.isPlaying,
     required this.isFavorite,
@@ -146,14 +147,17 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage>
 
   @override
   Widget build(BuildContext context) {
+    final fluid = ref.watch(
+      settingsProvider.select((settings) => settings.fluidBackground),
+    );
+
     return Scaffold(
-      backgroundColor:
-          widget.dominantColor?.withValues(alpha: 0.4) ?? Colors.black,
+      backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
       appBar: _buildAppBar(context),
       body: Stack(
         children: [
-          _buildBackground(),
+          Positioned.fill(child: _buildBackground(context, fluid)),
           Column(
             children: [
               Expanded(child: _buildContentStack()),
@@ -201,10 +205,13 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage>
     );
   }
 
-  Widget _buildBackground() {
-    return DetailBlurBackground(
-      dominantColor: widget.dominantColor,
+  Widget _buildBackground(BuildContext context, bool fluid) {
+    return BmStageBackdrop(
       coverUrl: widget.music.coverUrl,
+      dominantColor: widget.dominantColor,
+      fallbackColor: Theme.of(context).colorScheme.primary,
+      fluid: fluid,
+      cacheManager: imageCacheManager,
     );
   }
 
@@ -259,6 +266,7 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage>
         title: widget.music.title,
         artist: widget.music.artist.displayName,
         album: widget.music.album,
+        duration: widget.duration ?? Duration.zero,
         dominantColor: widget.dominantColor,
         isFavorite: widget.isFavorite,
         trackId: widget.music.id,
@@ -284,7 +292,6 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage>
       artist: widget.music.artist.displayName,
       album: widget.music.album,
       lyricController: widget.lyricController,
-      position: widget.position,
       lyricSources: widget.lyricSources,
       selectedLyricId: widget.selectedLyricId,
       isLoadingLyrics: widget.isLoadingLyrics,
@@ -562,7 +569,8 @@ class _CoverArtwork extends StatelessWidget {
     }
 
     return CachedNetworkImage(
-      imageUrl: coverUrl,
+      imageUrl: biliSquareUrl(coverUrl, 640),
+      memCacheWidth: 640,
       fit: BoxFit.cover,
       placeholder: (context, url) => _buildPlaceholder(),
       errorWidget: (context, url, error) => _buildPlaceholder(),

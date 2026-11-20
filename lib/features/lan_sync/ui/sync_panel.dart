@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/core/network/network_config.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 import 'package:bilimusic/domain/lan_sync_mode.dart';
 import 'package:bilimusic/domain/peer_device.dart';
 import 'package:bilimusic/features/lan_sync/lan_sync_providers.dart';
@@ -12,6 +14,7 @@ import 'package:bilimusic/features/lan_sync/services/lan_sync_service.dart';
 import 'package:bilimusic/features/lan_sync/ui/device_visuals.dart';
 import 'package:bilimusic/features/lan_sync/ui/sync_page.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
+import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
 import 'package:bilimusic/shared/utils/dialog_helpers.dart';
 import 'package:bilimusic/shared/utils/formatters.dart';
 
@@ -339,19 +342,19 @@ class _SyncPanelState extends ConsumerState<SyncPanel> {
   }
 
   Future<void> _confirmDisconnect(PeerDevice peer) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showBmDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('断开连接？'),
-        content: Text('确定断开与「${peer.name}」的连接？\n配对信息会保留，可在设备管理页再次连接。'),
+      builder: (dialogContext) => BmDialog(
+        title: '断开连接？',
+        message: '确定断开与「${peer.name}」的连接？\n配对信息会保留，可在设备管理页再次连接。',
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('返回'),
+          BmDialogAction(
+            label: '返回',
+            onPressed: () => Navigator.of(dialogContext).pop(false),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('断开'),
+          BmDialogAction(
+            label: '断开',
+            onPressed: () => Navigator.of(dialogContext).pop(true),
           ),
         ],
       ),
@@ -781,8 +784,10 @@ class _CoverArt extends StatelessWidget {
         child: url.isEmpty
             ? const _CoverFallback()
             : Image.network(
-                url,
+                biliSquareUrl(url, 128),
                 fit: BoxFit.cover,
+                cacheWidth: 128,
+                headers: NetworkConfig.biliHeaders,
                 errorBuilder: (_, _, _) => const _CoverFallback(),
               ),
       ),

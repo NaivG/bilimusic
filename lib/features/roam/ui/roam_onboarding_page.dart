@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/domain/bili_image.dart';
 import 'package:bilimusic/domain/music.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/roam/models/roam_style.dart';
@@ -16,6 +17,7 @@ import 'package:bilimusic/features/roam/ui/import_config_dialog.dart';
 import 'package:bilimusic/features/roam/ui/roam_cover_waterfall.dart';
 import 'package:bilimusic/features/roam/ui/roam_playlist_picker.dart';
 import 'package:bilimusic/features/roam/ui/seed_card.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/theme/app_tokens.dart';
 import 'package:bilimusic/shared/utils/animations.dart';
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
@@ -827,14 +829,14 @@ class _SeedStepState extends ConsumerState<_SeedStep> {
     if (forward) {
       if (state.currentSectionIndex >= state.roundsCount - 1) return;
       _pageController.nextPage(
-        duration: AppTokens.standardDuration,
-        curve: AppTokens.standardEasing,
+        duration: BmMotion.medium,
+        curve: BmMotion.standard,
       );
     } else {
       if (state.currentSectionIndex <= 0) return;
       _pageController.previousPage(
-        duration: AppTokens.standardDuration,
-        curve: AppTokens.standardEasing,
+        duration: BmMotion.medium,
+        curve: BmMotion.standard,
       );
     }
   }
@@ -852,8 +854,8 @@ class _SeedStepState extends ConsumerState<_SeedStep> {
           if ((currentPage - next.currentSectionIndex).abs() > 0.01) {
             _pageController.animateToPage(
               next.currentSectionIndex,
-              duration: AppTokens.standardDuration,
-              curve: AppTokens.standardEasing,
+              duration: BmMotion.medium,
+              curve: BmMotion.standard,
             );
           }
         }
@@ -948,16 +950,16 @@ class _SeedStepState extends ConsumerState<_SeedStep> {
                     direction: _ArrowDirection.prev,
                     enabled: state.currentSectionIndex > 0,
                     onPressed: () => _pageController.previousPage(
-                      duration: AppTokens.standardDuration,
-                      curve: AppTokens.standardEasing,
+                      duration: BmMotion.medium,
+                      curve: BmMotion.standard,
                     ),
                   ),
                   _PageArrowButton(
                     direction: _ArrowDirection.next,
                     enabled: state.currentSectionIndex < state.roundsCount - 1,
                     onPressed: () => _pageController.nextPage(
-                      duration: AppTokens.standardDuration,
-                      curve: AppTokens.standardEasing,
+                      duration: BmMotion.medium,
+                      curve: BmMotion.standard,
                     ),
                   ),
                 ],
@@ -1286,8 +1288,8 @@ class _SeedBottomBar extends ConsumerWidget {
                     behavior: HitTestBehavior.opaque,
                     onTap: () => notifier.setSectionIndex(i),
                     child: AnimatedContainer(
-                      duration: AppTokens.standardDuration,
-                      curve: AppTokens.standardEasing,
+                      duration: BmMotion.medium,
+                      curve: BmMotion.standard,
                       margin: const EdgeInsets.symmetric(horizontal: 3),
                       width: i == state.currentSectionIndex ? 22 : 8,
                       height: 8,
@@ -2540,8 +2542,9 @@ class _CoverAvatar extends StatelessWidget {
       child: ClipOval(
         child: hasImage
             ? CachedNetworkImage(
-                imageUrl: data.imageUrl,
-                cacheKey: data.cacheKey,
+                imageUrl: biliSquareUrl(data.imageUrl, 192),
+                cacheKey: '${data.cacheKey}_192',
+                memCacheWidth: 192,
                 cacheManager: imageCacheManager,
                 httpHeaders: NetworkConfig.biliHeaders,
                 fit: BoxFit.cover,

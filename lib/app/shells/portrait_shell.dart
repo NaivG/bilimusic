@@ -9,10 +9,11 @@ import 'package:bilimusic/features/home/home_page.dart';
 import 'package:bilimusic/features/player/widgets/mini_player_bar.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
-import 'package:bilimusic/shared/theme/app_tokens.dart';
+import 'package:bilimusic/shared/motion/motion_tokens.dart';
+import 'package:bilimusic/shared/ui/chrome/bm_chrome.dart';
+import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 
-/// 竖屏模式外壳
-/// 主内容 + 迷你播放器 + 底部导航栏
+/// 竖屏模式外壳：铺满的页面内容 + 浮在上面的迷你播放器与浮动 Dock。
 class PortraitShell extends ConsumerStatefulWidget {
   final ShellPage currentPage;
   final ShellPageManager pageManager;
@@ -101,10 +102,17 @@ class _PortraitShellState extends ConsumerState<PortraitShell> {
     final alwaysShowMiniPlayer = ref.watch(
       settingsProvider.select((settings) => settings.alwaysShowMiniPlayer),
     );
-    return _buildPortraitLayout(context, alwaysShowMiniPlayer);
+    final blurEffect = ref.watch(
+      settingsProvider.select((settings) => settings.blurEffect),
+    );
+    return _buildPortraitLayout(context, alwaysShowMiniPlayer, blurEffect);
   }
 
-  Widget _buildPortraitLayout(BuildContext context, bool alwaysShowMiniPlayer) {
+  Widget _buildPortraitLayout(
+    BuildContext context,
+    bool alwaysShowMiniPlayer,
+    bool blurEffect,
+  ) {
     final selectedIndex = widget.pageManager.selectedTabIndex;
     final showMiniPlayer = _showMiniPlayer(alwaysShowMiniPlayer);
     final miniPlayerCanAutoHide = _miniPlayerCanAutoHide(alwaysShowMiniPlayer);
@@ -112,9 +120,22 @@ class _PortraitShellState extends ConsumerState<PortraitShell> {
     // 裁掉，呈现被键盘直接盖住的效果。
     // 你别管路子野不野，你就说有没有解决问题吧.jpg
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
-    final bottomInset = _showBottomBar
-        ? 0.0
-        : MediaQuery.viewPaddingOf(context).bottom;
+    final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
+    // 有 Dock 时 Dock 自己吃 safe area；没有 Dock 时迷你条自己让出底部安全区。
+    final dockBottom = BmTokens.dockBottom + safeBottom;
+    final miniBottom = _showBottomBar
+        ? BmTokens.miniPlayerBottom + safeBottom
+        : BmTokens.dockBottom + safeBottom;
+    // 页面铺到屏幕底，由浮动 chrome 盖在上面；滚动内容按这段高度留白，
+    // 这样内容能从 Dock / 迷你条下面滚过去，最后一项仍能滚到它们上方。
+    final double chromeInset;
+    if (_showBottomBar) {
+      chromeInset = BmTokens.portraitBottomBudget;
+    } else if (showMiniPlayer) {
+      chromeInset = BmTokens.miniPlayerOnlyBottomBudget;
+    } else {
+      chromeInset = 0;
+    }
 
     return Scaffold(
       appBar: widget.isPcPlatform
@@ -137,17 +158,24 @@ class _PortraitShellState extends ConsumerState<PortraitShell> {
             ),
             child: shellPageSwitcher(
               key: widget.pageManager.basePageKey,
-              child: _buildPageContent(widget.pageManager.baseEntry),
+              kind: widget.pageManager.lastTransitionKind,
+              direction: widget.pageManager.lastTransitionDirection,
+              // 让位包在页面内层：过渡期旧页保持自己的底距，两页互不干扰。
+              child: applyShellChromeInset(
+                context,
+                bottom: chromeInset,
+                child: _buildPageContent(widget.pageManager.baseEntry),
+              ),
             ),
           ),
           // 详情页独立动画层（与底层切换完全解耦）
           buildShellDetailLayer(currentPage: widget.currentPage),
-          // 悬浮迷你播放器
+          // 悬浮迷你播放器（Dock 上方）
           if (showMiniPlayer)
             Positioned(
-              left: 0,
-              right: 0,
-              bottom: 16 + bottomInset - keyboardInset,
+              left: BmTokens.miniPlayerInset,
+              right: BmTokens.miniPlayerInset,
+              bottom: miniBottom - keyboardInset,
               child: ValueListenableBuilder<bool>(
                 valueListenable: _miniPlayerHidden,
                 builder: (context, hidden, _) => _buildMiniPlayer(
@@ -156,51 +184,46 @@ class _PortraitShellState extends ConsumerState<PortraitShell> {
                 ),
               ),
             ),
+          // 浮动 Dock
+          if (_showBottomBar)
+            Positioned(
+              left: BmTokens.dockInset,
+              right: BmTokens.dockInset,
+              bottom: dockBottom,
+              child: BmDock(
+                items: _dockItems,
+                selectedIndex: selectedIndex,
+                onSelected: (index) => widget.pageManager.goToTab(index),
+                blur: blurEffect,
+              ),
+            ),
         ],
       ),
-      bottomNavigationBar: _showBottomBar
-          ? Container(
-              decoration: BoxDecoration(
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: BottomNavigationBar(
-                type: BottomNavigationBarType.fixed,
-                elevation: 0,
-                items: const [
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.home_outlined),
-                    activeIcon: Icon(Icons.home),
-                    label: '首页',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.explore_outlined),
-                    activeIcon: Icon(Icons.explore),
-                    label: '发现',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.person_outlined),
-                    activeIcon: Icon(Icons.person),
-                    label: '我的',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.settings_outlined),
-                    activeIcon: Icon(Icons.settings),
-                    label: '设置',
-                  ),
-                ],
-                currentIndex: selectedIndex,
-                onTap: (index) => widget.pageManager.goToTab(index),
-              ),
-            )
-          : null,
     );
   }
+
+  static const List<BmDockItem> _dockItems = <BmDockItem>[
+    BmDockItem(
+      icon: Icons.home_outlined,
+      activeIcon: Icons.home_rounded,
+      label: '首页',
+    ),
+    BmDockItem(
+      icon: Icons.explore_outlined,
+      activeIcon: Icons.explore_rounded,
+      label: '发现',
+    ),
+    BmDockItem(
+      icon: Icons.person_outline_rounded,
+      activeIcon: Icons.person_rounded,
+      label: '我的',
+    ),
+    BmDockItem(
+      icon: Icons.settings_outlined,
+      activeIcon: Icons.settings_rounded,
+      label: '设置',
+    ),
+  ];
 
   Widget _buildMiniPlayer(BuildContext context, {required bool hidden}) {
     return ExcludeSemantics(
@@ -209,20 +232,15 @@ class _PortraitShellState extends ConsumerState<PortraitShell> {
         ignoring: hidden,
         child: AnimatedSlide(
           offset: hidden ? const Offset(0, 2) : Offset.zero,
-          duration: AppTokens.standardDuration,
-          curve: AppTokens.standardEasing,
+          duration: BmMotion.medium,
+          curve: BmMotion.standard,
           child: AnimatedOpacity(
             opacity: hidden ? 0 : 1,
-            duration: AppTokens.standardDuration,
-            curve: AppTokens.standardEasing,
-            child: Center(
-              child: SizedBox(
-                width: MediaQuery.sizeOf(context).width * 0.95,
-                child: MiniPlayerBar(
-                  onExpand: () => widget.pageManager.push(ShellPage.detail),
-                  onPlayList: widget.onPlayList,
-                ),
-              ),
+            duration: BmMotion.medium,
+            curve: BmMotion.standard,
+            child: MiniPlayerBar(
+              onExpand: () => widget.pageManager.push(ShellPage.detail),
+              onPlayList: widget.onPlayList,
             ),
           ),
         ),

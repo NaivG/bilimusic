@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'app_component_themes.dart';
+import '../ui/theme/bm_theme.dart';
 import 'app_palette.dart';
-import 'app_tokens.dart';
 
 /// Verdant 主题颜色常量 —— 自然风格,米纸暖白底/深墨绿底 + 青竹绿 accent。
 abstract class VerdantColors {
@@ -37,6 +36,8 @@ abstract class VerdantColors {
   // ===== Semantic =====
   static const Color errorLight = Color(0xFFC0392B);
   static const Color errorDark = Color(0xFFFF6961);
+  static const Color warningLight = Color(0xFFB07D2B);
+  static const Color warningDark = Color(0xFFE0B252);
   static const Color successLight = Color(0xFF2E7D4F);
   static const Color successDark = Color(0xFF5FD08A);
 }
@@ -52,6 +53,8 @@ AppPalette _verdantPalette(Brightness brightness) {
       playBar: VerdantColors.surfaceContainerLight,
       seekBarActive: VerdantColors.onSurfaceLight,
       volumeBarActive: VerdantColors.onSurfaceLight,
+      warning: VerdantColors.warningLight,
+      success: VerdantColors.successLight,
       surfaceOverlay: Color(0xCCF6F4EE),
       surfaceHover: VerdantColors.surfaceContainerHighLight,
       surfacePressed: VerdantColors.surfaceContainerHighLight,
@@ -66,6 +69,8 @@ AppPalette _verdantPalette(Brightness brightness) {
     playBar: VerdantColors.surfaceContainerDark,
     seekBarActive: VerdantColors.onSurfaceVariantDark,
     volumeBarActive: VerdantColors.onSurfaceVariantDark,
+    warning: VerdantColors.warningDark,
+    success: VerdantColors.successDark,
     surfaceOverlay: Color(0xBF10160F),
     surfaceHover: VerdantColors.surfaceContainerHighDark,
     surfacePressed: VerdantColors.surfaceContainerHighDark,
@@ -132,57 +137,9 @@ ColorScheme _verdantColorScheme(Brightness brightness) {
 }
 
 ThemeData _buildVerdant(Brightness brightness) {
-  final scheme = _verdantColorScheme(brightness);
-  final palette = _verdantPalette(brightness);
-
-  return ThemeData(
-    colorScheme: scheme,
-    useMaterial3: true,
-    extensions: [palette],
-    snackBarTheme: AppComponentThemes.snackBar(scheme),
-    cardTheme: CardThemeData(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-      ),
-      elevation: 0,
-      color: scheme.surfaceContainer,
-    ),
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-        ),
-      ),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        borderSide: BorderSide(color: scheme.outlineVariant, width: 0.5),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        borderSide: BorderSide(color: scheme.outlineVariant, width: 0.5),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        borderSide: BorderSide(color: scheme.primary, width: 0.5),
-      ),
-      filled: true,
-      fillColor: scheme.surfaceContainer,
-    ),
-    scaffoldBackgroundColor: scheme.surface,
-    sliderTheme: SliderThemeData(
-      activeTrackColor: scheme.primary,
-      inactiveTrackColor: scheme.surfaceContainerHigh,
-      thumbColor: scheme.primary,
-      overlayColor: scheme.primary.withValues(alpha: 0.12),
-    ),
-    dividerTheme: DividerThemeData(
-      color: scheme.outline,
-      thickness: 0.5,
-      space: 0.5,
-    ),
-    dividerColor: scheme.outline,
+  return BmTheme.build(
+    scheme: _verdantColorScheme(brightness),
+    palette: _verdantPalette(brightness),
   );
 }
 

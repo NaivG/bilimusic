@@ -74,7 +74,7 @@ Vela、Chrome 扩展与 Flutter 端**不共享代码、不共享包管理**，�
 | 编排 | `lib/features/*/logic/`、`features/*/services/` | 播放编排、漫游、局域网同步、登录、收藏同步等业务流程 |
 | 领域模型 | `lib/domain/` | 纯共享数据模型（`Music`、`Playlist`、`BiliItem`、`PeerDevice`…），无 UI、无服务依赖 |
 | 基础设施 | `lib/core/network/`、`lib/core/storage/` | HTTP / Cookie / WBI、SQLite 与缓存；**必须纯 Dart** |
-| 视觉系统 | `lib/shared/theme/` | Palette、Token、六套主题（Lucent / Nocturne / Verdant / Gruvbox / Nord / Solarized）与运行时切换 |
+| 视觉系统 | `lib/shared/theme/`、`lib/shared/ui/`、`lib/shared/motion/` | 六套主题（Lucent / Nocturne / Verdant / Gruvbox / Nord / Solarized）与运行时切换；Lucent token / 原语 / 动效 |
 | 组合根 | `lib/app/app_providers.dart` | 长生命周期服务的创建与释放 |
 
 功能模块内部按关注面分目录（`ui/`、`widgets/`、`logic/`、`services/`、`models/`），不要求每个模块都建满这些目录——没有对应内容就不建。
@@ -131,6 +131,7 @@ lib/
 │   ├── auth/ fav_sync/         # 登录态与收藏夹导入 / 同步
 │   ├── home/ search/ discover/ following/ artist/ taste/ profile/  # 首页、搜索、发现、关注、UP 主、口味画像、个人中心
 │   ├── settings/ update/       # 设置（含音效与均衡器、音频输出）、更新检查与应用内更新
+│   ├── onboarding/             # 通用引导页：首启全量、升级弹窗、last_boot_version 门控
 │   ├── diagnostics/            # 音频后端诊断页（只读采集）
 │   └── storage/                # 数据库落点冲突的最小 shell（跑在 ProviderContainer 之前）
 └── shared/                     # 跨模块共享：widgets/、theme/（六套主题）、utils/
@@ -223,6 +224,7 @@ test/                           # 单元 / 组件测试，按关注面分目录
 ## 本地存储与数据库落点
 
 - **SQLite**：数据库访问都经 `AppDatabase`（`core/storage/database.dart`），歌单、收藏、历史都在 `playlist.db`。设置走 `shared_preferences`，网络资源与歌词走缓存（`CacheManager`），歌曲可另存为离线缓存。
+- **缓存预算**：音乐与图片缓存是**按字节预算淘汰的 LRU**（`core/storage/size_lru_cache.dart` + `core/storage/cache_manager.dart` 的 `SizeBoundedCacheManager`），默认 512 MiB / 256 MiB，设置页「数据 → 音乐/图片缓存上限」可调（64 MiB ~ 8 GiB）。超过预算时按 `CacheObject.touched` 从最久未用往前删；`flutter_cache_manager` 自带的按条数、按时间淘汰都已关掉，淘汰只由大小决定。预算经组合根 `settingsManagerProvider` 写入 `CacheBudget`，改设置不需要重建缓存管理器；改完调 `LocalStorage.enforceCacheLimits()` 立即释放。歌词缓存仍是按条数的普通 `CacheManager`。
 - **桌面端落点不变量**：数据库必须落在应用数据目录，不能跟着 `Directory.current` 走。`sqflite_common_ffi` 的默认落点是相对 cwd 的 `.dart_tool/sqflite_common_ffi/databases`，换个启动方式就会静默读到另一个空库。
 - **盘上不止一份库时**：判据只有「数一数盘上有几份非空主库」，出口三个：
 

@@ -1,5 +1,6 @@
 import 'package:bilimusic/domain/artist.dart';
 import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/shared/utils/html_entities.dart';
 import 'package:bilimusic/shared/utils/title_meta_filter.dart';
 
 /// 搜索结果类型枚举
@@ -54,14 +55,12 @@ class SearchResult {
     if (title.contains('<em') && title.contains('</em>')) {
       title = title.replaceAll(RegExp(r'<[^>]*>'), '');
     }
-    title = title
-        .replaceAll('&quot;', '"')
-        .replaceAll('&amp;', '&')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>');
+    // 搜索接口给的是 HTML 转义后的文本（如 `'` 写作 `&#x27;`），view 接口
+    // 给原文；这里一次还原，保证同一稿件两条链路的标题一致。
+    title = decodeHtmlEntities(title);
 
-    // 实验性标题元数据过滤：只对视频稿件的标题做。作者名 / 话题名 /
-    // 番剧名不过滤——避免误伤「MV制作组」这类用户名（开关关闭时原样返回）。
+    // 标题过滤规则（正则）：只对视频稿件的标题做。作者名 / 话题名 /
+    // 番剧名不过滤——避免误伤「MV制作组」这类用户名（关闭时原样返回）。
     if (type == SearchResultType.video) {
       title = TitleMetaFilter.maybeClean(title);
     }
@@ -112,7 +111,10 @@ class SearchResult {
   ) {
     switch (type) {
       case SearchResultType.video:
-        return '${json['author'] ?? '未知作者'} - ${json['tag'] ?? ''}';
+        // 作者与分区标签同样来自搜索接口，一并还原 HTML 实体。
+        return decodeHtmlEntities(
+          '${json['author'] ?? '未知作者'} - ${json['tag'] ?? ''}',
+        );
       case SearchResultType.author:
       case SearchResultType.upuser:
         final fans = _formatCount(json['fans']);
@@ -123,11 +125,11 @@ class SearchResult {
             if (videos.isNotEmpty) '$videos投稿',
           ].join(' · ');
         }
-        return (json['usign'] ?? '').toString();
+        return decodeHtmlEntities((json['usign'] ?? '').toString());
       case SearchResultType.album:
-        return (json['author'] ?? '未知作者').toString();
+        return decodeHtmlEntities((json['author'] ?? '未知作者').toString());
       case SearchResultType.bangumi:
-        return (json['desc'] ?? '').toString();
+        return decodeHtmlEntities((json['desc'] ?? '').toString());
       case SearchResultType.topic:
         return '${json['thread'] ?? 0} 讨论';
     }

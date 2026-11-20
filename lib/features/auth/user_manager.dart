@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/cupertino.dart' show ChangeNotifier, debugPrint;
+import 'package:flutter/scheduler.dart' show SchedulerBinding, SchedulerPhase;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:bilimusic/core/network/bili_client.dart';
@@ -24,6 +25,9 @@ class UserManager extends ChangeNotifier {
   UserInfo? _userInfo;
   bool _isLoggedIn = false;
   DateTime? _lastFetchTime;
+
+  /// 是否有一帧内的通知待补发
+  bool _notifyScheduled = false;
 
   /// 缓存的用户信息（可能为 null）
   UserInfo? get userInfo => _userInfo;
@@ -53,9 +57,25 @@ class UserManager extends ChangeNotifier {
         _lastFetchTime = null;
         _persist();
       }
-      notifyListeners();
+      _notify();
     }
     return _isLoggedIn;
+  }
+
+  /// 通知监听者；构建 / 布局 / 绘制期间推迟到本帧结束后再发。
+  void _notify() {
+    if (SchedulerBinding.instance.schedulerPhase !=
+        SchedulerPhase.persistentCallbacks) {
+      notifyListeners();
+      return;
+    }
+    // 同一帧内的多次变化只需补发一次，监听者读的都是当前值。
+    if (_notifyScheduled) return;
+    _notifyScheduled = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _notifyScheduled = false;
+      notifyListeners();
+    });
   }
 
   // ==================== 获取 / 刷新用户信息 ====================
@@ -87,7 +107,7 @@ class UserManager extends ChangeNotifier {
     _isLoggedIn = false;
     _lastFetchTime = null;
     await _persist();
-    notifyListeners();
+    _notify();
   }
 
   // ==================== 内部 API 调用 ====================
@@ -110,7 +130,7 @@ class UserManager extends ChangeNotifier {
       _isLoggedIn = true;
       _lastFetchTime = DateTime.now();
       await _persist();
-      notifyListeners();
+      _notify();
       return _userInfo;
     } on BiliException catch (e) {
       debugPrint('[UserManager] 获取用户信息失败: $e');

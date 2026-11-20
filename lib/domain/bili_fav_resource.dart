@@ -77,8 +77,8 @@ class FavResource {
     return FavResource(
       id: json['id'] is int ? json['id'] as int : 0,
       type: json['type'] is int ? json['type'] as int : 0,
-      // 实验性标题元数据过滤：设置开启时清掉【MV】【中字】这类元信息，
-      // 关闭时原样返回（收藏夹列表展示与 fav_sync 导入共用这里）。
+      // 标题过滤规则（正则）：设置开启时清掉【MV】【中字】这类元信息与
+      // 用户自定义片段，关闭时原样返回（收藏夹列表展示与 fav_sync 导入共用）。
       title: TitleMetaFilter.maybeClean(json['title']?.toString() ?? ''),
       cover: json['cover']?.toString() ?? '',
       intro: json['intro']?.toString() ?? '',

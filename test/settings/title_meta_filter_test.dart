@@ -248,4 +248,93 @@ void main() {
       expect(TitleMetaFilter.maybeClean(''), '');
     });
   });
+
+  group('内置正则规则：频道口号（百万豪装录音棚）', () {
+    test('尾部的口号整段删掉，歌名与书名号保留', () {
+      final r = TitleMetaFilter.clean('郭静《心墙》百万豪装录音棚大声听');
+      expect(r.cleaned, '郭静《心墙》');
+      expect(r.removed, ['百万豪装录音棚大声听']);
+    });
+
+    test('前缀带「在」的口号同样删掉，音质标识保留', () {
+      final r = TitleMetaFilter.clean('在百万豪装录音棚大声听 林忆莲《词不达意》【Hi-res】');
+      expect(r.cleaned, '林忆莲《词不达意》【Hi-res】');
+      expect(r.removed, ['在百万豪装录音棚大声听']);
+    });
+
+    test('口号与噪音括号混在同一标题里，两种规则各删各的', () {
+      final r = TitleMetaFilter.clean('【MV】百万豪装录音棚大声听【中字】');
+      expect(r.cleaned, '【MV】百万豪装录音棚大声听【中字】');
+      expect(r.changed, isFalse);
+    });
+
+    test('口号被换行拆开也能删掉', () {
+      final r = TitleMetaFilter.clean('郭静《心墙》百万豪装录音棚\n大声听');
+      expect(r.cleaned, '郭静《心墙》');
+    });
+
+    test('不含口号的标题不受影响', () {
+      expect(TitleMetaFilter.clean('百万富翁').changed, isFalse);
+      expect(TitleMetaFilter.clean('录音棚现场版').changed, isFalse);
+    });
+  });
+
+  group('自定义正则规则', () {
+    tearDown(() => TitleMetaFilter.userRules = const []);
+
+    test('命中片段被从标题里删掉（括号内外都算）', () {
+      TitleMetaFilter.userRules = const [TitleFilterRule(source: '高频彩蛋')];
+      final r = TitleMetaFilter.clean('曲名 高频彩蛋【中字】');
+      expect(r.cleaned, '曲名');
+      expect(r.removed, ['高频彩蛋', '【中字】']);
+    });
+
+    test('自定义规则可以写括号与分组', () {
+      TitleMetaFilter.userRules = const [
+        TitleFilterRule(source: '【?翻自[:：][^】]*】?'),
+      ];
+      expect(TitleMetaFilter.clean('曲名【翻自：某某】').cleaned, '曲名');
+    });
+
+    test('非法正则被跳过，内置规则照常生效', () {
+      TitleMetaFilter.userRules = const [TitleFilterRule(source: '(')];
+      expect(TitleFilterRule(source: '(').isValid, isFalse);
+      expect(TitleMetaFilter.clean('曲名【MV】').cleaned, '曲名');
+    });
+
+    test('全角写法同样命中自定义规则（折半角后匹配），输出保留原文', () {
+      TitleMetaFilter.userRules = const [TitleFilterRule(source: 'abc')];
+      final r = TitleMetaFilter.clean('曲名ＡＢＣ【Live】');
+      expect(r.cleaned, '曲名【Live】');
+    });
+
+    test('规则列表切换后编译缓存失效', () {
+      TitleMetaFilter.userRules = const [TitleFilterRule(source: '甲')];
+      expect(TitleMetaFilter.clean('曲名甲').cleaned, '曲名');
+      TitleMetaFilter.userRules = const [TitleFilterRule(source: '乙')];
+      expect(TitleMetaFilter.clean('曲名甲').changed, isFalse);
+      expect(TitleMetaFilter.clean('曲名乙').cleaned, '曲名');
+    });
+  });
+
+  group('TitleFilterRule 编解码', () {
+    test('往返保持顺序与源码', () {
+      const rules = [
+        TitleFilterRule(source: '百万豪装录音棚'),
+        TitleFilterRule(source: r'(?<![a-z])mv(?![a-z])'),
+      ];
+      final decoded = TitleFilterRule.decodeList(
+        TitleFilterRule.encodeList(rules),
+      );
+      expect(decoded.map((r) => r.source), rules.map((r) => r.source));
+    });
+
+    test('空 / 非法 JSON / 非字符串数组一律退回空列表', () {
+      expect(TitleFilterRule.decodeList(null), isEmpty);
+      expect(TitleFilterRule.decodeList(''), isEmpty);
+      expect(TitleFilterRule.decodeList('{'), isEmpty);
+      expect(TitleFilterRule.decodeList('[1, null]'), isEmpty);
+      expect(TitleFilterRule.decodeList('[" "]'), isEmpty);
+    });
+  });
 }
