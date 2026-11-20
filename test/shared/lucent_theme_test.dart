@@ -10,14 +10,42 @@ void main() {
   test('注册表：6 个主题、id 唯一', () {
     expect(ThemeRegistry.all.length, 6);
     expect(ThemeRegistry.all.map((t) => t.id).toSet().length, 6);
-    expect(ThemeRegistry.defaultTheme.id, 'theater');
+    expect(ThemeRegistry.defaultTheme.id, 'lucent');
   });
 
-  test('旧 id 兼容：lucent 回落到 theater', () {
-    expect(ThemeRegistry.resolve('lucent').id, 'theater');
+  test('旧 id 兼容：theater 回落到 lucent', () {
+    expect(ThemeRegistry.resolve('theater').id, 'lucent');
     expect(ThemeRegistry.resolve('nocturne').id, 'nocturne');
-    expect(ThemeRegistry.resolve(null).id, 'theater');
-    expect(ThemeRegistry.resolve('不存在的主题').id, 'theater');
+    expect(ThemeRegistry.resolve(null).id, 'lucent');
+    expect(ThemeRegistry.resolve('不存在的主题').id, 'lucent');
+  });
+
+  test('默认主题 = 旧 Lucent 色板', () {
+    final light = ThemeRegistry.defaultTheme.light();
+    expect(light.colorScheme.primary, const Color(0xFF30B0C7));
+    expect(light.colorScheme.surface, const Color(0xFFFAF9F7));
+    final dark = ThemeRegistry.defaultTheme.dark();
+    expect(dark.colorScheme.primary, const Color(0xFF4DD0E1));
+    expect(dark.colorScheme.surface, const Color(0xFF1C1C1E));
+  });
+
+  test('默认主题与 Verdant / Solarized 的色板不撞色', () {
+    final lucent = ThemeRegistry.defaultTheme;
+    for (final other in <String>['verdant', 'solarized']) {
+      final descriptor = ThemeRegistry.resolve(other);
+      for (final brightness in Brightness.values) {
+        expect(
+          lucent.paletteAccent(brightness),
+          isNot(descriptor.paletteAccent(brightness)),
+          reason: '${descriptor.id} · $brightness accent',
+        );
+        expect(
+          lucent.paletteSurface(brightness),
+          isNot(descriptor.paletteSurface(brightness)),
+          reason: '${descriptor.id} · $brightness surface',
+        );
+      }
+    }
   });
 
   for (final descriptor in ThemeRegistry.all) {

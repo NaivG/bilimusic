@@ -48,7 +48,7 @@ class SettingsState {
   const SettingsState({
     this.notificationsEnabled = true,
     this.appearance = 'system',
-    this.theme = 'theater',
+    this.theme = 'lucent',
     this.autoPlayNext = true,
     this.alwaysShowMiniPlayer = true,
     this.showLyrics = true,

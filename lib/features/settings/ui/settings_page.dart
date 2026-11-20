@@ -281,7 +281,8 @@ class SettingsPage extends ConsumerWidget {
           valueLeading: ThemePaletteDots(descriptor: descriptor),
           valueLabel: descriptor.label,
           options: themeSelectOptions(),
-          selected: settings.theme,
+          // descriptor 归一值。
+          selected: descriptor.id,
           onChanged: notifier.setTheme,
           menuWidth: 300,
         ),

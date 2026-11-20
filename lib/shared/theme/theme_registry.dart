@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'gruvbox_theme.dart';
+import 'lucent_theme.dart';
 import 'nocturne_theme.dart';
 import 'nord_theme.dart';
 import 'solarized_theme.dart';
-import 'theater_theme.dart';
 import 'verdant_theme.dart';
 
 /// 主题描述符 —— 在设置页选择器中渲染色板预览,以及给 [MaterialApp] 提供
@@ -24,28 +24,28 @@ abstract class AppThemeDescriptor {
   Color paletteSurface(Brightness brightness);
 }
 
-class _TheaterDescriptor extends AppThemeDescriptor {
+class _LucentDescriptor extends AppThemeDescriptor {
   @override
-  String get id => 'theater';
+  String get id => 'lucent';
   @override
-  String get label => 'Theater (默认)';
+  String get label => 'Lucent (默认)';
   @override
-  String? get subtitle => '暖纸白 · 墨黑 · 湖水青 · 舞台金';
+  String? get subtitle => 'iOS 风格 · 暖灰底 · 湖水青 accent';
 
   @override
-  ThemeData light() => TheaterTheme.lightTheme();
+  ThemeData light() => LucentTheme.lightTheme();
   @override
-  ThemeData dark() => TheaterTheme.darkTheme();
+  ThemeData dark() => LucentTheme.darkTheme();
 
   @override
   Color paletteAccent(Brightness brightness) => brightness == Brightness.light
-      ? TheaterColors.teal
-      : TheaterColors.stageTeal;
+      ? LucentColors.primaryLight
+      : LucentColors.primaryDark;
 
   @override
   Color paletteSurface(Brightness brightness) => brightness == Brightness.light
-      ? TheaterColors.paper
-      : TheaterColors.stageBlack;
+      ? LucentColors.surfaceLight
+      : LucentColors.surfaceDark;
 }
 
 class _NocturneDescriptor extends AppThemeDescriptor {
@@ -173,7 +173,7 @@ class ThemeRegistry {
   ThemeRegistry._();
 
   static final List<AppThemeDescriptor> all = [
-    _TheaterDescriptor(),
+    _LucentDescriptor(),
     _NocturneDescriptor(),
     _VerdantDescriptor(),
     _SolarizedDescriptor(),
@@ -185,10 +185,9 @@ class ThemeRegistry {
     for (final t in all) t.id: t,
   };
 
-  /// 旧 id → 当前 id 的兼容映射：Theater 取代了 Lucent，
-  /// 老用户盘上的 `lucent` 不能直接把主题回退成别的。
+  /// 旧 id → 当前 id 的兼容映射
   static const Map<String, String> _legacyIds = <String, String>{
-    'lucent': 'theater',
+    'theater': 'lucent',
   };
 
   static AppThemeDescriptor get defaultTheme => all.first;
