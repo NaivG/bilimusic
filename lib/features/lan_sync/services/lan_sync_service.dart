@@ -93,6 +93,13 @@ class LanSyncService {
 
   bool _started = false;
   LanSyncMode _mode = LanSyncMode.off;
+
+  /// 是否有一轮模式收敛（[_drainApplyMode]）正在跑。
+  bool _applying = false;
+
+  /// 是否有尚未收敛的模式变更（含收敛执行期间到达的变更）。
+  bool _applyModeDirty = false;
+
   Timer? _broadcastDebouncer;
   Timer? _playlistBroadcastDebouncer;
   final Map<String, String> _pendingPinCodes = {};
@@ -171,7 +178,43 @@ class LanSyncService {
     final newMode = LanSyncMode.fromString(settings.lanSyncMode);
     if (newMode == _mode) return;
     _mode = newMode;
-    unawaited(_applyMode(newMode));
+    _applyModeDirty = true;
+    _scheduleApplyMode();
+  }
+
+  /// 单飞调度 [_applyMode]：收敛未结束时不再另起一轮，只更新 dirty 标记。
+  ///
+  /// 一轮收敛结束后会检查 [_applyModeDirty]，有变更就接着收敛，避免丢掉
+  /// 最后一次设置变更。
+  void _scheduleApplyMode() {
+    if (_applying) return;
+    unawaited(_drainApplyMode());
+  }
+
+  Future<void> _drainApplyMode() async {
+    if (_applying) return;
+    _applying = true;
+    var target = _mode;
+    try {
+      do {
+        if (!_started) return;
+        _applyModeDirty = false;
+        target = _mode;
+        try {
+          await _applyMode(target);
+        } catch (e) {
+          // 收敛失败只记日志：设置变更不应把未处理异常丢进事件循环。
+          if (kDebugMode) {
+            debugPrint('LanSyncService: apply mode failed: $e');
+          }
+        }
+        // 循环条件同时看 dirty 和 _mode：执行期间到达的变更一定被追上，
+        // 不依赖 Future 完成后的任何回调时序。
+      } while (_started && (_applyModeDirty || _mode != target));
+    } finally {
+      // 同步复位，和循环判断之间没有 await，不存在"变更被单飞标记吞掉"的窗口。
+      _applying = false;
+    }
   }
 
   /// 按 [mode] 收敛监听端口、会话与 mDNS 广播。

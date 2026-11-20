@@ -137,12 +137,11 @@ packages:
     source: hosted
     version: "7.0.1"
   bonsoir_windows:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: bonsoir_windows
-      sha256: "22ca4c5dcba2b95fcedb723132a5d65930df3d69634f169eb327c366c9f89151"
-      url: "https://pub.dev"
-    source: hosted
+      path: "packages/bonsoir_windows"
+      relative: true
+    source: path
     version: "7.3.1"
   boolean_selector:
     dependency: transitive

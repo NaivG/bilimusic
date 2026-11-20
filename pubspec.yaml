@@ -149,6 +149,13 @@ dependency_overrides:
   audio_session:
     path: packages/audio_session
 
+  # Windows 的 mDNS 实现：bonsoir_windows 7.3.1（pub.dev 最新版）原生 C++ 里
+  # DNS-SD 回调线程与平台线程会并发改/读同一个 BonsoirService，只要打开局域网同步后每次退出
+  # 会必定把进程崩飞。
+  # 修复对应上游 Issue #156 和 #159
+  bonsoir_windows:
+    path: packages/bonsoir_windows
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
