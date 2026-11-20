@@ -1,3 +1,5 @@
+import 'package:bilimusic/shared/utils/html_entities.dart';
+
 /// 搜索联想词。
 class SearchSuggest {
   /// 提交搜索时使用的关键词（部分条目的 value 会带空格/运算符，以它为准）。
@@ -48,38 +50,11 @@ class SearchSuggest {
 }
 
 final RegExp _tagPattern = RegExp(r'<[^>]*>');
-final RegExp _entityPattern = RegExp(r'&(#x?[0-9a-fA-F]+|[a-zA-Z]+);');
 
 /// 剥掉联想词 `name` 里的高亮标签，并还原常见 HTML 实体。
 String stripSuggestMarkup(String raw) {
   if (raw.isEmpty) return raw;
   if (!raw.contains('<') && !raw.contains('&')) return raw;
 
-  final withoutTags = raw.replaceAll(_tagPattern, '');
-  return withoutTags.replaceAllMapped(_entityPattern, (match) {
-    final entity = match.group(1)!;
-    switch (entity) {
-      case 'amp':
-        return '&';
-      case 'lt':
-        return '<';
-      case 'gt':
-        return '>';
-      case 'quot':
-        return '"';
-      case 'apos':
-        return "'";
-      case 'nbsp':
-        return ' ';
-    }
-    if (entity.startsWith('#x') || entity.startsWith('#X')) {
-      final code = int.tryParse(entity.substring(2), radix: 16);
-      return code == null ? match.group(0)! : String.fromCharCode(code);
-    }
-    if (entity.startsWith('#')) {
-      final code = int.tryParse(entity.substring(1));
-      return code == null ? match.group(0)! : String.fromCharCode(code);
-    }
-    return match.group(0)!;
-  });
+  return decodeHtmlEntities(raw.replaceAll(_tagPattern, ''));
 }

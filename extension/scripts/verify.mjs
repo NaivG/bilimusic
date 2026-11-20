@@ -168,9 +168,23 @@ eq(cleanTitle('&quot;晴天&quot;'), '"晴天"', '解 &quot;')
 eq(cleanTitle('a &amp; b'), 'a & b', '解 &amp;')
 eq(cleanTitle(null), '', '标题为 null 返回空串（不是字符串 "null"）')
 eq(cleanTitle('<em>A</em> &lt;b&gt;'), 'A <b>', '先剥标签后解实体')
+eq(
+  cleanTitle('ABM - &#x27;[呀啦啦啦]ヤラララ&#x27; (YARARARA) feat. 重音テト'),
+  "ABM - '[呀啦啦啦]ヤラララ' (YARARARA) feat. 重音テト",
+  '解 &#x27;（与 BV 直取一致）'
+)
+eq(cleanTitle('&#20320;&#x597d;&#X27;'), "你好'", '解十进制 / 十六进制实体')
+eq(cleanTitle('&#x1F600;'), '😀', '解星界码点')
+eq(cleanTitle('&amp;#x27;'), '&#x27;', '只解一层实体')
+eq(cleanTitle('&unknown; &#xD800;'), '&unknown; &#xD800;', '非法实体原样保留')
 
 // 副标题六种类型
 eq(buildSubtitle({ author: 'UP主A', tag: '音乐' }, 'video'), 'UP主A - 音乐', 'video 副标题')
+eq(
+  buildSubtitle({ author: 'A&amp;B', tag: '&#x27;Live&#x27;' }, 'video'),
+  "A&B - 'Live'",
+  'video 副标题解实体'
+)
 eq(buildSubtitle({ fans: 1234 }, 'author'), '1234 粉丝', 'author 副标题')
 eq(buildSubtitle({ desc: '简介' }, 'bangumi'), '简介', 'bangumi 副标题')
 eq(buildSubtitle({ thread: 9 }, 'topic'), '9 讨论', 'topic 副标题')

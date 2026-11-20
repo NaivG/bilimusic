@@ -40,9 +40,43 @@ export function mapResultType(raw) {
   }
 }
 
+/** 命名实体表：B 站接口实际会产出的 XML 五个 + `nbsp`（与 Flutter 端一致） */
+const NAMED_ENTITIES = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+}
+
+/**
+ * 还原接口文本里的 HTML 实体。
+ *
+ * 与 `lib/shared/utils/html_entities.dart` 的 `decodeHtmlEntities` 对齐。
+ *
+ * @param {string} raw
+ * @returns {string}
+ */
+function decodeEntities(raw) {
+  if (!raw.includes('&')) return raw
+  const entityPattern = /&(#(?:[xX][0-9a-fA-F]+|[0-9]+)|[a-zA-Z][a-zA-Z0-9]*);/g
+  return raw.replace(entityPattern, (match, body) => {
+    if (body[0] !== '#') return NAMED_ENTITIES[body] ?? match
+    const hex = body.length > 1 && (body[1] === 'x' || body[1] === 'X')
+    const code = Number.parseInt(body.slice(hex ? 2 : 1), hex ? 16 : 10)
+    if (!Number.isFinite(code) || code <= 0 || code > 0x10ffff) return match
+    // 代理区（U+D800–U+DFFF）不能单独成字符
+    if (code >= 0xd800 && code <= 0xdfff) return match
+    return String.fromCodePoint(code)
+  })
+}
+
 /**
  * 搜出来的标题是富文本：关键词被 `<em>` 包着。先剥标签再解实体，
  * 顺序不能反（`&lt;em&gt;` 这类会被误伤）。
+ *
+ * 实体要解全：`'` 在搜索接口里写成 `&#x27;`，漏了就会和 BV 直取的标题对不上。
  *
  * @param {string} raw
  * @returns {string}
@@ -53,11 +87,7 @@ export function cleanTitle(raw) {
   if (title.includes('<em') && title.includes('</em>')) {
     title = title.replace(/<[^>]*>/g, '')
   }
-  return title
-    .replace(/&quot;/g, '"')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
+  return decodeEntities(title)
 }
 
 /**
@@ -70,17 +100,17 @@ export function cleanTitle(raw) {
 export function buildSubtitle(json, type) {
   switch (type) {
     case 'video':
-      return `${json.author ?? '未知作者'} - ${json.tag ?? ''}`
+      return decodeEntities(`${json.author ?? '未知作者'} - ${json.tag ?? ''}`)
     case 'author':
       return `${json.fans ?? ''} 粉丝`
     case 'album':
-      return json.author ?? '未知作者'
+      return decodeEntities(String(json.author ?? '未知作者'))
     case 'bangumi':
-      return json.desc ?? ''
+      return decodeEntities(String(json.desc ?? ''))
     case 'topic':
       return `${json.thread ?? 0} 讨论`
     case 'upuser':
-      return json.uname ?? ''
+      return decodeEntities(String(json.uname ?? ''))
     default:
       return ''
   }

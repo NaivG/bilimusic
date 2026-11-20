@@ -146,6 +146,7 @@ void main() {
 
     test('数字实体也可还原', () {
       expect(stripSuggestMarkup('&#20320;&#x597d;&nbsp;'), '你好 ');
+      expect(stripSuggestMarkup('&#x27;A&amp;B&#x27;'), "'A&B'");
     });
   });
 
