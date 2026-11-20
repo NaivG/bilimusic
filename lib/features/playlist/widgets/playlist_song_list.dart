@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/features/offline/logic/offline_cache_index.dart';
+import 'package:bilimusic/features/offline/offline_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/shared/motion/bm_pressable.dart';
 import 'package:bilimusic/shared/motion/motion_scope.dart';
@@ -22,7 +24,7 @@ import 'package:bilimusic/shared/widgets/music_menu_button.dart';
 /// 歌单曲目表：白卡 + 58 行（横屏 56）。
 ///
 /// 表头「曲目 / N 首 · 总时长」、当前行 `accentSoft` 底 + 跳动条、
-/// 行尾更多菜单；支持多选与拖拽排序。
+/// 行尾更多菜单；支持多选（批量删除 / 批量缓存）与拖拽排序。
 ///
 /// 曲目数据由调用方一次性给全（全量在内存里），这里只负责把整份列表交给
 /// sliver 按滚动视口懒构建：滚到哪构建到哪，滚出视口的行随之回收。
@@ -37,8 +39,14 @@ class PlaylistSongList extends ConsumerStatefulWidget {
 
   /// 批量删除回调，返回是否实际删除。
   ///
-  /// 非空时表头显示「多选」入口。
+  /// 与 [onCacheMany] 任一非空时表头显示「多选」入口。
   final Future<bool> Function(List<Music>)? onRemoveMany;
+
+  /// 批量缓存回调：把多选中的曲目交给离线缓存链路。
+  ///
+  /// 传入的是选中曲目（按曲目表顺序），已缓存/音质足够的跳过逻辑由回调方
+  /// 的批量下载流程负责；回调内部通常展示进度对话框，返回时缓存已结束。
+  final Future<void> Function(List<Music>)? onCacheMany;
   final bool isEditable;
   final bool isLandscape;
 
@@ -53,6 +61,7 @@ class PlaylistSongList extends ConsumerStatefulWidget {
     this.onReorder,
     this.onRemove,
     this.onRemoveMany,
+    this.onCacheMany,
     this.isEditable = false,
     this.isLandscape = false,
     this.horizontalInset,
@@ -64,7 +73,10 @@ class PlaylistSongList extends ConsumerStatefulWidget {
 
 class _PlaylistSongListState extends ConsumerState<PlaylistSongList> {
   bool _selectionMode = false;
-  bool _isDeleting = false;
+
+  /// 当前进行中的批量操作：非空期间禁用工具栏，避免重复触发。
+  _BatchAction? _busyAction;
+
   final Set<String> _selectedKeys = <String>{};
 
   List<Music> get _selectedSongs =>
@@ -74,6 +86,12 @@ class _PlaylistSongListState extends ConsumerState<PlaylistSongList> {
 
   bool get _isReorderable =>
       widget.isEditable && widget.onReorder != null && !_selectionMode;
+
+  bool get _isBusy => _busyAction != null;
+
+  /// 有任一批量操作才需要多选入口；只读列表（如歌手投稿）保持原样。
+  bool get _hasBatchActions =>
+      widget.onRemoveMany != null || widget.onCacheMany != null;
 
   @override
   void didUpdateWidget(covariant PlaylistSongList oldWidget) {
@@ -123,9 +141,9 @@ class _PlaylistSongListState extends ConsumerState<PlaylistSongList> {
   Future<void> _deleteSelected() async {
     final songs = _selectedSongs;
     final onRemoveMany = widget.onRemoveMany;
-    if (songs.isEmpty || onRemoveMany == null || _isDeleting) return;
+    if (songs.isEmpty || onRemoveMany == null || _isBusy) return;
 
-    setState(() => _isDeleting = true);
+    setState(() => _busyAction = _BatchAction.delete);
     var removed = false;
     try {
       removed = await onRemoveMany(songs);
@@ -134,12 +152,30 @@ class _PlaylistSongListState extends ConsumerState<PlaylistSongList> {
     }
     if (!mounted) return;
     setState(() {
-      _isDeleting = false;
+      _busyAction = null;
       if (removed) {
         _selectionMode = false;
         _selectedKeys.clear();
       }
     });
+  }
+
+  /// 把选中的曲目交给离线缓存流程（已缓存的由批量链路跳过）。
+  ///
+  /// 缓存结束后保留多选态：失败/跳过的曲目可以立刻再操作一次。
+  Future<void> _cacheSelected() async {
+    final songs = _selectedSongs;
+    final onCacheMany = widget.onCacheMany;
+    if (songs.isEmpty || onCacheMany == null || _isBusy) return;
+
+    setState(() => _busyAction = _BatchAction.cache);
+    try {
+      await onCacheMany(songs);
+    } catch (_) {
+      // 错误提示由回调方负责，这里只恢复按钮状态。
+    }
+    if (!mounted) return;
+    setState(() => _busyAction = null);
   }
 
   @override
@@ -163,6 +199,10 @@ class _PlaylistSongListState extends ConsumerState<PlaylistSongList> {
 
     // 全量曲目直接进滚动容器：行由 sliver 按视口懒构建，不做行数截断。
     final count = widget.songs.length;
+    // 「已缓存」标记只在多选态用得上：普通浏览时不订阅离线表。
+    final cacheIndex = _selectionMode
+        ? ref.watch(offlineCacheIndexProvider)
+        : null;
 
     return SliverPadding(
       padding: EdgeInsets.symmetric(horizontal: horizontal),
@@ -188,9 +228,9 @@ class _PlaylistSongListState extends ConsumerState<PlaylistSongList> {
           slivers: [
             SliverToBoxAdapter(child: _buildHeader(context)),
             if (_isReorderable)
-              _buildReorderableList(context, count)
+              _buildReorderableList(context, count, cacheIndex)
             else
-              _buildSliverList(context, count),
+              _buildSliverList(context, count, cacheIndex),
           ],
         ),
       ),
@@ -234,14 +274,22 @@ class _PlaylistSongListState extends ConsumerState<PlaylistSongList> {
             fontWeight: FontWeight.w700,
           ),
         ),
-        const Spacer(),
-        Text(
-          '${widget.songs.length} 首 · $total',
-          style: BmTypography.numeric(
-            type.micro.copyWith(color: colors.textTertiary),
+        // 统计文本吃掉中间全部空间：窄屏 / 大字号下宁可省略，
+        // 也不把「多选」入口挤出可视区。
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              '${widget.songs.length} 首 · $total',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: BmTypography.numeric(
+                type.micro.copyWith(color: colors.textTertiary),
+              ),
+            ),
           ),
         ),
-        if (widget.onRemoveMany != null) ...[
+        if (_hasBatchActions) ...[
           const SizedBox(width: BmTokens.s2),
           _HeaderAction(
             icon: Icons.checklist_rounded,
@@ -254,6 +302,26 @@ class _PlaylistSongListState extends ConsumerState<PlaylistSongList> {
   }
 
   Widget _buildSelectionHeader(BuildContext context) {
+    // 完整标签（全选 / 缓存 / 删除 + 已选计数）在默认字号下约需 340 宽；
+    // 窄屏或大字号时放不下，就退化成图标按钮，把宽度留给「已选 N 首」，
+    // 同时保证 320 宽 + 系统大字号下也不会横向溢出。
+    final labelSize = context.bmType.label.fontSize ?? 13;
+    final textScale =
+        MediaQuery.textScalerOf(context).scale(labelSize) / labelSize;
+    final hasDelete = widget.onRemoveMany != null;
+    final fullWidth = (hasDelete ? 340.0 : 270.0) * textScale;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < fullWidth) {
+          return _buildCompactSelectionHeader(context);
+        }
+        return _buildLabeledSelectionHeader(context);
+      },
+    );
+  }
+
+  Widget _buildLabeledSelectionHeader(BuildContext context) {
     final colors = context.bmColors;
     final type = context.bmType;
     final count = _selectedSongs.length;
@@ -261,16 +329,20 @@ class _PlaylistSongListState extends ConsumerState<PlaylistSongList> {
 
     return Row(
       children: [
-        Text(
-          '已选 $count 首',
-          style: type.label.copyWith(
-            color: colors.accentDeep,
-            fontWeight: FontWeight.w600,
+        // 标题可压缩：窄屏下让位给操作按钮，不撑出横向溢出。
+        Expanded(
+          child: Text(
+            '已选 $count 首',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: type.label.copyWith(
+              color: colors.accentDeep,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
-        const Spacer(),
         TextButton(
-          onPressed: _isDeleting ? null : _toggleSelectAll,
+          onPressed: _isBusy ? null : _toggleSelectAll,
           style: TextButton.styleFrom(
             minimumSize: const Size(0, BmTokens.controlSm),
             padding: const EdgeInsets.symmetric(horizontal: BmTokens.s2),
@@ -280,64 +352,160 @@ class _PlaylistSongListState extends ConsumerState<PlaylistSongList> {
           ),
           child: Text(allSelected ? '取消全选' : '全选'),
         ),
-        const SizedBox(width: BmTokens.s1),
-        FilledButton.icon(
-          onPressed: count == 0 || _isDeleting ? null : _deleteSelected,
-          icon: _isDeleting
-              ? SizedBox.square(
-                  dimension: BmTokens.iconInline,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: colors.onDanger,
+        if (widget.onCacheMany != null) ...[
+          const SizedBox(width: BmTokens.s1),
+          TextButton.icon(
+            onPressed: count == 0 || _isBusy ? null : _cacheSelected,
+            icon: _busyAction == _BatchAction.cache
+                ? SizedBox.square(
+                    dimension: BmTokens.iconInline,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: colors.accentDeep,
+                    ),
+                  )
+                : const Icon(
+                    Icons.download_outlined,
+                    size: BmTokens.iconInline,
                   ),
-                )
-              : const Icon(Icons.delete_outline_rounded),
-          label: Text(count > 0 ? '删除 ($count)' : '删除'),
-          style: FilledButton.styleFrom(
-            backgroundColor: colors.danger,
-            foregroundColor: colors.onDanger,
-            disabledBackgroundColor: colors.danger.withValues(
-              alpha: BmAlpha.disabled,
+            label: const Text('缓存'),
+            style: TextButton.styleFrom(
+              foregroundColor: colors.accentDeep,
+              minimumSize: const Size(0, BmTokens.controlSm),
+              padding: const EdgeInsets.symmetric(horizontal: BmTokens.s2),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
             ),
-            disabledForegroundColor: colors.onDanger.withValues(
-              alpha: BmAlpha.disabled,
-            ),
-            minimumSize: const Size(0, BmTokens.controlSm),
-            padding: const EdgeInsets.symmetric(horizontal: BmTokens.s3),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-            shape: const StadiumBorder(),
           ),
-        ),
-        const SizedBox(width: BmTokens.s1),
-        BmPressable(
-          onTap: _isDeleting ? null : _exitSelectionMode,
-          borderRadius: BmTokens.r10All,
-          semanticLabel: '退出多选',
-          child: SizedBox.square(
-            dimension: BmTokens.controlSm,
-            child: Center(
-              child: Icon(
-                Icons.close_rounded,
-                size: BmTokens.iconMenu,
-                color: colors.textSecondary,
+        ],
+        if (widget.onRemoveMany != null) ...[
+          const SizedBox(width: BmTokens.s1),
+          FilledButton.icon(
+            onPressed: count == 0 || _isBusy ? null : _deleteSelected,
+            icon: _busyAction == _BatchAction.delete
+                ? SizedBox.square(
+                    dimension: BmTokens.iconInline,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: colors.onDanger,
+                    ),
+                  )
+                : const Icon(
+                    Icons.delete_outline_rounded,
+                    size: BmTokens.iconInline,
+                  ),
+            label: const Text('删除'),
+            style: FilledButton.styleFrom(
+              backgroundColor: colors.danger,
+              foregroundColor: colors.onDanger,
+              disabledBackgroundColor: colors.danger.withValues(
+                alpha: BmAlpha.disabled,
               ),
+              disabledForegroundColor: colors.onDanger.withValues(
+                alpha: BmAlpha.disabled,
+              ),
+              minimumSize: const Size(0, BmTokens.controlSm),
+              padding: const EdgeInsets.symmetric(horizontal: BmTokens.s3),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+              shape: const StadiumBorder(),
             ),
           ),
+        ],
+        const SizedBox(width: BmTokens.s1),
+        _SelectionIconAction(
+          icon: Icons.close_rounded,
+          label: '退出多选',
+          color: colors.textSecondary,
+          onTap: _isBusy ? null : _exitSelectionMode,
         ),
       ],
     );
   }
 
-  Widget _buildSliverList(BuildContext context, int count) {
+  /// 窄屏 / 大字号下的紧凑工具栏：图标按钮固定 28 宽，不随字号膨胀。
+  Widget _buildCompactSelectionHeader(BuildContext context) {
+    final colors = context.bmColors;
+    final type = context.bmType;
+    final count = _selectedSongs.length;
+    final allSelected = count == widget.songs.length;
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            '已选 $count 首',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: type.label.copyWith(
+              color: colors.accentDeep,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        _SelectionIconAction(
+          // 用方框勾选态表达「全部选中」，和文字版的 全选 / 取消全选 对应；
+          // select_all / deselect 两个字形在 16px 下几乎分不出来，不采用。
+          icon: allSelected
+              ? Icons.check_box_rounded
+              : Icons.check_box_outline_blank_rounded,
+          label: allSelected ? '取消全选' : '全选',
+          color: colors.textSecondary,
+          onTap: _isBusy ? null : _toggleSelectAll,
+        ),
+        if (widget.onCacheMany != null) ...[
+          const SizedBox(width: BmTokens.s1),
+          _SelectionIconAction(
+            icon: Icons.download_outlined,
+            label: count > 0 ? '缓存选中的 $count 首' : '缓存',
+            color: colors.accentDeep,
+            busy: _busyAction == _BatchAction.cache,
+            onTap: count == 0 || _isBusy ? null : _cacheSelected,
+          ),
+        ],
+        if (widget.onRemoveMany != null) ...[
+          const SizedBox(width: BmTokens.s1),
+          _SelectionIconAction(
+            icon: Icons.delete_outline_rounded,
+            label: count > 0 ? '删除选中的 $count 首' : '删除',
+            color: colors.danger,
+            busy: _busyAction == _BatchAction.delete,
+            onTap: count == 0 || _isBusy ? null : _deleteSelected,
+          ),
+        ],
+        const SizedBox(width: BmTokens.s1),
+        _SelectionIconAction(
+          icon: Icons.close_rounded,
+          label: '退出多选',
+          color: colors.textSecondary,
+          onTap: _isBusy ? null : _exitSelectionMode,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSliverList(
+    BuildContext context,
+    int count,
+    OfflineCacheIndex? cacheIndex,
+  ) {
     return SliverList(
       delegate: SliverChildBuilderDelegate((context, index) {
-        return _buildTrackRow(context, index, showDivider: index != count - 1);
+        return _buildTrackRow(
+          context,
+          index,
+          cacheIndex: cacheIndex,
+          showDivider: index != count - 1,
+        );
       }, childCount: count),
     );
   }
 
-  Widget _buildReorderableList(BuildContext context, int count) {
+  Widget _buildReorderableList(
+    BuildContext context,
+    int count,
+    OfflineCacheIndex? cacheIndex,
+  ) {
     return SliverReorderableList(
       itemExtent: _metrics.height,
       itemBuilder: (context, index) {
@@ -345,6 +513,7 @@ class _PlaylistSongListState extends ConsumerState<PlaylistSongList> {
         return _buildTrackRow(
           context,
           index,
+          cacheIndex: cacheIndex,
           key: ValueKey(
             '${music.id}_${music.pages.isNotEmpty ? music.pages[0].cid : "0"}',
           ),
@@ -371,6 +540,7 @@ class _PlaylistSongListState extends ConsumerState<PlaylistSongList> {
   Widget _buildTrackRow(
     BuildContext context,
     int index, {
+    required OfflineCacheIndex? cacheIndex,
     Key? key,
     required bool showDivider,
   }) {
@@ -383,6 +553,7 @@ class _PlaylistSongListState extends ConsumerState<PlaylistSongList> {
       isLandscape: widget.isLandscape,
       selectionMode: _selectionMode,
       selected: _selectedKeys.contains(music.key),
+      cached: cacheIndex?.contains(music) ?? false,
       showDivider: showDivider,
       onTap: () => widget.onSongTap(music),
       onSelectionToggle: () => _toggleSelection(music),
@@ -402,6 +573,9 @@ class _PlaylistSongListState extends ConsumerState<PlaylistSongList> {
                 music.pages[0].cid == current.pages[0].cid);
   }
 }
+
+/// 多选工具栏进行中的批量操作：决定禁用态与哪个按钮显示进度圈。
+enum _BatchAction { cache, delete }
 
 /// 曲目行几何：竖屏 `20 / 36 / 1fr / 38 / 20`，横屏 `26 / 40 / 1fr / 50 / 24`。
 class _TrackMetrics {
@@ -451,6 +625,8 @@ class _TrackMetrics {
 }
 
 /// 曲目行：序号/跳动条 + 封面 + 标题副标题 + 时长 + 更多。
+///
+/// 多选态隐藏「更多」，行尾同宽的位置改显示「已缓存」标记。
 class PlaylistTrackRow extends ConsumerWidget {
   const PlaylistTrackRow({
     super.key,
@@ -460,6 +636,7 @@ class PlaylistTrackRow extends ConsumerWidget {
     this.isLandscape = false,
     this.selectionMode = false,
     this.selected = false,
+    this.cached = false,
     this.showDivider = false,
     this.onTap,
     this.onSelectionToggle,
@@ -472,6 +649,9 @@ class PlaylistTrackRow extends ConsumerWidget {
   final bool isLandscape;
   final bool selectionMode;
   final bool selected;
+
+  /// 本地已有离线缓存（多选态在行尾显示标记，批量缓存时会跳过）。
+  final bool cached;
 
   /// 是否画行间 0.5px 分隔线（最后一行不画）。
   final bool showDivider;
@@ -498,7 +678,9 @@ class PlaylistTrackRow extends ConsumerWidget {
               selected: selected,
               selectedColor: colors.accentSoft,
               borderRadius: BorderRadius.zero,
-              semanticLabel: '${music.title}，${music.subtitleText}',
+              semanticLabel: cached
+                  ? '${music.title}，${music.subtitleText}，已缓存'
+                  : '${music.title}，${music.subtitleText}',
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: metrics.inset),
                 child: Row(
@@ -571,6 +753,20 @@ class PlaylistTrackRow extends ConsumerWidget {
                           onRemoveFromPlaylist: onRemoveFromPlaylist,
                         ),
                       ),
+                    ] else ...[
+                      // 多选态替掉「更多」的位置：保留相同时长列宽，已缓存
+                      // 曲目在行尾标一下，免得缓存完看到「跳过 N 首」发懵。
+                      SizedBox(width: metrics.gap),
+                      SizedBox.square(
+                        dimension: metrics.more,
+                        child: cached
+                            ? Icon(
+                                Icons.download_done_rounded,
+                                size: BmTokens.iconMenu,
+                                color: colors.textSecondary,
+                              )
+                            : null,
+                      ),
                     ],
                   ],
                 ),
@@ -628,6 +824,56 @@ class PlaylistTrackRow extends ConsumerWidget {
       return formatDuration(music.pages.first.durationValue);
     }
     return '--:--';
+  }
+}
+
+/// 多选工具栏的图标按钮：28 见方，带 Tooltip 与语义标签。
+///
+/// 固定尺寸，不随字号放大 —— 大字号下工具栏宽度仍可控。
+class _SelectionIconAction extends StatelessWidget {
+  const _SelectionIconAction({
+    required this.icon,
+    required this.label,
+    required this.color,
+    this.busy = false,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  /// 该操作正在进行中：图标换成进度圈。
+  final bool busy;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    final tint = enabled ? color : color.withValues(alpha: BmAlpha.disabled);
+
+    return Tooltip(
+      message: label,
+      child: BmPressable(
+        onTap: onTap,
+        borderRadius: BmTokens.r10All,
+        semanticLabel: label,
+        child: SizedBox.square(
+          dimension: BmTokens.controlSm,
+          child: Center(
+            child: busy
+                ? SizedBox.square(
+                    dimension: BmTokens.iconInline,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: color,
+                    ),
+                  )
+                : Icon(icon, size: BmTokens.iconMenu, color: tint),
+          ),
+        ),
+      ),
+    );
   }
 }
 

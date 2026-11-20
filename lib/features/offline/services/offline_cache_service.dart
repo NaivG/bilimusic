@@ -15,6 +15,7 @@ import 'package:bilimusic/core/network/network_config.dart';
 import 'package:bilimusic/core/storage/database.dart';
 import 'package:bilimusic/core/storage/storage_path_resolver.dart';
 import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/features/offline/logic/offline_track_key.dart';
 import 'package:bilimusic/features/offline/models/offline_track.dart';
 
 /// 离线缓存服务：把音频流落盘到**用户可见的长期目录**，并记入 `downloads` 表。
@@ -35,7 +36,7 @@ import 'package:bilimusic/features/offline/models/offline_track.dart';
 ///   只有共享媒体目录（`Music/` 等）里"应用自己贡献的文件"能用裸路径写，
 ///   存储卡卷与 DocumentsUI 里的云盘 provider 反解出来的路径写不进去。所以
 ///   选目录之后**立刻实写探针**（[StoragePathResolver.probe]），写不进去就
-///   当场拒绝并保留原目录，绝不让失败拖到用户点下载时才爆。
+///   当场拒绝并保留原目录。
 ///
 /// 落盘格式：B 站 DASH 音频流本身就是一个自包含的 audio-only MP4
 /// （ftyp → moov → moof/sidx），mpv 与 ExoPlayer 都能直接解码，
@@ -293,9 +294,32 @@ class OfflineCacheService extends ChangeNotifier {
       limit: 1,
     );
     if (rows.isEmpty) return null;
-    final track = OfflineTrack.fromRow(rows.first);
+    return _validatedTrack(rows.first);
+  }
+
+  /// 按 bvid 查一条离线记录（cid 未知的稿件卡片来源兜底）。
+  ///
+  /// 批量缓存用它判断"是否已缓存"，避免已在本地的曲子被重复补详情并误报成新增。
+  ///
+  /// 多 P 视频可能命中任一分 P，对"是否已缓存"这种近似判断够用。
+  Future<OfflineTrack?> findFirstByBvid(String bvid) async {
+    await initialize();
+    final rows = await _db!.query(
+      'downloads',
+      where: 'bvid = ?',
+      whereArgs: [bvid],
+      orderBy: 'downloaded_at DESC',
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return _validatedTrack(rows.first);
+  }
+
+  /// 行 → 记录，并校验文件仍可播；不可播时顺手清掉悬挂记录。
+  Future<OfflineTrack?> _validatedTrack(Map<String, Object?> row) async {
+    final track = OfflineTrack.fromRow(row);
     if (!await _isPlayableFile(track.filePath)) {
-      await remove(bvid, cid, deleteFile: false);
+      await remove(track.bvid, track.cid, deleteFile: false);
       return null;
     }
     return track;
@@ -709,12 +733,10 @@ class OfflineCacheService extends ChangeNotifier {
   //  内部工具
   // ====================================================================
 
-  /// 分 P 归属：cid 缺失时退化为空串（与 `Music.key` 的 (id, cid) 判等一致）。
-  String _effectiveCid(Music music) {
-    if (music.cid.isNotEmpty) return music.cid;
-    if (music.pages.isNotEmpty) return music.pages.first.cid;
-    return '';
-  }
+  /// 分 P 归属：cid 缺失时退化到首分 P，再缺失为空串。
+  ///
+  /// 规则与 [offlineEffectiveCid] 共用一份，避免查表/落库两套口径。
+  String _effectiveCid(Music music) => offlineEffectiveCid(music);
 
   /// 公开版 [Music] → cid 解析，供上层用**同一套规则**查表。
   ///

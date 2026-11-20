@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:bilimusic/app/app_providers.dart';
 import 'package:bilimusic/domain/music.dart';
+import 'package:bilimusic/features/offline/logic/offline_cache_index.dart';
 import 'package:bilimusic/features/offline/models/offline_track.dart';
 
 /// 当前进行中的下载进度（key → 进度）。
@@ -127,8 +128,12 @@ class OfflineTracksNotifier extends AsyncNotifier<List<OfflineTrack>> {
       onProgress?.call(i + 1, songs.length, music);
 
       // 已缓存且音质够用 → 跳过。这里先查一次表，避免 download() 为补
-      // cid/封面而发起不必要的详情请求。
-      final existing = await svc.find(music.id, svc.effectiveCid(music));
+      // cid/封面而发起不必要的详情请求。稿件卡片不带 cid（落库时补的真实
+      // cid 查不到）按 bvid 兜底。
+      final cid = svc.effectiveCid(music);
+      final existing =
+          await svc.find(music.id, cid) ??
+          (cid.isEmpty ? await svc.findFirstByBvid(music.id) : null);
       if (existing != null && svc.isQualitySufficient(existing, qualityId)) {
         skipped++;
         continue;
@@ -177,12 +182,13 @@ class OfflineTracksNotifier extends AsyncNotifier<List<OfflineTrack>> {
   }
 }
 
-/// 已下载曲目的 key 集合（`bvid_cid`），供列表项判断"是否已下载"。
+/// 已缓存曲目索引，供列表项判断"是否已下载"。
 ///
-/// 派生自 [offlineTracksProvider]，下载/删除后自动重算。
-final offlineKeysProvider = Provider<Set<String>>((ref) {
+/// 派生自 [offlineTracksProvider]，下载/删除后自动重算；cid 缺失的稿件卡片
+/// 按 bvid 兜底匹配。
+final offlineCacheIndexProvider = Provider<OfflineCacheIndex>((ref) {
   final tracks = ref.watch(offlineTracksProvider).value ?? const [];
-  return {for (final t in tracks) t.key};
+  return OfflineCacheIndex(tracks);
 });
 
 /// 下载一首曲子到离线目录（UI 入口，含用户提示）。

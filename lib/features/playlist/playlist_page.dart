@@ -265,12 +265,25 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
 
     if (confirmed != true || !mounted) return;
 
-    await showBmDialog<void>(
+    await _showBatchCacheDialog(_songs, name);
+  }
+
+  /// 把多选中的曲目加入离线缓存（已缓存/音质足够的会自动跳过）。
+  Future<void> _offlineCacheSelected(List<Music> songs) async {
+    if (songs.isEmpty || !mounted) return;
+
+    final name = _currentPlaylist?.displayName ?? widget.playlistName ?? '播放列表';
+    await _showBatchCacheDialog(songs, '$name · 已选 ${songs.length} 首');
+  }
+
+  /// 打开批量缓存进度对话框（运行期间不可关闭，可取消剩余曲目）。
+  Future<void> _showBatchCacheDialog(List<Music> songs, String label) {
+    return showBmDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (_) => OfflineBatchDownloadDialog(
-        songs: List<Music>.unmodifiable(_songs),
-        playlistName: name,
+        songs: List<Music>.unmodifiable(songs),
+        playlistName: label,
       ),
     );
   }
@@ -501,6 +514,7 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
         onSongTap: _playSong,
         onRemoveSong: _removeSong,
         onRemoveMany: _removeSongs,
+        onCacheMany: _offlineCacheSelected,
         onPlayAll: _playAll,
         onShufflePlay: _shufflePlay,
         onToggleLike: _toggleLike,
@@ -521,6 +535,7 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
       onSongTap: _playSong,
       onRemoveSong: _removeSong,
       onRemoveMany: _removeSongs,
+      onCacheMany: _offlineCacheSelected,
       onPlayAll: _playAll,
       onShufflePlay: _shufflePlay,
       onToggleLike: _toggleLike,

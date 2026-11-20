@@ -15,6 +15,7 @@ class PortraitPlaylistPage extends StatelessWidget {
   final Function(Music) onSongTap;
   final Function(Music)? onRemoveSong;
   final Future<bool> Function(List<Music>)? onRemoveMany;
+  final Future<void> Function(List<Music>) onCacheMany;
   final VoidCallback onPlayAll;
   final VoidCallback onShufflePlay;
   final VoidCallback onToggleLike;
@@ -33,6 +34,7 @@ class PortraitPlaylistPage extends StatelessWidget {
     required this.onSongTap,
     this.onRemoveSong,
     this.onRemoveMany,
+    required this.onCacheMany,
     required this.onPlayAll,
     required this.onShufflePlay,
     required this.onToggleLike,
@@ -58,6 +60,7 @@ class PortraitPlaylistPage extends StatelessWidget {
         onSongTap: onSongTap,
         onRemoveSong: onRemoveSong,
         onRemoveMany: onRemoveMany,
+        onCacheMany: onCacheMany,
         onPlayAll: onPlayAll,
         onShufflePlay: onShufflePlay,
         onToggleLike: onToggleLike,

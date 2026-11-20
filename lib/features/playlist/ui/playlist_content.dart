@@ -29,6 +29,7 @@ class PlaylistContent extends ConsumerWidget {
     this.currentPlaylist,
     this.onRemoveSong,
     this.onRemoveMany,
+    required this.onCacheMany,
     this.canImportEntries = true,
   });
 
@@ -47,6 +48,9 @@ class PlaylistContent extends ConsumerWidget {
   final VoidCallback onOfflineCacheAll;
   final Function(Music)? onRemoveSong;
   final Future<bool> Function(List<Music>)? onRemoveMany;
+
+  /// 多选后批量缓存选中曲目：与歌单是否可编辑无关，任何曲目表都能用。
+  final Future<void> Function(List<Music>) onCacheMany;
   final bool canImportEntries;
 
   @override
@@ -89,6 +93,7 @@ class PlaylistContent extends ConsumerWidget {
           isEditable: playlistId != null,
           onRemove: playlistId != null ? onRemoveSong : null,
           onRemoveMany: playlistId != null ? onRemoveMany : null,
+          onCacheMany: onCacheMany,
           isLandscape: isLandscape,
           horizontalInset: horizontal,
         ),

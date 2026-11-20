@@ -282,6 +282,23 @@ void main() {
     );
   });
 
+  test('批量缓存：cid 未知的稿件卡片按 bvid 命中已缓存，不重复补详情', () async {
+    // 先按真实 cid 落盘（下载链路会补详情拿 cid）。
+    final cached = sampleMusic();
+    await notifier().download(cached);
+    final downloadsBefore = musicCache.downloadCount;
+
+    // 推荐流 / 搜索结果这类稿件卡片：cid 为空、也没有分 P。
+    final card = sampleMusic(cid: '');
+    final result = await notifier().downloadMany([card]);
+
+    expect(result.skipped, 1);
+    expect(result.downloaded, 0);
+    expect(result.failed, 0, reason: '不应再走 download() 补详情（假客户端没实现详情接口）');
+    expect(musicCache.downloadCount, downloadsBefore);
+    expect(await service.count(), 1);
+  });
+
   test('批量缓存支持取消：当前曲目完成后停止', () async {
     final songs = [
       sampleMusic(),

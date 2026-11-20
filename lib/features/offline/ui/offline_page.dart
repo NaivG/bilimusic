@@ -96,8 +96,8 @@ class OfflinePage extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '在歌曲菜单选择「离线缓存」，或在歌单「更多」菜单中选择'
-              '「离线缓存全部」，下载完成后会出现在这里。',
+              '在歌曲菜单选择「离线缓存」；'
+              '也可以在歌单页中选择「离线缓存全部」或多选缓存，下载完成后会出现在这里。',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
