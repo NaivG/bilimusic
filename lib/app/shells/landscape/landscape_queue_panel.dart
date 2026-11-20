@@ -21,7 +21,7 @@ import 'package:bilimusic/shared/widgets/music_cover.dart';
 /// 横屏右侧播放队列面板（设计稿 `.queue-drawer`）。
 ///
 /// 只挂在内容区 Stack 里：`right: 0`、`top/bottom: 0`，宽 420，圆角 0。
-/// 头部标题 + 曲目数 / 总时长，中部可拖动排序的行，底部提示与清空。
+/// 头部标题 + 曲目数 / 总时长，中部可拖动排序、可逐行移除的行，底部提示与清空。
 class LandscapeQueuePanel extends ConsumerWidget {
   const LandscapeQueuePanel({super.key, required this.onClose});
 
@@ -204,6 +204,9 @@ class LandscapeQueuePanel extends ConsumerWidget {
           isPlaying: index == currentIndex && isPlaying,
           onTap: () =>
               ref.read(playbackCommandsProvider.notifier).playAtIndex(index),
+          onRemove: () => ref
+              .read(playbackCommandsProvider.notifier)
+              .removeFromPlaylist(music),
         );
       },
     );
@@ -253,7 +256,7 @@ class LandscapeQueuePanel extends ConsumerWidget {
   }
 }
 
-/// 队列行：封面 36 / 标题 + UP 主 / 当前项跳动条 / 时长 / 拖拽手柄。
+/// 队列行：封面 36 / 标题 + UP 主 / 当前项跳动条 / 时长 / 移除 / 拖拽手柄。
 class _QueueRow extends StatelessWidget {
   const _QueueRow({
     super.key,
@@ -262,6 +265,7 @@ class _QueueRow extends StatelessWidget {
     required this.isCurrent,
     required this.isPlaying,
     required this.onTap,
+    required this.onRemove,
   });
 
   final Music music;
@@ -269,6 +273,9 @@ class _QueueRow extends StatelessWidget {
   final bool isCurrent;
   final bool isPlaying;
   final VoidCallback onTap;
+
+  /// 从播放队列移除本行；删当前曲目时由 Coordinator 接播下一首。
+  final VoidCallback onRemove;
 
   static const double _coverSize = 36;
 
@@ -336,6 +343,14 @@ class _QueueRow extends StatelessWidget {
               _durationLabel(music),
               style: BmTypography.numeric(type.micro)
                   .copyWith(color: colors.textTertiary),
+            ),
+            const SizedBox(width: BmTokens.s1),
+            BmIconButton(
+              icon: Icons.close_rounded,
+              tooltip: '从队列中移除',
+              semanticLabel: '从队列中移除 ${music.title}',
+              size: BmIconButtonSize.sm,
+              onPressed: onRemove,
             ),
             ReorderableDragStartListener(
               index: index,
