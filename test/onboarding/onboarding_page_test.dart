@@ -30,6 +30,23 @@ void main() {
     );
   }
 
+  /// 取某段文字上方最近一层入场透明度（插画 / 文案各有一层 _Reveal）。
+  ///
+  /// 引导页把入场做成「透明度 + 8px 上浮」，透明度就是那段动画的进度；
+  /// 这里不去碰私有 State，只从渲染树读它。
+  double revealOpacityOf(WidgetTester tester, String text) {
+    var opacity = 1.0;
+    tester.element(find.text(text)).visitAncestorElements((ancestor) {
+      final widget = ancestor.widget;
+      if (widget is Opacity) {
+        opacity = widget.opacity;
+        return false;
+      }
+      return true;
+    });
+    return opacity;
+  }
+
   group('OnboardingPage', () {
     testWidgets('从头翻到尾，结束按钮回调一次', (tester) async {
       await resetSettings();
@@ -54,6 +71,43 @@ void main() {
       await tester.tap(find.text('开始聆听'));
       await tester.pumpAndSettle();
       expect(done, 1);
+    });
+
+    testWidgets('翻页收尾不会重建目标页、入场动画不重播', (tester) async {
+      await resetSettings();
+      await tester.pumpWidget(
+        wrap(OnboardingPage(pages: onboardingPages, onDone: () {})),
+      );
+      await tester.pumpAndSettle();
+
+      const title = '你的收藏，直接带过来';
+      await tester.tap(find.text('继续'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      final pageElement = tester.element(find.text(title));
+      final opacityBefore = revealOpacityOf(tester, title);
+      expect(
+        opacityBefore,
+        greaterThan(0.9),
+        reason: '200ms 时入场动画应已接近终态（此时还没到 240ms 的翻页收尾）',
+      );
+
+      // 翻页动画（240ms）结束会清空离场页，Stack 子项从两项缩回一项；
+      // 这一帧若按位置重新配对 Element，整页 State 会被销毁重建，入场
+      // 动画从 0 重播——肉眼就是「上浮放完闪一下又重新渲染」。
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        tester.element(find.text(title)),
+        same(pageElement),
+        reason: '翻页收尾不得重建目标页',
+      );
+      expect(
+        revealOpacityOf(tester, title),
+        greaterThanOrEqualTo(opacityBefore),
+        reason: '入场透明度不得回退（回退即重播）',
+      );
+      expect(revealOpacityOf(tester, title), 1.0);
     });
 
     testWidgets('跳过回调独立于结束回调', (tester) async {

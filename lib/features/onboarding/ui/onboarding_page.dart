@@ -307,6 +307,8 @@ class _OnboardingPageState extends State<OnboardingPage>
     bool ignorePointer = false,
   }) {
     return IgnorePointer(
+      // 翻页动画结束时 `_outgoing` 被清空，Stack 的子项从两项缩回一项。
+      key: ValueKey<int>(index),
       ignoring: ignorePointer,
       child: Opacity(
         opacity: opacity.clamp(0.0, 1.0),
