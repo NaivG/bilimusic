@@ -449,12 +449,6 @@ class SettingsPage extends ConsumerWidget {
           onTap: () => ShellPageManager.instance.push(ShellPage.changelog),
         ),
         BmSettingsValueRow(
-          title: '使用指南',
-          subtitle: '重新看看 BiliMusic 怎么用',
-          icon: Icons.menu_book_outlined,
-          onTap: () => openOnboarding(context),
-        ),
-        BmSettingsValueRow(
           title: '隐私政策',
           subtitle: '播放记录与设置只保存在本机',
           icon: Icons.privacy_tip_outlined,
@@ -520,10 +514,11 @@ class SettingsPage extends ConsumerWidget {
   static String _formatCacheLimitMb(int mb) =>
       mb % 1024 == 0 ? '${mb ~/ 1024} GB' : '$mb MB';
 
-  Future<void> _showAboutDialog(BuildContext context) {
+  /// 「关于应用」对话框。
+  Future<void> _showAboutDialog(BuildContext context) async {
     final colors = context.bmColors;
     final type = context.bmType;
-    return showBmDialog<void>(
+    final openGuide = await showBmDialog<bool>(
       context: context,
       builder: (dialogContext) => BmDialog(
         title: '关于应用',
@@ -563,12 +558,18 @@ class SettingsPage extends ConsumerWidget {
         ),
         actions: [
           BmDialogAction(
+            label: '查看引导',
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+          ),
+          BmDialogAction(
             label: '关闭',
-            onPressed: () => Navigator.of(dialogContext).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
           ),
         ],
       ),
     );
+    if (openGuide != true || !context.mounted) return;
+    await openOnboarding(context);
   }
 
   Future<void> _showPrivacyPolicy(BuildContext context) {

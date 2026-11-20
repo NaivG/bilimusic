@@ -37,7 +37,7 @@ class OnboardingPageSpec {
 
 /// 通用引导页内容。
 ///
-/// 面向首次启动与「设置 → 使用指南」回看：按「欢迎 → 账号与收藏 →
+/// 面向首次启动与「设置 → 关于应用 → 查看引导」回看：按「欢迎 → 账号与收藏 →
 /// 搜索与漫游 → 播放与音效 → 离线缓存 → 主题外观 → 宽屏布局 →
 /// 动态歌词 → 局域网同步 → 开始听歌」的顺序介绍 BiliMusic 的核心体验。
 const List<OnboardingPageSpec> onboardingPages = <OnboardingPageSpec>[
@@ -116,7 +116,7 @@ const List<OnboardingPageSpec> onboardingPages = <OnboardingPageSpec>[
   OnboardingPageSpec(
     kicker: 'READY',
     title: '去听点什么',
-    subtitle: '播放记录与偏好设置均保存在本地。\n随时可以从「设置 → 使用指南」重新打开这份引导。',
+    subtitle: '播放记录与偏好设置均保存在本地。\n随时可以从「设置 → 关于应用 → 查看引导」重新打开这份引导。',
     visual: OnboardingStartVisual(),
     visualSize: Size(380, 340),
   ),

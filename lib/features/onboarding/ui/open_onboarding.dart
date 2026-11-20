@@ -4,7 +4,7 @@ import 'package:bilimusic/features/onboarding/ui/onboarding_content.dart';
 import 'package:bilimusic/features/onboarding/ui/onboarding_page.dart';
 import 'package:bilimusic/shared/motion/motion.dart';
 
-/// 从设置页重新打开使用指南。
+/// 从「设置 → 关于应用 → 查看引导」重新打开引导页。
 ///
 /// 走独立路由而不是 [OnboardingGate]：引导页已经看过后门控不会再触发，
 /// 这里只是让用户随时回看；关闭时直接 pop，不动 `last_boot_version`。
