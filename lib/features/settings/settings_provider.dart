@@ -2,6 +2,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:bilimusic/app/app_providers.dart';
+import 'package:bilimusic/core/storage/cache_manager.dart';
 import 'package:bilimusic/features/settings/settings_manager.dart';
 
 final _settingsManagerProvider = settingsManagerProvider;
@@ -32,6 +33,10 @@ class SettingsState {
   /// 标题过滤开关与用户自定义规则（正则源码）。
   final bool titleMetaFilterEnabled;
   final List<String> titleFilterRules;
+
+  /// 音乐 / 图片缓存上限（MB）。超出后按最久未用淘汰，单位与落盘值一致。
+  final int musicCacheLimitMb;
+  final int imageCacheLimitMb;
 
   // 音频输出四项 + 免责说明。
   //
@@ -64,6 +69,8 @@ class SettingsState {
     this.closeBehavior = 'prompt',
     this.titleMetaFilterEnabled = false,
     this.titleFilterRules = const [],
+    this.musicCacheLimitMb = 512,
+    this.imageCacheLimitMb = 256,
     this.audioOutputDisclaimerAccepted = false,
     this.audioDelayMs = 0,
     this.audioExclusive = false,
@@ -90,6 +97,8 @@ class SettingsState {
     String? closeBehavior,
     bool? titleMetaFilterEnabled,
     List<String>? titleFilterRules,
+    int? musicCacheLimitMb,
+    int? imageCacheLimitMb,
     bool? audioOutputDisclaimerAccepted,
     int? audioDelayMs,
     bool? audioExclusive,
@@ -116,6 +125,8 @@ class SettingsState {
       titleMetaFilterEnabled:
           titleMetaFilterEnabled ?? this.titleMetaFilterEnabled,
       titleFilterRules: titleFilterRules ?? this.titleFilterRules,
+      musicCacheLimitMb: musicCacheLimitMb ?? this.musicCacheLimitMb,
+      imageCacheLimitMb: imageCacheLimitMb ?? this.imageCacheLimitMb,
       audioOutputDisclaimerAccepted:
           audioOutputDisclaimerAccepted ?? this.audioOutputDisclaimerAccepted,
       audioDelayMs: audioDelayMs ?? this.audioDelayMs,
@@ -147,6 +158,8 @@ class SettingsState {
       closeBehavior: s.closeBehavior,
       titleMetaFilterEnabled: s.titleMetaFilterEnabled,
       titleFilterRules: [for (final rule in s.titleFilterRules) rule.source],
+      musicCacheLimitMb: s.musicCacheLimitMb,
+      imageCacheLimitMb: s.imageCacheLimitMb,
       audioOutputDisclaimerAccepted: s.audioOutputDisclaimerAccepted,
       audioDelayMs: s.audioDelayMs,
       audioExclusive: s.audioExclusive,
@@ -281,6 +294,19 @@ class SettingsNotifier extends Notifier<SettingsState> {
   /// 按源码删除一条自定义规则。
   Future<void> removeTitleFilterRule(String source) async {
     await ref.read(_settingsManagerProvider).removeTitleFilterRule(source);
+  }
+
+  /// 修改音乐缓存上限（MB）：manager 落盘并 notify（UI 经
+  /// [_onManagerChanged] 立刻刷新），随后立即按新预算淘汰一次。
+  Future<void> setMusicCacheLimitMb(int value) async {
+    await ref.read(_settingsManagerProvider).setMusicCacheLimitMb(value);
+    await LocalStorage.enforceCacheLimits();
+  }
+
+  /// 修改图片缓存上限（MB），语义同 [setMusicCacheLimitMb]。
+  Future<void> setImageCacheLimitMb(int value) async {
+    await ref.read(_settingsManagerProvider).setImageCacheLimitMb(value);
+    await LocalStorage.enforceCacheLimits();
   }
 }
 

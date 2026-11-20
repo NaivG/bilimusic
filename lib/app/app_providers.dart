@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lyrics_now/lyrics_now.dart';
@@ -6,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bilimusic/core/network/bili_client.dart';
 import 'package:bilimusic/core/network/passport_store.dart';
 import 'package:bilimusic/core/storage/cache_manager.dart';
+import 'package:bilimusic/core/storage/size_lru_cache.dart';
 import 'package:bilimusic/core/network/api_service.dart';
 import 'package:bilimusic/features/player/logic/audio_focus_service.dart';
 import 'package:bilimusic/features/player/logic/audio_effects_service.dart';
@@ -134,7 +137,24 @@ final passportStoreProvider = Provider<PassportStore>((ref) {
 
 final settingsManagerProvider = Provider<SettingsManager>((ref) {
   final mgr = SettingsManager();
-  mgr.init();
+
+  // 缓存预算跟着设置走：SettingsManager 只负责持久化「MB」这个用户单位，
+  // 字节预算落到 core 的 CacheBudget。
+  void syncCacheBudget() {
+    CacheBudget.musicLimitBytes = CacheBudget.clamp(
+      CacheBudget.mbToBytes(mgr.musicCacheLimitMb),
+    );
+    CacheBudget.imageLimitBytes = CacheBudget.clamp(
+      CacheBudget.mbToBytes(mgr.imageCacheLimitMb),
+    );
+  }
+
+  syncCacheBudget();
+  mgr.addListener(syncCacheBudget);
+  ref.onDispose(() => mgr.removeListener(syncCacheBudget));
+  // init() 读 shared_preferences 是异步的，读完再同步一次。
+  // 读盘完成前 getter 返回默认值（512 / 256 MB），与 CacheBudget 的初始值一致。
+  unawaited(mgr.init().then((_) => syncCacheBudget()));
   return mgr;
 });
 

@@ -61,6 +61,24 @@ class SettingsPage extends ConsumerWidget {
         BmSelectOption(value: 'public', label: '公共', subtitle: '仅暴露正在播放'),
       ];
 
+  /// 缓存上限可选档位（MB）。实际字节预算与淘汰在 core 的 CacheBudget 里，
+  /// 这里只负责把用户选的档位传给 SettingsManager。
+  static const List<int> _cacheLimitMbOptions = <int>[
+    128,
+    256,
+    512,
+    1024,
+    2048,
+    4096,
+  ];
+
+  /// 两个缓存上限下拉共用的选项表（label 与行尾 valueLabel 同源格式化）。
+  static final List<BmSelectOption<int>> _cacheLimitOptions =
+      <BmSelectOption<int>>[
+        for (final mb in _cacheLimitMbOptions)
+          BmSelectOption<int>(value: mb, label: _formatCacheLimitMb(mb)),
+      ];
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
@@ -125,7 +143,7 @@ class SettingsPage extends ConsumerWidget {
           _buildAppearanceGroup(ref, settings),
           _buildLyricsGroup(settings, ref.read(settingsProvider.notifier)),
           _buildDeviceGroup(ref, settings),
-          _buildDataGroup(),
+          _buildDataGroup(settings, ref.read(settingsProvider.notifier)),
           _buildAboutGroup(context),
         ],
       ),
@@ -360,10 +378,30 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildDataGroup() {
+  Widget _buildDataGroup(SettingsState settings, SettingsNotifier notifier) {
     return BmSettingsGroup(
       title: '数据',
       children: [
+        BmSettingsSelectRow<int>(
+          title: '音乐缓存上限',
+          subtitle: '播放时临时缓存音频，超出后按最久未用淘汰',
+          icon: Icons.library_music_outlined,
+          options: _cacheLimitOptions,
+          selected: settings.musicCacheLimitMb,
+          valueLabel: _formatCacheLimitMb(settings.musicCacheLimitMb),
+          onChanged: notifier.setMusicCacheLimitMb,
+          menuWidth: 200,
+        ),
+        BmSettingsSelectRow<int>(
+          title: '图片缓存上限',
+          subtitle: '封面与头图缓存，超出后按最久未用淘汰',
+          icon: Icons.image_outlined,
+          options: _cacheLimitOptions,
+          selected: settings.imageCacheLimitMb,
+          valueLabel: _formatCacheLimitMb(settings.imageCacheLimitMb),
+          onChanged: notifier.setImageCacheLimitMb,
+          menuWidth: 200,
+        ),
         BmSettingsValueRow(
           title: '离线缓存',
           subtitle: '查看已下载到本地的音乐、占用空间与删除',
@@ -477,6 +515,10 @@ class SettingsPage extends ConsumerWidget {
       _ => '关闭',
     };
   }
+
+  /// 缓存上限的显示：1024 的整数倍显示 GB，其余显示 MB。
+  static String _formatCacheLimitMb(int mb) =>
+      mb % 1024 == 0 ? '${mb ~/ 1024} GB' : '$mb MB';
 
   Future<void> _showAboutDialog(BuildContext context) {
     final colors = context.bmColors;

@@ -11,6 +11,7 @@ import 'package:bilimusic/features/auth/user_providers.dart';
 import 'package:bilimusic/features/offline/offline_providers.dart';
 import 'package:bilimusic/features/offline/services/offline_cache_service.dart';
 import 'package:bilimusic/features/lyrics/lyrics_providers.dart';
+import 'package:bilimusic/features/settings/settings_provider.dart';
 import 'package:restart_app/restart_app.dart';
 import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/shared/ui/overlay/bm_dialog.dart';
@@ -149,6 +150,12 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     return '$size ${suffixes[i]}';
   }
 
+  /// 缓存上限的显示：1024 的整数倍显示 GB，其余显示 MB。
+  ///
+  /// 上限来自设置页（MB），这里只做展示，不在本页放调整控件。
+  static String _formatCacheLimitMb(int mb) =>
+      mb % 1024 == 0 ? '${mb ~/ 1024} GB' : '$mb MB';
+
   Color _getPrimaryColor(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
         ? Colors.white
@@ -237,6 +244,9 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
     // 登录状态来自 UserManager（按 cookie 里的 SESSDATA 判定），watch 以便
     // 登录/退出后回到本页能即时刷新。
     final userState = ref.watch(userStateProvider);
+    // 缓存上限在设置页调整，这里 watch 以便改完返回本页时「已用 / 上限」
+    // 立即显示新预算（上限显示、不提供调整控件）。
+    final settings = ref.watch(settingsProvider);
     return Scaffold(
       appBar: AutoAppBar.generateAppBar(context: context, title: '数据管理'),
       backgroundColor: Colors.transparent,
@@ -274,9 +284,17 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
                   _buildSectionTitle('存储占用'),
                   _buildInfoCard(
                     children: [
-                      _buildInfoRow('音乐缓存', _musicCacheSize),
+                      _buildInfoRow(
+                        '音乐缓存',
+                        '$_musicCacheSize / '
+                            '${_formatCacheLimitMb(settings.musicCacheLimitMb)}',
+                      ),
                       _buildDivider(),
-                      _buildInfoRow('图片缓存', _imageCacheSize),
+                      _buildInfoRow(
+                        '图片缓存',
+                        '$_imageCacheSize / '
+                            '${_formatCacheLimitMb(settings.imageCacheLimitMb)}',
+                      ),
                       _buildDivider(),
                       _buildInfoRow('歌词缓存', _lyricsCacheSize),
                       _buildDivider(),

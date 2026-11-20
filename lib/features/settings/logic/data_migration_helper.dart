@@ -90,6 +90,10 @@ class DataMigrationHelper {
         SettingsManager.DEFAULT_TITLE_META_FILTER,
     SettingsManager.KEY_TITLE_FILTER_RULES:
         SettingsManager.DEFAULT_TITLE_FILTER_RULES,
+    SettingsManager.KEY_MUSIC_CACHE_LIMIT_MB:
+        SettingsManager.DEFAULT_MUSIC_CACHE_LIMIT_MB,
+    SettingsManager.KEY_IMAGE_CACHE_LIMIT_MB:
+        SettingsManager.DEFAULT_IMAGE_CACHE_LIMIT_MB,
   };
 
   /// 旧备份里的设置键名 → 当前键名。

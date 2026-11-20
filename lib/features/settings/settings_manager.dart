@@ -55,6 +55,12 @@ class SettingsManager extends ChangeNotifier {
   static const String KEY_TITLE_META_FILTER = 'title_meta_filter';
   static const String KEY_TITLE_FILTER_RULES = 'title_filter_rules';
 
+  // 音乐 / 图片缓存上限设置键名（单位 MB）。
+  // 真正按字节淘汰的是 core 的 CacheBudget，这里只持久化用户设定的 MB 值，
+  // 由组合根 `app_providers.dart` 换算并同步过去。
+  static const String KEY_MUSIC_CACHE_LIMIT_MB = 'music_cache_limit_mb';
+  static const String KEY_IMAGE_CACHE_LIMIT_MB = 'image_cache_limit_mb';
+
   // 上次启动时的版本号；用于区分「初次启动」和「升级」。
   static const String KEY_LAST_BOOT_VERSION = 'last_boot_version';
 
@@ -104,6 +110,13 @@ class SettingsManager extends ChangeNotifier {
   // 标题过滤规则默认值：opt-in，规则默认全空（只有内置规则）
   static const bool DEFAULT_TITLE_META_FILTER = false;
   static const String DEFAULT_TITLE_FILTER_RULES = '[]';
+
+  // 缓存上限默认值与可调范围（MB）。默认值与 core 的 CacheBudget 保持一致：
+  // 音乐 512 MB、图片 256 MB，用户可在 64 MB ~ 8 GB 之间调整。
+  static const int DEFAULT_MUSIC_CACHE_LIMIT_MB = 512;
+  static const int DEFAULT_IMAGE_CACHE_LIMIT_MB = 256;
+  static const int MIN_CACHE_LIMIT_MB = 64;
+  static const int MAX_CACHE_LIMIT_MB = 8192;
 
   // 单例实例
   static final SettingsManager _instance = SettingsManager._internal();
@@ -227,6 +240,14 @@ class SettingsManager extends ChangeNotifier {
         prefs.getString(KEY_TITLE_FILTER_RULES) ?? DEFAULT_TITLE_FILTER_RULES;
     _cache[KEY_TITLE_FILTER_RULES] = rawRules;
     TitleMetaFilter.userRules = TitleFilterRule.decodeList(rawRules);
+
+    // 加载音乐 / 图片缓存上限（MB）：历史脏数据在读取时夹取，脏值舍弃。
+    _cache[KEY_MUSIC_CACHE_LIMIT_MB] = clampCacheLimitMb(
+      prefs.getInt(KEY_MUSIC_CACHE_LIMIT_MB) ?? DEFAULT_MUSIC_CACHE_LIMIT_MB,
+    );
+    _cache[KEY_IMAGE_CACHE_LIMIT_MB] = clampCacheLimitMb(
+      prefs.getInt(KEY_IMAGE_CACHE_LIMIT_MB) ?? DEFAULT_IMAGE_CACHE_LIMIT_MB,
+    );
   }
 
   /// 获取通知设置
@@ -512,6 +533,31 @@ class SettingsManager extends ChangeNotifier {
     final rules = titleFilterRules.where((r) => r.source != source).toList();
     if (rules.length == titleFilterRules.length) return;
     await setTitleFilterRules(rules);
+  }
+
+  // ============ 缓存上限相关设置 ============
+
+  /// 把缓存上限（MB）夹到 [MIN_CACHE_LIMIT_MB, MAX_CACHE_LIMIT_MB]。
+  static int clampCacheLimitMb(int value) =>
+      value.clamp(MIN_CACHE_LIMIT_MB, MAX_CACHE_LIMIT_MB);
+
+  /// 音乐缓存上限（MB）。超出后由 core 的 SizeBoundedCacheManager 按最久
+  /// 未用淘汰，不再按条数 / 天数。
+  int get musicCacheLimitMb =>
+      _cache[KEY_MUSIC_CACHE_LIMIT_MB] ?? DEFAULT_MUSIC_CACHE_LIMIT_MB;
+
+  /// 设置音乐缓存上限（MB），夹取后落盘。
+  Future<void> setMusicCacheLimitMb(int value) async {
+    await _saveSetting(KEY_MUSIC_CACHE_LIMIT_MB, clampCacheLimitMb(value));
+  }
+
+  /// 图片缓存上限（MB），淘汰规则与音乐缓存一致。
+  int get imageCacheLimitMb =>
+      _cache[KEY_IMAGE_CACHE_LIMIT_MB] ?? DEFAULT_IMAGE_CACHE_LIMIT_MB;
+
+  /// 设置图片缓存上限（MB），夹取后落盘。
+  Future<void> setImageCacheLimitMb(int value) async {
+    await _saveSetting(KEY_IMAGE_CACHE_LIMIT_MB, clampCacheLimitMb(value));
   }
 
   // ============ 启动版本 ============
