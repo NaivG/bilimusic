@@ -579,10 +579,10 @@ packages:
     description:
       path: "."
       ref: HEAD
-      resolved-ref: a719d2aa6ee2b0238781021518f17a1737364155
+      resolved-ref: "9b10f5eb78e37f0438a06b8d87776064a7778f41"
       url: "https://github.com/NaivG/lyrics_now.git"
     source: git
-    version: "0.3.0"
+    version: "0.3.1"
   matcher:
     dependency: transitive
     description:

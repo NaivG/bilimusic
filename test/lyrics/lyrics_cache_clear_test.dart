@@ -145,6 +145,7 @@ Future<void> _seedPayload(
   required Map<String, Object?> model,
 }) async {
   final raw = jsonEncode({
+    'v': LyricsService.payloadCacheVersion,
     'sourceId': 'qq:1',
     'offsetMs': 0,
     'songKey': LyricsService.songKeyOf(music),

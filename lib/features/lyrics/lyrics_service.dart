@@ -593,8 +593,15 @@ class LyricsService extends ChangeNotifier {
 
   // ==================== Payload 序列化 ====================
 
+  /// 载荷缓存版本。
+  ///
+  /// 2 = lyrics_now 0.3.1 起不再给普通 LRC 伪造行结束时间。
+  /// 旧版普通 LRC 缓存直接 free 了。
+  static const int payloadCacheVersion = 2;
+
   Map<String, Object?> _encodePayload(LyricsPayload payload) {
     return {
+      'v': payloadCacheVersion,
       'sourceId': payload.sourceId,
       'offsetMs': payload.offsetMs,
       'songKey': payload.songKey,
@@ -609,6 +616,11 @@ class LyricsService extends ChangeNotifier {
       final documentJson = map['model'];
       if (documentJson is! Map) return null;
       final document = _decodeDocument(documentJson.cast<String, Object?>());
+      // 没有版本号的是 v1 缓存。
+      final version = (map['v'] as num?)?.toInt() ?? 1;
+      if (version < payloadCacheVersion && _lacksWordTimings(document)) {
+        return null;
+      }
       return LyricsPayload(
         sourceId: map['sourceId']?.toString() ?? '',
         offsetMs: (map['offsetMs'] as num?)?.toInt() ?? 0,
@@ -619,6 +631,10 @@ class LyricsService extends ChangeNotifier {
       return null;
     }
   }
+
+  /// 整篇没有任何逐字时间，即普通 LRC 转出来的文档。
+  static bool _lacksWordTimings(LyricDocument document) =>
+      document.lines.every((line) => line.words == null || line.words!.isEmpty);
 
   Map<String, Object?> _encodeDocument(LyricDocument document) {
     return {
@@ -693,6 +709,12 @@ class LyricsService extends ChangeNotifier {
 
   // ==================== LyricDocument 构造 ====================
 
+  /// 普通 LRC 的行结束时间上限。
+  ///
+  /// 普通 LRC 只有行起点，没有真实行时长。lyrics_now 会把「结束时间未知」的
+  /// 行截到这个上限，剩下的空白才留得下器乐间奏。这里取上游默认的 8 秒。
+  static const int _maxLineDurationMs = 8000;
+
   LyricsPayload _buildPayload(
     Lyrics lyrics, {
     required String sourceId,
@@ -702,7 +724,10 @@ class LyricsService extends ChangeNotifier {
     final keepsWordTiming =
         lyrics.types[TrackNames.orig] == LyricsType.verbatim;
     final shifted = lyrics.addOffset(0);
-    final fs = shifted.toFullTimestamp(durationMs: lyrics.inferredDuration);
+    final fs = shifted.toFullTimestamp(
+      durationMs: lyrics.inferredDuration,
+      maxLineDurationMs: _maxLineDurationMs,
+    );
     final document = _toLyricDocument(fs, keepsWordTiming: keepsWordTiming);
     return LyricsPayload(
       sourceId: sourceId,
