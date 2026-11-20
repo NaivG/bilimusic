@@ -411,8 +411,8 @@ class OnboardingFindVisual extends StatelessWidget {
 
   static const List<(String, String, String)> _roamQueue =
       <(String, String, String)>[
-        ('01', '夏日回声', '潮汐电台 · 94% 契合'),
-        ('02', '霓虹与海', '白昼梦游 · 同风格推荐'),
+        ('01', '残響散歌', 'Aimer · 94% 契合'),
+        ('02', '紅蓮華', 'LiSA · 同风格推荐'),
       ];
 
   @override
@@ -455,7 +455,7 @@ class OnboardingFindVisual extends StatelessWidget {
                       const SizedBox(width: BmTokens.s2),
                       Expanded(
                         child: Text(
-                          '夜航  或  BV1xx411c7mD',
+                          '夜に駆ける  或  BV1Ph411C7S5',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: type.caption.copyWith(
@@ -497,7 +497,7 @@ class OnboardingFindVisual extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
                             Text(
-                              '夜航',
+                              '夜に駆ける',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: type.label.copyWith(
@@ -506,7 +506,7 @@ class OnboardingFindVisual extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              'UP · 星海录音室 · 03:58',
+                              'UP · Ayase-YOASOBI · 04:36',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: type.micro.copyWith(
@@ -1015,10 +1015,10 @@ class OnboardingOfflineVisual extends StatelessWidget {
 
   static const List<(String, String, bool, double)> _tracks =
       <(String, String, bool, double)>[
-        ('夜航', 'Hi-Res · 24.6 MB · 已缓存', true, 0),
-        ('夏日回声', '192K HQ · 8.4 MB · 已缓存', true, 18),
-        ('霓虹与海', '192K HQ · 9.1 MB · 已缓存', true, -18),
-        ('慢半拍', '正在写入本地 · 82%', false, 32),
+        ('夜に駆ける', 'Hi-Res · 24.6 MB · 已缓存', true, 0),
+        ('KICK BACK', '192K HQ · 8.4 MB · 已缓存', true, 18),
+        ('残響散歌', '192K HQ · 9.1 MB · 已缓存', true, -18),
+        ('紅蓮華', '正在写入本地 · 82%', false, 32),
       ];
 
   @override
@@ -1397,8 +1397,8 @@ class OnboardingTheaterVisual extends StatelessWidget {
                 children: <Widget>[
                   const Expanded(
                     child: _MiniMediaCard(
-                      title: '夜航',
-                      subtitle: '星海录音室',
+                      title: '夜に駆ける',
+                      subtitle: 'YOASOBI',
                       icon: Icons.album_rounded,
                       hueShift: 0,
                     ),
@@ -1406,7 +1406,7 @@ class OnboardingTheaterVisual extends StatelessWidget {
                   const SizedBox(width: BmTokens.s2),
                   const Expanded(
                     child: _MiniMediaCard(
-                      title: '晚风集',
+                      title: '日系精选',
                       subtitle: '每日精选歌单',
                       icon: Icons.queue_music_rounded,
                       hueShift: 24,
@@ -1419,7 +1419,7 @@ class OnboardingTheaterVisual extends StatelessWidget {
               ClipRRect(
                 borderRadius: BmTokens.rPillAll,
                 child: Container(
-                  height: 36,
+                  height: 40,
                   decoration: BoxDecoration(
                     color: colors.chromeRaisedOpaque,
                     border: Border.all(
@@ -1440,18 +1440,19 @@ class OnboardingTheaterVisual extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: BmTokens.s2,
+                          vertical: BmTokens.s2,
                         ),
                         child: Row(
                           children: <Widget>[
                             const _VinylArtwork(
                               size: 24,
                               icon: Icons.music_note_rounded,
-                              radius: BmTokens.r9,
+                              radius: BmTokens.rPill,
                             ),
                             const SizedBox(width: BmTokens.s2),
                             Expanded(
                               child: Text(
-                                '夜航 · 星海录音室',
+                                '夜に駆ける · YOASOBI',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: type.micro.copyWith(
@@ -2096,10 +2097,10 @@ class _MockQueuePanel extends StatelessWidget {
   final Color background;
 
   static const List<(String, String, bool)> _queue = <(String, String, bool)>[
-    ('夜航', '星海录音室', true),
-    ('夏日回声', '潮汐电台', false),
-    ('霓虹与海', '白昼梦游', false),
-    ('慢半拍', '午夜飞行', false),
+    ('夜に駆ける', 'YOASOBI', true),
+    ('KICK BACK', '米津玄師', false),
+    ('残響散歌', 'Aimer', false),
+    ('紅蓮華', 'LiSA', false),
   ];
 
   @override
@@ -2236,7 +2237,7 @@ class _MockPlaybar extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    '夜航 · 星海录音室',
+                    '夜に駆ける · YOASOBI',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: type.micro.copyWith(
@@ -2309,14 +2310,15 @@ class _MockPlaybar extends StatelessWidget {
 class OnboardingLyricVisual extends StatelessWidget {
   const OnboardingLyricVisual({super.key});
 
+  /// 真实歌词：YOASOBI《夜に駆ける》开头的四句（作詞・作曲 Ayase）。
   static const List<String> _lines = <String>[
-    '穿过傍晚最后一道云层',
-    '海面升起零星的灯火',
-    '晚风吹过甲板，万籁俱寂',
-    '只剩星群在远方闪烁',
+    '沈むように溶けてゆくように',
+    '二人だけの空が広がる夜に',
+    '「さよなら」だけだった',
+    'その一言で全てが分かった',
   ];
 
-  static const int _currentLine = 1;
+  static const int _currentLine = 2;
 
   @override
   Widget build(BuildContext context) {
@@ -2375,7 +2377,7 @@ class OnboardingLyricVisual extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: <Widget>[
                                   Text(
-                                    '夜航',
+                                    '夜に駆ける',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: type.label.copyWith(
@@ -2384,7 +2386,7 @@ class OnboardingLyricVisual extends StatelessWidget {
                                     ),
                                   ),
                                   Text(
-                                    '星海录音室',
+                                    'YOASOBI',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: type.micro.copyWith(
@@ -2477,7 +2479,7 @@ class OnboardingLyricVisual extends StatelessWidget {
                                         child: const SizedBox.expand(),
                                       ),
                                       FractionallySizedBox(
-                                        widthFactor: 0.38,
+                                        widthFactor: 0.3,
                                         child: ColoredBox(
                                           color: colors.stageText,
                                           child: const SizedBox.expand(),
@@ -2490,7 +2492,7 @@ class OnboardingLyricVisual extends StatelessWidget {
                             ),
                             const SizedBox(width: BmTokens.s2),
                             Text(
-                              '03:58',
+                              '04:36',
                               style: BmTypography.numeric(
                                 type.micro.copyWith(
                                   color: colors.stageTextSecondary,
@@ -2548,7 +2550,7 @@ class _HighlightedLyricLine extends StatelessWidget {
     final type = context.bmType;
     final litCount = (text.length * progress).floor();
     final baseStyle = type.section.copyWith(
-      fontSize: 22,
+      fontSize: 20,
       color: colors.stageTextSecondary,
       fontWeight: FontWeight.w800,
     );
@@ -2629,7 +2631,7 @@ class OnboardingSyncVisual extends StatelessWidget {
                 _DeviceNodeCard(
                   icon: Icons.desktop_windows_rounded,
                   title: '桌面端 · 书房电脑',
-                  subtitle: '正在播放《夜航》 · 01:24 / 03:58',
+                  subtitle: '正在播放《夜に駆ける》 · 01:24 / 04:36',
                   badge: '当前发声',
                   highlighted: true,
                 ),
