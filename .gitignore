@@ -63,3 +63,6 @@ LDDC/
 lib.bak
 CLAUDE.md
 design-demos/
+
+# for perf benchmark tools(local only)
+perf_compare/
