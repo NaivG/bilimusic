@@ -262,9 +262,9 @@ class TitleMetaFilter {
     // JLRS-LeoFM专属。
     TitleFilterRule(source: r'在?\s*百万豪装录音棚\s*(?:大声听)?', builtin: true),
     TitleFilterRule(source: r'百万级录音棚\s*(?:听)?', builtin: true),
-    // 属性类。
+    // 官方 MV 标签，一般为日专写法。
     TitleFilterRule(
-      source: r'-Official?\s*([aA-zZ]*)?\s*Video-',
+      source: r'(?:-)?Official?\s*([aA-zZ]*)?\s*Video(?:-)?',
       builtin: true,
     ),
   ];
