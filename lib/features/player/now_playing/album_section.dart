@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilimusic/features/player/widgets/landscape_seek_bar.dart';
+import 'package:bilimusic/features/player/widgets/album_progress_bar.dart';
 import 'package:bilimusic/features/player/widgets/playback_buttons.dart';
 import 'package:bilimusic/features/player/widgets/crossfade_indicator.dart';
 import 'package:bilimusic/features/player/now_playing/apple_cover.dart';
@@ -23,13 +23,17 @@ import 'package:bilimusic/shared/utils/animations.dart';
 /// 尺寸与间距完全由实际分配到的宽高决定（[LayoutBuilder]，不读屏幕断点）：
 /// - 宽度 → 水平留白、封面、字号、按钮尺寸，并保证控制行不溢出；
 /// - 高度 → 封面的高度预算，以及纵向节奏：
-///   内容放得下时，富余高度以弹性间距分摊到封面上下（每侧不超过封面的一半），
-///   超长屏（如 22:9）由此消化底部空白；放不下时（如横屏窄面板）整体可滚动。
+///   内容放得下时，富余高度分给封面底部与页面底部（各自不超过封面的一半），
+///   封面到信息行保持固定小间距，超长屏（如 22:9）由底部消化空白；
+///   放不下时（如横屏窄面板）整体可滚动。
 class AlbumSection extends ConsumerStatefulWidget {
   final String coverUrl;
   final String title;
   final String artist;
   final String album;
+
+  /// 当前曲目总时长：进度区块的读数与比例都取自它。
+  final Duration duration;
   final Color? dominantColor;
   final bool isFavorite;
   final String? trackId;
@@ -58,6 +62,7 @@ class AlbumSection extends ConsumerStatefulWidget {
     required this.title,
     required this.artist,
     required this.album,
+    required this.duration,
     this.dominantColor,
     this.isFavorite = false,
     this.trackId,
@@ -170,8 +175,8 @@ class _AlbumSectionState extends ConsumerState<AlbumSection>
           );
         }
 
-        // 填充模式：富余高度由封面上下两个弹性间距实时吸收（零估算误差），
-        // 每侧最多吃掉半个封面，再多的留白沉到面板底部。
+        // 填充模式：富余高度由「封面顶部 + 页面底部」两个弹性间距实时吸收
+        //（零估算误差），每处最多吃掉半个封面；封面到信息行只留固定间距。
         return Padding(
           padding: EdgeInsets.symmetric(
             horizontal: metrics.horizontalPadding,
@@ -188,8 +193,7 @@ class _AlbumSectionState extends ConsumerState<AlbumSection>
 
   List<Widget> _buildContent(_AlbumMetrics m, {required bool fillHeight}) {
     return [
-      // 封面（带切歌过渡）；填充模式下上下各留一个弹性间距
-      if (fillHeight) Flexible(child: SizedBox(height: m.coverSize * 0.5)),
+      // 封面（带切歌过渡）；填充模式下封面底部留弹性间距，富余高度沉到页面底部
       _animated(
         KeyedSubtree(
           key: widget.coverKey,
@@ -205,19 +209,13 @@ class _AlbumSectionState extends ConsumerState<AlbumSection>
         ),
       ),
       if (fillHeight) Flexible(child: SizedBox(height: m.coverSize * 0.5)),
+
       SizedBox(height: m.gapCoverInfo),
       // 歌曲信息 + 收藏/分享（带切歌过渡）
       _animated(_buildInfoRow(m)),
       SizedBox(height: m.gapInfoSeek),
-      // 音质徽标位：默认显示当前音质，crossfade 过渡时切换为「过渡中」动画
-      _buildQualityBadge(),
-      const SizedBox(height: 6),
-      // 进度条（无 thumb，可拖拽，带时长标签）
-      const LandscapeSeekBar(
-        color: Colors.white,
-        widgetHeight: 20,
-        seekBarHeight: 8,
-      ),
+      // 进度区块：全宽轨道 + 下方「已播 / 音质徽标 / 总时长」读数行
+      _buildProgressBlock(),
       SizedBox(height: m.gapSeekControls),
       // 5 个播放控制按钮
       _buildControlRow(m),
@@ -225,6 +223,8 @@ class _AlbumSectionState extends ConsumerState<AlbumSection>
       // 音量调节（喇叭图标 + 细条）
       _buildVolumeControl(m),
       SizedBox(height: m.gapVolumeLyrics), // 让底部留白更大一点，避免贴边
+      // 富余高度落到底部：封面与信息行保持 AM 的紧凑节奏，不再被拉开
+      if (fillHeight) Flexible(child: SizedBox(height: m.coverSize * 0.5)),
     ];
   }
 
@@ -237,16 +237,34 @@ class _AlbumSectionState extends ConsumerState<AlbumSection>
     final qualityId = actualQualityId.isEmpty
         ? ref.watch(settingsProvider).audioQuality
         : actualQualityId;
+    final slotHeight =
+        MediaQuery.textScalerOf(context).scale(15) + BmTokens.s1 * 2;
 
-    return AnimatedSwitcher(
-      duration: BmMotion.medium,
-      transitionBuilder: switcherFadeTransition,
-      child: fading
-          ? const CrossfadeIndicator()
-          : BmAudioQualityBadge(
-              key: const ValueKey<String>('quality-badge'),
-              qualityId: qualityId,
-            ),
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: slotHeight),
+      child: Center(
+        child: AnimatedSwitcher(
+          duration: BmMotion.medium,
+          transitionBuilder: switcherFadeTransition,
+          child: fading
+              ? const CrossfadeIndicator()
+              : BmAudioQualityBadge(
+                  key: const ValueKey<String>('quality-badge'),
+                  qualityId: qualityId,
+                ),
+        ),
+      ),
+    );
+  }
+
+  /// 进度区块：轨道铺满内容宽（8px，与旧版齐高），读数与音质徽标在轨道下方一行。
+  Widget _buildProgressBlock() {
+    return AlbumProgressBar(
+      duration: widget.duration,
+      centerLabel: _buildQualityBadge(),
+      activeColor: Colors.white,
+      inactiveColor: Colors.white.withValues(alpha: 0.22),
+      labelColor: Colors.white.withValues(alpha: 0.6),
     );
   }
 
@@ -488,31 +506,40 @@ class _AlbumMetrics {
     final actionSize = (contentWidth * 0.14).clamp(40.0, 52.0);
     final actionColumnHeight = actionSize * 2 + 10;
 
-    // 封面宽度预算：≤ 内容宽的 80%，收在 200~320
+    // 封面宽度预算：AM 的大封面约屏宽 78%（旧版按内容宽的 80%，实际约 71%）。
     final widthCover = math.min(
       contentWidth,
-      (contentWidth * 0.8).clamp(200.0, 320.0),
+      (width * 0.78).clamp(200.0, 420.0),
     );
 
-    // 封面高度预算：内容高 ≈ 固定件 + 系数 × cover
-    //（cover + 55% 基础间距 + 24% 主按钮），目标让内容约占可用高度的 95%，
-    // 剩余交给弹性间距。字号按封顶值估，偏保守。
+    // 进度区块：轨道命中区 + 间距 + 读数行（读数行按音质徽标胶囊高度估）。
+    final readoutRowHeight = 15.0 * textScale + 8;
+    final progressBlockHeight =
+        AlbumProgressBar.defaultHitHeight +
+        AlbumProgressBar.defaultGap +
+        readoutRowHeight;
+    const volumeRowHeight = 32.0; // 音量行（20 高滑块 + 上下留白）
+    const verticalPadding = 12.0;
+    const estimateMargin = 24.0;
+
+    // 封面高度预算：内容高 ≈ 固定件 + gap 系数 × cover + 主按钮
+    //（0.40 间距 + 0.28 主按钮），目标让内容约占可用高度的 96%，
+    // 剩余交给封面顶部与页面底部的弹性间距。字号按封顶值估，偏保守。
     final infoRowAtCap = math.max(
       2 * 22.0 * 1.25 + 4 + 15.0 * 1.4 + 2 + 13.5 * 1.4, // 字号封顶时的文本列
       actionColumnHeight,
     );
     final fixedHeight =
-        24.0 /*纵向 padding*/ +
-        20.0 /*进度条*/ +
-        28.0 /*音质徽标 + 与进度条间距*/ +
-        32.0 /*音量行*/ +
-        24.0 /*估算余量*/ +
+        verticalPadding * 2 +
+        progressBlockHeight +
+        volumeRowHeight +
+        estimateMargin +
         infoRowAtCap * textScale;
-    const coverHeightFactor = 1.8;
+    const coverHeightFactor = 1.68;
     final heightCover = maxHeight.isFinite
-        ? ((maxHeight * 0.95 - fixedHeight) / coverHeightFactor).clamp(
+        ? ((maxHeight * 0.96 - fixedHeight) / coverHeightFactor).clamp(
             160.0,
-            400.0,
+            420.0,
           )
         : double.infinity;
     final coverSize = math.min(widthCover, heightCover);
@@ -529,6 +556,13 @@ class _AlbumMetrics {
     );
     final sideButtonSize = mainButtonSize * 0.65;
 
+    // 间距按封面等比收缩：旧版合计 0.65 × cover，AM 的节奏更紧（约 0.40）。
+    final gapCoverInfo = (coverSize * 0.06).clamp(12.0, 20.0);
+    final gapInfoSeek = (coverSize * 0.07).clamp(16.0, 24.0);
+    final gapSeekControls = (coverSize * 0.10).clamp(16.0, 28.0);
+    final gapControlsVolume = (coverSize * 0.09).clamp(14.0, 26.0);
+    final gapVolumeLyrics = (coverSize * 0.06).clamp(10.0, 18.0);
+
     // 信息行实测高度（字号/缩放就位后），供「填充 vs 滚动」判定
     final infoTextHeight =
         (2 * titleFontSize * 1.25 +
@@ -539,18 +573,21 @@ class _AlbumMetrics {
         textScale;
     final infoRowHeight = math.max(infoTextHeight, actionColumnHeight);
     final estimatedContentHeight =
-        24.0 +
+        verticalPadding * 2 +
         coverSize +
-        coverSize * 0.55 + // 封面→信息 / 信息→进度 / 进度→控制 / 控制→音量
+        gapCoverInfo +
+        gapInfoSeek +
+        gapSeekControls +
+        gapControlsVolume +
+        gapVolumeLyrics +
         infoRowHeight +
-        20.0 +
-        28.0 + // 音质徽标 + 与进度条间距
+        progressBlockHeight +
         mainButtonSize +
-        32.0;
+        volumeRowHeight;
 
     return _AlbumMetrics(
       horizontalPadding: horizontalPadding,
-      verticalPadding: 12,
+      verticalPadding: verticalPadding,
       coverSize: coverSize,
       titleFontSize: titleFontSize,
       artistFontSize: artistFontSize,
@@ -562,11 +599,11 @@ class _AlbumMetrics {
       sideIconSize: sideButtonSize * 0.85,
       gapMain: mainButtonSize * 0.35,
       gapSide: mainButtonSize * 0.38,
-      gapCoverInfo: coverSize * 0.2,
-      gapInfoSeek: coverSize * 0.15,
-      gapSeekControls: coverSize * 0.1,
-      gapControlsVolume: coverSize * 0.1,
-      gapVolumeLyrics: coverSize * 0.1,
+      gapCoverInfo: gapCoverInfo,
+      gapInfoSeek: gapInfoSeek,
+      gapSeekControls: gapSeekControls,
+      gapControlsVolume: gapControlsVolume,
+      gapVolumeLyrics: gapVolumeLyrics,
       volumeSliderWidth: (contentWidth - 48).clamp(100.0, 160.0),
       estimatedContentHeight: estimatedContentHeight,
     );

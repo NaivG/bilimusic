@@ -97,6 +97,7 @@ class LandscapeDetailPage extends ConsumerWidget {
                         title: music.title,
                         artist: music.artist.displayName,
                         album: music.album,
+                        duration: duration ?? Duration.zero,
                         dominantColor: dominantColor,
                         isFavorite: isFavorite,
                         trackId: music.id,

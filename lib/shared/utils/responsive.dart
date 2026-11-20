@@ -136,11 +136,12 @@ class LandscapeBreakpoints {
   }
 
   /// 获取横屏左侧区域比例（左列已自包含控制条，可适度缩窄）
+  /// 反直觉分配，越宽的屏幕内容区就更足，需要分配的就越少
   static double getLeftSectionRatio(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    if (width >= desktopMin) return 0.38;
-    if (width >= largeTabletMin) return 0.36;
-    return 0.34;
+    if (width >= desktopMin) return 0.32;
+    if (width >= largeTabletMin) return 0.34;
+    return 0.36;
   }
 
   /// 获取横屏边距

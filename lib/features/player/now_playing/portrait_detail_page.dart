@@ -268,6 +268,7 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage>
         title: widget.music.title,
         artist: widget.music.artist.displayName,
         album: widget.music.album,
+        duration: widget.duration ?? Duration.zero,
         dominantColor: widget.dominantColor,
         isFavorite: widget.isFavorite,
         trackId: widget.music.id,
