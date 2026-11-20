@@ -1,6 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_lyric/core/lyric_controller.dart';
+import 'package:flutter_lyric/flutter_lyric.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
@@ -329,7 +329,6 @@ class SquareDetailPage extends ConsumerWidget {
           Positioned.fill(
             child: LyricSection(
               lyricController: lyricController,
-              position: position,
               lyricSources: lyricSources,
               selectedLyricId: selectedLyricId,
               isLoadingLyrics: isLoadingLyrics,

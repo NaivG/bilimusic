@@ -86,25 +86,88 @@ void main() {
     await service.prefetch(music);
     expect(finder.searchCount, 2, reason: '清空后应立刻重试，而不是继续等冷却');
   });
+
+  test('新格式缓存：offset / end / words / translation 解码不丢', () async {
+    final music = sampleMusic();
+    await _seedPayload(
+      cache,
+      music,
+      model: {
+        'tags': {'ti': music.title},
+        'offset': 1200,
+        'lines': [
+          {
+            'start': 1000,
+            'end': 4200,
+            'text': '第一行',
+            'translation': 'first line',
+            'words': [
+              {'start': 1000, 'end': 2000, 'text': '第'},
+              {'start': 2000, 'end': 4200, 'text': '一行'},
+            ],
+          },
+        ],
+      },
+    );
+
+    final document = (await service.prefetch(music))!.autoPayload!.document;
+
+    expect(document.offset, const Duration(milliseconds: 1200));
+    final line = document.lines.single;
+    expect(line.end, const Duration(milliseconds: 4200));
+    expect(line.translation, 'first line');
+    expect(line.words?.length, 2);
+    expect(line.words!.last.end, const Duration(milliseconds: 4200));
+  });
+
+  test('旧格式缓存（无 offset 字段）：按 tags[offset] 解析，不吞掉标签偏移', () async {
+    final music = sampleMusic();
+    await _seedPayload(
+      cache,
+      music,
+      model: {
+        'tags': {'ti': music.title, 'offset': '800'},
+        'lines': [
+          {'start': 0, 'text': '第一行'},
+        ],
+      },
+    );
+
+    final document = (await service.prefetch(music))!.autoPayload!.document;
+
+    expect(document.offset, const Duration(milliseconds: 800));
+  });
 }
 
-/// 按 [LyricsService] 的缓存 key 约定塞一份自动选中的歌词载荷。
-Future<void> _seedAutoPayload(_FakeLyricsCache cache, Music music) async {
+Future<void> _seedPayload(
+  _FakeLyricsCache cache,
+  Music music, {
+  required Map<String, Object?> model,
+}) async {
   final raw = jsonEncode({
     'sourceId': 'qq:1',
     'offsetMs': 0,
     'songKey': LyricsService.songKeyOf(music),
-    'model': {
-      'tags': {'ti': music.title},
-      'lines': [
-        {'start': 0, 'end': 3000, 'text': '第一行', 'words': <Object?>[]},
-      ],
-    },
+    'model': model,
   });
   await cache.putFile(
     'lyrics:payload:${LyricsService.songKeyOf(music)}',
     Uint8List.fromList(utf8.encode(raw)),
     fileExtension: 'json',
+  );
+}
+
+/// 按 [LyricsService] 的缓存 key 约定塞一份自动选中的歌词载荷。
+Future<void> _seedAutoPayload(_FakeLyricsCache cache, Music music) async {
+  await _seedPayload(
+    cache,
+    music,
+    model: {
+      'tags': {'ti': music.title},
+      'lines': [
+        {'start': 0, 'end': 3000, 'text': '第一行', 'words': <Object?>[]},
+      ],
+    },
   );
 }
 

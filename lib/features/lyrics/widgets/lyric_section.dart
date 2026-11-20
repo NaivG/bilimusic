@@ -5,26 +5,38 @@ import 'package:bilimusic/shared/motion/motion_tokens.dart';
 import 'package:bilimusic/shared/motion/spring_curve.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_lyric/core/lyric_controller.dart';
-import 'package:flutter_lyric/core/lyric_style.dart';
-import 'package:flutter_lyric/widgets/lyric_view.dart';
+import 'package:flutter_lyric/flutter_lyric.dart';
 
-/// 歌词滚动弹簧；`flutter_lyric` 只接受 Curve，用 [SpringCurve] 近似物理弹簧。
+/// 歌词滚动的弹簧曲线。
+///
+/// `flutter_lyric` 4.x 的 [LyricScrollAnimation] 仍然接受任意 [Curve]，
+/// 这里继续用 [SpringCurve] 近似物理弹簧。
 final Curve _lyricScrollCurve = SpringCurve.lyricScroll();
 
-/// 歌词行切换（缩放 + 颜色）弹簧。
-final Curve _lyricLineCurve = SpringCurve.lyricLine();
+/// 切句 / 行运动 / 逐字效果 / 距离模糊统一取自官方 [LyricPresets.appleMusic]。
+
+/// 前奏 / 间奏小圆点设置覆盖。
+const LyricCountdown _countdown = LyricCountdown(
+  dotCount: 3,
+  dotDuration: Duration(seconds: 3),
+  breathDuration: Duration(milliseconds: 1600),
+  dotSize: 10,
+  dotSpacing: 10,
+  height: 32,
+  spacing: 24,
+  color: Colors.white,
+);
 
 /// 统一歌词区域组件 —— 内部使用 [LyricController]/[LyricView] 完成渲染。
 ///
-/// 父组件持有 [lyricController] 并在加载完成时调用 [LyricController.loadLyricModel]
-/// 或 [LyricController.loadLyric];本组件仅负责渲染 + 驱动 [setProgress] + 转发点击事件。
-class LyricSection extends StatefulWidget {
+/// 父组件持有 [lyricController]，并在载荷就绪时调用
+/// [LyricController.loadDocument]；本组件只负责排版（预设）、点击转发和
+/// 空态，不再逐帧驱动播放进度。
+class LyricSection extends StatelessWidget {
   final String? title;
   final String? artist;
   final String? album;
   final LyricController? lyricController;
-  final Duration position;
   final List<LyricSource> lyricSources;
   final String? selectedLyricId;
   final bool isLoadingLyrics;
@@ -41,7 +53,6 @@ class LyricSection extends StatefulWidget {
     this.artist,
     this.album,
     this.lyricController,
-    required this.position,
     this.lyricSources = const [],
     this.selectedLyricId,
     this.isLoadingLyrics = false,
@@ -51,216 +62,183 @@ class LyricSection extends StatefulWidget {
     this.onLyricTap,
   });
 
-  @override
-  State<LyricSection> createState() => _LyricSectionState();
-}
-
-class _LyricSectionState extends State<LyricSection> {
-  Duration _lastPosition = Duration.zero;
-  LyricController? _hookedController;
-
-  @override
-  void didUpdateWidget(LyricSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.position != _lastPosition) {
-      _lastPosition = widget.position;
-      widget.lyricController?.setProgress(widget.position);
-    }
-    // controller 第一次挂上时立即同步一次进度 + 注册点击回调,避免 0→有歌时的延迟。
-    if (widget.lyricController != _hookedController) {
-      _hookedController = widget.lyricController;
-      if (widget.lyricController != null) {
-        widget.lyricController!.setProgress(widget.position);
-        if (widget.onLyricTap != null) {
-          widget.lyricController!.setOnTapLineCallback(widget.onLyricTap!);
-        }
-      }
-    }
-  }
-
-  bool _isLandscapeMode() {
+  bool _isLandscapeMode(BuildContext context) {
     final size = MediaQuery.of(context).size;
     return size.width >= LandscapeBreakpoints.tabletLandscapeMin &&
         size.width > size.height;
   }
 
-  LyricStyle _buildStyle(bool isLandscape) {
-    if (isLandscape) {
-      final base = LandscapeBreakpoints.getOtherLyricFontSize(context);
-      final active = LandscapeBreakpoints.getCurrentLyricFontSize(context);
-      return LyricStyle(
-        textStyle: TextStyle(
-          fontSize: base,
-          color: Colors.white.withValues(alpha: 0.45),
-          height: 1.4,
-        ),
-        activeStyle: TextStyle(
-          fontSize: active,
-          color: Colors.white.withValues(alpha: 0.55),
-          fontWeight: FontWeight.w700,
-          height: 1.3,
-        ),
-        translationStyle: TextStyle(
-          fontSize: base - 6,
-          color: Colors.white.withValues(alpha: 0.4),
-          height: 1.35,
-        ),
-        translationActiveColor: Colors.white.withValues(alpha: 0.7),
-        lineTextAlign: TextAlign.left,
-        lineGap: 32,
-        translationLineGap: 10,
-        contentAlignment: CrossAxisAlignment.start,
-        selectionAnchorPosition: 0.4,
-        activeAnchorPosition: 0.4,
-        activeAlignment: MainAxisAlignment.start,
-        selectionAlignment: MainAxisAlignment.start,
-        fadeRange: FadeRange(top: 80, bottom: 80),
-        scrollDuration: BmMotion.lyricScrollMax,
-        scrollCurve: _lyricScrollCurve,
-        scrollAnimationBuilder: (_) => LyricScrollAnimationConfig(
-          duration: BmMotion.lyricScrollMax,
-          curve: _lyricScrollCurve,
-        ),
-        selectedColor: Colors.white,
-        selectedTranslationColor: Colors.white.withValues(alpha: 0.85),
-        selectionAutoResumeDuration: const Duration(milliseconds: 320),
-        activeAutoResumeDuration: const Duration(milliseconds: 3000),
-        selectionAutoResumeMode: SelectionAutoResumeMode.selecting,
-        activeHighlightColor: Colors.white,
-        activeHighlightExtraFadeWidth: active * 0.5,
-        enableSwitchAnimation: true,
-        switchEnterDuration: BmMotion.lyricSwitchMax,
-        switchExitDuration: BmMotion.lyricSwitchMax,
-        switchEnterCurve: _lyricLineCurve,
-        switchExitCurve: _lyricLineCurve,
-      );
-    }
+  LyricPreset _buildPreset(BuildContext context, bool isLandscape) {
+    if (isLandscape) return _buildLandscapePreset(context);
     // 方屏（手表 / 折叠外屏 / PiP）或窄幅横屏空间小，维持紧凑居中版式。
     final size = MediaQuery.sizeOf(context);
     if (SquareBreakpoints.shouldUseSquareLayout(context) ||
         size.height < size.width) {
-      return _buildCompactPortraitStyle();
+      return _buildCompactPreset();
     }
-    return _buildAppleMusicPortraitStyle();
+    return _buildAppleMusicPreset(context);
   }
 
-  /// 竖屏 AM 风格歌词：大字号 + 左对齐 + 逐字填充。
-  ///
-  /// 当前行按 100:97 行缩放略放大并加粗，未唱到的字压到 52% 白，
-  /// 唱过的字由 [LyricStyle.activeHighlightColor] 逐字填成纯白；滚动与行切换
-  /// 都走弹簧曲线，与横屏保持同一套动画。
-  LyricStyle _buildAppleMusicPortraitStyle() {
-    final width = MediaQuery.sizeOf(context).width;
-    final lyricSize = width >= 600 ? 34.0 : 32.0;
-    final activeSize = lyricSize / 0.97;
-    final translationSize = lyricSize * 0.66;
-    final lineGap = lyricSize * 0.9;
-
-    return LyricStyle(
+  /// 横屏：保留大字号双档排版，切句/逐字动效改用 Apple Music 那一套。
+  LyricPreset _buildLandscapePreset(BuildContext context) {
+    final base = LandscapeBreakpoints.getOtherLyricFontSize(context);
+    final active = LandscapeBreakpoints.getCurrentLyricFontSize(context);
+    final am = LyricPresets.appleMusic;
+    return LyricPreset(
       textStyle: TextStyle(
-        fontSize: lyricSize,
-        color: Colors.white.withValues(alpha: 0.38),
-        fontWeight: FontWeight.w500,
-        height: 1.35,
-      ),
-      activeStyle: TextStyle(
-        fontSize: activeSize,
-        color: Colors.white.withValues(alpha: 0.52),
-        fontWeight: FontWeight.w700,
-        height: 1.35,
-      ),
-      translationStyle: TextStyle(
-        fontSize: translationSize,
+        fontSize: base,
         color: Colors.white.withValues(alpha: 0.45),
+        height: 1.4,
+      ),
+      activeTextStyle: TextStyle(
+        fontSize: active,
+        color: Colors.white.withValues(alpha: 0.55),
+        fontWeight: FontWeight.w700,
+        height: 1.3,
+      ),
+      translationTextStyle: TextStyle(
+        fontSize: base - 6,
+        color: Colors.white.withValues(alpha: 0.4),
         height: 1.35,
       ),
-      translationActiveColor: Colors.white.withValues(alpha: 0.8),
-      lineTextAlign: TextAlign.left,
-      lineGap: lineGap,
-      translationLineGap: 8,
-      contentAlignment: CrossAxisAlignment.start,
-      selectionAnchorPosition: 0.4,
-      activeAnchorPosition: 0.36,
-      activeAlignment: MainAxisAlignment.start,
-      selectionAlignment: MainAxisAlignment.start,
-      fadeRange: FadeRange(top: lyricSize * 3, bottom: lyricSize * 3),
-      scrollDuration: BmMotion.lyricScrollMax,
-      scrollCurve: _lyricScrollCurve,
-      scrollAnimationBuilder: (_) => LyricScrollAnimationConfig(
+      activeTranslationTextStyle: TextStyle(
+        color: Colors.white.withValues(alpha: 0.7),
+      ),
+      textAlign: TextAlign.left,
+      contentAlignment: LyricContentAlignment.start,
+      // 页面外层已经有横向 padding，预设里不再叠加。
+      padding: EdgeInsets.zero,
+      lineSpacing: 32,
+      translationSpacing: 10,
+      activeAnchor: const LyricAnchor.fraction(
+        0.4,
+        target: LyricAnchorTarget.mainText,
+      ),
+      selectionAnchor: const LyricAnchor.fraction(
+        0.4,
+        target: LyricAnchorTarget.mainText,
+      ),
+      edgeFade: const LyricEdgeFade.pixels(top: 80, bottom: 80),
+      scrollAnimation: LyricScrollAnimation.fixed(
         duration: BmMotion.lyricScrollMax,
         curve: _lyricScrollCurve,
       ),
-      selectedColor: Colors.white,
-      selectedTranslationColor: Colors.white.withValues(alpha: 0.85),
-      selectionAutoResumeDuration: const Duration(milliseconds: 320),
-      activeAutoResumeDuration: const Duration(milliseconds: 3000),
-      selectionAutoResumeMode: SelectionAutoResumeMode.selecting,
-      activeHighlightColor: Colors.white,
-      activeHighlightExtraFadeWidth: activeSize * 0.5,
-      enableSwitchAnimation: true,
-      switchEnterDuration: BmMotion.lyricSwitchMax,
-      switchExitDuration: BmMotion.lyricSwitchMax,
-      switchEnterCurve: _lyricLineCurve,
-      switchExitCurve: _lyricLineCurve,
+      selectedTextColor: Colors.white,
+      selectedTranslationTextColor: Colors.white.withValues(alpha: 0.85),
+      selectionSnapDelay: const Duration(milliseconds: 320),
+      resumeDelay: const Duration(seconds: 3),
+      selectionSnapMode: LyricSelectionSnapMode.afterScroll,
+      highlight: LyricHighlight.solid(
+        Colors.white,
+        tailFadeWidth: active * 0.5,
+      ),
+      lineTransition: am.lineTransition,
+      lineMotion: am.lineMotion,
+      wordEffects: am.wordEffects,
+      distanceBlur: am.distanceBlur,
+      countdown: const LyricCountdown.none(),
+    );
+  }
+
+  /// 竖屏 AM 预设，以 4.1 的 [LyricPresets.appleMusic] 为基底。
+  LyricPreset _buildAppleMusicPreset(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final lyricSize = width >= 600 ? 34.0 : 32.0;
+    final base = LyricPresets.appleMusic;
+    return base.copyWith(
+      textStyle: base.textStyle.copyWith(fontSize: lyricSize, height: 1.3),
+      translationTextStyle: base.translationTextStyle.copyWith(
+        fontSize: lyricSize * 0.5,
+        height: 1.4,
+      ),
+      padding: EdgeInsets.zero,
+      lineSpacing: lyricSize * 0.85,
+      translationSpacing: 8,
+      activeAnchor: const LyricAnchor.fraction(
+        0.38,
+        target: LyricAnchorTarget.mainText,
+      ),
+      selectionAnchor: const LyricAnchor.fraction(
+        0.38,
+        target: LyricAnchorTarget.mainText,
+      ),
+      highlight: const LyricHighlight.solid(Colors.white, tailFadeWidth: 20),
+      scrollAnimation: LyricScrollAnimation.fixed(
+        duration: BmMotion.lyricScrollMax,
+        curve: _lyricScrollCurve,
+      ),
+      countdown: _countdown,
     );
   }
 
   /// 紧凑居中版式：方屏 / 窄幅横屏使用，字号与间距都更保守。
-  LyricStyle _buildCompactPortraitStyle() {
-    return LyricStyle(
+  LyricPreset _buildCompactPreset() {
+    return LyricPreset(
       textStyle: TextStyle(
         fontSize: 17,
         color: Colors.white.withValues(alpha: 0.55),
         height: 1.4,
       ),
-      activeStyle: TextStyle(
+      activeTextStyle: TextStyle(
         fontSize: 23,
         color: Colors.white.withValues(alpha: 0.7),
         fontWeight: FontWeight.w700,
         height: 1.3,
       ),
-      translationStyle: TextStyle(
+      translationTextStyle: TextStyle(
         fontSize: 14,
         color: Colors.white.withValues(alpha: 0.5),
         height: 1.35,
       ),
-      translationActiveColor: Colors.white.withValues(alpha: 0.85),
-      lineTextAlign: TextAlign.center,
-      lineGap: 18,
-      translationLineGap: 6,
-      contentAlignment: CrossAxisAlignment.center,
-      selectionAnchorPosition: 0.4,
-      activeAnchorPosition: 0.4,
-      activeAlignment: MainAxisAlignment.center,
-      selectionAlignment: MainAxisAlignment.center,
-      fadeRange: FadeRange(top: 60, bottom: 60),
-      scrollDuration: const Duration(milliseconds: 320),
-      scrollCurve: Curves.easeOutCubic,
-      selectedColor: Colors.white,
-      selectedTranslationColor: Colors.white.withValues(alpha: 0.85),
-      selectionAutoResumeDuration: const Duration(milliseconds: 320),
-      activeAutoResumeDuration: const Duration(milliseconds: 3000),
-      selectionAutoResumeMode: SelectionAutoResumeMode.selecting,
-      activeHighlightColor: Colors.white,
-      activeHighlightExtraFadeWidth: 24,
-      enableSwitchAnimation: true,
-      switchEnterDuration: const Duration(milliseconds: 220),
-      switchExitDuration: const Duration(milliseconds: 220),
+      activeTranslationTextStyle: TextStyle(
+        color: Colors.white.withValues(alpha: 0.85),
+      ),
+      textAlign: TextAlign.center,
+      contentAlignment: LyricContentAlignment.center,
+      padding: EdgeInsets.zero,
+      lineSpacing: 18,
+      translationSpacing: 6,
+      activeAnchor: const LyricAnchor.fraction(
+        0.4,
+        target: LyricAnchorTarget.mainText,
+      ),
+      selectionAnchor: const LyricAnchor.fraction(
+        0.4,
+        target: LyricAnchorTarget.mainText,
+      ),
+      edgeFade: const LyricEdgeFade.pixels(top: 60, bottom: 60),
+      scrollAnimation: LyricScrollAnimation.fixed(
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+      ),
+      selectedTextColor: Colors.white,
+      selectedTranslationTextColor: Colors.white.withValues(alpha: 0.85),
+      selectionSnapDelay: const Duration(milliseconds: 320),
+      resumeDelay: const Duration(seconds: 3),
+      selectionSnapMode: LyricSelectionSnapMode.afterScroll,
+      highlight: const LyricHighlight.solid(Colors.white, tailFadeWidth: 24),
+      // 紧凑版正文/当前句字号差 6px，用 4.1 的 classic（保留双样式尺寸
+      // 过渡）而不是纯淡入，否则切句时字号会瞬跳。
+      lineTransition: LyricLineTransitions.classic.copyWith(
+        enterDuration: const Duration(milliseconds: 220),
+        exitDuration: const Duration(milliseconds: 220),
+      ),
+      countdown: const LyricCountdown.none(),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isLandscape = _isLandscapeMode();
-    final style = _buildStyle(isLandscape);
+    final isLandscape = _isLandscapeMode(context);
+    final preset = _buildPreset(context, isLandscape);
 
     if (isLandscape) {
-      return _buildLandscapeLayout(style);
+      return _buildLandscapeLayout(context, preset);
     }
-    return _buildPortraitLayout(style);
+    return _buildPortraitLayout(preset);
   }
 
-  Widget _buildLandscapeLayout(LyricStyle style) {
+  Widget _buildLandscapeLayout(BuildContext context, LyricPreset preset) {
     final padding = LandscapeBreakpoints.getHorizontalPadding(context);
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: padding),
@@ -269,24 +247,24 @@ class _LyricSectionState extends State<LyricSection> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (widget.showHeader) ...[
+              if (showHeader) ...[
                 _buildSongInfoHeader(isLandscape: true),
                 const SizedBox(height: 24),
                 const SizedBox(height: 16),
               ],
-              Expanded(child: _buildLyricContent(style)),
+              Expanded(child: _buildLyricContent(preset)),
             ],
           ),
-          if (!widget.isLoadingLyrics && widget.lyricSources.isNotEmpty)
+          if (!isLoadingLyrics && lyricSources.isNotEmpty)
             Positioned(right: 0, bottom: 16, child: _buildLyricSourceButton()),
         ],
       ),
     );
   }
 
-  Widget _buildPortraitLayout(LyricStyle style) {
-    if (widget.heroCover != null) {
-      return _buildPortraitHeroLayout(style);
+  Widget _buildPortraitLayout(LyricPreset preset) {
+    if (heroCover != null) {
+      return _buildPortraitHeroLayout(preset);
     }
 
     return Padding(
@@ -301,12 +279,12 @@ class _LyricSectionState extends State<LyricSection> {
                 const SizedBox(height: 8),
                 _buildSongInfoHeader(isLandscape: false),
                 const SizedBox(height: 20),
-                Expanded(child: _buildLyricContent(style)),
+                Expanded(child: _buildLyricContent(preset)),
                 const SizedBox(height: 16),
               ],
             ),
           ),
-          if (!widget.isLoadingLyrics && widget.lyricSources.isNotEmpty)
+          if (!isLoadingLyrics && lyricSources.isNotEmpty)
             Positioned(right: 0, bottom: 24, child: _buildLyricSourceButton()),
         ],
       ),
@@ -314,7 +292,7 @@ class _LyricSectionState extends State<LyricSection> {
   }
 
   /// 竖屏播放页的歌词汇总页：小封面 + 曲名 / 歌手，歌词占满剩余高度。
-  Widget _buildPortraitHeroLayout(LyricStyle style) {
+  Widget _buildPortraitHeroLayout(LyricPreset preset) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: SafeArea(
@@ -325,7 +303,7 @@ class _LyricSectionState extends State<LyricSection> {
             const SizedBox(height: 8),
             _buildHeroHeader(),
             const SizedBox(height: 18),
-            Expanded(child: _buildLyricContent(style)),
+            Expanded(child: _buildLyricContent(preset)),
             const SizedBox(height: 8),
           ],
         ),
@@ -336,7 +314,7 @@ class _LyricSectionState extends State<LyricSection> {
   Widget _buildHeroHeader() {
     return Row(
       children: [
-        widget.heroCover!,
+        heroCover!,
         const SizedBox(width: 14),
         Expanded(
           child: Column(
@@ -344,7 +322,7 @@ class _LyricSectionState extends State<LyricSection> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                widget.title ?? '',
+                title ?? '',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 18,
@@ -357,7 +335,7 @@ class _LyricSectionState extends State<LyricSection> {
               ),
               const SizedBox(height: 4),
               Text(
-                widget.artist ?? '',
+                artist ?? '',
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.7),
                   fontSize: 14,
@@ -370,7 +348,7 @@ class _LyricSectionState extends State<LyricSection> {
             ],
           ),
         ),
-        if (!widget.isLoadingLyrics && widget.lyricSources.isNotEmpty) ...[
+        if (!isLoadingLyrics && lyricSources.isNotEmpty) ...[
           const SizedBox(width: 10),
           _buildLyricSourceButton(compact: true),
         ],
@@ -391,7 +369,7 @@ class _LyricSectionState extends State<LyricSection> {
       crossAxisAlignment: alignment,
       children: [
         Text(
-          widget.title ?? '',
+          title ?? '',
           style: TextStyle(
             color: Colors.white,
             fontSize: titleSize,
@@ -405,7 +383,7 @@ class _LyricSectionState extends State<LyricSection> {
         ),
         const SizedBox(height: 6),
         Text(
-          widget.artist ?? '',
+          artist ?? '',
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.7),
             fontSize: artistSize,
@@ -417,7 +395,7 @@ class _LyricSectionState extends State<LyricSection> {
         ),
         const SizedBox(height: 4),
         Text(
-          widget.album ?? '',
+          album ?? '',
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.45),
             fontSize: albumSize,
@@ -431,21 +409,27 @@ class _LyricSectionState extends State<LyricSection> {
     );
   }
 
-  Widget _buildLyricContent(LyricStyle style) {
-    if (widget.isLoadingLyrics) {
+  Widget _buildLyricContent(LyricPreset preset) {
+    if (isLoadingLyrics) {
       return _buildLoadingState();
     }
-    final controller = widget.lyricController;
+    final controller = lyricController;
     if (controller == null) {
       return _buildEmptyState('选择歌词来源后显示歌词');
     }
-    final model = controller.lyricNotifier.value;
-    if (model == null || model.lines.isEmpty) {
+    final document = controller.document;
+    if (document == null || document.lines.isEmpty) {
       return _buildEmptyState('暂无歌词');
     }
 
+    final tap = onLyricTap;
     return RepaintBoundary(
-      child: LyricView(controller: controller, style: style),
+      child: LyricView(
+        controller: controller,
+        preset: preset,
+        // 4.x 的 seekPosition 已经扣掉文档 offset 与用户校准偏移，直接拿去 seek。
+        onLineTap: tap == null ? null : (details) => tap(details.seekPosition),
+      ),
     );
   }
 
@@ -491,13 +475,13 @@ class _LyricSectionState extends State<LyricSection> {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: PopupMenuButton<String>(
-          initialValue: widget.selectedLyricId,
+          initialValue: selectedLyricId,
           color: Colors.grey[900]!.withValues(alpha: 0.95),
           tooltip: '歌词来源',
-          onSelected: (id) => widget.onLyricSourceChanged?.call(id),
+          onSelected: (id) => onLyricSourceChanged?.call(id),
           itemBuilder: (context) {
-            return widget.lyricSources.map((source) {
-              final selected = source.id == widget.selectedLyricId;
+            return lyricSources.map((source) {
+              final selected = source.id == selectedLyricId;
               return PopupMenuItem<String>(
                 value: source.id,
                 child: Row(

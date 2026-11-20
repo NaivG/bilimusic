@@ -11,6 +11,7 @@ import 'package:bilimusic/features/player/logic/audio_focus_service.dart';
 import 'package:bilimusic/features/player/logic/audio_effects_service.dart';
 import 'package:bilimusic/features/player/logic/dual_audio_service.dart';
 import 'package:bilimusic/features/player/logic/sleep_timer_service.dart';
+import 'package:bilimusic/features/lyrics/lyric_progress_source.dart';
 import 'package:bilimusic/features/lyrics/lyrics_service.dart';
 import 'package:bilimusic/features/player/logic/notification_service.dart';
 import 'package:bilimusic/features/player/logic/player_coordinator.dart';
@@ -274,6 +275,22 @@ final lyricsServiceProvider = Provider<LyricsService>((ref) {
   svc.bind(ref.watch(playerCoordinatorProvider));
   ref.onDispose(svc.dispose);
   return svc;
+});
+
+/// 歌词播放进度源（flutter_lyric 4.x 的 `LyricProgressSource`）。
+///
+/// 详情页把它挂到自己的 `LyricController` 上：Controller 持有订阅、按帧采样，
+/// 组件层不再逐 tick 手动 `setPosition`。做成长期服务是为了让「谁在采样」
+/// 只有一处，而不是每个详情页各造一个时钟。
+final lyricProgressSourceProvider = Provider<PlayerLyricProgressSource>((ref) {
+  final audio = ref.watch(dualAudioServiceProvider);
+  final source = PlayerLyricProgressSource(
+    positionTicks: audio.position,
+    playerState: audio.playerState,
+    readPosition: () => audio.currentPosition,
+  );
+  ref.onDispose(source.dispose);
+  return source;
 });
 
 // ==================== 局域网同步 ====================

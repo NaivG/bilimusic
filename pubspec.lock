@@ -376,10 +376,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_lyric
-      sha256: "7cb3531568c4b5607564555298ac4415c5868a50d77172338894e535529f07d2"
+      sha256: "71ea9ed607c1e5f4261135764be5ee70e21b9332d553dd9d94a9ceb83cfe4be0"
       url: "https://pub.dev"
     source: hosted
-    version: "3.0.8"
+    version: "4.1.0"
   flutter_native_splash:
     dependency: "direct main"
     description:

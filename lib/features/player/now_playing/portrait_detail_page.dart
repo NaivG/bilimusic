@@ -2,7 +2,7 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_lyric/core/lyric_controller.dart';
+import 'package:flutter_lyric/flutter_lyric.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/shared/widgets/auto_appbar.dart';
 import 'package:bilimusic/features/lyrics/widgets/lyric_section.dart';
@@ -28,7 +28,6 @@ import 'package:bilimusic/shared/utils/share_helpers.dart';
 /// （封面 + 信息 + 操作 + 进度 + 5 按钮 + 音量 + 同步 / 定时 / 歌词）。
 class PortraitDetailPage extends ConsumerStatefulWidget {
   final model.Music music;
-  final Duration position;
   final Duration? duration;
   final bool isPlaying;
   final bool isFavorite;
@@ -51,7 +50,6 @@ class PortraitDetailPage extends ConsumerStatefulWidget {
   const PortraitDetailPage({
     super.key,
     required this.music,
-    required this.position,
     required this.duration,
     required this.isPlaying,
     required this.isFavorite,
@@ -294,7 +292,6 @@ class _PortraitDetailPageState extends ConsumerState<PortraitDetailPage>
       artist: widget.music.artist.displayName,
       album: widget.music.album,
       lyricController: widget.lyricController,
-      position: widget.position,
       lyricSources: widget.lyricSources,
       selectedLyricId: widget.selectedLyricId,
       isLoadingLyrics: widget.isLoadingLyrics,

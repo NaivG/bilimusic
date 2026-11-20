@@ -67,7 +67,7 @@ dependencies:
   # （见文件末尾）。这里保留 hosted 约束，去掉 override 时会自然退回 pub.dev。
   audio_session: ^0.2.2
   rxdart: ^0.28.0
-  flutter_lyric: ^3.0.2
+  flutter_lyric: ^4.1.0 # Apple Music 式切句 / 逐字动效 / 倒计时圆点
   dart_tui: ^2.0.0 # TUI 客户端,不参与 App UI
   ffi: ^2.2.0 # TUI 的 libmpv FFI 封装使用
   window_manager: ^0.4.3

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_lyric/core/lyric_controller.dart';
-import 'package:flutter_lyric/core/lyric_model.dart';
+import 'package:flutter_lyric/flutter_lyric.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/features/lyrics/lyric_source.dart';
 import 'package:bilimusic/features/playlist/widgets/playlist_sheet.dart';
@@ -9,7 +8,6 @@ import 'package:bilimusic/domain/artist.dart';
 import 'package:bilimusic/domain/music.dart' as model;
 import 'package:bilimusic/features/player/models/player_state.dart';
 import 'package:bilimusic/features/lyrics/lyrics_providers.dart';
-import 'package:bilimusic/features/lyrics/lyric_model_padding.dart';
 import 'package:bilimusic/features/player/playback_providers.dart';
 import 'package:bilimusic/features/playlist/playlist_providers.dart';
 import 'package:bilimusic/features/roam/roam_providers.dart';
@@ -33,7 +31,6 @@ class DetailPage extends ConsumerStatefulWidget {
 
 class _DetailPageState extends ConsumerState<DetailPage> {
   late model.Music _music;
-  Duration _position = Duration.zero;
   Duration? _duration;
   bool _isFavorite = false;
 
@@ -75,11 +72,14 @@ class _DetailPageState extends ConsumerState<DetailPage> {
 
     _dominantColor = ColorExtractor.cachedColorOf(_music.coverUrl);
     _loadDominantColor(_music.coverUrl);
-    _lyricController.loadLyricModel(_placeholderModel(_music.title));
+    // 播放进度交给 Controller 按帧采样（4.x 的 LyricProgressSource），
+    // 组件层不再逐 tick 调 setPosition。
+    _lyricController.progressSource = ref.read(lyricProgressSourceProvider);
+    _lyricController.loadDocument(_placeholderModel(_music.title));
   }
 
-  static LyricModel _placeholderModel(String title) {
-    return LyricModel(
+  static LyricDocument _placeholderModel(String title) {
+    return LyricDocument(
       tags: {'ti': title},
       lines: [
         LyricLine(
@@ -177,7 +177,6 @@ class _DetailPageState extends ConsumerState<DetailPage> {
   @override
   Widget build(BuildContext context) {
     ref.watch(currentIndexProvider);
-    final position = ref.watch(positionProvider);
     final ps = ref.watch(playerStateProvider);
     final mode = ref.watch(playModeProvider);
     final isRoaming = ref.watch(isRoamingProvider);
@@ -200,14 +199,9 @@ class _DetailPageState extends ConsumerState<DetailPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _loadDominantColor(liveMusic.coverUrl);
-        _lyricController.loadLyricModel(
-          padLeadingBlankLines(_placeholderModel(_music.title)),
-        );
-        _lyricController.setProgress(Duration.zero);
+        _lyricController.loadDocument(_placeholderModel(_music.title));
       });
     }
-
-    _position = position;
 
     final lyricsAsync = ref.watch(currentMusicLyricsProvider);
     final sources = ref.watch(currentMusicLyricSourcesProvider);
@@ -215,7 +209,6 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     final payload = lyricsAsync.value;
 
     // 应用最新 payload 到 lyricController。
-    //
     // 切歌瞬间 currentMusicLyricsProvider 正在 rebuild，Riverpod 的
     // AsyncValue.value 在 loading 期间返回上一首的旧载荷；且本帧注册的
     // post-frame 回调晚于 musicChanged 的占位词回调，不校验归属就会把
@@ -233,15 +226,18 @@ class _DetailPageState extends ConsumerState<DetailPage> {
 
     if (!lyricsAsync.isLoading &&
         payloadApplies &&
-        payload.mainModel != _lastAppliedModel) {
-      _lastAppliedModel = payload.mainModel;
-      _placeholderTitle = null;
+        payload.document != _lastAppliedModel) {
+      _lastAppliedModel = payload.document;
+      // 空文档（来源解析不出正文）直接换成占位词：否则 LyricSection 会渲染
+      // 一个空的 LyricView，暂停时得等下一次重建才消失。
+      final isEmpty = payload.document.lines.isEmpty;
+      final document = isEmpty
+          ? _placeholderModel(_music.title)
+          : payload.document;
+      _placeholderTitle = isEmpty ? _music.title : null;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        _lyricController.loadLyricModel(
-          padLeadingBlankLines(payload.mainModel),
-        );
-        _lyricController.setProgress(_position);
+        _lyricController.loadDocument(document);
       });
     } else if (!lyricsAsync.isLoading &&
         !payloadApplies &&
@@ -252,10 +248,7 @@ class _DetailPageState extends ConsumerState<DetailPage> {
       _placeholderTitle = _music.title;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        _lyricController.loadLyricModel(
-          padLeadingBlankLines(_placeholderModel(_music.title)),
-        );
-        _lyricController.setProgress(_position);
+        _lyricController.loadDocument(_placeholderModel(_music.title));
       });
     }
 
@@ -268,7 +261,6 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     if (LandscapeBreakpoints.isLandscapeMode(context)) {
       return LandscapeDetailPage(
         music: _music,
-        position: _position,
         duration: _duration,
         isPlaying: isPlaying,
         isFavorite: _isFavorite,
@@ -291,32 +283,35 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     final isSquare = SquareBreakpoints.shouldUseSquareLayout(context);
 
     if (isSquare) {
-      return SquareDetailPage(
-        music: _music,
-        position: _position,
-        duration: _duration,
-        isPlaying: isPlaying,
-        isFavorite: _isFavorite,
-        showLyrics: _showLyrics,
-        lyricSources: resolved.sources,
-        selectedLyricId: resolved.selected,
-        lyricController: _lyricController,
-        isLoadingLyrics: resolved.loading,
-        dominantColor: _dominantColor,
-        playModeIcon: icon,
-        onToggleFavorite: _toggleFavorite,
-        onShare: () => shareMusic(_music),
-        onTogglePlay: _togglePlay,
-        onToggleShowLyrics: _toggleShowLyrics,
-        onLoadLyric: _loadLyric,
-        onSeek: _seek,
-        onTogglePlayMode: togglePlayMode,
+      // 只有方屏页还需要播放位置（进度条 / 时间文本）。把订阅收在这一支里，
+      // 竖屏与横屏不再因为进度每 200ms 整页重建。
+      return Consumer(
+        builder: (context, ref, _) => SquareDetailPage(
+          music: _music,
+          position: ref.watch(positionProvider),
+          duration: _duration,
+          isPlaying: isPlaying,
+          isFavorite: _isFavorite,
+          showLyrics: _showLyrics,
+          lyricSources: resolved.sources,
+          selectedLyricId: resolved.selected,
+          lyricController: _lyricController,
+          isLoadingLyrics: resolved.loading,
+          dominantColor: _dominantColor,
+          playModeIcon: icon,
+          onToggleFavorite: _toggleFavorite,
+          onShare: () => shareMusic(_music),
+          onTogglePlay: _togglePlay,
+          onToggleShowLyrics: _toggleShowLyrics,
+          onLoadLyric: _loadLyric,
+          onSeek: _seek,
+          onTogglePlayMode: togglePlayMode,
+        ),
       );
     }
 
     return PortraitDetailPage(
       music: _music,
-      position: _position,
       duration: _duration,
       isPlaying: isPlaying,
       isFavorite: _isFavorite,
@@ -338,11 +333,11 @@ class _DetailPageState extends ConsumerState<DetailPage> {
     );
   }
 
-  LyricModel? _lastAppliedModel;
+  LyricDocument? _lastAppliedModel;
 
   /// 当前屏幕上是不是占位词（值为此占位词所属曲名）。
   ///
-  /// 占位词每次调用都新建 LyricModel，不能像载荷那样靠对象比对去重：
+  /// 占位词每次调用都新建 LyricDocument，不能像载荷那样靠对象比对去重：
   /// 位置每 tick 都会重建本 widget，没有这个标记就会每帧重载一次占位词。
   String? _placeholderTitle;
 }

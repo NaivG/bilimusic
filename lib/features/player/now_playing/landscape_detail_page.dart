@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_lyric/core/lyric_controller.dart';
+import 'package:flutter_lyric/flutter_lyric.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilimusic/features/player/now_playing/album_section.dart';
 import 'package:bilimusic/features/lyrics/widgets/lyric_section.dart';
@@ -23,7 +23,6 @@ import 'package:bilimusic/app/app_providers.dart';
 /// 状态与业务回调由 [DetailPage] 宿主下发，与 Portrait/Square 同一套 props 模式。
 class LandscapeDetailPage extends ConsumerWidget {
   final model.Music music;
-  final Duration position;
   final Duration? duration;
   final bool isPlaying;
   final bool isFavorite;
@@ -44,7 +43,6 @@ class LandscapeDetailPage extends ConsumerWidget {
   const LandscapeDetailPage({
     super.key,
     required this.music,
-    required this.position,
     required this.duration,
     required this.isPlaying,
     required this.isFavorite,
@@ -122,7 +120,6 @@ class LandscapeDetailPage extends ConsumerWidget {
                         artist: music.artist.displayName,
                         album: music.album,
                         lyricController: lyricController,
-                        position: position,
                         lyricSources: lyricSources,
                         selectedLyricId: selectedLyricId,
                         isLoadingLyrics: isLoadingLyrics,

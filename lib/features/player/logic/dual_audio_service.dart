@@ -238,6 +238,11 @@ class DualAudioService {
     return _playerA.role == PlayerRole.active ? _playerA : _playerB;
   }
 
+  /// 是否存在可读的播放器实例。
+  ///
+  /// 占位模式仍要供 UI 读状态快照，所以同步 getter 必须先读这个。
+  bool get _hasPlayer => _initialized && !_placeholder;
+
   /// 获取待命播放器引用
   PlayerStateInfo get _standbyPlayer {
     return _playerA.role == PlayerRole.standby ? _playerA : _playerB;
@@ -517,13 +522,18 @@ class DualAudioService {
   ///
   /// 通知栏 / OS 媒体控件认这个，不认"真正出声"的 `playing`
   /// （那会在 seek 与缓冲期间瞬抖）。
-  bool get isPlaying => _activePlayer.player.state.playWhenReady;
+  bool get isPlaying => _hasPlayer && _activePlayer.player.state.playWhenReady;
 
   /// 获取当前播放位置(同步)
-  Duration get currentPosition => _activePlayer.player.state.position;
+  ///
+  /// 没有播放器实例（占位模式 / 未初始化）时退回状态里的位置，
+  /// 不触碰 late 字段。
+  Duration get currentPosition =>
+      _hasPlayer ? _activePlayer.player.state.position : _position.value;
 
   /// 获取当前音频时长(同步)
-  Duration get currentDuration => _activePlayer.player.state.duration;
+  Duration get currentDuration =>
+      _hasPlayer ? _activePlayer.player.state.duration : _duration.value;
 
   /// 当前已缓冲到的绝对位置（mpv `demuxer-cache-time`）。
   ///
@@ -533,6 +543,7 @@ class DualAudioService {
   /// bufferedPosition < updatePosition；未装载时两者都是零，天然退化为
   /// 旧行为。
   Duration get currentBufferedPosition {
+    if (!_hasPlayer) return _position.value;
     final state = _activePlayer.player.state;
     final position = state.position;
     final buffer = state.buffer;
