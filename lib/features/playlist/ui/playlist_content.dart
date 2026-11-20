@@ -32,9 +32,6 @@ class PlaylistContent extends ConsumerWidget {
     this.canImportEntries = true,
   });
 
-  /// 首屏折叠预览行数（设计稿一次露 7 行）。
-  static const int _previewRows = 7;
-
   final bool isLandscape;
   final String? playlistId;
   final List<Music> songs;
@@ -84,6 +81,7 @@ class PlaylistContent extends ConsumerWidget {
           ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: BmTokens.s4)),
+        // 曲目数据已在内存里给全，曲目表按滚动视口懒构建，不截断行数。
         PlaylistSongList(
           songs: songs,
           currentPlayingMusic: ref.watch(currentMusicProvider),
@@ -92,7 +90,6 @@ class PlaylistContent extends ConsumerWidget {
           onRemove: playlistId != null ? onRemoveSong : null,
           onRemoveMany: playlistId != null ? onRemoveMany : null,
           isLandscape: isLandscape,
-          previewLimit: _previewRows,
           horizontalInset: horizontal,
         ),
         SliverToBoxAdapter(

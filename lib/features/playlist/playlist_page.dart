@@ -38,17 +38,38 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
   bool _isLoading = true;
   Playlist? _currentPlaylist;
 
+  /// 只装载一次：歌单整份进内存，之后滚动、缩放都不再回库。
+  bool _loadStarted = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (_loadStarted) return;
+    _loadStarted = true;
     _loadData();
   }
 
-  /// 加载数据
+  @override
+  void didUpdateWidget(covariant PlaylistPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 壳层换一个歌单/一组条目复用了同一个 State 时才重新装载。
+    final changed =
+        oldWidget.playlistId != widget.playlistId ||
+        oldWidget.playlistName != widget.playlistName ||
+        !identical(oldWidget.songs, widget.songs);
+    if (changed) _loadData();
+  }
+
+  /// 加载数据：整份歌单一次读进内存，滚动时不再回库。
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
 
     try {
+      final service = ref.read(playlistServiceProvider);
+      // 启动期库是异步打开的（`playlistService.initialize()` 刻意不 await），
+      // 这里等它就位再读，免得抢在初始化前拿到空歌单。
+      await service.initialize();
+
       final systemDefault = widget.playlistId != null
           ? DefaultPlaylists.getById(widget.playlistId!)
           : null;
@@ -68,9 +89,7 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
         }
       } else if (widget.playlistId != null) {
         // 从服务加载歌单详情
-        final detail = await ref
-            .read(playlistServiceProvider)
-            .getPlaylistDetail(widget.playlistId!);
+        final detail = await service.getPlaylistDetail(widget.playlistId!);
         if (detail != null) {
           _currentPlaylist = detail;
           _songs = detail.songs;

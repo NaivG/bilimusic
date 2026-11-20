@@ -22,7 +22,10 @@ import 'package:bilimusic/shared/widgets/music_menu_button.dart';
 /// 歌单曲目表：白卡 + 58 行（横屏 56）。
 ///
 /// 表头「曲目 / N 首 · 总时长」、当前行 `accentSoft` 底 + 跳动条、
-/// 行尾更多菜单；保留多选、拖拽排序与「查看全部」折叠。
+/// 行尾更多菜单；支持多选与拖拽排序。
+///
+/// 曲目数据由调用方一次性给全（全量在内存里），这里只负责把整份列表交给
+/// sliver 按滚动视口懒构建：滚到哪构建到哪，滚出视口的行随之回收。
 /// 卡片装饰取值与 `BmCard` 一致，但走 `DecoratedSliver` 以保留列表懒构建
 /// 与 `SliverReorderableList`。
 class PlaylistSongList extends ConsumerStatefulWidget {
@@ -39,9 +42,6 @@ class PlaylistSongList extends ConsumerStatefulWidget {
   final bool isEditable;
   final bool isLandscape;
 
-  /// 折叠预览行数；null 表示不折叠（不出现「查看全部」）。
-  final int? previewLimit;
-
   /// 白卡左右外边距；为 null 时取 [BmTokens.pageInset]。
   final double? horizontalInset;
 
@@ -55,7 +55,6 @@ class PlaylistSongList extends ConsumerStatefulWidget {
     this.onRemoveMany,
     this.isEditable = false,
     this.isLandscape = false,
-    this.previewLimit,
     this.horizontalInset,
   });
 
@@ -66,7 +65,6 @@ class PlaylistSongList extends ConsumerStatefulWidget {
 class _PlaylistSongListState extends ConsumerState<PlaylistSongList> {
   bool _selectionMode = false;
   bool _isDeleting = false;
-  bool _expanded = false;
   final Set<String> _selectedKeys = <String>{};
 
   List<Music> get _selectedSongs =>
@@ -163,12 +161,8 @@ class _PlaylistSongListState extends ConsumerState<PlaylistSongList> {
       );
     }
 
-    final limit = widget.previewLimit;
-    final visibleCount = _expanded || limit == null
-        ? widget.songs.length
-        : math.min(limit, widget.songs.length);
-    final showFooter =
-        limit != null && !_expanded && widget.songs.length > limit;
+    // 全量曲目直接进滚动容器：行由 sliver 按视口懒构建，不做行数截断。
+    final count = widget.songs.length;
 
     return SliverPadding(
       padding: EdgeInsets.symmetric(horizontal: horizontal),
@@ -194,10 +188,9 @@ class _PlaylistSongListState extends ConsumerState<PlaylistSongList> {
           slivers: [
             SliverToBoxAdapter(child: _buildHeader(context)),
             if (_isReorderable)
-              _buildReorderableList(context, visibleCount)
+              _buildReorderableList(context, count)
             else
-              _buildSliverList(context, visibleCount),
-            if (showFooter) SliverToBoxAdapter(child: _buildFooter(context)),
+              _buildSliverList(context, count),
           ],
         ),
       ),
@@ -396,51 +389,6 @@ class _PlaylistSongListState extends ConsumerState<PlaylistSongList> {
       onRemoveFromPlaylist: widget.isEditable && widget.onRemove != null
           ? () => widget.onRemove?.call(music)
           : null,
-    );
-  }
-
-  Widget _buildFooter(BuildContext context) {
-    final colors = context.bmColors;
-    final type = context.bmType;
-    final label = '查看全部 ${widget.songs.length} 首';
-
-    return Container(
-      height: BmTokens.controlLg,
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: colors.hairline,
-            width: BmTokens.hairlineWidth,
-          ),
-        ),
-      ),
-      child: BmPressable(
-        onTap: () => setState(() => _expanded = true),
-        borderRadius: const BorderRadius.vertical(
-          bottom: Radius.circular(BmTokens.mediaCardRadius),
-        ),
-        semanticLabel: label,
-        child: Center(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: type.micro.copyWith(
-                  color: colors.accentDeep,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(width: BmTokens.s1),
-              Icon(
-                Icons.chevron_right_rounded,
-                size: BmTokens.iconInline,
-                color: colors.accentDeep,
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
