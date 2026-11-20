@@ -18,11 +18,23 @@ class MusicCover extends StatelessWidget {
   /// 非空时内部按此圆角裁剪；外层已包 ClipRRect 则传 null 避免双重裁剪。
   final double? radius;
 
+  /// 占位底色；为空时取主题 `surfaceHover`。
+  final Color? placeholderColor;
+
+  /// 占位图标色；为空时取主题 `onSurfaceVariant`。
+  final Color? placeholderIconColor;
+
+  /// 图片加载完成的淡入时长；reduce motion 下调用方传 [Duration.zero]。
+  final Duration fadeInDuration;
+
   const MusicCover({
     super.key,
     required this.music,
     required this.size,
     this.radius,
+    this.placeholderColor,
+    this.placeholderIconColor,
+    this.fadeInDuration = const Duration(milliseconds: 500),
   });
 
   @override
@@ -38,6 +50,7 @@ class MusicCover extends StatelessWidget {
             height: size,
             fit: BoxFit.cover,
             memCacheWidth: target,
+            fadeInDuration: fadeInDuration,
             placeholder: (context, url) => _placeholder(context),
             errorWidget: (context, url, error) => _placeholder(context),
             cacheManager: imageCacheManager,
@@ -55,11 +68,11 @@ class MusicCover extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      color: context.appPalette.surfaceHover,
+      color: placeholderColor ?? context.appPalette.surfaceHover,
       alignment: Alignment.center,
       child: Icon(
         Icons.music_note_rounded,
-        color: colorScheme.onSurfaceVariant,
+        color: placeholderIconColor ?? colorScheme.onSurfaceVariant,
         size: size * 0.55,
       ),
     );
