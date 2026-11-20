@@ -131,6 +131,7 @@ lib/
 │   ├── auth/ fav_sync/         # 登录态与收藏夹导入 / 同步
 │   ├── home/ search/ discover/ following/ artist/ taste/ profile/  # 首页、搜索、发现、关注、UP 主、口味画像、个人中心
 │   ├── settings/ update/       # 设置（含音效与均衡器、音频输出）、更新检查与应用内更新
+│   ├── onboarding/             # 通用引导页：首启全量、升级弹窗、last_boot_version 门控
 │   ├── diagnostics/            # 音频后端诊断页（只读采集）
 │   └── storage/                # 数据库落点冲突的最小 shell（跑在 ProviderContainer 之前）
 └── shared/                     # 跨模块共享：widgets/、theme/（六套主题）、utils/

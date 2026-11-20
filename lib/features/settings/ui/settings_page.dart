@@ -6,6 +6,7 @@ import 'package:bilimusic/app/shells/shell_page_manager.dart';
 import 'package:bilimusic/features/lan_sync/ui/sync_page.dart';
 import 'package:bilimusic/features/settings/settings_manager.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
+import 'package:bilimusic/features/onboarding/ui/open_onboarding.dart';
 import 'package:bilimusic/features/settings/ui/widgets/theme_picker.dart';
 import 'package:bilimusic/shared/theme/theme_registry.dart';
 import 'package:bilimusic/shared/ui/gallery/bm_gallery_page.dart';
@@ -16,6 +17,7 @@ import 'package:bilimusic/shared/ui/settings/bm_settings_group.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_colors.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_tokens.dart';
 import 'package:bilimusic/shared/ui/tokens/bm_typography.dart';
+import 'package:bilimusic/shared/utils/app_version.dart';
 import 'package:bilimusic/shared/utils/platform_helper.dart';
 import 'package:bilimusic/shared/utils/responsive.dart';
 
@@ -25,9 +27,6 @@ import 'package:bilimusic/shared/utils/responsive.dart';
 /// 数据 → 关于；横屏壳直接复用本页（[showAppBar] 传 false）。
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
-
-  /// 应用版本；关于弹窗与页头 eyebrow 共用同一处来源。
-  static const String _appVersion = '1.11.0';
 
   static const List<BmSelectOption<String>> _qualityOptions =
       <BmSelectOption<String>>[
@@ -399,7 +398,7 @@ class SettingsPage extends ConsumerWidget {
           },
           child: BmSettingsValueRow(
             title: '关于应用',
-            subtitle: 'BiliMusic $_appVersion · AGPL-3.0',
+            subtitle: 'BiliMusic $appVersion · AGPL-3.0',
             icon: Icons.info_outlined,
             onTap: () => _showAboutDialog(context),
           ),
@@ -409,6 +408,12 @@ class SettingsPage extends ConsumerWidget {
           subtitle: '查看版本更新记录',
           icon: Icons.update_outlined,
           onTap: () => ShellPageManager.instance.push(ShellPage.changelog),
+        ),
+        BmSettingsValueRow(
+          title: '使用指南',
+          subtitle: '重新看看 BiliMusic 怎么用',
+          icon: Icons.menu_book_outlined,
+          onTap: () => openOnboarding(context),
         ),
         BmSettingsValueRow(
           title: '隐私政策',
@@ -449,7 +454,7 @@ class SettingsPage extends ConsumerWidget {
   String _eyebrow(SettingsState settings) {
     final customName = settings.lanSyncDeviceName.trim();
     final device = customName.isEmpty ? _platformName() : customName;
-    return 'BiliMusic $_appVersion · $device';
+    return 'BiliMusic $appVersion · $device';
   }
 
   static String _platformName() {
@@ -497,7 +502,7 @@ class SettingsPage extends ConsumerWidget {
             ),
             const SizedBox(height: BmTokens.s1 / 2),
             Text(
-              '版本 $_appVersion',
+              '版本 $appVersion',
               style: type.caption.copyWith(color: colors.textSecondary),
             ),
             const SizedBox(height: BmTokens.s3),

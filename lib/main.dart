@@ -29,6 +29,7 @@ import 'package:bilimusic/features/update/update_checker.dart';
 import 'package:bilimusic/features/update/ui/update_dialog.dart';
 import 'package:bilimusic/app/shells/app_shell.dart';
 import 'package:bilimusic/features/storage/database_conflict_dialog.dart';
+import 'package:bilimusic/features/onboarding/onboarding_gate.dart';
 import 'package:bilimusic/shared/theme/theme_registry.dart';
 import 'package:bilimusic/features/settings/settings_provider.dart';
 
@@ -357,7 +358,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       themeMode: _parseAppearance(settings.appearance),
       // 数据库落点的冲突在 `main()` 里就已经问完了（那时候 App 还没构造），
       // 所以这里直接用 AppShell。
-      home: const AppShell(),
+      // 外层 Gate 只在首次启动时盖一层引导页；升级只弹轻量弹窗。
+      home: const OnboardingGate(child: AppShell()),
     );
   }
 }

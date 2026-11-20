@@ -17,19 +17,26 @@ import 'package:bilimusic/shared/utils/platform_helper.dart';
 /// 四个按钮统一走 [BmIconButton]（sm，图标 16），关闭走 `danger`，
 /// tooltip 为中文。标题栏与 [DesktopNavBar] 共用。
 class BmWindowControls extends StatelessWidget {
-  const BmWindowControls({super.key});
+  const BmWindowControls({super.key, this.showPip = true});
+
+  /// 是否显示画中画按钮。
+  ///
+  /// 引导页这类全屏浮层里没有壳层的 PiP 语义，传 false 只保留
+  /// 最小化 / 最大化 / 关闭三个窗口操作。
+  final bool showPip;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        BmIconButton(
-          icon: Icons.picture_in_picture_alt,
-          tooltip: '画中画',
-          size: BmIconButtonSize.sm,
-          onPressed: () => PipService().toggle(),
-        ),
+        if (showPip)
+          BmIconButton(
+            icon: Icons.picture_in_picture_alt,
+            tooltip: '画中画',
+            size: BmIconButtonSize.sm,
+            onPressed: () => PipService().toggle(),
+          ),
         BmIconButton(
           icon: Icons.minimize_rounded,
           tooltip: '最小化',

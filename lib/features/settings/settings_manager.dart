@@ -1,4 +1,4 @@
-﻿// ignore_for_file: constant_identifier_names
+// ignore_for_file: constant_identifier_names
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
@@ -54,6 +54,9 @@ class SettingsManager extends ChangeNotifier {
   // 标题过滤规则设置键名
   static const String KEY_TITLE_META_FILTER = 'title_meta_filter';
   static const String KEY_TITLE_FILTER_RULES = 'title_filter_rules';
+
+  // 上次启动时的版本号；用于区分「初次启动」和「升级」。
+  static const String KEY_LAST_BOOT_VERSION = 'last_boot_version';
 
   // 默认值
   static const bool DEFAULT_NOTIFICATIONS_ENABLED = true;
@@ -509,6 +512,25 @@ class SettingsManager extends ChangeNotifier {
     final rules = titleFilterRules.where((r) => r.source != source).toList();
     if (rules.length == titleFilterRules.length) return;
     await setTitleFilterRules(rules);
+  }
+
+  // ============ 启动版本 ============
+
+  /// 直接从盘上读上次启动的版本号。
+  ///
+  /// [init] 是 fire-and-forget 的，门控绕开内存缓存直接读盘。
+  ///
+  /// 空串 / 全空白 / null 都按「从未记录」处理。
+  Future<String?> loadLastBootVersion() async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = prefs.getString(KEY_LAST_BOOT_VERSION)?.trim();
+    return value == null || value.isEmpty ? null : value;
+  }
+
+  /// 记录本次启动的版本号，供下次启动判断是首启还是升级。
+  Future<void> setLastBootVersion(String version) async {
+    _cache[KEY_LAST_BOOT_VERSION] = version;
+    await _saveSetting(KEY_LAST_BOOT_VERSION, version);
   }
 
   /// 获取外观的文本描述
